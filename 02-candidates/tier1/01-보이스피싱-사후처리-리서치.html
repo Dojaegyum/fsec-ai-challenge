@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보이스피싱 사후처리 절차 리서치 — 골든30 설계 근거</title>
+<style>
+  :root{
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --border:rgba(11,11,11,.10);
+    --accent:#d03b3b; --accent-deep:#a92f2f; --accent-soft:#fbeaea;
+    --good:#0ca30c; --warn:#a06a00; --warn-soft:#fdf3e0; --blue:#2a78d6; --blue-soft:#eaf1fa;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:system-ui,-apple-system,'Apple SD Gothic Neo','Segoe UI',sans-serif; background:var(--page); color:var(--ink); line-height:1.65; padding-bottom:70px;}
+  .wrap{max-width:900px; margin:0 auto; padding:26px 16px 0;}
+  .kicker{font-size:12px; letter-spacing:.14em; color:var(--accent); font-weight:800; text-transform:uppercase;}
+  h1{font-size:24px; margin:6px 0 8px; line-height:1.3;}
+  .intro{color:var(--ink2); font-size:14px; max-width:720px;}
+  h3.sec{font-size:15px; font-weight:800; margin:36px 0 14px; padding-left:10px; border-left:3px solid var(--accent);}
+  .note{font-size:13px; color:var(--ink2); background:var(--surface); border:1px solid var(--grid); border-radius:10px; padding:11px 15px;}
+
+  /* golden hour timeline */
+  .phase{display:flex; gap:14px; margin-bottom:14px;}
+  .phase .when{flex-shrink:0; width:96px; text-align:right; font-size:12px; font-weight:800; color:var(--accent); padding-top:12px;}
+  .phase .when small{display:block; font-weight:400; color:var(--muted); font-size:10.5px;}
+  .phase .box{flex:1; background:var(--surface); border:1px solid var(--grid); border-radius:12px; padding:12px 15px;}
+  .phase.crit .box{border-left:3px solid var(--accent);}
+  .phase .box h4{font-size:14px; margin-bottom:5px; display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
+  .phase .box p{font-size:12.5px; color:var(--ink2);}
+  .num{font-size:11px; font-weight:800; color:#fff; background:var(--accent); border-radius:50%; width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center;}
+  .tel{font-size:11px; font-weight:800; background:var(--accent-soft); color:var(--accent-deep); border-radius:6px; padding:1px 8px;}
+  .tel.b{background:var(--blue-soft); color:#1c5cab;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--surface); border:1px solid var(--grid); border-radius:10px; overflow:hidden;}
+  th,td{padding:9px 11px; border-bottom:1px solid var(--grid); text-align:left; vertical-align:top;}
+  th{background:var(--accent-soft); font-size:11px; color:var(--accent-deep);}
+  td:first-child{font-weight:700; white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  .warnbox{border-left:3px solid var(--warn); background:var(--warn-soft); border-radius:0 10px 10px 0; padding:11px 15px; font-size:12.5px; color:var(--ink2);}
+  .warnbox b{color:var(--warn);}
+  .goodbox{border-left:3px solid var(--good); background:#effaf3; border-radius:0 10px 10px 0; padding:11px 15px; font-size:12.5px; color:var(--ink2);}
+  .goodbox b{color:var(--good);}
+
+  .impl{background:var(--surface); border:1px solid var(--grid); border-radius:12px; padding:13px 16px; margin-bottom:10px; font-size:13px;}
+  .impl b.h{display:block; color:var(--accent); font-size:12.5px; margin-bottom:4px;}
+  .foot{margin-top:28px; font-size:11.5px; color:var(--muted); text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Research · 골든30 설계 근거</div>
+  <h1>보이스피싱, 당한 직후 무엇을 어떤 순서로 해야 하는가</h1>
+  <p class="intro">골든30의 핵심 로직(F-03 행동 체크리스트)을 실제 공식 절차에 정확히 맞추기 위한 사후처리 전 과정 리서치입니다. 법령(통신사기피해환급법)·경찰청·금융감독원·은행 공식 안내 기준으로 정리했습니다.</p>
+
+  <h3 class="sec">1 · 골든타임 타임라인 — 시간이 곧 돈이다</h3>
+  <p class="note" style="margin-bottom:16px;">지급정지는 <b>돈이 사기계좌에 남아 있을 때만</b> 의미가 있다. 인출책이 자금을 빼내기 전에 계좌를 묶는 것이 전부라, 첫 수십 분이 환급 가능성을 좌우한다. 그래서 서비스명이 '골든30'.</p>
+
+  <div class="phase crit">
+    <div class="when">0~5분<small>동시 진행</small></div>
+    <div class="box">
+      <h4><span class="num">1</span>지급정지 요청 + 신고 <span class="tel">112</span> <span class="tel b">은행 콜센터</span></h4>
+      <p>가장 먼저, 그리고 <b>동시에</b> 해야 한다. ① 송금한 <b>은행 고객센터</b>에 전화해 계좌 지급정지 요청 ② <b>112</b>(전기통신금융사기 통합신고대응센터)에 신고. 은행 영업시간과 무관하게 24시간 지급정지 접수가 된다. 지급정지는 <b>사기이용계좌(받은 쪽)</b>를 묶는 조치다.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="when">5~15분</div>
+    <div class="box">
+      <h4><span class="num">2</span>증거 확보</h4>
+      <p>통화 녹음, 문자·메신저 캡처, 송금 내역(이체확인증·거래내역서)을 정리한다. 이후 피해구제 신청·수사·자율배상 심사에서 모두 쓰인다.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="when">15~40분</div>
+    <div class="box">
+      <h4><span class="num">3</span>휴대폰 악성앱 차단</h4>
+      <p>악성앱(원격제어 등) 감염이 의심되면 즉시 <b>비행기모드</b> 전환 → 데이터 백업 후 제조사 AS센터에서 초기화. 감염 상태로 방치하면 추가 피해·소액결제·전화 가로채기가 발생한다.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="when">당일~며칠</div>
+    <div class="box">
+      <h4><span class="num">4</span>명의도용 전방위 점검</h4>
+      <p><b>계좌정보통합관리(어카운트인포/payinfo)</b>로 내 명의 계좌·카드·대출을, <b>엠세이퍼(msafer)</b>로 내 명의로 개통된 휴대폰 회선을 조회한다. 명의도용 의심 시 '가입제한(신규 개설·개통 차단)'을 건다. 공동인증서 등도 폐기 후 재발급.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="when">3영업일 내</div>
+    <div class="box">
+      <h4><span class="num">5</span>서면 피해구제 신청</h4>
+      <p>전화로 지급정지를 걸었어도, <b>3영업일 이내</b>에 '피해구제신청서 + 신분증 사본'을 송금 은행에 서면 제출해야 효력이 유지된다. (놓치면 14일 추가 유예, 그것도 놓치면 지급정지 자체가 무효)</p>
+    </div>
+  </div>
+
+  <h3 class="sec">2 · 피해구제·환급 절차와 기한 (통신사기피해환급법)</h3>
+  <table>
+    <tr><th>단계</th><th>내용</th><th>기한 / 근거</th></tr>
+    <tr><td>지급정지</td><td>피해자 요청으로 사기이용계좌 즉시 정지</td><td>요청 즉시 · 24시간</td></tr>
+    <tr><td>서면 신청</td><td>피해구제신청서 + 신분증 사본 제출</td><td><b>3영업일 이내</b> (+14일 유예)</td></tr>
+    <tr><td>채권소멸공고</td><td>금감원이 사기계좌 명의인의 채권 소멸을 공고</td><td><b>2개월간</b> 공고</td></tr>
+    <tr><td>환급금 결정·지급</td><td>공고 후 이의 없으면 금감원이 환급액 결정, 은행이 지급</td><td>채권소멸일부터 <b>14일 이내</b></td></tr>
+    <tr><td>전체 소요</td><td>신청부터 실제 환급까지</td><td>통상 <b>3~6개월</b></td></tr>
+  </table>
+
+  <div class="warnbox" style="margin-top:14px;"><b>핵심 함정</b> — 사용자들이 가장 많이 놓치는 것이 ① 전화 지급정지 후 <b>3영업일 서면 신청</b>을 안 해서 효력이 날아가는 것 ② 환급이 즉시 되는 줄 알고 기다리다 지치는 것(실제 3~6개월). 골든30은 이 두 지점에서 <b>기한 리마인더</b>와 <b>진행상황 설명</b>으로 개입해야 한다.</div>
+
+  <h3 class="sec">3 · 유형별 절차 분기 — 여기서 서비스가 똑똑해진다</h3>
+  <table>
+    <tr><th>피해 유형</th><th>지급정지 가능 여부 / 절차</th></tr>
+    <tr><td>계좌이체형</td><td>피해자가 직접 은행에 지급정지 요청 → 위 표준 절차. 가장 빠름</td></tr>
+    <tr><td>대면편취형<br>(현금 직접 전달)</td><td><b>2023.11.17부터</b> 통신사기피해환급법 적용. 피해자 신고 → <b>수사기관이 사기이용계좌를 특정해 지급정지 요청</b>. 즉 경찰 신고(112)가 지급정지의 출발점이 되므로 안내 순서가 이체형과 다르다</td></tr>
+    <tr><td>상품권·가상자산·<br>소액결제형</td><td>통신사기피해환급법의 '계좌 지급정지' 틀에 안 맞는 <b>사각지대</b>. 환급이 어렵고 형사 절차·개별 대응 중심 → 골든30은 "환급 기대치를 솔직히 낮추고 신고·증거에 집중"하도록 안내해야 함</td></tr>
+  </table>
+  <div class="note" style="margin-top:12px;">👉 <b>설계 시사점</b> — F-01 문진의 "돈을 어떻게 보냈나(계좌이체/현금전달/상품권/앱결제)"가 단순 분류가 아니라 <b>완전히 다른 절차 트리를 여는 분기점</b>이다. 이 분기를 정확히 태우는 것이 골든30의 전문성이자, 일반 안내문과의 결정적 차별점.</div>
+
+  <h3 class="sec">4 · 자율배상 — 대부분이 모르는 마지막 카드</h3>
+  <div class="goodbox"><b>은행권 비대면 금융사고 책임분담기준 (2024.1.1 시행)</b> — 보이스피싱 등 비대면 금융사고에서 <b>은행의 사고예방 노력이 부족했다고 판단되면 은행이 피해액의 일부를 자율 배상</b>한다. 환급(사기계좌에 남은 돈)과 <b>별개</b>의 보상 경로다. 신청: 은행 고객센터 문의 → 지점 방문 제출(피해구제신청서 + 수사기관 사건사실확인원 + 진술서). 배상 수준은 은행-이용자 간 책임분담 평가로 결정.</div>
+  <div class="note" style="margin-top:12px;">👉 <b>설계 시사점</b> — 대부분의 피해자는 자율배상 제도의 존재조차 모른다. 골든30이 사후 리포트(F-07)에서 <b>"환급 외에 자율배상도 신청 가능"</b>을 짚어주면, 다른 어떤 안내 서비스도 안 하는 실질적 가치를 준다.</div>
+
+  <h3 class="sec">5 · 핵심 연락처·창구 (서비스에 내장)</h3>
+  <table>
+    <tr><th>기관 / 서비스</th><th>역할</th><th>접점</th></tr>
+    <tr><td>112 통합신고대응센터</td><td>신고 일원화 — 지급정지·수사·악성앱 대응 연계</td><td>전화 112</td></tr>
+    <tr><td>금융감독원</td><td>피해구제·환급 상담, 절차 안내</td><td>전화 1332</td></tr>
+    <tr><td>각 은행 고객센터</td><td>지급정지 접수, 자율배상 신청 창구</td><td>은행별 대표번호</td></tr>
+    <tr><td>어카운트인포(payinfo)</td><td>내 명의 계좌·카드·대출 통합 조회</td><td>웹/앱</td></tr>
+    <tr><td>엠세이퍼(msafer)</td><td>내 명의 휴대폰 개통 조회 + 신규 개통 차단</td><td>웹</td></tr>
+  </table>
+
+  <h3 class="sec">6 · 골든30에 반영할 설계 결론</h3>
+  <div class="impl"><b class="h">① 절차 분기 엔진</b>F-01 문진 결과(송금 수단)에 따라 계좌이체형/대면편취형/사각지대형의 서로 다른 체크리스트를 생성. 특히 대면편취형은 "112 신고가 지급정지의 시작"임을 안내 순서에 반영.</div>
+  <div class="impl"><b class="h">② 3영업일 기한 리마인더</b>지급정지 후 서면 피해구제 신청 마감(3영업일)을 자동 카운트다운·알림. 놓치면 지급정지가 무효가 되는 최대 함정을 막는다.</div>
+  <div class="impl"><b class="h">③ 기대치 관리형 사후 리포트</b>환급까지 3~6개월이 걸린다는 현실, 채권소멸 2개월 공고 단계를 타임라인으로 설명해 "왜 아직 안 돌아오나" 불안을 해소.</div>
+  <div class="impl"><b class="h">④ 잊혀진 권리 안내</b>명의도용 점검(어카운트인포·엠세이퍼)과 <b>자율배상 제도</b>를 반드시 리포트에 포함 — 피해자가 스스로는 도달하기 어려운 정보.</div>
+  <div class="impl"><b class="h">⑤ 사각지대 정직성</b>상품권·가상자산형은 환급이 어렵다는 점을 숨기지 않고, 신고·증거보전·형사절차로 방향을 튼다. 과잉 약속을 하지 않는 것이 신뢰를 만든다.</div>
+
+  <p class="foot">보이스피싱 사후처리 리서치 v1 · 통신사기피해환급법·경찰청·금감원·은행 공식 안내 기준 · 2026-08-13</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사인하기 전에 — 금융약관 해석기 · 컨셉 스펙</title>
+  <style>
+    :root {
+      --page: #f9f9f7;
+      --surface: #fcfcfb;
+      --ink: #0b0b0b;
+      --ink2: #52514e;
+      --muted: #898781;
+      --grid: #e1e0d9;
+      --border: rgba(11, 11, 11, .10);
+      --good: #0ca30c;
+      --warn: #fab219;
+      --serious: #ec835a;
+      --critical: #d03b3b;
+      --accent: #2a78d6;
+      --accent-deep: #1c5cab;
+      --accent-soft: #eaf1fa;
+      --accent-l: #cde2fb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+      background: var(--page);
+      color: var(--ink);
+      line-height: 1.6;
+      padding-bottom: 70px;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 26px 16px 0;
+    }
+
+    .kicker {
+      font-size: 12px;
+      letter-spacing: .14em;
+      color: var(--accent);
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 25px;
+      margin: 6px 0 2px;
+    }
+
+    h1 .en {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    .tagline {
+      font-size: 15px;
+      color: var(--ink2);
+      margin-bottom: 18px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .cell {
+      background: var(--surface);
+      border: 1px solid var(--grid);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .cell b {
+      display: block;
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    h3.sec {
+      font-size: 14.5px;
+      font-weight: 800;
+      margin: 34px 0 14px;
+      padding-left: 10px;
+      border-left: 3px solid var(--accent);
+    }
+
+    .note {
+      font-size: 12.5px;
+      color: var(--ink2);
+      background: var(--surface);
+      border: 1px solid var(--grid);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 12.5px;
+    }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--grid);
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-weight: 600;
+      color: var(--ink2);
+    }
+
+    .step em {
+      font-style: normal;
+      font-weight: 800;
+      color: var(--accent);
+      margin-right: 4px;
+    }
+
+    .arr {
+      color: var(--muted);
+    }
+
+    .phones {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 22px;
+      justify-content: center;
+      margin-top: 6px;
+    }
+
+    .phone-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cap {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .phone {
+      width: 272px;
+      border: 1px solid var(--border);
+      border-radius: 26px;
+      background: #fff;
+      box-shadow: 0 8px 28px rgba(11, 11, 11, .09);
+      overflow: hidden;
+    }
+
+    .screen {
+      min-height: 480px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .statusbar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      padding: 8px 16px 0;
+    }
+
+    .appbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px 8px;
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .logo {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .screen-body {
+      padding: 6px 14px 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 12.5px;
+    }
+
+    .drop {
+      border: 2px dashed var(--accent-l);
+      border-radius: 16px;
+      background: var(--accent-soft);
+      padding: 26px 14px;
+      text-align: center;
+    }
+
+    .drop .big {
+      font-size: 30px;
+    }
+
+    .drop b {
+      display: block;
+      font-size: 13.5px;
+      margin-top: 6px;
+    }
+
+    .drop small {
+      color: var(--ink2);
+      font-size: 11px;
+    }
+
+    .chip-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: var(--page);
+      border: 1px solid var(--grid);
+      border-radius: 14px;
+      padding: 4px 11px;
+      font-size: 11px;
+      color: var(--ink2);
+    }
+
+    .chip.on {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      background: var(--accent-soft);
+    }
+
+    .hint {
+      font-size: 10.5px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .recent {
+      border: 1px solid var(--grid);
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-size: 11.5px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .recent .ic {
+      font-size: 16px;
+    }
+
+    .recent b {
+      display: block;
+      font-size: 12px;
+    }
+
+    .recent small {
+      color: var(--muted);
+      font-size: 10.5px;
+    }
+
+    .stat {
+      display: flex;
+      gap: 8px;
+    }
+
+    .stat .tile {
+      flex: 1;
+      border: 1px solid var(--grid);
+      border-radius: 12px;
+      padding: 9px 11px;
+      background: #fff;
+    }
+
+    .stat .tile b {
+      display: block;
+      font-size: 18px;
+    }
+
+    .stat .tile span {
+      font-size: 10.5px;
+      color: var(--ink2);
+    }
+
+    .pill {
+      font-size: 10px;
+      font-weight: 800;
+      border-radius: 5px;
+      padding: 1px 7px;
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    .listcard {
+      border: 1px solid var(--grid);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .listcard .ttl {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 800;
+      font-size: 12.5px;
+    }
+
+    .listcard .desc {
+      color: var(--ink2);
+      font-size: 11.5px;
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    .doc {
+      border: 1px solid var(--grid);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      font-size: 10.5px;
+      color: var(--ink2);
+      line-height: 1.75;
+    }
+
+    .doc .t {
+      font-weight: 800;
+      font-size: 11px;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .hl-s {
+      background: #fbeaea;
+      border-bottom: 2px solid var(--critical);
+      border-radius: 2px;
+      padding: 0 2px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .hl-w {
+      background: #fdf3e0;
+      border-bottom: 2px solid var(--warn);
+      border-radius: 2px;
+      padding: 0 2px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .bubble {
+      max-width: 90%;
+      border-radius: 14px;
+      padding: 9px 12px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .bot {
+      background: #f2f2ef;
+      border-top-left-radius: 4px;
+      align-self: flex-start;
+    }
+
+    .user {
+      background: var(--accent);
+      color: #fff;
+      border-top-right-radius: 4px;
+      align-self: flex-end;
+    }
+
+    .cite {
+      border-left: 3px solid var(--accent);
+      background: var(--accent-soft);
+      border-radius: 0 10px 10px 0;
+      padding: 8px 11px;
+      font-size: 10.5px;
+      color: var(--ink2);
+      line-height: 1.6;
+    }
+
+    .cite b {
+      display: block;
+      font-size: 11px;
+      color: var(--accent-deep);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      background: #fff;
+      border: 1px solid var(--grid);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--grid);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--page);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    td.id {
+      font-weight: 800;
+      white-space: nowrap;
+      font-size: 11.5px;
+    }
+
+    .prio {
+      font-size: 10.5px;
+      font-weight: 800;
+      border-radius: 5px;
+      padding: 1px 7px;
+      white-space: nowrap;
+    }
+
+    .p0 {
+      background: #fbeaea;
+      color: var(--critical);
+    }
+
+    .pr1 {
+      background: #fdf3e0;
+      color: #a06a00;
+    }
+
+    .pr2 {
+      background: #eef0f3;
+      color: var(--ink2);
+    }
+
+    .tokens {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .swatch {
+      width: 128px;
+      border: 1px solid var(--grid);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .swatch .col {
+      height: 42px;
+    }
+
+    .swatch .nm {
+      font-size: 10.5px;
+      padding: 6px 9px;
+      color: var(--ink2);
+    }
+
+    .swatch .nm b {
+      display: block;
+      color: var(--ink);
+      font-size: 11px;
+    }
+
+    .stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .stack span {
+      background: var(--surface);
+      border: 1px solid var(--grid);
+      border-radius: 7px;
+      padding: 4px 10px;
+      font-weight: 600;
+      color: var(--ink2);
+    }
+
+    .foot {
+      margin-top: 28px;
+      font-size: 11.5px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media(max-width:640px) {
+      .phone {
+        width: 252px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="kicker">Concept Spec 02 · 문서분석형</div>
+    <h1>사인하기 전에 <span class="en">— 금융약관 해석기</span></h1>
+    <p class="tagline">"서명하기 전 3분, AI에게 물어보세요." 대출·보험·카드 약관의 위험 조항을 짚어주고 내 눈높이로 설명하는 불완전판매 예방 비서.</p>
+
+    <div class="meta">
+      <div class="cell"><b>타깃</b>금융상품 가입 직전의 모든 소비자 (고령층·사회초년생 우선)</div>
+      <div class="cell"><b>핵심 가치</b>정보 비대칭 해소 — 읽지 않고 서명하는 관행을 끊는다</div>
+      <div class="cell"><b>채널</b>모바일 우선 반응형 웹 (창구/앱에서 서명 직전 사용)</div>
+      <div class="cell"><b>포지셔닝</b>소비자 편에 선 유일한 약관 리뷰어 — 판매자 이해관계 無</div>
+    </div>
+
+    <h3 class="sec">디자인 원칙</h3>
+    <p class="note">신뢰가 곧 UI다. ① 파랑 기반의 차분한 톤 — 공포 조장 금지, 위험은 정확하게만 표시 ② 모든 판정에 <b>원문 조항 근거를 인용</b>(환각 방지 장치를 UI로 노출) ③
+      위험 등급은 색+아이콘+텍스트 3중 표기 ④ "설명 눈높이" 스위치(표준/쉬운말/큰글씨)를 1탭 거리에 ⑤ 요약보다 하이라이트 — 원문 위에 표시해 신뢰 확보.</p>
+
+    <h3 class="sec">유저 플로우</h3>
+    <div class="flow">
+      <span class="step"><em>A</em>문서 업로드 (PDF·사진)</span><span class="arr">→</span>
+      <span class="step"><em>B</em>문서 유형 자동 인식</span><span class="arr">→</span>
+      <span class="step"><em>C</em>위험 조항 스캔 리포트</span><span class="arr">→</span>
+      <span class="step"><em>D</em>조항별 쉬운말 해설</span><span class="arr">→</span>
+      <span class="step"><em>E</em>Q&A로 궁금증 해소</span><span class="arr">→</span>
+      <span class="step"><em>F</em>가입 전 체크리스트 발급</span>
+    </div>
+
+    <h3 class="sec">화면 목업</h3>
+    <div class="phones">
+
+      <div class="phone-col">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:41</span><span>●●●</span></div>
+            <div class="appbar"><span class="logo">✓</span>사인하기 전에</div>
+            <div class="screen-body">
+              <div class="drop"><span class="big">📄</span><b>약관·상품설명서 올리기</b><small>PDF 또는 사진 촬영 · 여러 장 가능</small>
+              </div>
+              <div class="chip-row" style="justify-content:center;">
+                <span class="chip on">대출</span><span class="chip">보험</span><span class="chip">카드</span><span
+                  class="chip">예·적금</span><span class="chip">투자</span>
+              </div>
+              <div class="hint">문서 유형은 자동 인식돼요 — 직접 골라도 됩니다</div>
+              <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
+                <div class="recent"><span class="ic">📑</span><span><b>OO은행 신용대출 약정서</b><small>어제 · 위험 조항 3건
+                      발견</small></span><span class="pill" style="background:var(--serious); margin-left:auto;">주의</span>
+                </div>
+                <div class="recent"><span class="ic">📑</span><span><b>OO생명 종신보험 약관</b><small>3일 전 · 위험 조항
+                      1건</small></span><span class="pill" style="background:var(--good); margin-left:auto;">양호</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="cap">S-01 업로드 홈 — 촬영만으로 시작</span>
+      </div>
+
+      <div class="phone-col">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:43</span><span>●●●</span></div>
+            <div class="appbar"><span class="logo">✓</span>스캔 리포트 <span
+                style="margin-left:auto; font-size:10px; color:var(--muted);">쉬운말 모드 ⦿</span></div>
+            <div class="screen-body">
+              <div class="stat">
+                <div class="tile"><b>4건</b><span>위험 조항</span></div>
+                <div class="tile"><b style="color:var(--critical);">⚠ 1건</b><span>심각</span></div>
+                <div class="tile"><b style="color:#a06a00;">△ 3건</b><span>주의</span></div>
+              </div>
+              <div class="listcard" style="border-left:3px solid var(--critical);">
+                <div class="ttl">🔴 중도상환수수료 1.4% <span class="pill"
+                    style="background:var(--critical); margin-left:auto;">심각</span></div>
+                <div class="desc">3년 안에 미리 갚으면 <b>최대 42만원</b>을 물어야 해요. 이직·이사 계획이 있다면 꼭 확인하세요.</div>
+              </div>
+              <div class="listcard" style="border-left:3px solid var(--warn);">
+                <div class="ttl">🟡 금리 재산정 조건 <span class="pill"
+                    style="background:var(--warn); margin-left:auto;">주의</span></div>
+                <div class="desc">12개월마다 금리가 바뀔 수 있어요. 지금 4.9%가 계속 아닙니다.</div>
+              </div>
+              <div class="doc">
+                <div class="t">원문 근거 · 제12조 3항</div>
+                "대출실행일로부터 3년 이내 상환 시 <span class="hl-s">잔액의 100분의 1.4에 해당하는 수수료</span>를… 기준금리 변동 시 <span
+                  class="hl-w">12개월 단위로 재산정</span>한다"
+              </div>
+              <div class="hint">모든 판정은 원문 조항을 근거로 표시합니다</div>
+            </div>
+          </div>
+        </div>
+        <span class="cap">S-02 위험 조항 스캔 — 원문 하이라이트 근거 병기</span>
+      </div>
+
+      <div class="phone-col">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>9:45</span><span>●●●</span></div>
+            <div class="appbar"><span class="logo">✓</span>무엇이든 물어보세요</div>
+            <div class="screen-body">
+              <div class="bubble user">2년 뒤에 전세 옮기면서 갚으면 얼마 물어요?</div>
+              <div class="bubble bot">2년 후 잔액을 약 2,400만원으로 가정하면 중도상환수수료는 <b>약 11만 2천원</b>이에요. 남은 기간에 비례해 줄어드는 구조라 3년을
+                채우면 0원이 됩니다.</div>
+              <div class="cite"><b>근거 · 제12조 3항</b>수수료 = 상환액 × 1.4% × (잔여일수 ÷ 1,095일)</div>
+              <div class="bubble user">다른 은행이 더 나을 수도 있어요?</div>
+              <div class="bubble bot">같은 조건의 공시 상품 중 중도상환수수료가 없는 상품이 2건 있어요. 금리는 0.2%p 높으니 <b>3년 내 상환 계획이 있다면</b> 오히려
+                유리할 수 있습니다.</div>
+              <div class="listcard">
+                <div class="ttl">📊 유사 상품 비교 보기 <span
+                    style="margin-left:auto; color:var(--accent); font-size:11px;">→</span></div>
+                <div class="desc">금융감독원 파인 공시 기준 · 2건</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="cap">S-03 Q&A — 계산 근거·공시 비교까지</span>
+      </div>
+    </div>
+
+    <h3 class="sec">기능명세서 (MVP 기준)</h3>
+    <table>
+      <tr>
+        <th>ID</th>
+        <th>기능</th>
+        <th>설명</th>
+        <th>입력 → 출력</th>
+        <th>우선순위</th>
+      </tr>
+      <tr>
+        <td class="id">F-01</td>
+        <td>문서 업로드·파싱</td>
+        <td>PDF/촬영 이미지 업로드, OCR 포함 텍스트 추출 및 조항 구조화</td>
+        <td>PDF·이미지 → 구조화 조항 텍스트</td>
+        <td><span class="prio p0">P0</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-02</td>
+        <td>문서 유형 분류</td>
+        <td>대출/보험/카드/예적금/투자 자동 인식, 유형별 점검 항목 적용</td>
+        <td>조항 텍스트 → 문서 유형</td>
+        <td><span class="prio p0">P0</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-03</td>
+        <td>위험 조항 탐지·등급화</td>
+        <td>수수료·면책·금리변동·자동연장 등 소비자 불리 조항 탐지, 심각/주의 2등급</td>
+        <td>조항 → 위험 리스트(등급·근거 위치)</td>
+        <td><span class="prio p0">P0</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-04</td>
+        <td>눈높이 해설</td>
+        <td>표준/쉬운말/큰글씨 3개 모드로 조항 해설 생성, 금액은 사용자 조건 대입 계산</td>
+        <td>조항 + 모드 → 해설 텍스트</td>
+        <td><span class="prio p0">P0</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-05</td>
+        <td>근거 인용 렌더링</td>
+        <td>모든 판정·답변에 원문 조항 하이라이트와 출처 위치 병기 (환각 방지 UI)</td>
+        <td>판정 → 원문 스팬 매핑</td>
+        <td><span class="prio p0">P0</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-06</td>
+        <td>대화형 Q&A</td>
+        <td>업로드 문서 컨텍스트 기반 질의응답, 수치 질문은 산식 노출</td>
+        <td>질문 → 답변 + 근거 + 산식</td>
+        <td><span class="prio p0">P0</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-07</td>
+        <td>유사 상품 비교</td>
+        <td>파인 공시 데이터에서 동종 상품 조회, 핵심 조건 비교표 생성</td>
+        <td>상품 조건 → 비교 리스트</td>
+        <td><span class="prio pr1">P1</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-08</td>
+        <td>가입 전 체크리스트</td>
+        <td>분석 결과를 "창구에서 확인할 질문 목록"으로 변환해 발급</td>
+        <td>위험 리스트 → 체크리스트</td>
+        <td><span class="prio pr1">P1</span></td>
+      </tr>
+      <tr>
+        <td class="id">F-09</td>
+        <td>다국어 모드</td>
+        <td>외국인 대상 해설 번역 (10번 어댑터 컨셉과 접점)</td>
+        <td>해설 → 다국어</td>
+        <td><span class="prio pr2">P2</span></td>
+      </tr>
+    </table>
+
+    <h3 class="sec">디자인 시스템 토큰</h3>
+    <div class="tokens">
+      <div class="swatch">
+        <div class="col" style="background:#2a78d6;"></div>
+        <div class="nm"><b>Trust Blue</b>#2A78D6 · 주 액션</div>
+      </div>
+      <div class="swatch">
+        <div class="col" style="background:#1c5cab;"></div>
+        <div class="nm"><b>Deep Blue</b>#1C5CAB · 강조·인용</div>
+      </div>
+      <div class="swatch">
+        <div class="col" style="background:#d03b3b;"></div>
+        <div class="nm"><b>Critical</b>#D03B3B · 심각 조항</div>
+      </div>
+      <div class="swatch">
+        <div class="col" style="background:#fab219;"></div>
+        <div class="nm"><b>Warning</b>#FAB219 · 주의 조항</div>
+      </div>
+      <div class="swatch">
+        <div class="col" style="background:#0ca30c;"></div>
+        <div class="nm"><b>Good</b>#0CA30C · 양호</div>
+      </div>
+      <div class="swatch">
+        <div class="col" style="background:#f9f9f7; border-bottom:1px solid #e1e0d9;"></div>
+        <div class="nm"><b>Page</b>#F9F9F7 · 배경</div>
+      </div>
+    </div>
+    <p class="note" style="margin-top:12px;">타이포: 시스템 산세리프. 해설 텍스트 15px, 원문 인용은 11px + 좌측 파란 보더로 구분. 위험 등급은
+      색+아이콘(🔴🟡)+텍스트 3중 인코딩. 문서 하이라이트는 배경색+밑줄 2중 표기(인쇄·색맹 대응).</p>
+
+    <h3 class="sec">기술 스택 제안</h3>
+    <div class="stack">
+      <span>Next.js (App Router)</span><span>Claude API (긴 문서 분석)</span><span>Vision/OCR (촬영 문서)</span><span>파인 금융상품 공시
+        데이터</span><span>PDF.js 렌더링</span><span>Vercel 배포</span>
+    </div>
+    <p class="note" style="margin-top:12px;"><b>데이터 소스</b> — 금감원 파인 금융상품 공시(비교 기능), 각 사 공개 약관(테스트 코퍼스), 금소법상 설명의무 항목(점검
+      체크리스트 설계 근거). 개인 데이터는 업로드 문서뿐 — 세션 종료 시 파기 정책 명시.</p>
+
+    <h3 class="sec">AI 활용 보안·컴플라이언스 설계 (4개 스펙 공통 섹션)</h3>
+
+    <p class="note"><b>3줄 요약</b> — ① 금융권의 외부 AI API 제약(망분리 규제)은 <b>금융회사 내부망</b>에 걸리는 규제다. ② 2026년 4월 전자금융감독규정 개정으로
+      금융회사조차 업무망에서는 생성형 AI 사용이 허용됐다(고객 금융거래정보를 다루는 핵심망만 계속 통제). ③ 따라서 문제는 "외부 AI를 쓰느냐"가 아니라 <b>"AI에게 무엇을 보내느냐"</b>이며, 이는
+      설계로 통제한다.</p>
+
+    <div class="listcard" style="margin-top:10px; border-left:3px solid var(--good);">
+      <div class="ttl">✅ 이 서비스의 규제 위치: 리스크 낮음</div>
+      <div class="desc">사인하기 전에는 금융회사 내부 시스템이 아니라 <b>소비자가 자기 계약서·약관을 자발적으로 올리는 일반 웹서비스</b> — 망분리 규제의 적용 대상이 아니다. 관리할 것은
+        업로드 문서 속 개인정보(이름·계약금액 등)이며, 아래 4단계 파이프라인으로 통제한다. 약관 원문 자체는 공개 문서라 민감도가 낮은 것도 이 주제의 강점.</div>
+    </div>
+
+    <div style="margin-top:12px;" class="flow">
+      <span class="step"><em>1</em>입력 마스킹 — 이름·주민번호·계좌를 API 전송 전 자동 가림</span><span class="arr">→</span>
+      <span class="step"><em>2</em>미저장 — 세션 종료 시 문서 즉시 파기(UI에 명시)</span><span class="arr">→</span>
+      <span class="step"><em>3</em>출력 필터 — 응답에 개인정보 재노출 차단</span><span class="arr">→</span>
+      <span class="step"><em>4</em>인젝션 방어 — 문서에 심긴 악성 지시문 무력화</span>
+    </div>
+
+    <p class="note" style="margin-top:12px;"><b>심사 예상 질문 대비</b> — "외부 AI에 계약 정보를 보내는 것 아닌가?" → "전송 전 마스킹·미저장·출력 필터의 3중
+      통제를 두었고, 이는 주최기관(금융보안원)의 생성형 AI 보안 가이드라인 통제 항목을 서비스 설계에 그대로 반영한 것"이라고 답한다. 근거 인용 UI(F-05)와 함께 'AI 신뢰성을 설계로 구현한
+      팀'으로 포지셔닝.</p>
+
+    <p class="foot">사인하기 전에 Concept Spec v1 · 목업 데이터는 전부 예시 · 2026-08-13</p>
+  </div>
+</body>
+
+</html>

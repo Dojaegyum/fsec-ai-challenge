@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 금융 AI Challenge — 주제 후보군 보드 v2</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1a2233; --sub:#5b6577;
+    --line:#e4e7ec; --accent:#1f4e8c; --accent-soft:#eaf1fa;
+    --hi:#0f7b52; --hi-soft:#e7f5ee;
+    --mid:#a06a00; --mid-soft:#fdf3e0;
+    --tag:#f0f2f5;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif; background:var(--bg); color:var(--ink); line-height:1.65; padding:24px 16px 60px;}
+  .wrap{max-width:860px; margin:0 auto;}
+  header{margin-bottom:28px;}
+  .kicker{font-size:13px; letter-spacing:.12em; color:var(--accent); font-weight:700; text-transform:uppercase;}
+  h1{font-size:26px; margin:6px 0 10px; line-height:1.3;}
+  .intro{color:var(--sub); font-size:14.5px;}
+  .legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; font-size:12.5px;}
+  .legend span{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:3px 12px; color:var(--sub);}
+  .section-title{font-size:15px; font-weight:800; color:var(--accent); margin:34px 0 12px; letter-spacing:.02em;}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 20px 16px; margin-bottom:16px; position:relative;}
+  .card.top{border-left:4px solid var(--hi);}
+  .num{position:absolute; top:20px; right:20px; font-size:13px; font-weight:800; color:#c3cad6;}
+  .card h2{font-size:18px; margin-bottom:2px; padding-right:40px;}
+  .oneline{font-size:13.5px; color:var(--sub); margin-bottom:12px;}
+  .badges{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;}
+  .badge{font-size:11.5px; font-weight:700; border-radius:6px; padding:2px 8px;}
+  .b-social{background:var(--hi-soft); color:var(--hi);}
+  .b-mvp{background:var(--accent-soft); color:var(--accent);}
+  .b-data{background:var(--mid-soft); color:var(--mid);}
+  .b-diff{background:var(--tag); color:#4a5468;}
+  dl{display:grid; grid-template-columns:92px 1fr; gap:6px 12px; font-size:13.5px;}
+  dt{font-weight:700; color:var(--sub);}
+  dd{color:var(--ink);}
+  .note{margin-top:12px; padding:10px 12px; background:var(--tag); border-radius:8px; font-size:12.5px; color:var(--sub);}
+  .note b{color:var(--ink);}
+
+  table{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; font-size:12.5px;}
+  th,td{padding:9px 10px; border-bottom:1px solid var(--line); text-align:center;}
+  th{background:#f0f3f7; font-size:11.5px; color:var(--sub);}
+  td:first-child, th:first-child{text-align:left; font-weight:700; min-width:120px;}
+  tr:last-child td{border-bottom:none;}
+  .s-h{color:var(--hi); font-weight:800;}
+  .s-m{color:var(--mid); font-weight:700;}
+  .s-l{color:#98a1b0;}
+
+  .slot{border:2px dashed #c9d1dc; background:transparent; border-radius:14px; padding:22px; text-align:center; color:#8b95a5; font-size:14px; margin-bottom:14px;}
+  .foot{margin-top:30px; font-size:12px; color:#98a1b0; text-align:center;}
+  @media (max-width:520px){ dl{grid-template-columns:80px 1fr;} h1{font-size:22px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">2026 Financial AI Challenge</div>
+  <h1>주제 후보군 보드 <span style="font-weight:400; color:#8b95a5;">v2</span></h1>
+  <p class="intro">사회적 가치·현안성 기준 기존 9개 후보에, DJG님 아이디어 2개와 팀원 아이디어를 통합한 버전입니다. 팀 우려("우리는 개발자, 도메인 지식 없음 → 이슈가 실존하는지부터 검토")를 반영해 신규 후보에는 <b>현안 검증 상태</b>를 명시했습니다. 기존 01~09번의 현안성은 정부 정책문서(보이스피싱 종합대책, 금융위 3대 구조개혁 등)로 근거가 확보된 상태입니다.</p>
+  <div class="legend">
+    <span>🟢 사회적 가치/현안성</span><span>🔵 MVP 구현 용이성</span><span>🟠 실데이터 확보</span><span>⚪ 차별성</span>
+  </div>
+</header>
+
+<div class="section-title">TIER 1 — 현안성·구현성 모두 강한 후보</div>
+
+<div class="card top">
+  <div class="num">01</div>
+  <h2>보이스피싱 골든타임 네비게이터</h2>
+  <p class="oneline">피해 "탐지"가 아니라 피해 직후 30분, 무엇을 해야 하는지 실시간으로 이끌어주는 AI 행동 코치</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 상</span><span class="badge b-mvp">MVP 용이성 상</span><span class="badge b-data">데이터 중</span><span class="badge b-diff">차별성 상</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>보이스피싱은 정부 종합대책이 계속 나올 만큼 최상위 금융 현안. 피해자는 사고 직후 패닉 상태에서 지급정지 신청·신고 순서를 몰라 골든타임을 놓침</dd>
+    <dt>AI 핵심기능</dt><dd>대화형 에이전트가 피해 유형을 문진 → 지급정지·명의도용 확인·신고를 단계별 체크리스트로 안내. 의심 문자/통화 스크린샷 업로드 시 LLM이 사기 수법 판별</dd>
+    <dt>MVP 범위</dt><dd>① 수법 판별기(스크린샷·문자 분석) ② 상황별 행동요령 대화 에이전트 ③ 기관 연락처·절차 자동 매핑</dd>
+    <dt>데이터</dt><dd>경찰청·금감원 공개 사기 수법 사례, 공공데이터포털 통계. 실거래 데이터 불필요 → 규제 부담 낮음</dd>
+    <dt>차별화</dt><dd>기존 서비스는 '탐지'에 집중. 대회 예시 주제이지만 "사후 골든타임 대응"으로 각도를 틀면 차별화 가능</dd>
+  </dl>
+  <div class="note">💬 <b>팀원 아이디어 반영</b> — 전화·채팅을 후킹해 위험도 측정 후 행동지침 + tool call로 위치 파악·보호자 연락 자동화. <b>주의:</b> 실제 통화 후킹은 모바일 OS 제약으로 웹 MVP에서 불가 → "통화 내용 붙여넣기/녹취 업로드 → 에이전트가 tool call로 지급정지 절차·보호자 알림 시뮬레이션" 구조로 구현하면 동일한 데모 임팩트를 안전하게 낼 수 있음. 에이전틱 tool call 시연은 심사 차별화 요소.</div>
+</div>
+
+<div class="card top">
+  <div class="num">02</div>
+  <h2>금융약관 해석기 — "사인하기 전에 물어보세요"</h2>
+  <p class="oneline">대출·보험 약관과 상품설명서를 업로드하면 위험 조항을 짚어주고 쉬운 말로 설명하는 불완전판매 예방 비서</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 상</span><span class="badge b-mvp">MVP 용이성 상</span><span class="badge b-data">데이터 상</span><span class="badge b-diff">차별성 상</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>불완전판매·금융소비자보호는 금융당국의 '신뢰 구조개혁' 핵심 과제. 소비자는 약관을 읽지 않고 서명하며, 고령층일수록 피해가 큼</dd>
+    <dt>AI 핵심기능</dt><dd>PDF/사진 업로드 → LLM이 중도상환수수료·면책조항·금리변동 조건 등 위험 조항 하이라이트 + 눈높이별(고령자/청년/외국인) 설명 + 질의응답</dd>
+    <dt>MVP 범위</dt><dd>① 문서 업로드·파싱 ② 위험 조항 탐지·등급화 ③ 대화형 Q&A ④ 유사 상품 비교(파인 공시 데이터)</dd>
+    <dt>데이터</dt><dd>금감원 파인(fine.fss.or.kr) 금융상품 공시, 각 사 공개 약관 — 전부 공개 자료라 확보 용이</dd>
+    <dt>차별화</dt><dd>예시 주제에 없는 각도. LLM의 문서 이해력이 그대로 서비스 가치가 되는 구조라 데모 임팩트가 큼</dd>
+  </dl>
+</div>
+
+<div class="card top">
+  <div class="num">03</div>
+  <h2>소상공인 정책금융 매칭 + 서류 도우미</h2>
+  <p class="oneline">업종·업력·매출을 입력하면 받을 수 있는 정책금융을 찾아주고, 신청서류 초안까지 AI가 써주는 서비스</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 상</span><span class="badge b-mvp">MVP 용이성 중</span><span class="badge b-data">데이터 상</span><span class="badge b-diff">차별성 중</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>소상공인 금융지원은 2026년 금융정책의 주요 축. 정책상품이 산재해 있어 정작 당사자는 뭘 받을 수 있는지 모르고, 서류 작성 장벽에 포기</dd>
+    <dt>AI 핵심기능</dt><dd>대화형 프로파일링 → 자격요건 매칭 → 필요서류 안내 → 사업 개요서/자금활용계획서 초안 자동 생성</dd>
+    <dt>MVP 범위</dt><dd>① 상품 DB(서금원 '대출상품한눈에' API 등) ② 매칭 엔진 ③ 서류 초안 생성기</dd>
+    <dt>데이터</dt><dd>서민금융진흥원 오픈API(공공데이터포털), 소진공·신보·기보 공개 상품 정보</dd>
+    <dt>차별화</dt><dd>대회 예시 주제와 동일 — "매칭에서 끝나지 않고 서류까지 완성"하는 실행력으로 차별화 필요</dd>
+  </dl>
+  <div class="note">💬 <b>팀원 아이디어 반영</b> — 지역·직종 필터로 대출/지원 서비스 모아보기. 서금원 오픈API가 지역·업종 필드를 제공하므로 그대로 구현 가능. 모아보기(조회)에서 멈추면 차별성이 약하니 "매칭 사유 설명 + 서류 초안"까지 가는 것을 권장.</div>
+</div>
+
+<div class="section-title">TIER 2 — 사회적 가치 특화 (포용금융)</div>
+
+<div class="card">
+  <div class="num">04</div>
+  <h2>고령층 디지털 금융 동행 AI</h2>
+  <p class="oneline">은행앱 화면을 찍어 올리면 "지금 뭘 눌러야 하는지" 큰 글씨·음성으로 알려주는 디지털 격차 해소 도우미</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 상</span><span class="badge b-mvp">MVP 용이성 중</span><span class="badge b-data">데이터 중</span><span class="badge b-diff">차별성 상</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>점포 폐쇄 가속 + 고령층 디지털 소외는 포용금융의 대표 현안. 자녀에게 물어보기 어려운 어르신이 사기에도 가장 취약</dd>
+    <dt>AI 핵심기능</dt><dd>비전 LLM이 앱 화면 스크린샷을 해석해 다음 행동을 안내. 이체 상황에서 사기 패턴(기관 사칭 등) 감지 시 경고. 음성 인터페이스 지원</dd>
+    <dt>MVP 범위</dt><dd>① 스크린샷 해석·행동 안내 ② 음성 대화 ③ 사기 의심 경고 룰</dd>
+    <dt>데이터</dt><dd>주요 은행앱 공개 화면·가이드, 사기 수법 사례. 별도 API 의존 낮음</dd>
+    <dt>차별화</dt><dd>"멀티모달 AI로 화면을 함께 봐주는 가족 역할"이라는 컨셉이 발표 심사에서 감성적 설득력이 강함</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <div class="num">05</div>
+  <h2>외국인 금융 정착 에이전트</h2>
+  <p class="oneline">체류자격·목적별로 계좌 개설→송금→신용 형성까지 로드맵을 모국어로 안내하는 AI 컨시어지</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 상</span><span class="badge b-mvp">MVP 용이성 상</span><span class="badge b-data">데이터 중</span><span class="badge b-diff">차별성 중</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>체류 외국인 증가 대비 금융 접근성은 낮음. 언어 장벽 + 비자 유형별로 다른 요건이 진입장벽</dd>
+    <dt>AI 핵심기능</dt><dd>다국어 LLM 에이전트가 비자 유형 문진 → 개설 가능 계좌·필요서류·송금 옵션 비교 → 은행 방문 시 쓸 한국어 문장까지 생성</dd>
+    <dt>MVP 범위</dt><dd>① 다국어 챗 에이전트 ② 비자별 요건 지식베이스 ③ 송금 수수료 비교</dd>
+    <dt>데이터</dt><dd>각 은행 공개 외국인 금융 안내, 출입국 정책 공개 자료 — 지식베이스 구축 노동이 관건</dd>
+    <dt>차별화</dt><dd>대회 예시 주제와 동일 각도 — 다국어 완성도와 UX로 승부해야 함</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <div class="num">06</div>
+  <h2>청년 자산형성 네비게이터</h2>
+  <p class="oneline">청년도약계좌 등 흩어진 정책상품을 내 소득·목표 기준 최적 조합으로 시뮬레이션해주는 플래너</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 중~상</span><span class="badge b-mvp">MVP 용이성 상</span><span class="badge b-data">데이터 상</span><span class="badge b-diff">차별성 중</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>청년 자산형성 지원은 정부 지속 추진 정책이지만 상품이 파편화되어 "나한테 뭐가 최적인지"를 아무도 계산해주지 않음</dd>
+    <dt>AI 핵심기능</dt><dd>소득·저축여력 문진 → 자격 매칭 → 만기 수령액 시뮬레이션 → AI가 생애 이벤트(이직·결혼) 반영한 조정 시나리오 제안</dd>
+    <dt>MVP 범위</dt><dd>① 상품 자격 매칭 ② 수령액 계산기·차트 ③ 대화형 플랜 조정</dd>
+    <dt>데이터</dt><dd>파인 금융상품 공시 API, 서금원 API, 정책상품 공고 — 확보 매우 용이</dd>
+    <dt>차별화</dt><dd>계산기류 서비스는 흔함 — "AI 시나리오 플래닝"을 얼마나 설득력 있게 붙이느냐가 관건</dd>
+  </dl>
+</div>
+
+<div class="section-title">TIER 3 — 탐지·보안 계열 (기술 임팩트형)</div>
+
+<div class="card">
+  <div class="num">07</div>
+  <h2>투자사기 스캠 스캐너</h2>
+  <p class="oneline">리딩방 초대 메시지·수익 보장 광고·코인 백서를 넣으면 유사수신/사기 위험도를 판별해주는 서비스</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 상</span><span class="badge b-mvp">MVP 용이성 상</span><span class="badge b-data">데이터 중</span><span class="badge b-diff">차별성 상</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>보이스피싱 대책이 강화되며 사기가 리딩방·가짜 투자앱 등 신종 스캠으로 이동하는 추세 — 대응 공백이 큰 영역</dd>
+    <dt>AI 핵심기능</dt><dd>메시지/URL/이미지 업로드 → LLM이 유사수신 요건(원금보장+고수익 약속 등) 및 사기 패턴 판별 → 위험도 + 신고 경로 안내</dd>
+    <dt>MVP 범위</dt><dd>① 텍스트·이미지 분석기 ② 위험도 리포트 ③ 제도권 금융사 여부 조회(파인 등록 조회)</dd>
+    <dt>데이터</dt><dd>금감원 불법금융 공개 사례, 파인 제도권 금융사 조회 — 공개 자료 중심</dd>
+    <dt>차별화</dt><dd>01번과 형제 주제지만 '사전 예방' 각도. 신종 스캠 대응이라는 시의성이 강점</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <div class="num">08</div>
+  <h2>설명가능 이상거래·보험사기 탐지 데모</h2>
+  <p class="oneline">거래 데이터에서 이상 패턴을 탐지하고 "왜 의심스러운지"를 자연어로 설명하는 XAI 탐지 서비스</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 중</span><span class="badge b-mvp">MVP 용이성 중</span><span class="badge b-data">데이터 하</span><span class="badge b-diff">차별성 중</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>이상거래·보험사기 탐지는 대회 예시 주제이자 업계 상시 현안. 다만 실거래 데이터 접근이 불가능해 합성 데이터 의존</dd>
+    <dt>AI 핵심기능</dt><dd>ML 탐지 모델 + LLM이 탐지 근거를 심사역/소비자 눈높이로 설명. 오탐 소명 대화 기능</dd>
+    <dt>MVP 범위</dt><dd>① 합성 거래 데이터셋 ② 탐지 대시보드 ③ 자연어 설명·소명 챗</dd>
+    <dt>데이터</dt><dd>공개 캐글 사기 데이터셋 + 합성 데이터 — 실데이터 없음이 심사에서 약점 가능</dd>
+    <dt>차별화</dt><dd>B2B 성격이라 데모 체감이 약할 수 있음. '설명가능성'을 전면에 세워야 함</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <div class="num">09</div>
+  <h2>혁신기업 성장성 리포트 생성기</h2>
+  <p class="oneline">DART 공시·뉴스·특허 등 비정형 데이터를 AI가 종합해 스타트업 다차원 성장성 리포트를 만들어주는 서비스</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 중</span><span class="badge b-mvp">MVP 용이성 중</span><span class="badge b-data">데이터 상</span><span class="badge b-diff">차별성 중</span></div>
+  <dl>
+    <dt>문제·현안</dt><dd>혁신·벤처기업은 재무제표만으로 평가받아 자금조달에서 소외 — 생산적 금융 어젠다와 연결</dd>
+    <dt>AI 핵심기능</dt><dd>기업명 입력 → OpenDART API + 뉴스·특허 검색 → LLM이 기술력·시장성·팀 등 다차원 평가 리포트 생성</dd>
+    <dt>MVP 범위</dt><dd>① DART 연동 ② 비정형 데이터 수집 ③ 리포트 생성·시각화</dd>
+    <dt>데이터</dt><dd>금감원 OpenDART 오픈API(무료), 뉴스 검색 — 확보 용이</dd>
+    <dt>차별화</dt><dd>대회 예시 주제와 동일. '투자 매칭'까지 가면 무거워지므로 리포트 생성에 집중 권장</dd>
+  </dl>
+  <div class="note">💬 <b>팀원 아이디어 반영</b> — "스타트업 재직 경험을 평가 항목 설계에 녹여 어필" 가능. 다만 자동매매식 시그널 접근은 금융투자 자문 규제 이슈가 있으므로, '투자 판단'이 아닌 '정보 정리 리포트' 포지셔닝 유지가 안전.</div>
+</div>
+
+<div class="section-title">TIER 4 — 팀 신규 아이디어 (현안 검증 상태 포함)</div>
+
+<div class="card">
+  <div class="num">10</div>
+  <h2>금융앱 LLM 어댑터 레이어 <span style="font-size:12px; color:#8b95a5; font-weight:400;">DJG</span></h2>
+  <p class="oneline">금융앱 화면 위에 얇은 LLM 레이어를 씌워 화면을 번역·해설하고, 원천 정보에서 2차 정보를 실시간 제공</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 상</span><span class="badge b-mvp">MVP 용이성 하~중</span><span class="badge b-data">데이터 중</span><span class="badge b-diff">차별성 상</span></div>
+  <dl>
+    <dt>현안 검증</dt><dd>⚠️ <b>컨셉의 현안성은 확실</b>(디지털 격차·정보 비대칭 해소 = 포용금융 정책 방향과 일치). 단, <b>기술 경로에 중대한 제약</b> 확인: 국내 금융앱은 캡처 방지(FLAG_SECURE)·안티탬퍼링·오버레이 차단 솔루션(TouchEn AntiCapture 등)을 표준 적용 → 네이티브 앱 위에 실시간 레이어를 얹는 것은 사실상 불가하며, 가능하더라도 보안 솔루션 우회로 간주될 리스크</dd>
+    <dt>피벗 경로</dt><dd>① <b>웹뱅킹 대상 브라우저 확장</b>(웹은 오버레이 차단이 상대적으로 약함) ② <b>스크린샷 업로드 방식</b>(사용자가 찍어 올린 화면을 해석 — 04번 고령층 동행 AI와 자연 병합) ③ <b>가상 금융앱 데모</b> 위에 어댑터를 얹어 컨셉 증명</dd>
+    <dt>AI 핵심기능</dt><dd>화면 컨텍스트 인식 → 용어·수수료·위험 해설, 다국어 번역(외국인), 쉬운말 변환(고령층) → 파인 공시 등 원천 데이터로 2차 정보(더 나은 금리 상품 등) 제공</dd>
+    <dt>평가</dt><dd>발표 스토리("모든 금융앱에 붙는 범용 접근성 레이어")는 강력. 04·05번의 상위 개념으로 흡수 발전시키는 것이 최적 활용</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <div class="num">11</div>
+  <h2>금융정보 송수신 B2B 브릿지 <span style="font-size:12px; color:#8b95a5; font-weight:400;">DJG</span></h2>
+  <p class="oneline">금융정보 송수신 병목 지점에 안전성·효용성을 높이는 브릿지 프로그램 제공 (B2B)</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 중</span><span class="badge b-mvp">MVP 용이성 하</span><span class="badge b-data">데이터 하</span><span class="badge b-diff">차별성 ?</span></div>
+  <dl>
+    <dt>현안 검증</dt><dd>❓ <b>추가 검증 필요.</b> 마이데이터·오픈뱅킹은 이미 표준 API + 중계기관(금융결제원 등) 체계가 구축되어 있어 "어느 병목인지"를 특정해야 현안성이 성립. 표준 규격 문서상 인터페이스는 정비된 상태 — 남은 병목은 비표준 구간(팩스·수기 서류, 기관 간 비정형 문서 교환) 쪽일 가능성</dd>
+    <dt>리스크</dt><dd>B2B 인프라성 주제는 ① 실데이터·실연동 없이는 데모 설득이 어렵고 ② 심사위원이 30초 안에 체감하기 힘들며 ③ 도메인 지식 부재가 가장 크게 드러나는 영역</dd>
+    <dt>피벗 경로</dt><dd>"기관 간 비정형 금융문서(보험금 청구서류, 대출 심사서류)를 LLM이 구조화·검증해 전달하는 브릿지"로 좁히면 AI 역할이 분명해지고 데모 가능</dd>
+    <dt>평가</dt><dd>현 단계에서는 보류 권장 — 병목 지점을 특정할 근거를 찾으면 재평가</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <div class="num">12</div>
+  <h2>FDS 모델 성능 진단 서비스 <span style="font-size:12px; color:#8b95a5; font-weight:400;">팀원</span></h2>
+  <p class="oneline">이미 탐지 모델을 운영 중인 곳을 위해, 모델 성능을 측정·진단해주는 메타 서비스</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 중</span><span class="badge b-mvp">MVP 용이성 중</span><span class="badge b-data">데이터 하</span><span class="badge b-diff">차별성 상</span></div>
+  <dl>
+    <dt>현안 검증</dt><dd>⚠️ <b>부분 확인.</b> FDS의 오탐(false positive) 관리가 실무 난제인 것은 업계 기술블로그(카카오뱅크 등)에서 확인됨 — "성능 측정·진단" 니즈 자체는 실존. 단, 금융사가 거래 데이터를 외부 서비스에 올릴 수 없어 SaaS 형태는 비현실적</dd>
+    <dt>피벗 경로</dt><dd>"합성 공격 시나리오 생성기"로 전환 — LLM이 최신 사기 수법 기반 합성 거래 시나리오를 생성해 고객사 FDS를 스트레스 테스트하는 레드팀 도구. 데이터 반출 없이 시나리오만 제공하는 구조라 현실성 있음</dd>
+    <dt>AI 핵심기능</dt><dd>사기 수법 지식베이스 → 합성 시나리오 생성 → 업로드된 탐지 결과와 대조해 취약 유형 리포트</dd>
+    <dt>평가</dt><dd>참신성은 최상급이나 B2B라 데모 체감이 과제. 발표 심사에서 "개발자 팀의 강점"을 보여주기엔 좋은 주제</dd>
+  </dl>
+</div>
+
+<div class="card top">
+  <div class="num">13</div>
+  <h2>AI 보안관제 로그 분석 비서 <span style="font-size:12px; color:#8b95a5; font-weight:400;">팀원</span></h2>
+  <p class="oneline">관제 중 잡힌 로그 원문을 넣으면 원인 분석·대응 지침을 즉시 생성 — "클로드 딸깍이 없는 관제팀을 위한" 대화형 보안 비서</p>
+  <div class="badges"><span class="badge b-social">사회적 가치 중~상</span><span class="badge b-mvp">MVP 용이성 상</span><span class="badge b-data">데이터 중</span><span class="badge b-diff">차별성 상</span></div>
+  <dl>
+    <dt>현안 검증</dt><dd>✅ <b>근거 양호.</b> "프론티어 AI 공격 방어 대화형 보안 비서"는 대회 예시 주제 그 자체(주최측이 현안성 보증). LLM 기반 보안 분석 자동화는 토스·Theori 등 국내 보안 실무에서 이미 유효성이 입증된 흐름이며, SOC 인력·역량 부족은 업계 공인 문제</dd>
+    <dt>AI 핵심기능</dt><dd>로그 원문 붙여넣기/업로드 → 공격 유형 분류(MITRE ATT&CK 매핑) → 원인 분석 → 금융권 맥락의 단계별 대응 플레이북 생성 → 후속 질의응답. AI 프롬프트 인젝션 등 프론티어 AI 공격 패턴 탐지 포함 시 예시 주제와 완벽 정합</dd>
+    <dt>MVP 범위</dt><dd>① 로그 파서·분석 엔진 ② 대응 플레이북 생성 ③ 시연용 합성 침해 시나리오 세트 ④ 대화형 후속 분석</dd>
+    <dt>데이터</dt><dd>공개 보안 이벤트 샘플 로그, MITRE ATT&CK(공개), 금융보안원 공개 보고서 — 실거래 데이터 불필요</dd>
+    <dt>차별화</dt><dd>팀의 개발·관제 실무 감각이 그대로 강점이 되는 주제. "도메인 지식 부재" 리스크가 가장 작은 후보 — 이 도메인은 우리가 전문가</dd>
+  </dl>
+</div>
+
+<div class="section-title">종합 비교</div>
+<table>
+  <tr><th>후보</th><th>사회적 가치<br>·현안성</th><th>MVP<br>용이성</th><th>데이터<br>확보</th><th>차별성</th><th>비고</th></tr>
+  <tr><td>01 보이스피싱 골든타임</td><td class="s-h">상</td><td class="s-h">상</td><td class="s-m">중</td><td class="s-h">상</td><td>예시 주제의 변형 각도</td></tr>
+  <tr><td>02 금융약관 해석기</td><td class="s-h">상</td><td class="s-h">상</td><td class="s-h">상</td><td class="s-h">상</td><td>예시에 없는 독자 각도</td></tr>
+  <tr><td>03 소상공인 매칭+서류</td><td class="s-h">상</td><td class="s-m">중</td><td class="s-h">상</td><td class="s-m">중</td><td>예시 주제와 동일</td></tr>
+  <tr><td>04 고령층 동행 AI</td><td class="s-h">상</td><td class="s-m">중</td><td class="s-m">중</td><td class="s-h">상</td><td>멀티모달 데모 임팩트</td></tr>
+  <tr><td>05 외국인 정착 에이전트</td><td class="s-h">상</td><td class="s-h">상</td><td class="s-m">중</td><td class="s-m">중</td><td>예시 주제와 동일</td></tr>
+  <tr><td>06 청년 자산형성</td><td class="s-m">중~상</td><td class="s-h">상</td><td class="s-h">상</td><td class="s-m">중</td><td>데이터 최용이</td></tr>
+  <tr><td>07 스캠 스캐너</td><td class="s-h">상</td><td class="s-h">상</td><td class="s-m">중</td><td class="s-h">상</td><td>신종 스캠 시의성</td></tr>
+  <tr><td>08 XAI 이상거래 탐지</td><td class="s-m">중</td><td class="s-m">중</td><td class="s-l">하</td><td class="s-m">중</td><td>합성 데이터 의존</td></tr>
+  <tr><td>09 성장성 리포트</td><td class="s-m">중</td><td class="s-m">중</td><td class="s-h">상</td><td class="s-m">중</td><td>B2B 성격</td></tr>
+  <tr><td>10 LLM 어댑터 레이어</td><td class="s-h">상</td><td class="s-l">하~중</td><td class="s-m">중</td><td class="s-h">상</td><td>⚠️ 캡처방지·오버레이 차단 제약 → 피벗 필요</td></tr>
+  <tr><td>11 B2B 브릿지</td><td class="s-m">중</td><td class="s-l">하</td><td class="s-l">하</td><td class="s-m">?</td><td>❓ 병목 특정 전까지 보류</td></tr>
+  <tr><td>12 FDS 성능 진단</td><td class="s-m">중</td><td class="s-m">중</td><td class="s-l">하</td><td class="s-h">상</td><td>⚠️ 레드팀 도구로 피벗 시 유효</td></tr>
+  <tr><td>13 보안관제 로그 비서</td><td class="s-m">중~상</td><td class="s-h">상</td><td class="s-m">중</td><td class="s-h">상</td><td>✅ 예시 주제 정합 + 팀 도메인 강점</td></tr>
+</table>
+
+<div class="section-title">도메인 지식 리스크 대응 전략</div>
+<div class="note">
+  <b>"우리는 개발자, 금융 도메인 지식이 없다"에 대한 대응</b> — ① <b>현안성은 남의 권위를 빌린다:</b> 정부 정책문서·대회 예시 주제가 현안성을 이미 보증하는 주제를 고르면 심사에서 "이슈가 실존하는가"를 우리가 증명할 필요가 없음 (01·02·03·13이 해당). ② <b>도메인 지식이 필요 없는 각도를 고른다:</b> 13번(보안관제)은 팀이 곧 도메인 전문가인 유일한 후보. ③ <b>규제 지뢰를 피한다:</b> 투자 자문(09), 보안 솔루션 우회(10 원안), 실거래 데이터(08·12 원안)는 도메인 무지가 사고로 이어질 수 있는 영역 — 공개 데이터·정보 제공형 포지셔닝 유지.
+</div>
+
+<div class="note" style="margin-top:12px;">
+  <b>다음 단계 제안</b> — 현 시점 추천 조합: <b>13 보안관제 로그 비서</b>(팀 강점 + 예시 주제 정합) vs <b>02 금융약관 해석기</b>(독자 각도 + 데이터 용이) vs <b>01+04+10 통합안</b>("취약계층을 위한 화면·상황 이해 금융 도우미"로 묶는 스토리). 이 중 2~3개를 기획서 수준(문제정의·유저플로우·기능명세)으로 심화한 뒤 1개를 확정해 클로드 코드 구현으로 진행. 심사 구조상 <b>배포 URL에서 30초 안에 체감되는 데모</b>가 최우선 기준.
+</div>
+
+<p class="foot">2026 금융 AI Challenge 주제 후보군 v2 · 팀 아이디어 통합 + 현안 검증 · 갱신 2026-08-13</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# 텍스트 파일은 저장소에 LF로 정규화 (Windows 작업 환경 기준)
+* text=auto eol=lf
+*.html text eol=lf
+*.md   text eol=lf

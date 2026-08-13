@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주최기관 정합성 분석 — 금융보안원 × 2026 금융 AI Challenge</title>
+    <style>
+        :root {
+            --page: #f9f9f7;
+            --surface: #fcfcfb;
+            --ink: #0b0b0b;
+            --ink2: #52514e;
+            --muted: #898781;
+            --grid: #e1e0d9;
+            --border: rgba(11, 11, 11, .10);
+            --navy: #1f3a5f;
+            --navy-soft: #e9eef5;
+            --good: #0ca30c;
+            --warn: #a06a00;
+            --warn-soft: #fdf3e0;
+            --hi: #0f7b52;
+            --hi-soft: #e7f5ee;
+            --critical: #d03b3b;
+            --crit-soft: #fbeaea;
+            --blue: #2a78d6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+            background: var(--page);
+            color: var(--ink);
+            line-height: 1.65;
+            padding-bottom: 70px;
+        }
+
+        .wrap {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 26px 16px 0;
+        }
+
+        .kicker {
+            font-size: 12px;
+            letter-spacing: .14em;
+            color: var(--navy);
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 6px 0 8px;
+            line-height: 1.3;
+        }
+
+        .intro {
+            color: var(--ink2);
+            font-size: 14px;
+            max-width: 720px;
+        }
+
+        h3.sec {
+            font-size: 15px;
+            font-weight: 800;
+            margin: 36px 0 14px;
+            padding-left: 10px;
+            border-left: 3px solid var(--navy);
+        }
+
+        .timeline {
+            border-left: 2px solid var(--grid);
+            margin-left: 8px;
+            padding-left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .tl {
+            position: relative;
+            font-size: 13.5px;
+        }
+
+        .tl::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 6px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--navy);
+        }
+
+        .tl .yr {
+            font-weight: 800;
+            color: var(--navy);
+            margin-right: 8px;
+        }
+
+        .tl .d {
+            color: var(--ink2);
+        }
+
+        .pillars {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .pillar {
+            background: var(--surface);
+            border: 1px solid var(--grid);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+
+        .pillar h4 {
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .pillar ul {
+            list-style: none;
+            font-size: 12.5px;
+            color: var(--ink2);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .pillar li::before {
+            content: '·';
+            font-weight: 800;
+            margin-right: 6px;
+            color: var(--navy);
+        }
+
+        .agenda {
+            background: var(--navy);
+            color: #fff;
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-top: 4px;
+        }
+
+        .agenda h4 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            opacity: .85;
+        }
+
+        .agenda .items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .agenda .it b {
+            display: block;
+            font-size: 13.5px;
+            margin-bottom: 2px;
+        }
+
+        .agenda .it span {
+            opacity: .82;
+            font-size: 12px;
+            line-height: 1.5;
+            display: block;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--grid);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            font-size: 13.5px;
+        }
+
+        .card b.t {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .card .sub {
+            color: var(--ink2);
+            font-size: 13px;
+        }
+
+        .flag {
+            border-left: 3px solid var(--critical);
+            background: var(--crit-soft);
+            border-radius: 0 10px 10px 0;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: var(--ink2);
+            margin-bottom: 12px;
+        }
+
+        .flag b {
+            color: var(--critical);
+        }
+
+        .tip {
+            border-left: 3px solid var(--hi);
+            background: var(--hi-soft);
+            border-radius: 0 10px 10px 0;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: var(--ink2);
+            margin-bottom: 12px;
+        }
+
+        .tip b {
+            color: var(--hi);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+            background: var(--surface);
+            border: 1px solid var(--grid);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 9px 10px;
+            border-bottom: 1px solid var(--grid);
+            text-align: center;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--navy-soft);
+            font-size: 11px;
+            color: var(--navy);
+            letter-spacing: .02em;
+        }
+
+        td:first-child,
+        th:first-child {
+            text-align: left;
+            font-weight: 700;
+            min-width: 130px;
+        }
+
+        td.why {
+            text-align: left;
+            color: var(--ink2);
+            font-size: 12px;
+            min-width: 220px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .s-h {
+            color: var(--hi);
+            font-weight: 800;
+        }
+
+        .s-m {
+            color: var(--warn);
+            font-weight: 700;
+        }
+
+        .s-l {
+            color: #98a1b0;
+        }
+
+        .formula {
+            background: var(--surface);
+            border: 2px solid var(--navy);
+            border-radius: 14px;
+            padding: 18px 20px;
+            font-size: 14px;
+        }
+
+        .formula b {
+            color: var(--navy);
+        }
+
+        .foot {
+            margin-top: 28px;
+            font-size: 11.5px;
+            color: var(--muted);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="kicker">Host Alignment Analysis</div>
+        <h1>금융보안원은 어떤 팀에게 상을 주고 싶어할까</h1>
+        <p class="intro">주최기관 금융보안원(FSI)의 연혁·사업 구조·2026 중점 어젠다와 전작 「2025 금융 AI Challenge」 수상 결과를 분석해, 후보 주제별 정합성을 재평가한
+            문서입니다.</p>
+
+        <h3 class="sec">1 · 금융보안원 연혁 한눈에</h3>
+        <div class="timeline">
+            <div class="tl"><span class="yr">2015</span><span class="d">출범 — 금융보안연구원 + 금융결제원 금융ISAC + 코스콤 증권ISAC 통합.
+                    태생부터 <b>"보안관제·침해대응 기관"</b></span></div>
+            <div class="tl"><span class="yr">2016</span><span class="d">금융권 디지털포렌식 랩 구축 · 개인정보 비식별 조치 지원 전문기관 지정 — 데이터
+                    사업의 시작</span></div>
+            <div class="tl"><span class="yr">2020~</span><span class="d">금융데이터거래소(FinDataMall) 운영, 데이터전문기관(가명정보 결합), 금융
+                    빅데이터 개방 — <b>보안 기관에서 데이터 인프라 기관으로 확장</b></span></div>
+            <div class="tl"><span class="yr">2023~24</span><span class="d">금융분야 AI 보안 가이드라인 → 생성형 AI 보안·활용 정책 지원 — <b>AI
+                        거버넌스 기관으로 3차 확장</b></span></div>
+            <div class="tl"><span class="yr">2025</span><span class="d">제1회 금융 AI Challenge 개최(951팀) · FISCON에서
+                    시상</span></div>
+            <div class="tl"><span class="yr">2026</span><span class="d">AI 조직 확대·개편, 금융AI 안전성·신뢰성 평가 프레임워크(하반기 시범평가), AI
+                    에이전트 보안 기준, 침투테스트 가이드라인, 178개사 취약점 분석·평가 — <b>"프론티어 AI 위협 대응"을 공식 어젠다로 선언</b></span></div>
+        </div>
+
+        <h3 class="sec">2 · 사업의 3대 축</h3>
+        <div class="pillars">
+            <div class="pillar">
+                <h4>🛡 보안 (본업)</h4>
+                <ul>
+                    <li>금융권 통합보안관제·침해대응</li>
+                    <li>취약점 분석·평가 (2026년 178개사)</li>
+                    <li>이상금융거래정보 공유 체계</li>
+                    <li>디지털포렌식·침투테스트 가이드</li>
+                </ul>
+            </div>
+            <div class="pillar">
+                <h4>📊 데이터 (확장 1)</h4>
+                <ul>
+                    <li>금융데이터거래소 운영</li>
+                    <li>데이터전문기관 — 가명정보 결합</li>
+                    <li>금융 빅데이터 개방 지원</li>
+                    <li>비식별 조치 지원</li>
+                </ul>
+            </div>
+            <div class="pillar">
+                <h4>🤖 AI 거버넌스 (확장 2 · 현재 최중점)</h4>
+                <ul>
+                    <li>AI 보안 가이드라인 시리즈</li>
+                    <li>금융AI 안전성·신뢰성 평가 프레임워크</li>
+                    <li>AI 에이전트 보안 기준 마련</li>
+                    <li>프론티어 AI 위협 대응 연구</li>
+                </ul>
+            </div>
+        </div>
+
+        <h3 class="sec">3 · 2026년 공식 중점 어젠다</h3>
+        <div class="agenda">
+            <h4>2026 금융권 AI 세미나 · 자문위원회에서 밝힌 방향</h4>
+            <div class="items">
+                <div class="it"><b>프론티어 AI 위협 대응</b><span>"초고성능 프론티어 AI가 촉발하는 사이버 위협"에 선제 대응 — 원장 직접 언급, AI 조직
+                        확대·개편</span></div>
+                <div class="it"><b>AI 안전성·신뢰성 프레임워크</b><span>금융권 맞춤 AI 평가체계 초안 제시, 2026 하반기 금융회사 시범평가</span></div>
+                <div class="it"><b>AI 에이전트 보안 기준</b><span>금융회사의 AI 에이전트 도입·운영 보안 기준 마련 중</span></div>
+                <div class="it"><b>사전 예방 중심 보안</b><span>취약점 분석·평가 확대(178개사), 침투테스트 가이드라인 발간</span></div>
+            </div>
+        </div>
+
+        <h3 class="sec">4 · 전작(2025) 수상 코드 해독</h3>
+        <div class="card"><b class="t">🏆 대상 (금융위원장상) — 'SIGNAL'</b><span class="sub">소상공인의 매출·리뷰·키워드 등 흩어진 데이터를 AI로 분석해
+                <b>위기 징후를 조기 포착</b>하는 위기관리 솔루션 (우리은행 재직팀)</span></div>
+        <div class="card"><b class="t">🥈 최우수 (원장상) — 금융보안 AI 모델</b><span class="sub">인하대팀, 국산 LLM 활용 금융보안 AI (모델 경쟁
+                트랙)</span></div>
+        <div class="card"><b class="t">🥉 우수상 — '맘편한' 등 5팀</b><span class="sub">임산부 AI 금융비서 등 — 특정 취약·틈새 계층 대상 맞춤
+                금융서비스</span></div>
+        <div class="tip"><b>읽어낼 것</b> — 원장이 성료 소감에서 강조한 것은 "<b>대고객 서비스 활용이 가능한 아이디어</b>를 다수 발굴한 의의". 즉 심사의 최종 언어는 보안
+            기술력이 아니라 <b>체감 가능한 금융소비자 서비스</b>였다. 대상·우수상 모두 "특정 대상(소상공인/임산부)의 구체적 어려움"을 푸는 서비스. 일부 수상작은 사업성 검토 단계로 진전 —
+            주최측은 실제 서비스화 가능성을 본다.</div>
+        <div class="flag"><b>경계할 것</b> — 소상공인 위기관리(SIGNAL)가 이미 대상을 받았다. 03 소상공인 매칭으로 가려면 SIGNAL과의 차별화("탐지형이 아닌 실행형 —
+            서류까지 완성")를 발표에서 명시적으로 짚어야 재탕 인상을 피한다. 또한 2026년은 아이디어 공모가 아니라 <b>실작동 서비스 구현·검증</b>으로 문턱이 올라갔고, 심사 기준도 AI
+            개발역량·문제해결력·구현 가능성으로 공표됨.</div>
+
+        <h3 class="sec">5 · 후보별 주최사 정합성 재평가</h3>
+        <table>
+            <tr>
+                <th>후보</th>
+                <th>FSI 사업축<br>정합</th>
+                <th>2026 어젠다<br>정합</th>
+                <th>수상 코드<br>(대고객 체감)</th>
+                <th>근거</th>
+            </tr>
+            <tr>
+                <td>13 보안관제 로그 비서<br>+ 프론티어 AI 방어 확장</td>
+                <td class="s-h">상</td>
+                <td class="s-h">최상</td>
+                <td class="s-m">중</td>
+                <td class="why">FSI 본업(관제·침해대응) 그 자체 + "프론티어 AI 위협 대응"은 원장 공식 어젠다. AI 에이전트 보안 기준 제정 흐름과도 맞물림. 약점: B2B라
+                    '대고객 체감' 코드와 거리 — 데모를 극적으로 만들어야</td>
+            </tr>
+            <tr>
+                <td>01 보이스피싱 골든타임</td>
+                <td class="s-h">상</td>
+                <td class="s-m">중~상</td>
+                <td class="s-h">상</td>
+                <td class="why">이상금융거래정보 공유는 FSI 실사업 + 대고객 체감 최상급. 보안 기관이 주최하는 대회에서 '소비자 보호 보안 서비스'는 양쪽 코드를 모두 충족하는 교집합
+                </td>
+            </tr>
+            <tr>
+                <td>07 스캠 스캐너</td>
+                <td class="s-h">상</td>
+                <td class="s-m">중~상</td>
+                <td class="s-h">상</td>
+                <td class="why">01과 동일한 교집합 구조. '사전 예방 중심'이라는 2026 키워드와 방향 일치</td>
+            </tr>
+            <tr>
+                <td>02 금융약관 해석기</td>
+                <td class="s-m">중</td>
+                <td class="s-m">중</td>
+                <td class="s-h">상</td>
+                <td class="why">보안 축과는 거리가 있으나, "모든 판정에 원문 근거 인용" 설계를 <b>FSI의 AI 안전성·신뢰성 프레임워크를 서비스 차원에서 구현한 것</b>으로
+                    포지셔닝하면 어젠다 정합을 만들 수 있음</td>
+            </tr>
+            <tr>
+                <td>03 소상공인 매칭+서류</td>
+                <td class="s-l">하</td>
+                <td class="s-l">하</td>
+                <td class="s-h">상 (단, 기수상)</td>
+                <td class="why">수상 코드에는 부합하지만 FSI 사업축과 무관 + 전작 대상(SIGNAL)과 동일 계층 — 차별화 부담이 가장 큼</td>
+            </tr>
+            <tr>
+                <td>04 고령층 동행 AI</td>
+                <td class="s-m">중</td>
+                <td class="s-m">중</td>
+                <td class="s-h">상</td>
+                <td class="why">'맘편한'(임산부)이 보여준 틈새계층 코드와 동일 구조. 사기 경고 기능을 키우면 보안 축과 연결 가능</td>
+            </tr>
+        </table>
+
+        <h3 class="sec">6 · 종합 — 승리 공식</h3>
+        <div class="formula">
+            <b>정합성 분석의 결론:</b> 금융보안원 심사에서 강한 조합은 <b>「보안·안전 DNA × 대고객 체감 서비스」의 교집합</b>이다.<br><br>
+            ① <b>1순위 후보군:</b> 01 보이스피싱 골든타임 / 07 스캠 스캐너 — FSI 본업 정합 + 소비자 체감 + 실작동 데모 용이의 3박자.<br>
+            ② <b>차별화 승부수:</b> 13 보안관제 비서를 "프론티어 AI 공격 방어" 예시 주제로 확장 — 2026 어젠다 정합 최상. 단 B2C 체감이 약하므로 "금융회사 보안담당자용"임을 명확한
+            페르소나 스토리로 커버.<br>
+            ③ <b>하이브리드 전략:</b> 01·07을 메인으로 하되, 판별 엔진에 <b>프롬프트 인젝션·AI 생성 피싱 탐지</b>(프론티어 AI 위협)를 한 기능 넣으면 대고객 서비스이면서 2026
+            어젠다를 정면으로 건드린다.<br>
+            ④ 어떤 주제든 발표자료에 <b>FSI의 AI 안전성·신뢰성 프레임워크 흐름을 인용</b>하고 우리 서비스의 환각 방지·근거 인용 설계를 그 실천으로 연결하면 주최사 언어로 말하는 팀이
+            된다.<br>
+            ⑤ 수상 시 FSI 채용 우대가 걸려 있음 — 심사위원은 사실상 미래 동료를 뽑는 시선으로도 본다. 보안 이해도가 드러나는 팀이 유리.
+        </div>
+
+        <p class="foot">Host Alignment Analysis v1 · 공개 자료 기반 · 2026-08-13</p>
+    </div>
+</body>
+
+</html>
