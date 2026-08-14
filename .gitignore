@@ -13,3 +13,11 @@ Desktop.ini
 *.tmp
 *.bak
 ~$*
+
+# 의존성·빌드 산출물 (src/.gitignore와 중복이지만 안전망)
+node_modules/
+.next/
+out/
+.vercel
+*.tsbuildinfo
+.env*

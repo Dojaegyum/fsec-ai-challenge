@@ -1,21 +1,45 @@
-# src — 골든30 구현
+# src — 구현
 
-**아직 비어 있습니다.** 개발 착수 전입니다.
+Next.js(App Router) + TypeScript + Tailwind 스캐폴딩만 올라간 상태입니다.
+**도메인 코드는 아직 없습니다** — 출전 주제가 확정되지 않았기 때문입니다 ([RFC-0001](../rfc/0001-출전-주제-선정.md)).
 
 ## 시작하기 전에
 
-1. [`CLAUDE.md`](../CLAUDE.md) — 작업 규약과 **절대 어기면 안 되는 6가지**
-2. [`spec/`](../spec/) — 구현 계약. 특히 [10-features.md](../spec/10-features.md)의 P0 목록
-3. [`spec/80-api.md`](../spec/80-api.md) — 아직 비어 있음. 착수 시 여기부터 정해야 합니다
+1. [`../CLAUDE.md`](../CLAUDE.md) — 작업 규약과 **절대 어기면 안 되는 6가지**
+2. [`../spec/`](../spec/) — 구현 계약. **단, 전부 골든30(01번)을 전제로 합니다.** 주제가 바뀌면 다시 씁니다
+3. [`../spec/80-api.md`](../spec/80-api.md) — 비어 있음. 도메인 구현의 첫 관문
 
-## 예정 스택 (기획서 §9)
+## 개발
 
-Next.js (App Router, 3-패널 SPA) · Claude API · STT · OCR · 구조화 KB + RAG · docx 생성 · Vercel 배포.
+```bash
+npm run dev     # 개발 서버 (http://localhost:3000)
+npm run build   # 프로덕션 빌드
+npm run lint    # ESLint
+```
 
-배포 URL이 제출 요건이라 배포 경로를 일찍 뚫어두는 편이 안전합니다.
+## 스택
+
+| 항목 | 선택 | 근거 |
+| --- | --- | --- |
+| 프레임워크 | Next.js (App Router) | 기획서 §9 |
+| 언어 | TypeScript | 기본값. spec의 계약을 타입으로 강제할 수 있음 |
+| 스타일 | Tailwind CSS | 기본값. 3-패널 레이아웃 작업에 유리 |
+| 번들러 | Turbopack | create-next-app 기본값 |
+| 배포 | Vercel (예정) | 기획서 §9 — **배포 URL이 제출 요건** |
+
+TypeScript·Tailwind·Turbopack은 스캐폴딩 시점의 기본 선택입니다. 되돌리기 쉬운 단계이니
+다른 조합이 필요하면 지금 바꾸세요.
+
+## AGENTS.md 주의
+
+`AGENTS.md`와 `CLAUDE.md`는 **create-next-app이 생성한 것**이고, `next dev`가 실행될 때
+`AGENTS.md`의 블록을 다시 씁니다. 지워도 되살아나므로 커밋된 채로 두는 편이 트리가 깨끗합니다.
+
+내용은 "이 버전의 Next.js는 학습 데이터와 다를 수 있으니 `node_modules/next/dist/docs/`를 읽으라"는
+경고입니다. 우리 프로젝트 규약은 그것과 별개로 [`../CLAUDE.md`](../CLAUDE.md)에 있습니다.
 
 ## TODO
 
-- TODO(미정): 프로젝트 초기화 (Next.js 스캐폴딩)
-- TODO(미정): 디렉토리 구조 — 정해지면 여기 문서화
+- TODO(주제 확정 후): 디렉토리 구조 설계 — 정해지면 여기 문서화
 - TODO(미정): 환경변수·시크릿 관리 방식
+- TODO(미정): Vercel 배포 연결
