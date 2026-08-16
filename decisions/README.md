@@ -74,11 +74,14 @@
 | [014](014-module-names.md) | 모듈 이름을 영어 한 층으로 정하고 동작을 네 층으로 나눈다 | 채택 |
 | [015](015-citation-and-reask.md) | 참조 번호를 프롬프트 자료 전체에 붙이고, 근거가 없으면 되묻는다 | 채택 |
 | [016](016-retention-and-datastore.md) | 사건 보관을 마지막 활동일 기준 180일로, 저장소를 Supabase(서울)로 | 채택 |
+| [017](017-doc-integrity-ci.md) | 문서 간 참조가 규약과 어긋나면 CI로 막는다 | 채택 |
+| [018](018-inventory-skill.md) | 저장소를 조회하는 도구를 스킬로 두고, 정본을 복제하지 않는다 | 채택 |
 
 ## 아직 안 쓴 것
 
 - [x] ~~백엔드 모듈 경계와 역할~~ — [ADR-010](010-case-store.md)·[ADR-012](012-kb-collection.md)·[ADR-013](013-chat-context.md)·[ADR-014](014-module-names.md) 로 나뉘어 결정됨
-- [x] ~~사건 보존 기간~~ — [ADR-010](010-case-store.md). `case.purge_after` 기본 90일로 통일 (핸드오프 ①)
+- [x] ~~사건 보존 기간~~ — [ADR-010](010-case-store.md)으로 한 층으로 통일하고,
+      [ADR-016](016-retention-and-datastore.md)으로 **마지막 활동일부터 180일** 확정 (핸드오프 ①)
 - [ ] 재진입·식별 모델 — `User` 테이블의 존재 여부가 걸립니다 (핸드오프 ②). **아직 미정**
 - [ ] 데스크톱 웹 우선 · 모바일 P1
 - [ ] 기술 스택 확정 (기획서 §9는 예정안)

@@ -1,0 +1,49 @@
+name: doc-integrity
+
+# 문서가 서로를 가리키는 방식이 규약과 어긋나지 않는지 검사합니다.
+# 링크·앵커·ID·파일명·번호·목차 등록, 그리고 ADR 의 결정이 나중에 고쳐졌는지.
+# 근거: RFC-001 「CI가 강제합니다」 · ADR-017
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 비교 기준 정하기
+        id: refs
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          # 기준 커밋이 없으면(브랜치 첫 푸시·force push) ADR 불변성만 못 봅니다.
+          # 나머지 검사는 현재 스냅샷만 보면 되므로 그대로 돕니다.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "기준 커밋이 없어 ADR 불변성 검사는 건너뜁니다."
+            echo "diff=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "diff=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+
+      - name: 문서 무결성 검사
+        run: |
+          if [ "${{ steps.refs.outputs.diff }}" = "true" ]; then
+            python3 .github/scripts/doc-integrity.py \
+              --base "${{ steps.refs.outputs.base }}" \
+              --head "${{ steps.refs.outputs.head }}"
+          else
+            python3 .github/scripts/doc-integrity.py
+          fi

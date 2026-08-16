@@ -204,11 +204,12 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    LAW["국가법령정보 API · 조문 단위"] --> SNAP[("source_snapshot · 원문 그대로")]
-    PRE["법제처 입법예고"] --> SNAP
-    RSS["금융위 게시판"] --> SNAP
-    HUMAN["기관 연락처 · 사람이 확인"] --> SNAP
+    LAW["국가법령정보 API · 조문 단위"] --> COL["kb-collector · 하루 1회 수집"]
+    PRE["법제처 입법예고"] --> COL
+    RSS["금융위 게시판"] --> COL
+    HUMAN["기관 연락처 · 사람이 확인"] --> COL
 
+    COL --> SNAP[("source_snapshot · 원문 그대로")]
     SNAP --> CHG[("source_change · 검수 큐")]
     CHG --> REV["kb-reviewer · 사람 승인"]
     REV --> KB[("kb_entry · 버전 릴리스")]

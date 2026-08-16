@@ -60,11 +60,13 @@
 | --- | --- | --- |
 | `rfc/` · `decisions/` | **`NNN-{slug}`** — 번호가 곧 ID | `decisions/003-spec-layout.md` → `ADR-003` |
 | `spec/` · `docs/` · `assets/artifacts/{plans,context}` | **`MM-dd-{slug}`** | `spec/common/08-14-pii-boundary.md` |
+| `docs/research/` | **`NN-{제목}`** — 읽는 순서가 있는 연작 | `docs/research/06-경로별-실측조사.md` |
 | `assets/artifacts/archived/` · `assets/brand/` | 손대지 않음 | |
 
 - **`MM-dd`는 최초 작성일이고, 개정해도 바꾸지 않습니다.** 날짜는 순서가 아니라 출생기록입니다 — 바꾸면 링크가 한꺼번에 깨집니다.
 - **번호는 재사용하지 않습니다.**
 - slug은 영문 kebab-case, 문서 안 H1은 한국어. 파일명의 번호·날짜를 H1에 중복해 적지 않습니다.
+  (`docs/research/`만 한국어 제목 — 조사 자료는 순서가 곧 읽는 순서이고, ADR이 이미 링크하고 있어 이름을 못 바꿉니다.)
 - **spec 폴더는 "누가 지키는 계약인가"로 가릅니다.** 한쪽만 지켜서 되는 게 아니면 `common/`입니다
   (용어·기능명세·PII 경계·API 계약). PII 경계는 클라이언트가 토큰화하고 서버가 그 상태를
   유지하는 것이라 양쪽이 함께 지킵니다.
@@ -133,6 +135,14 @@ decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않
 - spec의 `TODO` 표시는 "아직 정해지지 않은 것"입니다. 임의로 채우지 말고 확인하세요.
 - 목업·기획서에 등장하는 전화번호·금액·기관명은 **전부 예시**입니다. 실제 연락처는 KB 구축 시 출처와 함께 확인해야 합니다.
 - 문서는 한국어로 씁니다. 코드 식별자는 영문.
+- **문서를 만들거나 옮겼으면 끝내기 전에 검사기를 돌리세요** (→ [ADR-017](decisions/017-doc-integrity-ci.md)).
+  링크·앵커·ID·파일명·번호·목차 등록·ADR 불변성을 봅니다. 설치는 필요 없습니다.
+
+  ```
+  python .github/scripts/doc-integrity.py
+  ```
+
+  같은 검사가 PR과 `main` 푸시에서도 돕니다 — **여기서 걸리면 CI에서도 걸립니다.**
 
 ## 아직 정해지지 않은 것
 

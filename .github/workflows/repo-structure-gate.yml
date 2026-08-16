@@ -44,9 +44,9 @@ jobs:
           BASE: ${{ steps.refs.outputs.base }}
           HEAD: ${{ steps.refs.outputs.head }}
           # 감시에서 빼는 경로 (정규식, 전체 일치).
-          # src/ 와 .github/ 의 '내부' 폴더는 앞으로 계속 늘어나므로 제외합니다.
-          # 단 src·.github 폴더 자체가 생기거나 사라지는 것은 감시합니다.
-          EXCLUDE: '^(src/.+|\.github/.+)$'
+          # src/ · .github/ · .claude/ 의 '내부' 폴더는 앞으로 계속 늘어나므로 제외합니다.
+          # 단 세 폴더 자체가 생기거나 사라지는 것은 감시합니다.
+          EXCLUDE: '^(src/.+|\.github/.+|\.claude/.+)$'
         run: |
           set -euo pipefail
           export LC_ALL=C
