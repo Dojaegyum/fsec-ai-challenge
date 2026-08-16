@@ -8,34 +8,76 @@
 > [ADR-0002](../decisions/0002-프로젝트-이름.md)), 포지셔닝이 **긴급 진입 → 사건 관리**로 옮겨졌습니다.
 > 아래 「개정해야 할 것」을 반영하기 전까지, 여기 적힌 절차 사실을 그대로 믿지 마세요.
 
+## 폴더 — 누가 지키는 계약인가
+
+| 폴더 | 무엇 | 누가 읽나 |
+| --- | --- | --- |
+| [`common/`](common/) | 양쪽이 함께 지키는 것 — 용어, 기능명세, PII 경계, API 계약 | 백엔드·프론트 모두 |
+| [`backend/`](backend/) | 서버에서 도는 판단·데이터 계약 | 백엔드 |
+| [`frontend/`](frontend/) | 화면·상호작용 계약 | 프론트 |
+
+한쪽만 지켜서 되는 게 아니면 `common/`입니다. 특히 **PII 경계는 클라이언트에서 토큰화하고
+서버가 그 상태를 유지하는 것이라 양쪽이 같이 지켜야** 하므로 `common/`에 둡니다.
+
+## 파일명 규약 — `MM-dd-{title}.md`
+
+근거: [ADR-0003](../decisions/0003-spec-폴더와-파일명.md).
+
+```
+spec/backend/08-14-channel-matrix.md
+             └┬─┘ └──────┬──────┘
+              │          └─ 영문 kebab-case 제목
+              └─ 최초 작성한 월-일
+```
+
+- **`MM-dd`는 최초 작성일입니다. 문서를 개정해도 바꾸지 않습니다** — 바꾸면 이 문서를 가리키는
+  모든 링크와 `CLAUDE.md`의 ID 표가 한꺼번에 깨집니다. 날짜는 순서가 아니라 **출생기록**입니다.
+- 제목은 영문 kebab-case. 문서 안 H1은 한국어로 씁니다.
+- 같은 날 같은 제목이 겹치면 제목을 더 구체적으로 바꿉니다(`08-14-api.md` → `08-14-api-case.md`).
+
+## 목차
+
+### `common/` — 양쪽 공통
+
+| 파일 | 내용 |
+| --- | --- |
+| [08-14-glossary.md](common/08-14-glossary.md) | 용어 — 사건·슬롯·부산물·토큰. 코드 식별자 대응표 포함 |
+| [08-14-features.md](common/08-14-features.md) | 기능명세 F-01 ~ F-11, 우선순위 |
+| [08-14-pii-boundary.md](common/08-14-pii-boundary.md) | PII 격리 경계·토큰 규격·인젝션 방어 |
+| [08-14-api.md](common/08-14-api.md) | API 계약 — **미작성** |
+
+### `backend/` — 서버
+
+| 파일 | 내용 |
+| --- | --- |
+| [08-14-slot-tiering.md](backend/08-14-slot-tiering.md) | 슬롯 티어링 T0/T1/T2 — 정보가 없어도 멈추지 않는 규칙 |
+| [08-14-channel-matrix.md](backend/08-14-channel-matrix.md) | 경유 서비스 8유형별 절차 분기 매트릭스 |
+| [08-14-completion-hook.md](backend/08-14-completion-hook.md) | 완수 검증 — 부산물 기반 완료 판정 상태 머신 |
+| [08-14-kb-operations.md](backend/08-14-kb-operations.md) | 매뉴얼 KB 스키마와 운영 파이프라인 |
+
+### `frontend/` — 화면
+
+| 파일 | 내용 |
+| --- | --- |
+| [08-14-screens.md](frontend/08-14-screens.md) | 화면 S-01 ~ S-03, 3-패널 레이아웃 |
+
 ## 개정해야 할 것 (최종 후보 보드 기준)
 
 | 무엇 | 어디 | 상태 |
 | --- | --- | --- |
-| **"서면 신청"은 틀린 표현** — 2026년 7월부터 은행 앱 비대면 신청, 계좌번호·거래내역 자동 입력 | [03](03-channel-matrix.md) [05](05-completion-hook.md) [06](06-screens.md) | 03만 반영됨 |
-| **통장묶기 트랙 신설** — 피해자가 아니라 억울하게 묶인 사람. 5월부터 소명자료 제출 시 5영업일 내 결과 | [03](03-channel-matrix.md) | 반영됨 |
-| **기한 계산에 LLM 금지** — 규칙으로 | [03](03-channel-matrix.md) | 반영됨 |
-| **자율배상은 "대상인지 진단"** — 1년 4개월간 41건·피해액의 0.1%·평균 116일 | [03](03-channel-matrix.md) | 반영됨 |
-| 포지셔닝 전환 — 112 이후를 맡는 사건 관리, 상담 종료 후 링크 유입 | [06](06-screens.md) 전반 | **미반영** |
-| 데이터: 한국어 공개 데이터 0건 → 합성 불가피 | [00](00-glossary.md) | **미반영** |
-
-## 목차
-
-| 파일 | 내용 |
-| --- | --- |
-| [00-glossary.md](00-glossary.md) | 용어 — 사건·슬롯·부산물·토큰. 코드 식별자 대응표 포함 |
-| [01-features.md](01-features.md) | 기능명세 F-01 ~ F-11, 우선순위 |
-| [02-slot-tiering.md](02-slot-tiering.md) | 슬롯 티어링 T0/T1/T2 — 정보가 없어도 멈추지 않는 규칙 |
-| [03-channel-matrix.md](03-channel-matrix.md) | 경유 서비스 8유형별 절차 분기 매트릭스 |
-| [04-pii-boundary.md](04-pii-boundary.md) | PII 격리 경계·토큰 규격·인젝션 방어 |
-| [05-completion-hook.md](05-completion-hook.md) | 완수 검증 — 부산물 기반 완료 판정 상태 머신 |
-| [06-screens.md](06-screens.md) | 화면 S-01 ~ S-03, 3-패널 레이아웃 |
-| [07-kb-operations.md](07-kb-operations.md) | 매뉴얼 KB 스키마와 운영 파이프라인 |
-| [08-api.md](08-api.md) | API 계약 — **미작성** |
+| **"서면 신청"은 틀린 표현** — 2026년 7월부터 은행 앱 비대면 신청, 계좌번호·거래내역 자동 입력 | [channel-matrix](backend/08-14-channel-matrix.md) [completion-hook](backend/08-14-completion-hook.md) [screens](frontend/08-14-screens.md) | channel-matrix만 반영됨 |
+| **통장묶기 트랙 신설** — 피해자가 아니라 억울하게 묶인 사람. 5월부터 소명자료 제출 시 5영업일 내 결과 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
+| **기한 계산에 LLM 금지** — 규칙으로 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
+| **자율배상은 "대상인지 진단"** — 1년 4개월간 41건·피해액의 0.1%·평균 116일 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
+| 포지셔닝 전환 — 112 이후를 맡는 사건 관리, 상담 종료 후 링크 유입 | [screens](frontend/08-14-screens.md) 전반 | **미반영** |
+| 데이터: 한국어 공개 데이터 0건 → 합성 불가피 | [glossary](common/08-14-glossary.md) | **미반영** |
 
 ## 이 폴더의 규칙
 
-- **정본은 기획서(HTML)입니다.** spec은 거기서 추출한 것이라, 둘이 어긋나면 기획서가 이깁니다. 어긋난 걸 발견하면 임의 판단하지 말고 사람에게 알리세요.
+- **고치기 전에 [`decisions/`](../decisions/)와 [`rfc/`](../rfc/)를 먼저 읽으세요.** 이미 결정된 것을
+  모르고 고치면 ADR과 spec이 어긋납니다. 결정에 어긋나는 변경은 새 ADR 없이 하지 않습니다.
+- **정본은 기획서(HTML)입니다.** spec은 거기서 추출한 것이라, 둘이 어긋나면 기획서가 이깁니다.
+  어긋난 걸 발견하면 임의 판단하지 말고 사람에게 알리세요.
 - `TODO(...)`는 **기획서에 아직 없는 것**입니다. 추측으로 채우지 마세요.
 - ID(F-xx, S-xx, CH-xxx)는 기획서와 같은 번호를 씁니다. 재사용·재정렬 금지.
 - 절차·법령 내용을 spec에 적을 때는 **출처와 시행일**을 함께 적습니다.
@@ -46,12 +88,12 @@
 
 | 기획서 | spec |
 | --- | --- |
-| §0 전제, §1 파이프라인 | 00, 01 |
-| §2 슬롯 티어링 | 02 |
-| §3 PII 격리 | 04 |
-| §4 매뉴얼 매트릭스·KB 운영 | 03, 07 |
-| §5 완수 검증 | 05 |
-| §6 화면 설계 | 06 |
-| §7 기능명세 | 01 |
+| §0 전제, §1 파이프라인 | glossary, features |
+| §2 슬롯 티어링 | slot-tiering |
+| §3 PII 격리 | pii-boundary |
+| §4 매뉴얼 매트릭스·KB 운영 | channel-matrix, kb-operations |
+| §5 완수 검증 | completion-hook |
+| §6 화면 설계 | screens |
+| §7 기능명세 | features |
 | §8 데모 시나리오 | (추출 안 함 — 발표용이라 기획서에서 직접) |
-| §9 기술 스택 | 00 |
+| §9 기술 스택 | glossary |
