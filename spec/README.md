@@ -34,6 +34,7 @@
 | [08-api.md](08-api.md) | API 계약 — 엔드포인트 10개, 요청·응답, 계측 헤더 |
 | [09-data-model.md](09-data-model.md) | 데이터 모델 — 테이블 DDL, 관계, 상태 전이, KB 조회 우선순위 |
 | [10-errors.md](10-errors.md) | 에러 계약 — 예외 계층, HTTP 코드, 재시도, 에러가 아닌 실패 |
+| [11-chat-context.md](11-chat-context.md) | 챗 컨텍스트 조립 — 프롬프트에 무엇을 어떤 순서로 넣는가 |
 
 ## 이 폴더의 규칙
 

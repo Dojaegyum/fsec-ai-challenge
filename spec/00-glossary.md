@@ -35,7 +35,7 @@ CLIENT   SERVER     SERVER(격리경계)  LLM API    LLM + KB      CLIENT
 | 영역 | 선택 |
 | --- | --- |
 | 프론트 | Next.js (App Router, 3-패널 SPA) |
-| LLM | Claude API — 분석·플랜 생성·챗, tool use |
+| LLM | **Grok (xAI)** — 분석·플랜 생성·챗. OpenAI 호환 API (`https://api.x.ai/v1`). **도구 호출을 쓰지 않습니다** → [11](11-chat-context.md) |
 | STT | Whisper급 + 브라우저 Web Speech 폴백 |
 | OCR | Vision 입력 |
 | KB | 구조화 JSON + RAG |
