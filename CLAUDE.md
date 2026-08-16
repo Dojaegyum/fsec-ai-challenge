@@ -9,7 +9,7 @@
 > Fin(금융) + Ally(동행자), 그리고 *Finally*(마침내).
 > 보이스피싱 피해자가 진술만 하면 **자기 사건에 맞는 절차를 찾아주고, 기한과 서류를 몇 달에 걸쳐 대신 관리**합니다.
 
-주제와 이름 모두 확정됐습니다 → `decisions/0001`, `decisions/0002`.
+주제와 이름 모두 확정됐습니다 → [ADR-001](decisions/001-topic-selection.md), [ADR-002](decisions/002-project-name.md).
 
 **이름 표기:** 브랜드는 `FinAlly`, 슬러그·패키지·폴더는 `fin-ally`, 코드 식별자는 `finAlly`/`FinAlly`.
 **`finally`는 JS·TS 예약어이므로 식별자나 패키지명으로 쓰지 마세요.**

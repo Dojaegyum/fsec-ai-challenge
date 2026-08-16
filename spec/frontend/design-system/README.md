@@ -19,9 +19,12 @@
 
 | 파일 | 내용 | 상태 |
 | --- | --- | --- |
-| [08-16-tokens.md](08-16-tokens.md) | 색·타이포·간격 토큰의 의미론 | **뼈대만** |
-| [08-16-components.md](08-16-components.md) | shadcn 위에 우리가 정하는 컴포넌트 규칙 | **뼈대만** |
-| [08-16-accessibility.md](08-16-accessibility.md) | 고령·패닉 사용자 기준 | **뼈대만** |
+| [08-16-tokens.md](08-16-tokens.md) | 색·타이포·간격 토큰의 의미론 | 표면·텍스트·상태 확정 · 위험도 색 TODO |
+| [08-16-components.md](08-16-components.md) | shadcn 위에 우리가 정하는 컴포넌트 규칙 | 목록·제약 확정 · 파일 배치 TODO |
+| [08-16-accessibility.md](08-16-accessibility.md) | 고령·패닉 사용자 기준 | 대비 실측 완료 · **미해결 1건** |
+
+값은 [진입 플로우 초안](../../../assets/artifacts/plans/08-16-entry-flow-mockup.html)
+(랜딩 → 동의·상황 → 챗 콘솔)을 실제로 만들어 보고 확정했습니다.
 
 ## 전제
 
