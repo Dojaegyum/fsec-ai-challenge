@@ -403,7 +403,7 @@ LLM이 insufficient: true 를 냄
     { "text": "정확한 안내를 위해 하나만 확인하겠습니다.", "ref": null }
   ],
   "citations": [],
-  "next_question": { "slot_key": "channel", "input": "buttons", "…": "…" }
+  "next_question": { "slot_key": "channel", "…": "…" }   // 구조는 08-api.md §3.4
 }
 ```
 
@@ -420,15 +420,13 @@ POST /api/cases/01J8XKQZ.../evidence
   "slots": [
     {"slot_key":"org_name","tier":"T2","state":"empty","value":null}
   ],
-  "next_question": {
-    "slot_key": "org_name",
-    "text": "어느 은행으로 보내셨나요?",
-    "options": ["국민은행","신한은행","우리은행","하나은행","모름·기억 안 남"]
-  }
+  "next_question": { "slot_key": "org_name", "…": "…" }   // 구조는 08-api.md §3.4
 }
 ```
 
 **200입니다.** 자동 추출 실패는 정상 경로입니다.
+
+**`next_question` 구조의 정의는 [08-api.md](08-api.md) §3.4 하나입니다.** 이 문서의 예시는 줄여 적습니다.
 
 ### (5) L1 검증 실패 — 에러 아님
 
