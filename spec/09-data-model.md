@@ -447,9 +447,6 @@ CREATE TABLE message (
   citations      JSON         NULL
                               COMMENT '문장이 가리킨 자료 목록. kb-/case-/t- 가 섞인다.
                                        kb_entry_id 는 kb- 항목에만 → §9.3',
-  reply_segments JSON         NULL
-                              COMMENT '문장 단위 응답. [{text, ref}, …]
-                                       토큰화 상태 → §9.3',
   insufficient   TINYINT(1)   NOT NULL DEFAULT 0
                               COMMENT '모델이 근거 없음을 선언했는가.
                                        1 이면 슬롯 질문으로 넘어갔다 → §9.3',
@@ -474,9 +471,7 @@ CREATE TABLE message (
 
 **`content_masked`에 `pii-tokenizer` 를 통과한 문자열만 저장합니다.** 사용자가 채팅창에 계좌번호를 그대로 치는 일이 흔합니다.
 
-**`citations`에 저장하는 것은 「이 문장이 어디서 나왔는가」입니다** → §9.3.
-
-**`reply_segments`도 토큰화 상태로 저장합니다.** 부분 복원은 브라우저에서만 일어나므로 저장된 값에는 토큰이 그대로 있습니다 → [04-pii-boundary.md](04-pii-boundary.md).
+**`citations`에 저장하는 것은 「이 답변이 무엇을 보고 쓰였는가」입니다** → §9.3.
 
 **`insufficient` 가 1인 턴은 답변 대신 슬롯 질문이 나간 턴입니다.** 관리자 조회에서 「왜 이 질문이 나갔는가」를 설명하는 값이라 응답과 함께 남깁니다.
 
@@ -569,29 +564,24 @@ CREATE TABLE message (
 
 **크기는 감수합니다.** 프롬프트 전문이 대화 이력에서 가장 큰 칼럼이 되지만, 사건 보관 기간이 90일이고 파기 시 함께 지워지므로 무한히 쌓이지 않습니다.
 
-### 9.3 `citations`·`reply_segments`·`insufficient`
+### 9.3 `citations` 와 `insufficient`
 
 > 2026-08-16 [ADR-0009](../decisions/0009-인용-검증과-되묻기.md) 로 신설.
 
-**응답을 문장 단위로 저장하고, 각 문장이 어느 자료에서 나왔는지 남깁니다.**
+**이 답변이 무엇을 보고 쓰였는지 남깁니다.**
 
 ```jsonc
-// reply_segments
-[
-  { "text": "다음은 피해구제 신청서 제출입니다.", "ref": "kb-2" },
-  { "text": "8월 20일까지 하셔야 합니다.",        "ref": "case-3" },
-  { "text": "접수 문자가 오면 올려주세요.",        "ref": null }
-]
-
 // citations
 [
   { "ref": "kb-2", "label": "피해구제 신청서 제출",
-    "why": "지급정지를 이미 걸었으므로 다음 기한이 적용되기 때문",
+    "why": "지급정지를 이미 걸었으므로, 다음 단계가 신청서 제출이라고 안내하는 데 썼습니다",
     "kb_entry_id": "relief-application", "kb_version": "2026.08.1" },
   { "ref": "case-3", "label": "피해구제 신청 기한",
-    "why": "사용자가 언제까지인지 알아야 하기 때문" }
+    "why": "8월 20일이라는 날짜를 문장에 그대로 옮기는 데 썼습니다" }
 ]
 ```
+
+**`why`는 「어떻게 썼는지」입니다.** 답변의 어느 대목에 쓰였는지가 드러나야 합니다 → [08-api.md](08-api.md) §3.9.
 
 | `ref` 접두 | 가리키는 것 | `kb_entry_id` |
 | --- | --- | :---: |
@@ -611,7 +601,7 @@ CREATE TABLE message (
 **모델이 답할 근거를 못 찾았다고 선언한 턴입니다.** 이때는 답변 대신 슬롯 질문이 나갑니다 → [11-chat-context.md](11-chat-context.md) §6.3.
 
 ```
-insufficient: 1  →  reply_segments 에 안내 한 줄
+insufficient: 1  →  content_masked 에 안내 한 줄
                     citations 비어 있음
                     슬롯 질문이 함께 나감
 ```

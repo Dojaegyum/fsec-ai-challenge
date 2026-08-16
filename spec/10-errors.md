@@ -297,7 +297,7 @@ insufficient: true
 
 | 상황 | 처리 |
 | --- | --- |
-| `ref` 검증 위반 (지어낸 참조·바꿔치기·과잉 인용) | **재시도 최대 2회.** 형식 오류라 다시 생성하면 고쳐질 수 있습니다 |
+| `ref` 검증 위반 (지어낸 참조·바꿔치기·`why` 누락) | **재시도 최대 2회.** 형식 오류라 다시 생성하면 고쳐질 수 있습니다 |
 | `insufficient: true` | **재시도 없음.** 슬롯 질문 (§4.2) |
 | 슬롯을 다 채웠는데도 근거를 못 찾음 | `KB_CITATION_MISSING` |
 | KB 조회 0건 | 1332 안내 (§4.1) |
@@ -399,9 +399,7 @@ LLM이 insufficient: true 를 냄
 ← 200
 {
   "message_id": "01J8XKRF...",
-  "reply_segments": [
-    { "text": "정확한 안내를 위해 하나만 확인하겠습니다.", "ref": null }
-  ],
+  "reply": "정확한 안내를 위해 하나만 확인하겠습니다.",
   "citations": [],
   "next_question": { "slot_key": "channel", "…": "…" }   // 구조는 08-api.md §3.4
 }
