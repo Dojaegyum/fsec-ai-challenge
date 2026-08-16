@@ -33,9 +33,10 @@
 | 서비스 기획 전체 그림 | `docs/plans/골든30-서비스기획서.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
 | 절차 지식의 근거 | `docs/plans/골든30-사후처리-리서치.html` | 법령·기관 기준 사후처리 절차 |
 | **제도·경쟁·법적 경계의 최신 사실** | `docs/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
-| 대회·주최기관 배경 | `docs/context/`, `AGENDA.md` | 배경 |
+| 대회·주최기관 배경 | `docs/context/` (일정·진행 상황은 `AGENDA.md`) | 배경 |
 | 주제 선정 과정·탈락 후보 | `docs/archived/candidates/` | 아카이브. 판단 과정은 `decisions/0001`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
 | 코드 | `src/` | Next.js 스캐폴딩만 — 도메인 코드 없음 |
+| 로고·favicon·컴포넌트 원본 | `assets/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
 
 `src/`에는 create-next-app이 생성한 `AGENTS.md`·`CLAUDE.md`가 있습니다. `next dev`가 `AGENTS.md`를
 다시 쓰므로 지우지 말고 두세요. 프로젝트 규약의 정본은 **이 파일**입니다.
@@ -137,4 +138,4 @@ decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않
 
 - API 엔드포인트 계약 (`spec/common/08-14-api.md` 비어 있음)
 - 저장소 선택, 배포 파이프라인 세부
-- 대회 공식 일정·제출물 규격 (`AGENDA.md`의 `확인 필요` 항목)
+- 대회 공식 일정·제출물 규격 (`docs/context/AGENDA.md`의 `확인 필요` 항목)

@@ -24,7 +24,8 @@
 | [`rfc/`](rfc/) | 규약 — 무엇을 어디에 두고 어떻게 일하는가 | 현행 규칙 |
 | [`decisions/`](decisions/) | 판단 근거 — 왜 그렇게 정했나 (ADR) | 이력 |
 | [`spec/`](spec/) | 구현이 따라야 할 제품 계약 (Markdown) | **개발 정본** |
-| [`docs/`](docs/) | 사람이 보는 HTML 아티팩트 | 원본·배경 |
+| [`docs/`](docs/) | 사람이 보는 문서 — 기획·배경·아카이브 | 원본·배경 |
+| [`assets/`](assets/) | 자산 원본 — 로고·favicon·컴포넌트 raw | 원본 |
 | [`src/`](src/) | 코드 (Next.js 스캐폴딩) | 착수 전 |
 
 ```
@@ -51,6 +52,7 @@
 
 | 문서 | 내용 |
 | --- | --- |
+| [AGENDA.md](docs/context/AGENDA.md) | 대회 개요·일정·진행 상황. 아직 못 채운 칸은 `확인 필요`로 표시돼 있습니다 |
 | [주최기관-정합성-분석.html](docs/context/주최기관-정합성-분석.html) | 금융보안원의 연혁·3대 사업축·2026 중점 어젠다와 2025년 1회 수상작 분석 |
 
 ### 아카이브 — `docs/archived/`
@@ -63,10 +65,6 @@
 | [candidates/최종후보군-보드.html](docs/archived/candidates/최종후보군-보드.html) | 주제 선정의 최종본. 다섯 기준 재평가·신규 후보 14건 검증·탈락 사유. **제도 변경과 법적 경계 부분은 아직 이 문서가 최신**이라 근거로 살아 있습니다 |
 | [candidates/주제후보군-보드.html](docs/archived/candidates/주제후보군-보드.html) | 초기 후보 9건 보드 v2 |
 | [candidates/tier1/](docs/archived/candidates/tier1/) | 탈락 후보 컨셉 스펙 — 금융약관 해석기 · 소상공인 매칭 · 보안관제 AI비서 |
-
-## 그 외
-
-- [AGENDA.md](AGENDA.md) — 대회 개요와 진행 상황
 
 ## 문서 규칙
 

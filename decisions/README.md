@@ -50,6 +50,7 @@
 | [0001](0001-출전-주제-선정.md) | 출전 주제를 보이스피싱 사후 대응으로 | 채택 |
 | [0002](0002-프로젝트-이름.md) | 프로젝트 이름을 FinAlly로 | 채택 |
 | [0003](0003-spec-폴더와-파일명.md) | spec을 common·backend·frontend로 나누고 파일명을 `MM-dd-{title}.md`로 | 채택 |
+| [0004](0004-agenda-이전과-assets-신설.md) | AGENDA.md를 `docs/context/`로 옮기고 `assets/` 신설 | 채택 |
 
 ## 아직 안 쓴 것
 
