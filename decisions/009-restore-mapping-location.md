@@ -1,9 +1,9 @@
-# 0003. 복원 매핑을 암호화해 서버 볼트에 두고 키는 클라이언트가 갖는다
+# ADR-009. 복원 매핑을 암호화해 서버 볼트에 두고 키는 클라이언트가 갖는다
 
 - 상태: **채택**
 - 날짜: 2026-08-16
 - 결정: @kth9245
-- 관련: [ADR-009](009-restore-mapping-location.md) · [ADR-002](002-project-name.md) (포지셔닝) · `spec/common/08-14-pii-boundary.md`
+- 관련: [ADR-002](002-project-name.md) (포지셔닝) · `spec/common/08-14-pii-boundary.md`
 
 ## 결정
 

@@ -1,4 +1,4 @@
-# 0004. AGENDA.md를 docs/context로 옮기고 assets/를 신설한다
+# ADR-004. AGENDA.md를 docs/context로 옮기고 assets/를 신설한다
 
 - 상태: **채택**
 - 날짜: 2026-08-16

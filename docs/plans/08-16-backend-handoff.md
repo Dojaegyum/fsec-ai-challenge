@@ -37,7 +37,8 @@ DB 종류·런타임 선택은 여기 없습니다 — 그건 @kth 가 [`ARCHITE
 - 장기 보존한다면 얼마나? (사건 종결까지 / 고정 기간 / 사용자가 지울 때까지)
 - 부산물(접수번호 등)은 PII에 가깝습니다. 서버에 두나요, 토큰만 두나요?
 
-**답: D — 전부 `case.purge_after`, 기본 90일** (`CASE_PURGE_DAYS`) → [ADR-010](../../decisions/010-case-store.md)
+**답: D — 전부 `case.purge_after`, 마지막 활동일부터 180일** (`CASE_PURGE_DAYS`)
+→ [ADR-010](../../decisions/010-case-store.md)에서 한 층으로 통일, [ADR-016](../../decisions/016-retention-and-datastore.md)에서 기간·기산 조정
 
 **A를 안 고른 이유는 층마다 수명이 다르면 어느 한 층만 남은 상태가 생기기 때문입니다.** 파기가 한 층에서 조용히 실패하면 그게 무엇인지 추적할 방법이 없습니다.
 

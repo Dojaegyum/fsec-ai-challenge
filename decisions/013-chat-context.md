@@ -1,9 +1,9 @@
-# 0007. 챗은 도구를 쓰지 않고, 챗 답변의 토큰은 종류별로 부분 복원한다
+# ADR-013. 챗은 도구를 쓰지 않고, 챗 답변의 토큰은 종류별로 부분 복원한다
 
 - 상태: **채택**
 - 날짜: 2026-08-16
 - 결정: @kth9245
-- 관련: [ADR-013](013-chat-context.md) · `spec/backend/08-16-chat-context.md` · [ADR-011](011-pii-boundary-hardening.md) 규칙 B 일부 조정
+- 관련: `spec/backend/08-16-chat-context.md` · [ADR-011](011-pii-boundary-hardening.md) 규칙 B 일부 조정
 
 ## 결정
 

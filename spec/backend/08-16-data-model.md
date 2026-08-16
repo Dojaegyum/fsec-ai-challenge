@@ -5,6 +5,38 @@
 
 용어와 코드 식별자는 [00-glossary.md](../common/08-14-glossary.md)를 따릅니다. 저장소 선택은 [ADR-010](../../decisions/010-case-store.md).
 
+## SQL 방언 — PostgreSQL
+
+**아래 DDL은 PostgreSQL입니다.** 관계형 DB는 **Supabase Postgres**(`ap-northeast-2` 서울)입니다 →
+[ADR-016](../../decisions/016-retention-and-datastore.md).
+(2026-08-16 [ADR-010](../../decisions/010-case-store.md)의 `Vercel Postgres`에서 바뀌었습니다 — 그 제품은 2024-12 폐지됐고
+후신인 Neon에 서울 리전이 없습니다. **둘 다 PostgreSQL이라 이 DDL은 그대로 섭니다.**)
+
+작성 시 지킬 것 다섯입니다.
+
+| 규칙 | 왜 |
+| --- | --- |
+| **`case` 는 큰따옴표로 감쌉니다** (`"case"`) | SQL 예약어입니다. 따옴표 없이 쓰면 파싱 오류가 납니다 |
+| **열거값은 `TEXT` + `CHECK` 로 씁니다** | 네이티브 `CREATE TYPE … AS ENUM` 은 값을 추가할 때 `ALTER TYPE` 이 필요합니다. 제도가 바뀌면 값이 늘어나는 칼럼이 있어(§4 `channel_id`) 같은 방식으로 통일했습니다 |
+| **인덱스 이름은 테이블 이름을 접두로 답니다** (`idx_evidence_case`) | 인덱스 이름이 **스키마 단위로 유일**해야 합니다. 여러 테이블에 `idx_case` 를 쓰면 두 번째 테이블 생성에서 실패합니다 |
+| **`updated_at` 갱신은 트리거로 합니다** | `ON UPDATE CURRENT_TIMESTAMP` 절이 없습니다. 아래 §0 의 함수 하나를 네 테이블이 공유합니다 |
+| **시각은 `TIMESTAMPTZ`** | 타임존을 `Asia/Seoul` 로 고정합니다 → [기한 계산 규칙](../common/08-16-deadline-rules.md). 저장은 UTC 로 하되 세션 타임존으로 렌더됩니다 |
+
+칼럼 설명은 `COMMENT` 절 대신 `--` 주석으로 답니다. PostgreSQL 은 `COMMENT ON COLUMN` 을 별도 문장으로 받는데, 그러면 스펙 문서에서 정의와 설명이 떨어져 읽기 어려워집니다.
+
+### 0. 공용 트리거 — `updated_at`
+
+```sql
+CREATE FUNCTION touch_updated_at() RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+`case` · `case_slot` · `plan_step` · `deadline` 넷이 이 함수를 씁니다. 각 테이블 DDL 아래에 트리거가 붙어 있습니다.
+
 ## 저장소 셋
 
 | 저장소 | 담는 것 | 원문 PII |
@@ -44,32 +76,41 @@ erDiagram
 ## 2. `case` — 사건
 
 ```sql
-CREATE TABLE `case` (
-  case_id        CHAR(26)     NOT NULL COMMENT '정렬 가능한 식별자(ULID)',
-  track          ENUM('victim','frozen_account') NOT NULL DEFAULT 'victim'
-                              COMMENT '피해자 / 통장묶기 → 03-channel-matrix.md',
-  status         ENUM('intake','in_progress','waiting','closed') NOT NULL
-                              DEFAULT 'intake',
-  session_key_id CHAR(26)     NULL
-                              COMMENT '볼트 세션키 식별자. 키 자체는 저장하지 않는다',
-  opened_at      DATETIME(3)  NOT NULL,
-  closed_at      DATETIME(3)  NULL,
-  purge_after    DATE         NOT NULL COMMENT '이 날짜 이후 파기 대상',
-  created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-                              ON UPDATE CURRENT_TIMESTAMP(3),
-  PRIMARY KEY (case_id),
-  KEY idx_status_purge (status, purge_after)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE "case" (
+  case_id        CHAR(26)      NOT NULL,   -- 정렬 가능한 식별자(ULID)
+  track          TEXT          NOT NULL DEFAULT 'victim'
+                 CHECK (track IN ('victim','frozen_account')),
+                                           -- 피해자 / 통장묶기 → 03-channel-matrix.md
+  status         TEXT          NOT NULL DEFAULT 'intake'
+                 CHECK (status IN ('intake','in_progress','waiting','closed')),
+  session_key_id CHAR(26)      NULL,       -- 볼트 세션키 식별자. 키 자체는 저장하지 않는다
+  opened_at      TIMESTAMPTZ(3) NOT NULL,
+  closed_at      TIMESTAMPTZ(3) NULL,
+  purge_after    DATE          NOT NULL,   -- 이 날짜 이후 파기 대상
+  created_at     TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY (case_id)
+);
+
+CREATE INDEX idx_case_status_purge ON "case" (status, purge_after);
+
+CREATE TRIGGER trg_case_touch BEFORE UPDATE ON "case"
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 ```
 
 | 칼럼 | 규칙 |
 | --- | --- |
 | `session_key_id` | **키 식별자만** 저장합니다. 키 자체나 키에서 파생된 값을 저장하지 않습니다. 세션키가 DB에 있으면 DB 유출 시 볼트가 함께 뚫려 저장소를 분리한 의미가 없어집니다 |
-| `purge_after` | 사건 생성 시점에 채웁니다. 파기 시점이 정해지지 않은 데이터가 생기는 것을 막습니다 |
+| `purge_after` | 사건 생성 시점에 채우고, **활동이 있을 때마다 다시 밉니다**(마지막 활동일 + `CASE_PURGE_DAYS`). 파기 시점이 정해지지 않은 데이터가 생기는 것을 막습니다 |
 | `track` | 통장묶기는 절차가 완전히 다릅니다 → [03-channel-matrix.md](08-14-channel-matrix.md) 통장묶기 절 |
 
-**`purge_after` 기본값은 90일입니다** (`CASE_PURGE_DAYS`) → [ADR-010](../../decisions/010-case-store.md)
+**`purge_after`는 마지막 활동일부터 180일입니다** (`CASE_PURGE_DAYS`) → [ADR-016](../../decisions/016-retention-and-datastore.md)
+
+> 2026-08-16 ADR-010의 **90일 · 생성일 기준**에서 바뀌었습니다. 경로 10종을 실측하니 표준 트랙만
+> **D+100**이고(공고 2개월 D+86 + 환급금 결정 14일), 명의인이 이의를 제기하면 D+160입니다 →
+> [research/06](../../docs/research/06-경로별-실측조사.md) §5.
+> 기산을 **마지막 활동일**로 바꾼 이유는, 공고 후에 피해를 알고 들어온 피해자(법 제6조제1항)가
+> **진입 시점에 이미 두 달이 지나 있어** 생성일 고정이면 며칠 만에 만료되기 때문입니다.
 
 > **이 값 하나가 사건에 딸린 모든 것의 수명입니다** — 토큰화된 상태, 업로드 원본, 복원 매핑 암호문이 같은 날 함께 사라집니다. 수명이 서로 다른 층을 두면 어느 하나만 남는 상태가 생기고, 그게 무엇인지 아무도 추적하지 못합니다.
 >
@@ -81,28 +122,28 @@ CREATE TABLE `case` (
 
 ```sql
 CREATE TABLE evidence (
-  evidence_id   CHAR(26)     NOT NULL,
-  case_id       CHAR(26)     NOT NULL,
-  kind          ENUM('audio','image','text') NOT NULL,
-  object_key    VARCHAR(500) NULL COMMENT '객체 저장소 경로. 즉시 파기 방침이면 NULL',
-  mime_type     VARCHAR(100) NULL,
-  byte_size     BIGINT       NULL,
-  transcript_masked MEDIUMTEXT NULL
-                             COMMENT '토큰화된 전사·OCR 결과. 원문 금지',
-  ingest_status ENUM('pending','processing','done','failed') NOT NULL
-                             DEFAULT 'pending',
-  ingest_error  VARCHAR(255) NULL,
-  created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  evidence_id   CHAR(26)      NOT NULL,
+  case_id       CHAR(26)      NOT NULL,
+  kind          TEXT          NOT NULL CHECK (kind IN ('audio','image','text')),
+  object_key    VARCHAR(500)  NULL,       -- 객체 저장소 경로
+  mime_type     VARCHAR(100)  NULL,
+  byte_size     BIGINT        NULL,
+  transcript_masked TEXT      NULL,       -- 토큰화된 전사·OCR 결과. 원문 금지
+  ingest_status TEXT          NOT NULL DEFAULT 'pending'
+                CHECK (ingest_status IN ('pending','processing','done','failed')),
+  ingest_error  VARCHAR(255)  NULL,
+  created_at    TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (evidence_id),
-  KEY idx_case (case_id, created_at),
   CONSTRAINT fk_evidence_case FOREIGN KEY (case_id)
-    REFERENCES `case`(case_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    REFERENCES "case"(case_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_evidence_case ON evidence (case_id, created_at);
 ```
 
 **`transcript_masked`에 `pii-tokenizer` 를 통과한 문자열만 저장합니다.** 전사·OCR 원문을 저장하지 않습니다.
 
-**업로드 원본은 사건과 같은 기간 보관합니다** (`case.purge_after`, 기본 90일).
+**업로드 원본은 사건과 같은 기간 보관합니다** (`case.purge_after`, 마지막 활동일부터 180일).
 
 즉시 파기하면 저장 공간과 유출 위험이 줄지만, **추출 오류를 되돌릴 수 없습니다.** 전사가 잘못됐거나 판독이 틀렸을 때 원본이 없으면 다시 뽑을 수 없고, 사용자에게 재업로드를 요구해야 합니다. 충격 상태의 사용자에게 그건 큰 부담입니다.
 
@@ -114,27 +155,27 @@ CREATE TABLE evidence (
 
 ```sql
 CREATE TABLE case_channel (
-  case_channel_id BIGINT       NOT NULL AUTO_INCREMENT,
+  case_channel_id BIGINT       GENERATED BY DEFAULT AS IDENTITY,
   case_id         CHAR(26)     NOT NULL,
-  channel_id      VARCHAR(32)  NOT NULL
-                               COMMENT 'CH-bank | CH-neobank | CH-securities |
-                                        CH-easypay | CH-crypto | CH-facetoface |
-                                        CH-giftcard | CH-carrier',
-  org_id          VARCHAR(32)  NULL
-                               COMMENT '기관 식별자. org 테이블 논리 참조. §4.1',
-  org_name_raw    VARCHAR(100) NULL
-                               COMMENT '사용자·증거에 나온 표기 그대로.
-                                        토큰화 대상 아님 → ADR-011',
-  amount          DECIMAL(15,0) NULL COMMENT '원 단위',
-  occurred_at     DATETIME(3)  NULL,
-  confidence      DECIMAL(3,2) NULL COMMENT '판별 확신도 0.00~1.00',
-  source          ENUM('auto','user') NOT NULL COMMENT '자동 추출 / 문진 응답',
-  created_at      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  channel_id      VARCHAR(32)  NOT NULL,
+                  -- CH-bank | CH-neobank | CH-securities | CH-easypay
+                  -- CH-crypto | CH-facetoface | CH-giftcard | CH-carrier
+                  -- 목록 검증은 코드가 합니다. CHECK 로 굳히지 않는 이유는 §4 참조
+  org_id          VARCHAR(32)  NULL,       -- 기관 식별자. org 테이블 논리 참조. §4.1
+  org_name_raw    VARCHAR(100) NULL,       -- 사용자·증거에 나온 표기 그대로.
+                                           -- 토큰화 대상 아님 → ADR-011
+  amount          NUMERIC(15,0) NULL,      -- 원 단위
+  occurred_at     TIMESTAMPTZ(3) NULL,
+  confidence      NUMERIC(3,2) NULL,       -- 판별 확신도 0.00~1.00
+  source          TEXT         NOT NULL CHECK (source IN ('auto','user')),
+                                           -- 자동 추출 / 문진 응답
+  created_at      TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (case_channel_id),
-  KEY idx_case (case_id),
   CONSTRAINT fk_channel_case FOREIGN KEY (case_id)
-    REFERENCES `case`(case_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    REFERENCES "case"(case_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_case_channel_case ON case_channel (case_id);
 ```
 
 **한 사건에 여러 행을 허용합니다.** `case` 테이블에 유형 칼럼을 두지 않습니다.
@@ -170,26 +211,30 @@ CREATE TABLE case_channel (
 
 ```sql
 CREATE TABLE case_slot (
-  case_slot_id BIGINT       NOT NULL AUTO_INCREMENT,
-  case_id      CHAR(26)     NOT NULL,
-  slot_key     VARCHAR(64)  NOT NULL COMMENT '§5.1 목록의 이름만',
-  tier         ENUM('T0','T1','T2') NOT NULL,
-  value_masked TEXT         NULL COMMENT '토큰화된 값. 원문 금지',
-  value_type   ENUM('datetime','decimal','string','enum','bool') NOT NULL,
-  state        ENUM('empty','extracted','confirmed','unknown') NOT NULL
-                            DEFAULT 'empty',
-  source       ENUM('auto','user','system') NULL,
-  source_ref   CHAR(26)     NULL COMMENT '어느 evidence 에서 나왔는가',
-  confidence   DECIMAL(3,2) NULL,
-  created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-                            ON UPDATE CURRENT_TIMESTAMP(3),
+  case_slot_id BIGINT        GENERATED BY DEFAULT AS IDENTITY,
+  case_id      CHAR(26)      NOT NULL,
+  slot_key     VARCHAR(64)   NOT NULL,   -- §5.1 목록의 이름만
+  tier         TEXT          NOT NULL CHECK (tier IN ('T0','T1','T2')),
+  value_masked TEXT          NULL,       -- 토큰화된 값. 원문 금지
+  value_type   TEXT          NOT NULL
+               CHECK (value_type IN ('datetime','decimal','string','enum','bool')),
+  state        TEXT          NOT NULL DEFAULT 'empty'
+               CHECK (state IN ('empty','extracted','confirmed','unknown')),
+  source       TEXT          NULL CHECK (source IN ('auto','user','system')),
+  source_ref   CHAR(26)      NULL,       -- 어느 evidence 에서 나왔는가
+  confidence   NUMERIC(3,2)  NULL,
+  created_at   TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (case_slot_id),
-  UNIQUE KEY uk_case_slot (case_id, slot_key),
-  KEY idx_case_state (case_id, state),
+  CONSTRAINT uk_case_slot UNIQUE (case_id, slot_key),
   CONSTRAINT fk_slot_case FOREIGN KEY (case_id)
-    REFERENCES `case`(case_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    REFERENCES "case"(case_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_case_slot_state ON case_slot (case_id, state);
+
+CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 ```
 
 ### 5.1 슬롯 이름
@@ -244,34 +289,37 @@ stateDiagram-v2
 
 ```sql
 CREATE TABLE plan_step (
-  plan_step_id  CHAR(26)     NOT NULL,
-  case_id       CHAR(26)     NOT NULL,
-  seq           INT          NOT NULL COMMENT '표시 순서',
-  step_key      VARCHAR(64)  NOT NULL COMMENT 'KB 절차 항목 식별자',
-  title         VARCHAR(255) NOT NULL,
-  actor         ENUM('victim','police','bank','prosecutor','carrier','issuer')
-                             NOT NULL,
-  body          JSON         NOT NULL COMMENT '단계 본문(설명·연락처·채널)',
-  conditional   VARCHAR(255) NULL
-                             COMMENT '슈퍼셋 플랜의 조건 라벨.
-                                      예: "카카오페이로 보냈다면"',
-  state         ENUM('not_started','in_progress','done_verified','unconfirmed','skipped')
-                             NOT NULL DEFAULT 'not_started',
-  kb_entry_id   VARCHAR(64)  NOT NULL COMMENT '논리 참조',
-  kb_version    VARCHAR(32)  NOT NULL COMMENT '인용한 KB 버전',
-  source_url    VARCHAR(500) NOT NULL COMMENT '근거 링크. 비면 적재 거부',
-  effective_from DATE        NOT NULL COMMENT '시행일. 비면 적재 거부',
-  generated_at  DATETIME(3)  NOT NULL,
-  done_at       DATETIME(3)  NULL,
-  created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-                             ON UPDATE CURRENT_TIMESTAMP(3),
+  plan_step_id  CHAR(26)      NOT NULL,
+  case_id       CHAR(26)      NOT NULL,
+  seq           INT           NOT NULL,   -- 표시 순서
+  step_key      VARCHAR(64)   NOT NULL,   -- KB 절차 항목 식별자
+  title         VARCHAR(255)  NOT NULL,
+  actor         TEXT          NOT NULL
+                CHECK (actor IN ('victim','police','bank','prosecutor','carrier','issuer')),
+  body          JSONB         NOT NULL,   -- 단계 본문(설명·연락처·채널)
+  conditional   VARCHAR(255)  NULL,       -- 슈퍼셋 플랜의 조건 라벨.
+                                          -- 예: "카카오페이로 보냈다면"
+  state         TEXT          NOT NULL DEFAULT 'not_started'
+                CHECK (state IN ('not_started','in_progress','done_verified',
+                                 'unconfirmed','skipped')),
+  kb_entry_id   VARCHAR(64)   NOT NULL,   -- 논리 참조
+  kb_version    VARCHAR(32)   NOT NULL,   -- 인용한 KB 버전
+  source_url    VARCHAR(500)  NOT NULL,   -- 근거 링크. 비면 적재 거부
+  effective_from DATE         NOT NULL,   -- 시행일. 비면 적재 거부
+  generated_at  TIMESTAMPTZ(3) NOT NULL,
+  done_at       TIMESTAMPTZ(3) NULL,
+  created_at    TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (plan_step_id),
-  UNIQUE KEY uk_case_step (case_id, step_key),
-  KEY idx_case_state (case_id, state),
+  CONSTRAINT uk_case_step UNIQUE (case_id, step_key),
   CONSTRAINT fk_step_case FOREIGN KEY (case_id)
-    REFERENCES `case`(case_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    REFERENCES "case"(case_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_plan_step_state ON plan_step (case_id, state);
+
+CREATE TRIGGER trg_plan_step_touch BEFORE UPDATE ON plan_step
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 ```
 
 **`kb_entry_id`·`kb_version`·`source_url`·`effective_from`이 비면 저장을 거부합니다.**
@@ -298,22 +346,25 @@ CREATE TABLE plan_step (
 
 ```sql
 CREATE TABLE artifact (
-  artifact_id   CHAR(26)     NOT NULL,
-  plan_step_id  CHAR(26)     NOT NULL,
-  case_id       CHAR(26)     NOT NULL COMMENT '조회 편의를 위한 비정규화',
-  kind          ENUM('receipt_no','sms_capture','receipt_doc','other') NOT NULL,
-  value_masked  VARCHAR(255) NULL COMMENT '접수번호 등. 토큰화 후 저장',
-  object_key    VARCHAR(500) NULL COMMENT '업로드 캡처·서류의 객체 저장소 경로',
-  verify_level  ENUM('L1','L2','L3') NOT NULL,
-  verify_result ENUM('passed','failed','not_applicable') NOT NULL,
-  verify_detail JSON         NULL COMMENT '포맷 체크·OCR 대조 결과. PII 금지',
-  created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  artifact_id   CHAR(26)      NOT NULL,
+  plan_step_id  CHAR(26)      NOT NULL,
+  case_id       CHAR(26)      NOT NULL,   -- 조회 편의를 위한 비정규화
+  kind          TEXT          NOT NULL
+                CHECK (kind IN ('receipt_no','sms_capture','receipt_doc','other')),
+  value_masked  VARCHAR(255)  NULL,       -- 접수번호 등. 토큰화 후 저장
+  object_key    VARCHAR(500)  NULL,       -- 업로드 캡처·서류의 객체 저장소 경로
+  verify_level  TEXT          NOT NULL CHECK (verify_level IN ('L1','L2','L3')),
+  verify_result TEXT          NOT NULL
+                CHECK (verify_result IN ('passed','failed','not_applicable')),
+  verify_detail JSONB         NULL,       -- 포맷 체크·OCR 대조 결과. PII 금지
+  created_at    TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (artifact_id),
-  KEY idx_step (plan_step_id),
-  KEY idx_case (case_id),
   CONSTRAINT fk_artifact_step FOREIGN KEY (plan_step_id)
     REFERENCES plan_step(plan_step_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+
+CREATE INDEX idx_artifact_step ON artifact (plan_step_id);
+CREATE INDEX idx_artifact_case ON artifact (case_id);
 ```
 
 [05-completion-hook.md](08-14-completion-hook.md)의 검증 3단계와 대응합니다.
@@ -344,27 +395,30 @@ CREATE TABLE artifact (
 
 ```sql
 CREATE TABLE deadline (
-  deadline_id   CHAR(26)     NOT NULL,
-  case_id       CHAR(26)     NOT NULL,
-  plan_step_id  CHAR(26)     NULL COMMENT '어느 단계의 기한인가',
-  kind          ENUM('primary','grace','info') NOT NULL
-                             COMMENT '본 기한 / 유예 / 안내용(공고 2개월 등)',
-  due_at        DATETIME(3)  NOT NULL,
-  computed_from VARCHAR(64)  NOT NULL COMMENT '기산점이 된 slot_key 또는 artifact',
-  computed_at   DATETIME(3)  NOT NULL,
-  rule_snapshot JSON         NOT NULL
-                             COMMENT '계산에 쓴 KB 항목 전체 + 반영한 공휴일',
-  kb_version    VARCHAR(32)  NOT NULL,
-  status        ENUM('open','met','missed','void') NOT NULL DEFAULT 'open',
-  created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-                             ON UPDATE CURRENT_TIMESTAMP(3),
+  deadline_id   CHAR(26)      NOT NULL,
+  case_id       CHAR(26)      NOT NULL,
+  plan_step_id  CHAR(26)      NULL,       -- 어느 단계의 기한인가
+  kind          TEXT          NOT NULL CHECK (kind IN ('primary','grace','info')),
+                                          -- 본 기한 / 유예 / 안내용(공고 2개월 등)
+  due_at        TIMESTAMPTZ(3) NOT NULL,
+  computed_from VARCHAR(64)   NOT NULL,   -- 기산점이 된 slot_key 또는 artifact
+  computed_at   TIMESTAMPTZ(3) NOT NULL,
+  rule_snapshot JSONB         NOT NULL,   -- 계산에 쓴 KB 항목 전체 + 반영한 공휴일
+  kb_version    VARCHAR(32)   NOT NULL,
+  status        TEXT          NOT NULL DEFAULT 'open'
+                CHECK (status IN ('open','met','missed','void')),
+  created_at    TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (deadline_id),
-  KEY idx_case (case_id),
-  KEY idx_due (status, due_at),
   CONSTRAINT fk_deadline_case FOREIGN KEY (case_id)
-    REFERENCES `case`(case_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    REFERENCES "case"(case_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_deadline_case ON deadline (case_id);
+CREATE INDEX idx_deadline_due  ON deadline (status, due_at);
+
+CREATE TRIGGER trg_deadline_touch BEFORE UPDATE ON deadline
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 ```
 
 ### 8.0 기산점은 「피해구제를 신청한 날」입니다
@@ -433,46 +487,44 @@ KB는 릴리스로 교체되므로([07-kb-operations.md](08-14-kb-operations.md)
 
 ```sql
 CREATE TABLE message (
-  message_id     CHAR(26)     NOT NULL,
-  case_id        CHAR(26)     NOT NULL,
-  turn_no        INT          NOT NULL,
-  role           ENUM('user','assistant','system') NOT NULL,
-  content_masked MEDIUMTEXT   NOT NULL COMMENT '토큰화된 본문. 원문 금지',
-  masked_counts  JSON         NULL COMMENT '유형별 토큰화 건수',
-  kb_context_refs JSON        NULL
-                              COMMENT '이 턴 프롬프트에 넣은 KB 항목의 식별자만.
-                                       [{kb_entry_id, kb_version}, …]
-                                       본문을 저장하지 않는다 → §9.1',
-  citations      JSON         NULL
-                              COMMENT '문장이 가리킨 자료 목록. kb-/case-/t- 가 섞인다.
-                                       kb_entry_id 는 kb- 항목에만 → §9.3',
-  insufficient   TINYINT(1)   NOT NULL DEFAULT 0
-                              COMMENT '모델이 근거 없음을 선언했는가.
-                                       1 이면 슬롯 질문으로 넘어갔다 → §9.3',
-  prompt_masked  MEDIUMTEXT   NULL
-                              COMMENT '이 턴에 실제로 보낸 프롬프트 전문.
-                                       토큰화 상태. 관리자 조회용 → §9.2',
-  reasoning_masked TEXT       NULL
-                              COMMENT '모델이 낸 판단 근거. 토큰화 상태.
-                                       사용자 응답에 내보내지 않는다 → §9.2',
-  model_name     VARCHAR(64)  NULL,
-  token_in       INT          NULL,
-  token_out      INT          NULL,
-  latency_ms     INT          NULL,
-  created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  message_id     CHAR(26)      NOT NULL,
+  case_id        CHAR(26)      NOT NULL,
+  turn_no        INT           NOT NULL,
+  role           TEXT          NOT NULL
+                 CHECK (role IN ('user','assistant','system')),
+  content_masked TEXT          NOT NULL,  -- 토큰화된 본문. 원문 금지
+  masked_counts  JSONB         NULL,      -- 유형별 토큰화 건수
+  kb_context_refs JSONB        NULL,      -- 이 턴 프롬프트에 넣은 KB 항목의 식별자만.
+                                          -- [{kb_entry_id, kb_version}, …]
+                                          -- 본문을 저장하지 않는다 → §9.1
+  citations      JSONB         NULL,      -- 답변이 가리킨 자료 목록. kb-/case-/t- 가 섞인다.
+                                          -- kb_entry_id 는 kb- 항목에만 → §9.3
+  insufficient   BOOLEAN       NOT NULL DEFAULT FALSE,
+                                          -- 모델이 근거 없음을 선언했는가.
+                                          -- true 면 슬롯 질문으로 넘어갔다 → §9.3
+  prompt_masked  TEXT          NULL,      -- 이 턴에 실제로 보낸 프롬프트 전문.
+                                          -- 토큰화 상태. 관리자 조회용 → §9.2
+  reasoning_masked TEXT        NULL,      -- 모델이 낸 판단 근거. 토큰화 상태.
+                                          -- 사용자 응답에 내보내지 않는다 → §9.2
+  model_name     VARCHAR(64)   NULL,
+  token_in       INT           NULL,
+  token_out      INT           NULL,
+  latency_ms     INT           NULL,
+  created_at     TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (message_id),
-  UNIQUE KEY uk_case_turn (case_id, turn_no, role),
-  KEY idx_case (case_id, created_at),
+  CONSTRAINT uk_case_turn UNIQUE (case_id, turn_no, role),
   CONSTRAINT fk_message_case FOREIGN KEY (case_id)
-    REFERENCES `case`(case_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    REFERENCES "case"(case_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_message_case ON message (case_id, created_at);
 ```
 
 **`content_masked`에 `pii-tokenizer` 를 통과한 문자열만 저장합니다.** 사용자가 채팅창에 계좌번호를 그대로 치는 일이 흔합니다.
 
 **`citations`에 저장하는 것은 「이 답변이 무엇을 보고 쓰였는가」입니다** → §9.3.
 
-**`insufficient` 가 1인 턴은 답변 대신 슬롯 질문이 나간 턴입니다.** 관리자 조회에서 「왜 이 질문이 나갔는가」를 설명하는 값이라 응답과 함께 남깁니다.
+**`insufficient` 가 `true` 인 턴은 답변 대신 슬롯 질문이 나간 턴입니다.** 관리자 조회에서 「왜 이 질문이 나갔는가」를 설명하는 값이라 응답과 함께 남깁니다.
 
 ### 9.1 프롬프트에 넣은 KB 항목은 식별자만 저장합니다
 
@@ -561,7 +613,7 @@ CREATE TABLE message (
 
 **조건부 저장을 안 하는 이유**는 조사해야 할 응답이 어느 것일지 미리 알 수 없기 때문입니다. "이상한 답이 나왔다"는 보고는 항상 사후에 옵니다. 그때 그 턴만 저장이 꺼져 있으면 조사할 수 없습니다.
 
-**크기는 감수합니다.** 프롬프트 전문이 대화 이력에서 가장 큰 칼럼이 되지만, 사건 보관 기간이 90일이고 파기 시 함께 지워지므로 무한히 쌓이지 않습니다.
+**크기는 감수합니다.** 프롬프트 전문이 대화 이력에서 가장 큰 칼럼이 되지만, 사건이 `purge_after`에 파기될 때 함께 지워지므로 무한히 쌓이지 않습니다.
 
 ### 9.3 `citations` 와 `insufficient`
 
@@ -595,14 +647,14 @@ CREATE TABLE message (
 
 **그래서 `kb_context_refs`는 그대로 둡니다.** 저장은 `kb_entry_id`와 `kb_version`으로 합니다 — **번호를 저장하면 나중에 감사 로그를 읽을 때 그 번호가 무엇이었는지 복원할 수 없습니다.**
 
-#### `insufficient`가 1인 턴
+#### `insufficient`가 `true`인 턴
 
 **모델이 답할 근거를 못 찾았다고 선언한 턴입니다.** 이때는 답변 대신 슬롯 질문이 나갑니다 → [11-chat-context.md](08-16-chat-context.md) §6.3.
 
 ```
-insufficient: 1  →  content_masked 에 안내 한 줄
-                    citations 비어 있음
-                    슬롯 질문이 함께 나감
+insufficient: true  →  content_masked 에 안내 한 줄
+                       citations 비어 있음
+                       슬롯 질문이 함께 나감
 ```
 
 **에러가 아니라 정상 응답(200)입니다.** `CLAUDE.md` 불변 규칙 5가 "모름은 실패가 아니다"이고, 충격 상태의 사용자에게 "안내를 만들지 못했습니다"를 띄우면 **무엇을 더 알려줘야 하는지 모른 채 막힙니다.**
@@ -615,19 +667,25 @@ insufficient: 1  →  content_masked 에 안내 한 줄
 
 ```sql
 CREATE TABLE audit_log (
-  audit_id    CHAR(26)     NOT NULL,
-  case_id     CHAR(26)     NULL,
-  event_type  VARCHAR(64)  NOT NULL,
-  actor_type  ENUM('user','system','model') NOT NULL,
-  detail      JSON         NOT NULL COMMENT 'PII 금지. 원문도 토큰도 넣지 않는다',
-  prev_hash   CHAR(64)     NULL,
-  hash        CHAR(64)     NOT NULL COMMENT 'SHA-256',
-  created_at  DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (audit_id),
-  KEY idx_case_time (case_id, created_at),
-  KEY idx_type_time (event_type, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  audit_id    CHAR(26)      NOT NULL,
+  case_id     CHAR(26)      NULL,
+  event_type  VARCHAR(64)   NOT NULL,
+  actor_type  TEXT          NOT NULL
+              CHECK (actor_type IN ('user','system','model')),
+  detail      JSONB         NOT NULL,   -- PII 금지. 원문도 토큰도 넣지 않는다
+  prev_hash   CHAR(64)      NULL,
+  hash        CHAR(64)      NOT NULL,   -- SHA-256
+  created_at  TIMESTAMPTZ(6) NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY (audit_id)
+);
+
+CREATE INDEX idx_audit_case_time ON audit_log (case_id, created_at);
+CREATE INDEX idx_audit_type_time ON audit_log (event_type, created_at);
 ```
+
+> **`created_at` 기본값만 `clock_timestamp()` 입니다.** `now()` 는 트랜잭션 시작 시각이라
+> 한 트랜잭션에서 여러 건을 남기면 시각이 전부 같아집니다. 감사 로그는 **해시 사슬의 순서**가
+> 근거라 기록 시점이 구분돼야 합니다.
 
 `04-pii-boundary.md`가 "모든 LLM 호출을 감사 로그(토큰화 텍스트 기준)로 기록"하고 "금융보안원 생성형 AI 가이드라인의 통제 항목에 매핑"한다고 정했습니다.
 
@@ -670,30 +728,30 @@ CREATE TABLE audit_log (
 
 ```sql
 CREATE TABLE kb_entry (
-  kb_entry_id    VARCHAR(64)  NOT NULL COMMENT '이 KB 항목의 식별자',
-  kb_version     VARCHAR(32)  NOT NULL,
-  step_key       VARCHAR(64)  NOT NULL
-                              COMMENT '절차 단계 식별자. 우선순위 병합의 키.
-                                       plan_step.step_key 와 같은 값',
-  step_seq       INT          NOT NULL
-                              COMMENT '기본 표시 순서. 유형마다 다를 수 있다.
-                                       CH-facetoface 는 순서가 역전된다',
-  channel_id     VARCHAR(32)  NULL COMMENT 'CH-xxx. NULL 이면 전 유형 공통',
-  org_id         VARCHAR(32)  NULL COMMENT '기관 전용 항목. NULL 이면 유형 기본',
-  track          ENUM('victim','frozen_account') NOT NULL DEFAULT 'victim',
-  title          VARCHAR(255) NOT NULL,
-  body           JSON         NOT NULL,
-  legal_basis    VARCHAR(500) NOT NULL,
-  source_url     VARCHAR(500) NOT NULL,
-  effective_from DATE         NOT NULL,
-  effective_until DATE        NULL COMMENT 'NULL 이면 현재 유효',
-  verified_at    DATE         NOT NULL COMMENT 'Staleness Guard 90일 기준',
-  released_at    DATETIME(3)  NOT NULL,
-  PRIMARY KEY (kb_entry_id, kb_version),
-  KEY idx_lookup (track, channel_id, org_id, step_key,
-                  effective_from, effective_until),
-  KEY idx_verified (verified_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  kb_entry_id    VARCHAR(64)   NOT NULL,  -- 이 KB 항목의 식별자
+  kb_version     VARCHAR(32)   NOT NULL,
+  step_key       VARCHAR(64)   NOT NULL,  -- 절차 단계 식별자. 우선순위 병합의 키.
+                                          -- plan_step.step_key 와 같은 값
+  step_seq       INT           NOT NULL,  -- 기본 표시 순서. 유형마다 다를 수 있다.
+                                          -- CH-facetoface 는 순서가 역전된다
+  channel_id     VARCHAR(32)   NULL,      -- CH-xxx. NULL 이면 전 유형 공통
+  org_id         VARCHAR(32)   NULL,      -- 기관 전용 항목. NULL 이면 유형 기본
+  track          TEXT          NOT NULL DEFAULT 'victim'
+                 CHECK (track IN ('victim','frozen_account')),
+  title          VARCHAR(255)  NOT NULL,
+  body           JSONB         NOT NULL,
+  legal_basis    VARCHAR(500)  NOT NULL,
+  source_url     VARCHAR(500)  NOT NULL,
+  effective_from DATE          NOT NULL,
+  effective_until DATE         NULL,      -- NULL 이면 현재 유효
+  verified_at    DATE          NOT NULL,  -- Staleness Guard 90일 기준
+  released_at    TIMESTAMPTZ(3) NOT NULL,
+  PRIMARY KEY (kb_entry_id, kb_version)
+);
+
+CREATE INDEX idx_kb_entry_lookup ON kb_entry
+  (track, channel_id, org_id, step_key, effective_from, effective_until);
+CREATE INDEX idx_kb_entry_verified ON kb_entry (verified_at);
 ```
 
 **이 테이블은 KB 릴리스 파이프라인으로만 갱신됩니다.** 코드에서 직접 쓰지 않습니다 → [07-kb-operations.md](08-14-kb-operations.md) 원칙 4.
@@ -702,17 +760,18 @@ CREATE TABLE kb_entry (
 
 ```sql
 CREATE TABLE org (
-  org_id      VARCHAR(32)  NOT NULL COMMENT '예: kb-bank, kakaopay, upbit',
-  channel_id  VARCHAR(32)  NOT NULL COMMENT '이 기관이 속한 유형',
-  name        VARCHAR(100) NOT NULL COMMENT '정식 표기. 예: 국민은행',
-  aliases     JSON         NOT NULL COMMENT '별칭 목록. 매칭에 쓴다',
-  contact     JSON         NOT NULL COMMENT '콜센터·앱 경로·영업점 안내',
-  source_url  VARCHAR(500) NOT NULL COMMENT '연락처 근거. 비면 적재 거부',
-  verified_at DATE         NOT NULL,
-  kb_version  VARCHAR(32)  NOT NULL,
-  PRIMARY KEY (org_id, kb_version),
-  KEY idx_channel (channel_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  org_id      VARCHAR(32)   NOT NULL,   -- 예: kb-bank, kakaopay, upbit
+  channel_id  VARCHAR(32)   NOT NULL,   -- 이 기관이 속한 유형
+  name        VARCHAR(100)  NOT NULL,   -- 정식 표기. 예: 국민은행
+  aliases     JSONB         NOT NULL,   -- 별칭 목록. 매칭에 쓴다
+  contact     JSONB         NOT NULL,   -- 콜센터·앱 경로·영업점 안내
+  source_url  VARCHAR(500)  NOT NULL,   -- 연락처 근거. 비면 적재 거부
+  verified_at DATE          NOT NULL,
+  kb_version  VARCHAR(32)   NOT NULL,
+  PRIMARY KEY (org_id, kb_version)
+);
+
+CREATE INDEX idx_org_channel ON org (channel_id);
 ```
 
 ```json
@@ -1048,21 +1107,21 @@ RSS ──────┤    (원문 그대로)      (검수 큐)
 
 ```sql
 CREATE TABLE source_snapshot (
-  snapshot_id   CHAR(26)     NOT NULL,
-  source_type   ENUM('law','pre_notice','press','manual') NOT NULL,
-  source_key    VARCHAR(255) NOT NULL
-                             COMMENT 'law: 법령ID:조문번호:조문가지번호
-                                      press: 게시글 URL
-                                      manual: org_id:field',
-  fetched_at    DATETIME(3)  NOT NULL,
-  content       MEDIUMTEXT   NOT NULL COMMENT '원문 그대로',
-  content_hash  CHAR(64)     NOT NULL COMMENT 'SHA-256',
-  meta          JSON         NOT NULL
-                             COMMENT '시행일·공포일·부처·게시일 등',
+  snapshot_id   CHAR(26)      NOT NULL,
+  source_type   TEXT          NOT NULL
+                CHECK (source_type IN ('law','pre_notice','press','manual')),
+  source_key    VARCHAR(255)  NOT NULL,  -- law:    법령ID:조문번호:조문가지번호
+                                         -- press:  게시글 URL
+                                         -- manual: org_id:field
+  fetched_at    TIMESTAMPTZ(3) NOT NULL,
+  content       TEXT          NOT NULL,  -- 원문 그대로
+  content_hash  CHAR(64)      NOT NULL,  -- SHA-256
+  meta          JSONB         NOT NULL,  -- 시행일·공포일·부처·게시일 등
   PRIMARY KEY (snapshot_id),
-  UNIQUE KEY uk_source_hash (source_key, content_hash),
-  KEY idx_source_time (source_key, fetched_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  CONSTRAINT uk_source_hash UNIQUE (source_key, content_hash)
+);
+
+CREATE INDEX idx_source_snapshot_time ON source_snapshot (source_key, fetched_at);
 ```
 
 **`uk_source_hash`가 변경 감지 장치입니다.** 같은 내용을 다시 가져오면 삽입이 실패하고, **삽입에 성공하면 그것이 곧 변경입니다.** 별도 비교 로직이 없습니다.
@@ -1080,26 +1139,26 @@ CREATE TABLE source_snapshot (
 
 ```sql
 CREATE TABLE source_change (
-  change_id       CHAR(26)     NOT NULL,
-  source_key      VARCHAR(255) NOT NULL,
-  snapshot_before CHAR(26)     NULL COMMENT '최초 수집이면 NULL',
-  snapshot_after  CHAR(26)     NOT NULL,
-  detected_at     DATETIME(3)  NOT NULL,
-  dedupe_key      VARCHAR(255) NULL
-                               COMMENT '같은 제도 변경을 묶는 키.
-                                        예: law:011359:3 · topic:crypto-relief-202610',
-  impact          JSON         NULL
-                               COMMENT 'LLM 영향 분석: 어느 kb_entry 에 영향? 확신도? 개정 초안',
-  review_status   ENUM('pending','approved','rejected','deferred')
-                               NOT NULL DEFAULT 'pending',
-  reviewed_by     VARCHAR(64)  NULL,
-  reviewed_at     DATETIME(3)  NULL,
-  review_note     TEXT         NULL,
-  released_version VARCHAR(32) NULL COMMENT '승인 후 반영된 KB 버전',
-  PRIMARY KEY (change_id),
-  KEY idx_status (review_status, detected_at),
-  KEY idx_dedupe (dedupe_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  change_id       CHAR(26)      NOT NULL,
+  source_key      VARCHAR(255)  NOT NULL,
+  snapshot_before CHAR(26)      NULL,     -- 최초 수집이면 NULL
+  snapshot_after  CHAR(26)      NOT NULL,
+  detected_at     TIMESTAMPTZ(3) NOT NULL,
+  dedupe_key      VARCHAR(255)  NULL,     -- 같은 제도 변경을 묶는 키.
+                                          -- 예: law:011359:3 · topic:crypto-relief-202610
+  impact          JSONB         NULL,     -- LLM 영향 분석:
+                                          -- 어느 kb_entry 에 영향? 확신도? 개정 초안
+  review_status   TEXT          NOT NULL DEFAULT 'pending'
+                  CHECK (review_status IN ('pending','approved','rejected','deferred')),
+  reviewed_by     VARCHAR(64)   NULL,
+  reviewed_at     TIMESTAMPTZ(3) NULL,
+  review_note     TEXT          NULL,
+  released_version VARCHAR(32)  NULL,     -- 승인 후 반영된 KB 버전
+  PRIMARY KEY (change_id)
+);
+
+CREATE INDEX idx_source_change_status ON source_change (review_status, detected_at);
+CREATE INDEX idx_source_change_dedupe ON source_change (dedupe_key);
 ```
 
 **`review_status = 'pending'`인 행이 사람 검수 큐입니다.** `approved` 없이 `kb_entry`에 반영하지 않습니다.
@@ -1112,16 +1171,17 @@ CREATE TABLE source_change (
 
 ```sql
 CREATE TABLE source_registry (
-  source_key_prefix VARCHAR(255) NOT NULL
-                                 COMMENT '예: law.go.kr/DRF · fsc.go.kr/no010101',
-  source_type       ENUM('law','pre_notice','press','manual') NOT NULL,
-  watch_method      ENUM('api','rss','board','human') NOT NULL,
-  interval_days     INT          NULL COMMENT 'human 이면 NULL',
-  last_success_at   DATETIME(3)  NULL,
-  last_seen_date    DATE         NULL COMMENT 'board: 마지막으로 수집한 게시물 날짜',
+  source_key_prefix VARCHAR(255) NOT NULL, -- 예: law.go.kr/DRF · fsc.go.kr/no010101
+  source_type       TEXT         NOT NULL
+                    CHECK (source_type IN ('law','pre_notice','press','manual')),
+  watch_method      TEXT         NOT NULL
+                    CHECK (watch_method IN ('api','rss','board','human')),
+  interval_days     INT          NULL,     -- human 이면 NULL
+  last_success_at   TIMESTAMPTZ(3) NULL,
+  last_seen_date    DATE         NULL,     -- board: 마지막으로 수집한 게시물 날짜
   last_error        VARCHAR(500) NULL,
   PRIMARY KEY (source_key_prefix)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 ```
 
 **`last_success_at`이 `interval_days`의 두 배(하루 1회면 2일)를 넘으면 경고합니다.** 조용히 멈춘 수집기가 가장 위험합니다 — 아무 일도 안 일어나므로 아무도 모릅니다.

@@ -1,9 +1,9 @@
-# 0005. 기관명은 토큰화하지 않고, 복원 가능 위치는 코드가 지정한다
+# ADR-011. 기관명은 토큰화하지 않고, 복원 가능 위치는 코드가 지정한다
 
 - 상태: **채택**
 - 날짜: 2026-08-16
 - 결정: @kth9245
-- 관련: [ADR-011](011-pii-boundary-hardening.md) · `spec/common/08-14-pii-boundary.md` · `spec/backend/08-14-channel-matrix.md`
+- 관련: `spec/common/08-14-pii-boundary.md` · `spec/backend/08-14-channel-matrix.md`
 
 ## 결정
 

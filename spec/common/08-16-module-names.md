@@ -182,7 +182,7 @@
 | --- | --- |
 | ID 접두 | `CH-bank` · `CH-easypay` |
 | 칼럼명 | `case_channel.channel_id` · `kb_entry.channel_id` · `org.channel_id` |
-| 테이블·인덱스 | `case_channel` · `idx_channel` |
+| 테이블·인덱스 | `case_channel` · `idx_case_channel_case` · `idx_org_channel` |
 | **슬롯 키** | `channel` (T1 슬롯) |
 | 감사 로그 페이로드 | `{"slot_key":"channel"}` |
 | 파일명 | `spec/backend/08-14-channel-matrix.md` |

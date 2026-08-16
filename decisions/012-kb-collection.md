@@ -1,9 +1,9 @@
-# 0006. 절차 지식을 4개 소스에서 하루 1회 수집해 조문 단위로 저장한다
+# ADR-012. 절차 지식을 4개 소스에서 하루 1회 수집해 조문 단위로 저장한다
 
 - 상태: **채택**
 - 날짜: 2026-08-16
 - 결정: @kth9245
-- 관련: [ADR-012](012-kb-collection.md) · `spec/backend/08-14-kb-operations.md` · `spec/backend/08-16-data-model.md` §12
+- 관련: `spec/backend/08-14-kb-operations.md` · `spec/backend/08-16-data-model.md` §12
 
 ## 결정
 

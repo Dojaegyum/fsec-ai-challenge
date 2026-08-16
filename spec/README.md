@@ -80,7 +80,7 @@ spec/backend/08-14-channel-matrix.md
 | 포지셔닝 전환 — 112 이후를 맡는 사건 관리, 상담 종료 후 링크 유입 | [screens](frontend/08-14-screens.md) 전반 | **미반영** |
 | 데이터: 한국어 공개 데이터 0건 → 합성 불가피 | [glossary](common/08-14-glossary.md) | **미반영** |
 | ~~보존 기간 충돌~~ | [pii-boundary](common/08-14-pii-boundary.md) [data-model](backend/08-16-data-model.md) | **해소됨** — [ADR-010](../decisions/010-case-store.md) 으로 통일, [ADR-016](../decisions/016-retention-and-datastore.md) 으로 **마지막 활동일부터 180일** 확정 (경로 10종 실측) |
-| 저장소 제품 — `Vercel Postgres` 는 폐지된 제품 (2024-12 → Neon, 서울 리전 없음) | [ADR-016](../decisions/016-retention-and-datastore.md) | **Supabase(서울)로 결정.** `backend/08-16-data-model.md` 의 90일 표기 반영 남음 |
+| ~~저장소 제품~~ — `Vercel Postgres` 는 폐지된 제품 (2024-12 → Neon, 서울 리전 없음) | [ADR-016](../decisions/016-retention-and-datastore.md) | **해소됨** — Supabase(서울)로 결정하고 `ARCHITECTURE.md`·`data-model`·`api` 반영 완료. **볼트 제품만 미결** |
 
 ## 이 폴더의 규칙
 

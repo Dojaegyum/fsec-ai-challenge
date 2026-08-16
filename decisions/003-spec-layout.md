@@ -1,4 +1,4 @@
-# 0003. spec을 common·backend·frontend로 나누고 파일명을 `MM-dd-{title}.md`로 한다
+# ADR-003. spec을 common·backend·frontend로 나누고 파일명을 `MM-dd-{title}.md`로 한다
 
 - 상태: **채택**
 - 날짜: 2026-08-16
