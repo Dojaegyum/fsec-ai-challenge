@@ -1,0 +1,49 @@
+name: module-sync
+
+# 모듈 이름·스키마의 정본과 실제(코드·연결구조·마이그레이션)가 어긋나면 막습니다.
+# 검사기는 스킬이 쓰는 것과 같은 스크립트입니다 — 사람이 손으로 돌리는 명령과 CI 가 같아야
+# 게이트가 문지기가 아니라 안전망이 됩니다.
+#   python .claude/skills/module-inventory/scripts/inventory.py --check
+# 근거: ADR-019 · ADR-018 · RFC-001 「CI가 강제합니다」
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 비교 기준 정하기
+        id: refs
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE=""
+          elif ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE=""
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+
+      - name: 정본·코드·마이그레이션이 어긋나지 않았는지
+        run: |
+          ARGS="--check"
+          if [ -n "${{ steps.refs.outputs.base }}" ]; then
+            ARGS="$ARGS --base ${{ steps.refs.outputs.base }} --head ${{ steps.refs.outputs.head }}"
+          fi
+          python .claude/skills/module-inventory/scripts/inventory.py $ARGS

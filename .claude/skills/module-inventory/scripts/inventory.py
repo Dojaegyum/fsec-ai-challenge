@@ -223,7 +223,86 @@ def render_columns(tables, name, find=None):
 
 # ── 점검 ────────────────────────────────────────────────────────────
 
-def check(groups, tables):
+def _git(*args):
+    """git 을 조용히 부른다. 실패하면 None."""
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", REPO] + list(args),
+                             capture_output=True, text=True, encoding="utf-8")
+    except OSError:
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
+def check_code(known):
+    """코드 폴더가 정본의 모듈 이름을 벗어나지 않는지.
+
+    src/modules/ 가 없으면 아직 구현 전이라 건너뛴다 — 조건이 갖춰지면 저절로 켜진다.
+    """
+    root = os.path.join(REPO, "src", "modules")
+    if not os.path.isdir(root):
+        print("   · src/modules/ 가 아직 없습니다 — 구현 착수 전이라 건너뜁니다")
+        return 0
+
+    dirs = sorted(d for d in os.listdir(root)
+                  if os.path.isdir(os.path.join(root, d)) and not d.startswith("."))
+    if not dirs:
+        print("   · src/modules/ 가 비어 있습니다")
+        return 0
+
+    stray = [d for d in dirs if d not in known]
+    if stray:
+        print("   ✗ 정본에 없는 이름으로 만들어진 모듈: %s" % ", ".join(stray))
+        print("     → 이름을 지어 쓰지 말고 spec/common/08-16-module-names.md 에 먼저 추가하세요")
+        return 1
+    print("   ✓ %d개 전부 정본에 있는 이름 (%s)" % (len(dirs), ", ".join(dirs)))
+    return 0
+
+
+def check_migration(base, head):
+    """DDL 이 바뀌었으면 마이그레이션이 함께 왔는지.
+
+    src/migrations/ 가 없으면 아직 마이그레이션 체계를 안 정한 것이라 건너뛴다.
+    지금 켜면 스키마를 다듬는 커밋이 전부 막히고, 그러면 게이트를 꺼버리게 된다.
+    폴더가 생기는 순간부터 저절로 켜진다.
+    """
+    if not os.path.isdir(os.path.join(REPO, "src", "migrations")):
+        print("   · src/migrations/ 가 아직 없습니다 — 마이그레이션 체계 도입 전이라 건너뜁니다")
+        return 0
+    if not base or not head:
+        print("   · --base/--head 가 없어 건너뜁니다 (CI 에서만 검사)")
+        return 0
+
+    diff = _git("diff", "--unified=0", base, head, "--",
+                "spec/backend/08-16-data-model.md")
+    if diff is None:
+        print("   · 비교 기준을 찾을 수 없어 건너뜁니다")
+        return 0
+
+    # 바뀐 줄 중 DDL 로 보이는 것만 — 산문 수정에 마이그레이션을 요구하면 안 된다
+    ddl_words = re.compile(
+        r"^[+-](?!\+\+|--)\s*(CREATE TABLE|ALTER TABLE|DROP TABLE|[a-z_]+\s+"
+        r"(TEXT|CHAR|VARCHAR|BIGINT|INT|NUMERIC|DATE|TIMESTAMPTZ|BOOLEAN|JSONB)\b)", re.I)
+    changed = [l for l in diff.splitlines() if ddl_words.match(l)]
+    if not changed:
+        print("   ✓ 스키마(DDL) 변경 없음")
+        return 0
+
+    touched = _git("diff", "--name-only", base, head, "--", "src/migrations/") or ""
+    if touched.strip():
+        print("   ✓ DDL 이 바뀌었고 마이그레이션도 함께 왔습니다")
+        for f in touched.split():
+            print("        %s" % f)
+        return 0
+
+    print("   ✗ DDL 이 바뀌었는데 src/migrations/ 에 아무것도 없습니다 (%d줄 변경)" % len(changed))
+    for l in changed[:5]:
+        print("        %s" % l.strip()[:90])
+    print("     → 스키마를 바꾸면 이미 만들어진 DB 를 옮길 방법도 같이 와야 합니다")
+    return 1
+
+
+def check(groups, tables, base=None, head=None):
     known = {m["name"] for g in groups for m in g["modules"]}
     problems = 0
 
@@ -278,20 +357,43 @@ def check(groups, tables):
         cols = sum(len(t["columns"]) for t in tables)
         print("   ✓ 테이블 %d개 · 컬럼 %d개" % (len(tables), cols))
 
+    print("\n4) 코드가 정본의 모듈 이름을 벗어나지 않았는지")
+    problems += check_code(known)
+
+    print("\n5) 스키마가 바뀌었으면 마이그레이션이 함께 왔는지")
+    problems += check_migration(base, head)
+
     print("\n%s" % ("문제 없음" if not problems else "확인이 필요한 항목 %d건" % problems))
     return problems
 
 
 def main():
     ap = argparse.ArgumentParser(
-        description="FinAlly 인벤토리 — 모듈과 DB 스키마를 정본에서 읽어 표로 낸다")
-    ap.add_argument("--modules", action="store_true", help="모듈만")
-    ap.add_argument("--db", action="store_true", help="테이블 목록")
-    ap.add_argument("--table", metavar="NAME", help="그 테이블의 컬럼·타입·제약·정의")
-    ap.add_argument("--layer", help="모듈을 층으로 좁힘 (1·2·3·4·없음)")
+        description="FinAlly 인벤토리 — 모듈과 DB 스키마를 정본에서 읽어 표로 낸다",
+        epilog="층은 번호가 아니라 '언제 도는가'로 부릅니다. --chat 은 층 2 입니다.")
+
+    layer = ap.add_mutually_exclusive_group()
+    layer.add_argument("--intake", dest="layer", action="store_const", const="1",
+                       help="증거가 들어올 때 도는 모듈 (층 1)")
+    layer.add_argument("--chat", dest="layer", action="store_const", const="2",
+                       help="사용자가 말할 때마다 도는 모듈 (층 2)")
+    layer.add_argument("--plan", dest="layer", action="store_const", const="3",
+                       help="사건 상태가 바뀔 때 도는 모듈 (층 3)")
+    layer.add_argument("--kb", dest="layer", action="store_const", const="4",
+                       help="하루 1회 도는 모듈 (층 4)")
+    layer.add_argument("--always", dest="layer", action="store_const", const="없음",
+                       help="어느 층에도 안 묶인 모듈")
+    layer.add_argument("--layer", dest="layer", help=argparse.SUPPRESS)  # 층 번호로도 부를 수 있게
+
+    ap.add_argument("what", nargs="?", choices=["module", "table"],
+                    help="module 이면 모듈만, table 이면 소스 DB 만. 생략하면 둘 다")
+    ap.add_argument("name", nargs="?",
+                    help="table 뒤에 이름을 주면 그 테이블의 컬럼·타입·제약·허용값")
     ap.add_argument("--find", metavar="Q", help="모듈·컬럼에서 검색")
     ap.add_argument("--names", action="store_true", help="모듈 이름만 한 줄씩")
-    ap.add_argument("--check", action="store_true", help="옛 표기·연결구조 누락·파싱 점검")
+    ap.add_argument("--check", action="store_true", help="정본·연결구조·코드 동기화 점검")
+    ap.add_argument("--base", help="비교 기준 커밋 (CI 에서 마이그레이션 동반 검사에 씀)")
+    ap.add_argument("--head", help="비교 대상 커밋")
     args = ap.parse_args()
 
     groups, tables = parse_modules(), parse_schema()
@@ -299,20 +401,23 @@ def main():
         sys.exit("모듈 정본에서 하나도 못 읽었습니다: %s" % MODULE_SRC)
 
     if args.check:
-        sys.exit(1 if check(groups, tables) else 0)
+        sys.exit(1 if check(groups, tables, base=args.base, head=args.head) else 0)
 
-    if args.table:
-        render_columns(tables, args.table, find=args.find)
+    # table <이름> — 그 테이블만
+    if args.what == "table" and args.name:
+        render_columns(tables, args.name, find=args.find)
         return
 
-    want_mod = args.modules or args.layer or args.names or not args.db
-    want_db = args.db or not (args.modules or args.layer or args.names)
+    want_module = args.what in (None, "module") or args.layer is not None or args.names
+    want_table = args.what in (None, "table") and not args.names
+    if args.what == "module":
+        want_table = False
 
     found = 0
-    if want_mod:
+    if want_module:
         found += render_modules(groups, only=args.layer, find=args.find,
                                 names_only=args.names)
-    if want_db and not args.names:
+    if want_table:
         found += render_tables(tables, find=args.find)
 
     if args.find and not found:

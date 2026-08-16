@@ -38,6 +38,52 @@
 
 새 문서를 만들기 전에 [RFC-001 저장소 구조 규약](rfc/001-repo-structure.md)의 결정 트리를 보세요.
 
+## 개발 도구
+
+설치가 필요 없습니다 — 전부 파이썬 표준 라이브러리만 씁니다. **저장소 루트에서** 실행하세요.
+
+### 인벤토리 — 모듈과 스키마를 물어보는 곳
+
+정본을 읽어 그때그때 렌더링합니다. 목록을 따로 들고 있지 않아 **정본이 바뀌면 출력도 바뀝니다**.
+
+```bash
+I=".claude/skills/module-inventory/scripts/inventory.py"
+
+python $I                    # 모듈 전체 + 테이블 목록
+python $I module             # 모듈만
+python $I table              # 소스 DB 테이블 목록
+python $I table case_slot    # 그 테이블의 컬럼·타입·제약·허용값
+python $I --find slot        # 모듈·컬럼 동시 검색
+python $I --check            # 정본과 실제가 어긋났는지 점검
+```
+
+모듈은 **층으로 좁힙니다.** 층은 번호가 아니라 **"언제 도는가"**로 부릅니다.
+
+| 옵션 | 언제 도는 모듈인가 |
+| --- | --- |
+| `--intake` | 증거가 들어올 때 (층 1) |
+| `--chat` | 사용자가 말할 때마다 (층 2) |
+| `--plan` | 사건 상태가 바뀔 때 (층 3) |
+| `--kb` | 하루 1회 (층 4) |
+| `--always` | 어느 층에도 안 묶인 것 |
+
+Claude Code에서는 `/module-inventory`로도 부릅니다 → [ADR-018](decisions/018-inventory-skill.md).
+
+### 검사기 — 커밋 전에 돌려보는 것
+
+CI가 돌리는 것과 **같은 명령**입니다. 게이트를 문지기가 아니라 안전망으로 쓰려면 먼저 돌려보세요.
+
+```bash
+python .github/scripts/doc-integrity.py    # 링크·ID·목차·ADR 불변성
+python $I --check                          # 모듈 이름·연결구조·코드·마이그레이션 동기화
+```
+
+| 게이트 | 무엇을 막나 | 근거 |
+| --- | --- | --- |
+| `repo-structure-gate` | 폴더가 바뀌었는데 `rfc/` 수정이 없음 | [ADR-008](decisions/008-structure-gate-ci.md) |
+| `doc-integrity` | 깨진 링크·없는 ID·목차 누락·ADR 사후 수정 | [ADR-017](decisions/017-doc-integrity-ci.md) |
+| `module-sync` | 정본에 없는 이름의 모듈 폴더, DDL 변경에 빠진 마이그레이션 | [ADR-019](decisions/019-module-code-sync.md) |
+
 ## 문서 인덱스
 
 **Markdown은 `docs/`, HTML 아티팩트는 `assets/artifacts/`** 입니다. 가르는 축은 읽는 비용이고,

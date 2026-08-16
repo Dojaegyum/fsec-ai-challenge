@@ -195,6 +195,14 @@ docs/research/06-경로별-실측조사.md
 
 - 패키지·폴더·슬러그는 `fin-ally`, 코드 식별자는 `finAlly`/`FinAlly` (→ [ADR-002](../decisions/002-project-name.md)).
 - `AGENTS.md`·`src/CLAUDE.md`는 create-next-app이 생성하고 `next dev`가 다시 씁니다. 지우지 마세요.
+- **도메인 모듈 코드는 `src/modules/{module-name}/`** 입니다. 폴더 이름이
+  [모듈 명칭](../spec/common/08-16-module-names.md)의 이름과 **글자 그대로 같아야** 합니다
+  (→ [ADR-019](../decisions/019-module-code-sync.md)).
+  - 새 모듈이 필요하면 **정본에 먼저 추가**하고 폴더를 만듭니다. 지어 쓰면 CI가 막습니다.
+  - 정본에 있는데 코드가 아직 없는 것은 정상입니다(구현 전).
+  - `src/modules/` **밖은 자유**입니다 — 공용 유틸·UI 컴포넌트·라우트는 모듈이 아닙니다.
+- **스키마를 바꾸면 `src/migrations/`가 함께 옵니다.** `spec/backend/08-16-data-model.md`의
+  DDL이 바뀐 변경에는 마이그레이션이 동반돼야 합니다. 산문만 고친 것은 해당하지 않습니다.
 
 ## 하지 않는 것
 
@@ -215,10 +223,11 @@ docs/research/06-경로별-실측조사.md
 
 ## CI가 강제합니다
 
-게이트는 둘입니다. **커밋 전에 로컬에서 먼저 돌려보세요** — CI는 문지기가 아니라 안전망입니다.
+게이트는 셋입니다. **커밋 전에 로컬에서 먼저 돌려보세요** — CI는 문지기가 아니라 안전망입니다.
 
 ```
 python .github/scripts/doc-integrity.py
+python .claude/skills/module-inventory/scripts/inventory.py --check
 ```
 
 ### 폴더 구조 (→ [ADR-008](../decisions/008-structure-gate-ci.md))
@@ -227,9 +236,10 @@ python .github/scripts/doc-integrity.py
 (`.github/workflows/repo-structure-gate.yml`). 규약이 실제 저장소와 어긋나면 다음 사람이 잘못된 지도를 보기 때문입니다.
 
 - 검사 대상은 **추적되는 파일의 폴더 집합**입니다. git은 빈 폴더를 추적하지 않으므로, 파일이 들어오는 순간 잡힙니다.
-- `src/`와 `.github/`의 **내부** 폴더는 제외합니다 — 코드 구조는 계속 늘어나고, 그때마다 규약을 고칠 일은 아닙니다.
-  다만 `src`·`.github` **자체**가 생기거나 사라지는 것은 감시합니다.
+- `src/`·`.github/`·`.claude/`의 **내부** 폴더는 제외합니다 — 계속 늘어나고, 그때마다 규약을 고칠 일은 아닙니다.
+  다만 세 폴더 **자체**가 생기거나 사라지는 것은 감시합니다.
 - 제외 목록을 넓히려면 워크플로의 `EXCLUDE`를 고칩니다. **그 변경도 이 문서 수정을 동반해야 합니다.**
+- `src/modules/` 내부는 여기서 제외되지만, **아래 「모듈·스키마 동기화」가 따로 봅니다.**
 
 ### 문서 간 참조 (→ [ADR-017](../decisions/017-doc-integrity-ci.md))
 
@@ -254,3 +264,22 @@ python .github/scripts/doc-integrity.py
 - **문서 사이의 모순은 이 게이트가 잡지 못합니다.** 기계가 판정할 수 없는 것이라
   일부러 넣지 않았습니다 — 그건 사람이 봅니다.
 - ID 정의처를 옮기면 검사기의 `ID_SOURCES`도 같이 고칩니다.
+
+### 모듈·스키마 동기화 (→ [ADR-019](../decisions/019-module-code-sync.md))
+
+**이름의 정본과 실제(코드·연결구조·마이그레이션)가 어긋나면 CI가 막습니다**
+(`.github/workflows/module-sync.yml`). 검사기는 **인벤토리 스킬과 같은 스크립트**입니다 —
+사람이 물어볼 때 답하는 것과 CI가 막는 것이 같은 기준이어야 합니다.
+
+| 검사 | 언제 켜지나 |
+| --- | --- |
+| 쓰지 않기로 한 옛 표기가 남았는지 | 항상 |
+| 정본 모듈이 `ARCHITECTURE.md` 연결구조에 다 그려져 있는지 | 항상 |
+| DDL을 파싱할 수 있는지 (형식이 깨지면 인벤토리가 조용히 빕니다) | 항상 |
+| **`src/modules/` 폴더 이름이 정본에 있는 이름인지** | `src/modules/`가 생긴 뒤 |
+| **DDL이 바뀌었으면 `src/migrations/`가 함께 왔는지** | `src/migrations/`가 생긴 뒤 |
+
+- **조건이 갖춰지기 전에는 건너뜁니다.** 지금 마이그레이션 검사를 켜면 낼 것이 없어
+  스키마를 다듬는 커밋이 전부 막히고, 그러면 게이트를 꺼버리게 됩니다. 폴더가 생기면 저절로 켜집니다.
+- **정본에 있는데 코드가 없는 것은 통과**입니다. 반대(코드에 있는데 정본에 없음)만 막습니다.
+- 산문만 고친 스키마 문서 변경은 마이그레이션을 요구하지 않습니다 — DDL 줄만 봅니다.

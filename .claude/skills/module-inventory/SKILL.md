@@ -19,17 +19,26 @@ description: "FinAlly의 모듈 이름·역할과 DB 테이블·컬럼을 정본
 저장소 루트에서 실행합니다. 표준 라이브러리만 쓰므로 설치가 필요 없습니다.
 
 ```bash
-python .claude/skills/module-inventory/scripts/inventory.py            # 모듈 + 테이블 목록
-python .claude/skills/module-inventory/scripts/inventory.py --modules  # 모듈만
-python .claude/skills/module-inventory/scripts/inventory.py --layer 2  # 층 2만
-python .claude/skills/module-inventory/scripts/inventory.py --db       # 테이블 목록
-python .claude/skills/module-inventory/scripts/inventory.py --table case      # 컬럼 상세
-python .claude/skills/module-inventory/scripts/inventory.py --find slot       # 모듈·컬럼 검색
-python .claude/skills/module-inventory/scripts/inventory.py --names           # 이름만
-python .claude/skills/module-inventory/scripts/inventory.py --check           # 정합성 점검
+I=".claude/skills/module-inventory/scripts/inventory.py"
+
+python $I                    # 모듈 전체 + 테이블 목록
+python $I module             # 모듈만
+python $I module --chat      # 사용자가 말할 때마다 도는 모듈
+python $I module --intake    # 증거가 들어올 때
+python $I module --plan      # 사건 상태가 바뀔 때
+python $I module --kb        # 하루 1회
+python $I module --always    # 어느 층에도 안 묶인 것
+python $I table              # 소스 DB 테이블 목록
+python $I table case_slot    # 그 테이블의 컬럼·타입·제약·허용값
+python $I --find slot        # 모듈·컬럼 동시 검색
+python $I --check            # 정본과 실제가 어긋났는지 점검
 ```
 
-`--table`은 컬럼·타입·제약·정의에 더해 **`CHECK ... IN (...)`의 허용값**까지 폅니다.
+**층을 번호가 아니라 「언제 도는가」로 부릅니다.** `--chat`이 층 2입니다 —
+번호를 외우는 것보다 "챗 한 턴에 도는 것"이 대화에서 바로 나옵니다.
+문서가 "층 2"라고 적고 있으므로 `--layer 2`도 그대로 받습니다(도움말에는 안 보입니다).
+
+`--source`는 컬럼·타입·제약·정의에 더해 **`CHECK ... IN (...)`의 허용값**까지 폅니다.
 `track`이 `victim | frozen_account` 둘뿐이라는 것이 표에서 바로 보입니다.
 
 ## 답할 때
@@ -44,16 +53,22 @@ python .claude/skills/module-inventory/scripts/inventory.py --check           # 
 
 ## `--check`가 보는 것
 
-CI가 아니라 **손으로 돌려보는 점검**입니다. 차단하지 않습니다.
+**CI(`module-sync`)가 돌리는 것과 같은 명령입니다** → [ADR-019](../../../decisions/019-module-code-sync.md).
+사람이 손으로 돌리는 것과 게이트가 같은 기준이어야 합니다.
 
-- 쓰지 않기로 한 옛 표기가 문서에 남아 있는지 — `Ingest 서비스` · `2차 PII 스크러버` ·
-  `분석 오케스트레이터` · `pii-scrubber` · `kb-retriever`
-- 정본의 모듈이 `ARCHITECTURE.md` 연결구조에 **다 그려져 있는지** (이름만 있고 이어지는 곳이 없는 상태를 잡습니다)
-- DDL을 파싱할 수 있는지 (형식이 바뀌면 여기서 먼저 드러납니다)
+| 검사 | 언제 켜지나 |
+| --- | --- |
+| 쓰지 않기로 한 옛 표기 (`Ingest 서비스` · `2차 PII 스크러버` · `분석 오케스트레이터` 등) | 항상 |
+| 정본 모듈이 `ARCHITECTURE.md` 연결구조에 다 그려져 있는지 | 항상 |
+| DDL 파싱 가능 여부 (형식이 깨지면 인벤토리가 조용히 빕니다) | 항상 |
+| `src/modules/` 폴더 이름이 정본에 있는 이름인지 | `src/modules/`가 생긴 뒤 |
+| DDL이 바뀌었으면 `src/migrations/`가 함께 왔는지 | `src/migrations/`가 생긴 뒤 · `--base/--head` 필요 |
 
-> 문서 링크·ID·목차 등록·ADR 불변성은 이 스킬이 아니라 **CI가** 봅니다 →
-> `.github/scripts/doc-integrity.py` ([ADR-017](../../../decisions/017-doc-integrity-ci.md)).
-> 역할이 다릅니다 — 저쪽은 머지를 막고, 이쪽은 물어보면 답합니다.
+- **정본에 있는데 코드가 없는 것은 통과**입니다(구현 전). 반대만 막습니다.
+- 옛 표기 검출은 `「…」`로 감싼 언급을 통과시킵니다 — "쓰지 마세요"라고 적는 자리와 실제로 쓰는 자리를 구별합니다.
+
+> 문서 링크·ID·목차 등록·ADR 불변성은 여기가 아니라 `.github/scripts/doc-integrity.py`가 봅니다
+> ([ADR-017](../../../decisions/017-doc-integrity-ci.md)). 이 스킬은 **이름과 스키마의 동기화**만 맡습니다.
 
 ## 정본 형식이 바뀌면
 
