@@ -6,8 +6,8 @@ Next.js(App Router) + TypeScript + Tailwind 스캐폴딩만 올라간 상태입�
 ## 시작하기 전에
 
 1. [`../CLAUDE.md`](../CLAUDE.md) — 작업 규약과 **절대 어기면 안 되는 8가지**
-2. [`../spec/`](../spec/) — 구현 계약. **개정 대기 중**이니 [`../spec/README.md`](../spec/README.md)의 「개정해야 할 것」을 먼저 보세요
-3. [`../spec/08-api.md`](../spec/08-api.md) — 비어 있음. 도메인 구현의 첫 관문
+2. [`../spec/`](../spec/) — 구현 계약. [`common/`](../spec/common/)은 양쪽 공통, [`backend/`](../spec/backend/)·[`frontend/`](../spec/frontend/)는 각 영역. **개정 대기 중**이니 [`../spec/README.md`](../spec/README.md)의 「개정해야 할 것」을 먼저 보세요
+3. [`../spec/common/08-14-api.md`](../spec/common/08-14-api.md) — 비어 있음. 도메인 구현의 첫 관문
 
 ## 개발
 

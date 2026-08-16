@@ -1,0 +1,108 @@
+name: repo-structure-gate
+
+# 폴더가 생기거나 사라지거나 이름이 바뀌면, 같은 변경에 rfc/ 문서 수정이 있어야 통과합니다.
+# 근거: RFC-001 「구조를 바꾸려면」 · ADR-007
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 비교 기준 정하기
+        id: refs
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          # 브랜치 첫 푸시·force push 등으로 기준 커밋이 없으면 검사할 수 없습니다.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "기준 커밋이 없어 이번 검사는 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "기준 커밋($BASE)을 찾을 수 없어 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+
+      - name: 폴더 변화가 RFC 수정을 동반했는지 검사
+        if: steps.refs.outputs.skip != 'true'
+        env:
+          BASE: ${{ steps.refs.outputs.base }}
+          HEAD: ${{ steps.refs.outputs.head }}
+          # 감시에서 빼는 경로 (정규식, 전체 일치).
+          # src/ 와 .github/ 의 '내부' 폴더는 앞으로 계속 늘어나므로 제외합니다.
+          # 단 src·.github 폴더 자체가 생기거나 사라지는 것은 감시합니다.
+          EXCLUDE: '^(src/.+|\.github/.+)$'
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+
+          # git 은 폴더를 추적하지 않으므로, 추적 파일 경로에서 폴더 집합을 만들어 비교합니다.
+          # 중간 폴더가 생기는 경우도 잡아야 하니 조상 경로를 전부 펼칩니다.
+          dirs_of() {
+            git -c core.quotePath=false ls-tree -r --name-only "$1" | awk -F/ '
+              NF > 1 {
+                path = $1
+                print path
+                for (i = 2; i < NF; i++) { path = path "/" $i; print path }
+              }
+            ' | { grep -vE "$EXCLUDE" || true; } | sort -u
+          }
+
+          dirs_of "$BASE" > /tmp/base-dirs.txt
+          dirs_of "$HEAD" > /tmp/head-dirs.txt
+
+          ADDED=$(comm -13 /tmp/base-dirs.txt /tmp/head-dirs.txt)
+          REMOVED=$(comm -23 /tmp/base-dirs.txt /tmp/head-dirs.txt)
+
+          if [ -z "$ADDED" ] && [ -z "$REMOVED" ]; then
+            echo "폴더 구조 변화 없음 — 통과."
+            exit 0
+          fi
+
+          echo "폴더 구조가 바뀌었습니다."
+          if [ -n "$ADDED" ]; then
+            echo "$ADDED" | sed 's/^/  + /'
+          fi
+          if [ -n "$REMOVED" ]; then
+            echo "$REMOVED" | sed 's/^/  - /'
+          fi
+          echo
+
+          RFC_CHANGED=$(git -c core.quotePath=false diff --name-only "$BASE" "$HEAD" -- 'rfc/')
+
+          if [ -n "$RFC_CHANGED" ]; then
+            echo "rfc/ 도 함께 바뀌었습니다 — 통과."
+            echo "$RFC_CHANGED" | sed 's/^/  · /'
+            exit 0
+          fi
+
+          echo "✗ 폴더 구조가 바뀌었는데 rfc/ 에 아무 변경이 없습니다."
+          echo
+          echo "RFC-001 은 '무엇을 어디에 두는가'의 현행 규약입니다."
+          echo "폴더가 생기거나 사라지면 규약도 같이 바뀌어야 합니다 —"
+          echo "안 그러면 규약이 실제 저장소와 어긋나고, 다음 사람이 잘못된 지도를 봅니다."
+          echo
+          echo "할 일:"
+          echo "  1. rfc/001-repo-structure.md 의 「폴더 지도」와 「결정 트리」를 고칩니다."
+          echo "  2. 왜 바꿨는지는 decisions/ 에 새 ADR 로 남깁니다 (규약 변경은 ADR 을 낳습니다)."
+          echo "  3. 영향받는 곳을 같이 고칩니다 — CLAUDE.md · README.md · 각 폴더의 README.md"
+          echo
+          echo "이 폴더가 규약과 무관하다면(예: 코드 내부 구조),"
+          echo ".github/workflows/repo-structure-gate.yml 의 EXCLUDE 에 경로를 추가하세요."
+          echo "그 변경 자체도 rfc/ 수정을 동반해야 합니다."
+          exit 1
