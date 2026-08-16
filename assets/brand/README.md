@@ -54,4 +54,4 @@ Next.js에 넣으려면 `src/app/favicon.ico`를 교체하고, 나머지 규격�
 
 브랜드 시트는 생성형 이미지 도구로 만든 초안을 사람이 검수한 것입니다.
 초판에는 로고타입이 `FinAly`(l 하나)로 잘못 나와 폐기했고, 지금 시트가 `FinAlly`로 고친 판입니다
-— 이름 표기 규칙은 [ADR-0002](../../decisions/08-16-project-name.md).
+— 이름 표기 규칙은 [ADR-002](../../decisions/002-project-name.md).
