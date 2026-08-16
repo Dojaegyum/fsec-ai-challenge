@@ -9,7 +9,8 @@
   [ADR-006](../decisions/006-artifacts-and-numbering.md) (HTML 분리·번호 복원) ·
   [ADR-007](../decisions/007-architecture-doc.md) (ARCHITECTURE.md 신설) ·
   [ADR-008](../decisions/008-structure-gate-ci.md) (구조 변경 CI 게이트) ·
-  [ADR-017](../decisions/017-doc-integrity-ci.md) (문서 참조 CI 게이트 · `docs/research/` 파일명)
+  [ADR-017](../decisions/017-doc-integrity-ci.md) (문서 참조 CI 게이트 · `docs/research/` 파일명) ·
+  [ADR-020](../decisions/020-adr-threshold.md) (개정 절차 — ADR 대신 「개정 이력」)
 
 > **이 문서는 규약입니다.** 새 문서나 코드를 만들기 전에 여기를 보고 위치를 정합니다.
 > 판단이 애매하면 아래 결정 트리를 순서대로 따르세요 — 위에서 먼저 걸리는 곳이 답입니다.
@@ -217,9 +218,13 @@ docs/research/06-경로별-실측조사.md
 ## 이 규약을 바꾸려면
 
 1. 이 문서를 고칩니다(현행 규약이므로).
-2. **왜 바꿨는지는 `decisions/`에 새 ADR로 남깁니다.**
+2. **아래 「개정 이력」에 한 줄 적습니다.** 왜 바꿨는지는 커밋 메시지에 남깁니다.
 3. 영향받는 곳을 같이 고칩니다 — `CLAUDE.md`, `README.md`, 각 폴더의 `README.md`.
 4. 상대 링크가 깨지지 않았는지 확인합니다 — **아래 검사기를 돌리면 됩니다.**
+
+**ADR은 규약을 뒤집거나 새 규약을 세울 때만 씁니다** (→ [ADR-020](../decisions/020-adr-threshold.md)).
+파일 위치·이름·검사기처럼 `git mv` 한 번이면 되돌아가는 변경은 위 1~4로 끝입니다 —
+한 줄 고칠 때마다 ADR을 만들면 `decisions/`에서 진짜 판단이 묻힙니다.
 
 ## CI가 강제합니다
 
@@ -283,3 +288,15 @@ python .claude/skills/module-inventory/scripts/inventory.py --check
   스키마를 다듬는 커밋이 전부 막히고, 그러면 게이트를 꺼버리게 됩니다. 폴더가 생기면 저절로 켜집니다.
 - **정본에 있는데 코드가 없는 것은 통과**입니다. 반대(코드에 있는데 정본에 없음)만 막습니다.
 - 산문만 고친 스키마 문서 변경은 마이그레이션을 요구하지 않습니다 — DDL 줄만 봅니다.
+
+## 개정 이력
+
+**이 규약을 고칠 때마다 여기에 한 줄 적습니다.** 대부분의 개정은 이 줄과 커밋 메시지로 끝이고,
+ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니다
+(→ [ADR-020](../decisions/020-adr-threshold.md)).
+
+제정 시점의 근거는 문서 맨 위 「근거」 줄에 있습니다. 아래는 그 이후입니다.
+
+| 날짜 | 무엇 | 근거 |
+| --- | --- | --- |
+| 2026-08-16 | 규약 개정에 ADR을 요구하던 절차를 「개정 이력」 한 줄로 바꿈 | [ADR-020](../decisions/020-adr-threshold.md) |
