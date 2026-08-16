@@ -1,6 +1,8 @@
 # 화면 설계
 
-기획서 §6. 목업 원본은 [기획서 HTML](../../docs/plans/골든30-서비스기획서.html)에서 직접 보세요.
+> **출처** — [서비스 기획서 v1.2](../../docs/plans/08-13-service-plan.html) §6
+
+ 목업 원본은 [기획서 HTML](../../docs/plans/08-13-service-plan.html)에서 직접 보세요.
 
 ## 레이아웃 — 3-패널 상황실
 
