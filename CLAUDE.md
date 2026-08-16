@@ -32,9 +32,9 @@
 | 아직 논의 중인 제안 | `rfc/` | 채택되면 spec에 반영되고 ADR로 남음 |
 | 서비스 기획 전체 그림 | `docs/plans/골든30-서비스기획서.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
 | 절차 지식의 근거 | `docs/plans/골든30-사후처리-리서치.html` | 법령·기관 기준 사후처리 절차 |
-| **제도·경쟁·법적 경계의 최신 사실** | `docs/candidates/최종후보군-보드.html` | **공고문 원문 확보 후 재조사한 최종본.** 제도 변경은 여기가 최신 |
+| **제도·경쟁·법적 경계의 최신 사실** | `docs/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
 | 대회·주최기관 배경 | `docs/context/`, `AGENDA.md` | 배경 |
-| 탈락 후보들 | `docs/candidates/tier1/`, `주제후보군-보드.html` | 아카이브. 참조만, 갱신하지 않음 |
+| 주제 선정 과정·탈락 후보 | `docs/archived/candidates/` | 아카이브. 판단 과정은 `decisions/0001`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
 | 코드 | `src/` | Next.js 스캐폴딩만 — 도메인 코드 없음 |
 
 `src/`에는 create-next-app이 생성한 `AGENTS.md`·`CLAUDE.md`가 있습니다. `next dev`가 `AGENTS.md`를

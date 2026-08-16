@@ -1,7 +1,7 @@
 # 2026 금융 AI Challenge — 대회 개요와 일정
 
 > 아래 **확인된 것**은 [공고문 원문](https://www.fsec.or.kr/bbs/detail?menuNo=66&bbsNo=11997)과
-> [최종 후보 보드](docs/candidates/최종후보군-보드.html)·[정합성 분석](docs/context/주최기관-정합성-분석.html)에서
+> [최종 후보 보드](docs/archived/candidates/최종후보군-보드.html)·[정합성 분석](docs/context/주최기관-정합성-분석.html)에서
 > 근거가 확보된 내용입니다. **확인 필요**는 아직 못 채운 칸이며, 임의로 채우지 않았습니다.
 
 ## 대회
