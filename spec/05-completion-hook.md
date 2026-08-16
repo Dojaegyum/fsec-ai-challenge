@@ -1,4 +1,4 @@
-# 50 · 완수 검증 Completion Hook (F-06b)
+# 05 · 완수 검증 Completion Hook (F-06b)
 
 기획서 §5.
 
