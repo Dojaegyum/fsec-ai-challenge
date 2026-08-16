@@ -1,9 +1,16 @@
-# 0004. 사건 상태를 관계형 DB에, 매핑은 볼트에, 원본은 객체 저장소에 둔다
+# ADR-010. 사건 상태를 관계형 DB에, 매핑은 볼트에, 원본은 객체 저장소에 둔다
 
-- 상태: **채택**
+- 상태: **부분 대체됨(→ [ADR-016](016-retention-and-datastore.md))**
 - 날짜: 2026-08-16
 - 결정: @kth9245
-- 관련: [ADR-010](010-case-store.md) · [ADR-009](009-restore-mapping-location.md) · `spec/backend/08-16-data-model.md`
+- 관련: [ADR-009](009-restore-mapping-location.md) · `spec/backend/08-16-data-model.md`
+
+> **무엇이 대체됐나** — 아래 표의 **제품 선택**(Vercel Postgres·Blob → Supabase)과 **보관 기간 90일**(→ 마지막 활동일 기준 180일)이
+> [ADR-016](016-retention-and-datastore.md)으로 바뀌었습니다. 경로 10종의 절차 기간을 실측하니
+> 표준 트랙만 D+100이고, `Vercel Postgres`는 2024-12 폐지된 제품이었습니다.
+>
+> **그대로 유효한 것** — 저장소를 셋으로 나누는 구조, 볼트를 다른 인스턴스에 두는 원칙,
+> 세 층이 같은 날 함께 파기된다는 규칙, 관계형 DB를 쓰는 이유 셋.
 
 ## 결정
 

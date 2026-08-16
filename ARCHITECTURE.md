@@ -36,9 +36,14 @@ TODO(kth): 다이어그램 또는 텍스트 트리
 | 프론트 | Next.js (App Router) · React · Tailwind v4 · shadcn/ui | `src/package.json` |
 | 디자인 토큰 | — | `src/app/globals.css` |
 | 백엔드 런타임 | TODO(kth) | |
-| DB | TODO(kth) | |
-| 파일 저장 | TODO(kth) | |
-| 작업 큐·스케줄러 | TODO(kth) — 필요한지부터 | |
+| DB | **Supabase Postgres** (`ap-northeast-2` 서울) | [ADR-016](decisions/016-retention-and-datastore.md) |
+| 파일 저장 | **Supabase Storage** | [ADR-016](decisions/016-retention-and-datastore.md) |
+| 볼트 (복원 매핑 암호문) | **미결** — 리전 확인 후 | [ADR-016](decisions/016-retention-and-datastore.md) 「남은 것」 |
+| 작업 큐·스케줄러 | `pg_cron` (파기 잡). 그 밖은 TODO(kth) | |
+
+> **앱은 Vercel, 데이터는 Supabase입니다.** `Vercel Postgres`는 2024-12 폐지돼 Neon으로 이관됐고
+> Neon에는 서울 리전이 없습니다 — 그래서 갈라놓았습니다.
+> **요금제는 Pro($25/월)** — Free는 1주 미사용 시 정지돼 심사 중 접속 불가 위험이 있습니다.
 
 기획서 §9가 정한 영역별 의도는 [용어와 전제 §기술 스택](spec/common/08-14-glossary.md)에 있습니다.
 **백엔드·DB는 거기에도 비어 있습니다** — 여기서 처음 정합니다.
@@ -47,10 +52,13 @@ TODO(kth): 다이어그램 또는 텍스트 트리
 
 무엇을 어디에 담는가. 스키마의 **입력**은 [도메인 모델](spec/common/08-16-domain-model.md)입니다.
 
-- DDL 위치: TODO(kth)
+- 스키마 정본: [`spec/backend/08-16-data-model.md`](spec/backend/08-16-data-model.md)
 - 마이그레이션 방식: TODO(kth)
-- 보존·파기 정책: **선행 결정 대기** → [핸드오프 ①](docs/plans/08-16-backend-handoff.md)
-- 원본 파일(녹음·이미지)의 저장 위치와 파기 강제: TODO(kth)
+- **보존·파기 정책: 마지막 활동일부터 180일** (`CASE_PURGE_DAYS`) → [ADR-016](decisions/016-retention-and-datastore.md)
+  - 사건 상태·업로드 원본·복원 매핑 암호문이 **같은 날 함께** 파기됩니다
+  - ⚠️ **Supabase Storage에는 네이티브 만료가 없습니다.** 파일 파기는 `pg_cron` 잡이 Storage API를
+    호출하도록 직접 만들고 **실제로 지워지는지 검증**해야 합니다 — 플랫폼이 해준다고 전제하지 마세요
+- 행 단위 접근 제어(RLS): 계정 없는 사건 접근 모델과 직결. **스키마 확정 전에 정책 테스트를 먼저 쓸 것**
 
 > **DDL을 쓰기 전에** [저장 경계 표](spec/common/08-16-domain-model.md)를 확인하세요.
 > 복원 매핑·원문 PII를 담는 컬럼은 어떤 이유로도 만들지 않습니다.
