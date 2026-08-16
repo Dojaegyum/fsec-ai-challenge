@@ -3,8 +3,8 @@
 - 상태: **채택**
 - 날짜: 2026-08-16
 - 결정: @Dojaegyum · @kth9245
-- 관련: [최종 후보 보드](../docs/archived/candidates/최종후보군-보드.html) · [정합성 분석](../docs/context/주최기관-정합성-분석.html)
-- 후속: [ADR-0002](08-16-project-name.md) (프로젝트 이름 FinAlly)
+- 관련: [최종 후보 보드](../assets/artifacts/archived/candidates/최종후보군-보드.html) · [정합성 분석](../assets/artifacts/context/주최기관-정합성-분석.html)
+- 후속: [ADR-002](002-project-name.md) (프로젝트 이름 FinAlly)
 
 ## 맥락
 

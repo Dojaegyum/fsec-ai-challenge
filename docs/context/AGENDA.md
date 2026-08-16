@@ -1,7 +1,7 @@
 # 2026 금융 AI Challenge — 대회 개요와 일정
 
 > 아래 **확인된 것**은 [공고문 원문](https://www.fsec.or.kr/bbs/detail?menuNo=66&bbsNo=11997)과
-> [최종 후보 보드](../archived/candidates/최종후보군-보드.html)·[정합성 분석](주최기관-정합성-분석.html)에서
+> [최종 후보 보드](../../assets/artifacts/archived/candidates/최종후보군-보드.html)·[정합성 분석](../../assets/artifacts/context/주최기관-정합성-분석.html)에서
 > 근거가 확보된 내용입니다. **확인 필요**는 아직 못 채운 칸이며, 임의로 채우지 않았습니다.
 
 ## 대회
@@ -79,8 +79,8 @@
 - [x] 주제 후보군 보드 v2 → 재조사 → **최종 후보 보드** (공고문 원문 확보)
 - [x] 서비스 기획서 v1.2 · 사후처리 절차 리서치
 - [x] 구현 계약 추출 ([spec/](../../spec/))
-- [x] **출전 주제 확정** — 보이스피싱 사후 대응 ([ADR-0001](../../decisions/08-16-topic-selection.md))
-- [x] **프로젝트 이름 확정** — FinAlly ([ADR-0002](../../decisions/08-16-project-name.md))
+- [x] **출전 주제 확정** — 보이스피싱 사후 대응 ([ADR-001](../../decisions/001-topic-selection.md))
+- [x] **프로젝트 이름 확정** — FinAlly ([ADR-002](../../decisions/002-project-name.md))
 - [ ] 백엔드 모듈 경계·역할 정의 ← **지금 여기**
 - [ ] 기획서·spec 개정 — 포지셔닝 전환(긴급 진입 → 사건 관리)과 제도 변경 반영
 - [ ] API 계약 정의 ([spec/common/08-14-api.md](../../spec/common/08-14-api.md) 비어 있음)

@@ -7,8 +7,8 @@
 
 **왜 그 주제를 골랐는지는 ADR에 정리돼 있습니다.**
 
-- [ADR-0001 — 출전 주제를 보이스피싱 사후 대응으로 한다](../../decisions/08-16-topic-selection.md)
-- [ADR-0002 — 프로젝트 이름 FinAlly](../../decisions/08-16-project-name.md)
+- [ADR-001 — 출전 주제를 보이스피싱 사후 대응으로 한다](../../../decisions/001-topic-selection.md)
+- [ADR-002 — 프로젝트 이름 FinAlly](../../../decisions/002-project-name.md)
 
 아래 문서는 그 판단의 **근거 원문이 필요할 때만** 엽니다(어떤 후보가 왜 떨어졌는지, 어떤 사실을 확인하고 뒤집었는지).
 

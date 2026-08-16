@@ -28,46 +28,45 @@
 | 알고 싶은 것 | 볼 곳 | 성격 |
 | --- | --- | --- |
 | **구현이 따라야 할 계약** | `spec/` (`common/`·`backend/`·`frontend/`) | **정본.** 코드를 쓰기 전 여기부터 |
-| **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-0001](rfc/08-16-repo-structure.md) |
+| **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-001](rfc/001-repo-structure.md) |
 | 왜 그렇게 정했나 | `decisions/` | 판단 근거의 이력(ADR). 과거형, 고치지 않음 |
-| 서비스 기획 전체 그림 | `docs/plans/08-13-service-plan.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
-| 절차 지식의 근거 | `docs/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
-| **제도·경쟁·법적 경계의 최신 사실** | `docs/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
-| 대회·주최기관 배경 | `docs/context/` (일정·진행 상황은 `AGENDA.md`) | 배경 |
-| 주제 선정 과정·탈락 후보 | `docs/archived/candidates/` | 아카이브. 판단 과정은 `decisions/0001`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
+| 서비스 기획 전체 그림 | `assets/artifacts/plans/08-13-service-plan.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
+| 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
+| **제도·경쟁·법적 경계의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
+| 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
+| 구현 계획 | `docs/plans/` | **아직 비어 있음.** 무엇을 어떤 순서로 만들지 |
+| 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
 | 코드 | `src/` | Next.js 스캐폴딩만 — 도메인 코드 없음 |
-| 로고·favicon·컴포넌트 원본 | `assets/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
+| 로고·favicon·컴포넌트 원본 | `assets/brand/`, `assets/components/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
 
 `src/`에는 create-next-app이 생성한 `AGENTS.md`·`CLAUDE.md`가 있습니다. `next dev`가 `AGENTS.md`를
 다시 쓰므로 지우지 말고 두세요. 프로젝트 규약의 정본은 **이 파일**입니다.
 
-### spec과 docs의 관계 — 중요
+### spec과 아티팩트의 관계 — 중요
 
-`docs/`의 HTML은 **사람이 보는 원본**이고, `spec/`의 Markdown은 **거기서 추출한 구현 계약**입니다.
+`assets/artifacts/`의 HTML은 **사람이 보는 원본**이고, `spec/`의 Markdown은 **거기서 추출한 구현 계약**입니다.
 
-- **구현 작업에는 `spec/`을 읽으세요.** HTML 기획서는 50KB가 넘고 스타일·목업 마크업이 대부분이라, 필요한 계약만 담긴 `spec/`이 정확하고 쌉니다.
+- **구현 작업에는 `spec/`을 읽으세요.** HTML 기획서는 50KB가 넘고 스타일·목업 마크업이 대부분이라, 필요한 계약만 담긴 `spec/`이 정확하고 쌉니다. **아티팩트를 통째로 읽지 마세요.**
+- 각 spec 문서 머리의 **출처 줄**이 원본과 절 번호를 가리킵니다. 근거가 필요하면 그걸 따라가세요.
 - 둘이 어긋나면 **HTML 기획서가 상위**입니다(사람이 직접 쓴 원본). 어긋난 걸 발견하면 임의로 맞추지 말고 사람에게 알리세요.
 - 기획서가 개정되면 `spec/`에 반영하는 것까지가 한 작업입니다.
 
-### spec 폴더와 파일명 — 지켜야 합니다
+### 파일명 — 폴더마다 다릅니다
 
-규약은 [RFC-0001](rfc/08-16-repo-structure.md), 그렇게 정한 근거는 [ADR-0003](decisions/08-16-spec-layout.md)입니다.
+규약은 [RFC-001](rfc/001-repo-structure.md), 근거는 [ADR-003](decisions/003-spec-layout.md)·[ADR-006](decisions/006-artifacts-and-numbering.md)입니다.
 
-```
-spec/common/08-14-pii-boundary.md
-     └──┬─┘ └┬─┘ └─────┬──────┘
-        │     │        └─ 영문 kebab-case 제목
-        │     └─ 최초 작성한 월-일 (MM-dd)
-        └─ common | backend | frontend
-```
+| 폴더 | 형식 | 예 |
+| --- | --- | --- |
+| `rfc/` · `decisions/` | **`NNN-{slug}`** — 번호가 곧 ID | `decisions/003-spec-layout.md` → `ADR-003` |
+| `spec/` · `docs/` · `assets/artifacts/{plans,context}` | **`MM-dd-{slug}`** | `spec/common/08-14-pii-boundary.md` |
+| `assets/artifacts/archived/` · `assets/brand/` | 손대지 않음 | |
 
-- **파일명은 `MM-dd-{title}.md`입니다.** 이 형식을 벗어난 spec 파일을 만들지 마세요.
-- **`MM-dd`는 최초 작성일이고, 개정해도 바꾸지 않습니다.** 날짜는 순서가 아니라 출생기록입니다 —
-  바꾸면 이 파일을 가리키는 링크와 위 ID 표가 한꺼번에 깨집니다.
-- **폴더는 "누가 지키는 계약인가"로 가릅니다.** 한쪽만 지켜서 되는 게 아니면 `common/`입니다
+- **`MM-dd`는 최초 작성일이고, 개정해도 바꾸지 않습니다.** 날짜는 순서가 아니라 출생기록입니다 — 바꾸면 링크가 한꺼번에 깨집니다.
+- **번호는 재사용하지 않습니다.**
+- slug은 영문 kebab-case, 문서 안 H1은 한국어. 파일명의 번호·날짜를 H1에 중복해 적지 않습니다.
+- **spec 폴더는 "누가 지키는 계약인가"로 가릅니다.** 한쪽만 지켜서 되는 게 아니면 `common/`입니다
   (용어·기능명세·PII 경계·API 계약). PII 경계는 클라이언트가 토큰화하고 서버가 그 상태를
   유지하는 것이라 양쪽이 함께 지킵니다.
-- 문서 안 H1은 한국어 제목으로 쓰고, 파일명의 번호·날짜를 제목에 중복해 적지 않습니다.
 
 ## 이 서비스에서 절대 어기면 안 되는 것
 
@@ -92,8 +91,8 @@ spec/common/08-14-pii-boundary.md
 | `S-01` … | 화면 | `spec/frontend/08-14-screens.md` |
 | `CH-bank` … | 경유 서비스 유형 | `spec/backend/08-14-channel-matrix.md` |
 | `T0/T1/T2` | 슬롯 티어 | `spec/backend/08-14-slot-tiering.md` |
-| `ADR-0001` | 판단 근거 | `decisions/` |
-| `RFC-0001` | 규약 | `rfc/` |
+| `ADR-001` | 판단 근거 | `decisions/` |
+| `RFC-001` | 규약 | `rfc/` |
 
 커밋 메시지와 코드 주석에서 이 ID로 참조하세요 (예: `F-05b 슬롯 체커 구현`).
 
@@ -119,7 +118,7 @@ decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않
 - **ADR은 지우지도 고치지도 않습니다.** 뒤집을 때는 새 번호를 쓰고 기존 것을 `대체됨`으로 표시합니다.
 - **번호는 RFC·ADR 모두 재사용하지 않습니다.**
 
-새 문서·폴더를 만들기 전에 [RFC-0001 저장소 구조 규약](rfc/08-16-repo-structure.md)의 결정 트리를 따르세요.
+새 문서·폴더를 만들기 전에 [RFC-001 저장소 구조 규약](rfc/001-repo-structure.md)의 결정 트리를 따르세요.
 어디에도 안 걸리면 임의로 만들지 말고 물어보세요.
 
 ## 작업 규칙

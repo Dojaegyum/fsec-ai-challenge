@@ -1,11 +1,11 @@
 # spec — 구현 계약
 
-`docs/plans/08-13-service-plan.html`(v1.2)에서 추출한 **구현이 따라야 할 계약**입니다.
+`assets/artifacts/plans/08-13-service-plan.html`(v1.2)에서 추출한 **구현이 따라야 할 계약**입니다.
 코드를 쓰기 전에 여기를 읽고, 구현이 spec과 어긋나면 코드가 아니라 spec이 먼저 고쳐집니다.
 
 > ⚠️ **개정 대기 중.** 이 폴더는 구 명칭(골든30) 시점에 기획서 v1.2에서 추출한 것이라
-> **30분 긴급 대응에 무게가 실려 있습니다.** 주제와 이름은 확정됐고([ADR-0001](../decisions/08-16-topic-selection.md)·
-> [ADR-0002](../decisions/08-16-project-name.md)), 포지셔닝이 **긴급 진입 → 사건 관리**로 옮겨졌습니다.
+> **30분 긴급 대응에 무게가 실려 있습니다.** 주제와 이름은 확정됐고([ADR-001](../decisions/001-topic-selection.md)·
+> [ADR-002](../decisions/002-project-name.md)), 포지셔닝이 **긴급 진입 → 사건 관리**로 옮겨졌습니다.
 > 아래 「개정해야 할 것」을 반영하기 전까지, 여기 적힌 절차 사실을 그대로 믿지 마세요.
 
 ## 폴더 — 누가 지키는 계약인가
@@ -21,7 +21,7 @@
 
 ## 파일명 규약 — `MM-dd-{title}.md`
 
-규약은 [RFC-0001](../rfc/08-16-repo-structure.md), 그렇게 정한 근거는 [ADR-0003](../decisions/08-16-spec-layout.md).
+규약은 [RFC-001](../rfc/001-repo-structure.md), 그렇게 정한 근거는 [ADR-003](../decisions/003-spec-layout.md).
 
 ```
 spec/backend/08-14-channel-matrix.md
@@ -60,6 +60,7 @@ spec/backend/08-14-channel-matrix.md
 | 파일 | 내용 |
 | --- | --- |
 | [08-14-screens.md](frontend/08-14-screens.md) | 화면 S-01 ~ S-03, 3-패널 레이아웃 |
+| [design-system/](frontend/design-system/) | 디자인 계약 — 토큰 의미론·컴포넌트 규칙·접근성 기준. **뼈대만** |
 
 ## 개정해야 할 것 (최종 후보 보드 기준)
 

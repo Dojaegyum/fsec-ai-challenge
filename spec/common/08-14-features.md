@@ -1,6 +1,6 @@
 # 기능명세 (데스크톱 MVP)
 
-> **출처** — [서비스 기획서 v1.2](../../docs/plans/08-13-service-plan.html) §7
+> **출처** — [서비스 기획서 v1.2](../../assets/artifacts/plans/08-13-service-plan.html) §7
 
  요건 매핑의 ⓪①②③은 기획서 절 번호입니다
 (⓪ 업로드 · ① 분석 파이프라인 · ② PII 격리 · ③ 절차 매뉴얼).

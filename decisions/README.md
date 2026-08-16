@@ -13,28 +13,27 @@
 
 ## 파일명과 번호
 
-**파일명은 `MM-dd-{slug}.md`** (저장소 전체 공통 → [RFC-0001](../rfc/08-16-repo-structure.md)),
-**문서 안 ID는 `ADR-NNNN`** 으로 따로 붙입니다. 파일명에는 번호를 넣지 않습니다.
+**파일명은 `NNN-{slug}.md`** — 번호가 곧 ID입니다 (→ [RFC-001](../rfc/001-repo-structure.md)).
 
 ```
-파일   decisions/08-16-topic-selection.md
-문서   # ADR-0001. 출전 주제를 보이스피싱 사후 대응으로 한다
-참조   "ADR-0001 참조"
+파일   decisions/001-topic-selection.md
+문서   # ADR-001. 출전 주제를 보이스피싱 사후 대응으로 한다
+참조   "ADR-001 참조"
 ```
 
-번호로 파일을 찾을 수는 없으므로 **아래 「목록」이 번호↔파일 대응표**입니다.
-새 ADR을 쓰면 반드시 목록에 넣으세요.
+- 3자리 순번이며 **재사용하지 않습니다.**
+- slug은 영문 kebab-case, 문서 안 H1은 한국어.
+- 새 ADR을 쓰면 **아래 목록에 등록**합니다.
 
-- `MM-dd`는 **결정한 날**이며 나중에 바꾸지 않습니다.
-- 번호는 순번이며 **재사용하지 않습니다.**
-- 같은 날 여러 결정이 나오는 것은 정상입니다 — slug으로 구분됩니다.
+`spec/`·`docs/`는 다른 규칙(`MM-dd-{slug}`)을 씁니다 — 폴더 성격이 달라서입니다
+(→ [ADR-006](006-artifacts-and-numbering.md)).
 
 ## 템플릿
 
 ```markdown
-# ADR-NNNN. <결정 한 문장>
+# ADR-NNN. <결정 한 문장>
 
-- 상태: 제안 | 채택 | 폐기 | 대체됨(→ ADR-NNNN)
+- 상태: 제안 | 채택 | 폐기 | 대체됨(→ ADR-NNN)
 - 날짜: YYYY-MM-DD
 - 관련 문서: <../spec/..., ../rfc/..., ../docs/... 등>
 
@@ -59,11 +58,12 @@
 
 | 번호 | 결정 | 상태 |
 | --- | --- | --- |
-| [0001](08-16-topic-selection.md) | 출전 주제를 보이스피싱 사후 대응으로 | 채택 |
-| [0002](08-16-project-name.md) | 프로젝트 이름을 FinAlly로 | 채택 |
-| [0003](08-16-spec-layout.md) | spec을 common·backend·frontend로 나누고 파일명을 `MM-dd-{title}.md`로 | 채택 |
-| [0004](08-16-agenda-and-assets.md) | AGENDA.md를 `docs/context/`로 옮기고 `assets/` 신설 | 채택 |
-| [0005](08-16-filename-convention.md) | 파일명 규약을 전 폴더로 통일하고 번호를 문서 안 ID로 분리 | 채택 |
+| [001](001-topic-selection.md) | 출전 주제를 보이스피싱 사후 대응으로 | 채택 |
+| [002](002-project-name.md) | 프로젝트 이름을 FinAlly로 | 채택 |
+| [003](003-spec-layout.md) | spec을 common·backend·frontend로 나누고 파일명을 `MM-dd-{title}.md`로 | 채택 |
+| [004](004-agenda-and-assets.md) | AGENDA.md를 `docs/context/`로 옮기고 `assets/` 신설 | 채택 |
+| [005](005-filename-convention.md) | 파일명 규약을 전 폴더로 통일하고 번호를 문서 안 ID로 분리 | 부분 대체됨(→006) |
+| [006](006-artifacts-and-numbering.md) | HTML 아티팩트를 `assets/`로 분리하고 RFC·ADR 파일명에 번호 복원 | 채택 |
 
 ## 아직 안 쓴 것
 

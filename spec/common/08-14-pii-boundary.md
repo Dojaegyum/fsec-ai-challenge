@@ -1,6 +1,6 @@
 # PII 격리 경계 (F-03)
 
-> **출처** — [서비스 기획서 v1.2](../../docs/plans/08-13-service-plan.html) §3
+> **출처** — [서비스 기획서 v1.2](../../assets/artifacts/plans/08-13-service-plan.html) §3
 
  **이 문서의 규칙은 협상 대상이 아닙니다** — 서비스의 신뢰 근거이자 심사 차별점입니다.
 

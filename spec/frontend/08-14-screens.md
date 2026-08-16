@@ -1,8 +1,8 @@
 # 화면 설계
 
-> **출처** — [서비스 기획서 v1.2](../../docs/plans/08-13-service-plan.html) §6
+> **출처** — [서비스 기획서 v1.2](../../assets/artifacts/plans/08-13-service-plan.html) §6
 
- 목업 원본은 [기획서 HTML](../../docs/plans/08-13-service-plan.html)에서 직접 보세요.
+ 목업 원본은 [기획서 HTML](../../assets/artifacts/plans/08-13-service-plan.html)에서 직접 보세요.
 
 ## 레이아웃 — 3-패널 상황실
 
@@ -57,4 +57,4 @@
 
 - TODO(미정): 모바일 반응형 (P1로 후속)
 - TODO(미정): 라우팅·상태 관리 구조
-- TODO(미정): 접근성 기준 — 고령 사용자 대상이므로 글자 크기·대비·음성 안내 수준을 정해야 함
+- 접근성 기준 → [design-system/08-16-accessibility.md](design-system/08-16-accessibility.md)로 옮겼습니다 (아직 미정)

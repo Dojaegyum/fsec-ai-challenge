@@ -1,7 +1,7 @@
-# assets — 자산 원본
+# assets — 산출물·자산 원본
 
-로고·favicon·컴포넌트 원본처럼 **작업의 출처가 되는 파일**을 둡니다.
-앱이 빌드에 싣는 파일이 아니라, 그것을 만들어내는 원본입니다.
+**빌드에 안 들어가는, 완성돼서 그대로 쓰이는 것**을 둡니다 — 로고·favicon 같은 자산 원본과
+브라우저로 여는 HTML 아티팩트입니다 (→ [ADR-006](../decisions/006-artifacts-and-numbering.md)).
 
 ## `assets/` vs `src/public/` — 헷갈리면 여기
 
@@ -21,12 +21,26 @@
 | --- | --- |
 | `brand/` | 로고·favicon·색·타이포 등 브랜드 자산 원본 |
 | `components/` | 외부에서 가져온 컴포넌트 raw (출처를 함께 적습니다) |
+| [`artifacts/`](artifacts/) | **HTML 아티팩트** — 기획서·리서치·분석. `plans`·`context`·`archived`로 나뉩니다 |
+
+### `artifacts/` — 왜 `docs/`가 아닌가
+
+`docs/`는 **읽고 고치는 Markdown**, `artifacts/`는 **브라우저로 여는 완성 HTML**입니다.
+가르는 축은 **읽는 비용**입니다 — 기획서 HTML은 50KB가 넘고 스타일·목업 마크업이 대부분이라
+에이전트가 통째로 읽을 대상이 아닙니다. 필요한 계약은 이미 [`spec/`](../spec/)으로 뽑혀 있고,
+각 spec 문서 머리에 **출처 링크**가 붙어 있어 원본으로 되짚어갈 수 있습니다.
+
+| 폴더 | 무엇 |
+| --- | --- |
+| `artifacts/plans/` | 우리가 정한 설계 — 서비스 기획서 |
+| `artifacts/context/` | 확인한 바깥 사실 — 절차 리서치, 주최기관 분석 |
+| `artifacts/archived/` | 역할이 끝난 것 — **읽되 갱신하지 않고 이름도 안 바꿉니다** |
 
 ## 규칙
 
 - **출처를 적습니다.** 외부에서 받은 자산은 어디서 왔고 라이선스가 무엇인지 파일 옆에
   남기세요(같은 이름의 `.md` 또는 폴더 README). 대회 제출물에 들어가는 자산이라
   출처 불명은 나중에 문제가 됩니다.
-- 이름 표기는 [ADR-0002](../decisions/08-16-project-name.md)를 따릅니다 — 브랜드는 `FinAlly`,
+- 이름 표기는 [ADR-002](../decisions/002-project-name.md)를 따릅니다 — 브랜드는 `FinAlly`,
   파일·폴더 슬러그는 `fin-ally`.
-- 위치 규약은 [RFC-0001](../rfc/08-16-repo-structure.md).
+- 위치 규약은 [RFC-001](../rfc/001-repo-structure.md).

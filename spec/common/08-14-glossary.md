@@ -1,6 +1,6 @@
 # 용어와 전제
 
-> **출처** — [서비스 기획서 v1.2](../../docs/plans/08-13-service-plan.html) §0 · §1 · §9
+> **출처** — [서비스 기획서 v1.2](../../assets/artifacts/plans/08-13-service-plan.html) §0 · §1 · §9
 
 ## 핵심 개념
 

@@ -1,6 +1,6 @@
 # 완수 검증 Completion Hook (F-06b)
 
-> **출처** — [서비스 기획서 v1.2](../../docs/plans/08-13-service-plan.html) §5
+> **출처** — [서비스 기획서 v1.2](../../assets/artifacts/plans/08-13-service-plan.html) §5
 
 > **문제** — 체크리스트는 "체크는 됐는데 행위는 안 된 상태"를 막지 못합니다.
 > 은행·경찰 시스템 API가 없으므로 완수를 직접 조회할 수도 없습니다.

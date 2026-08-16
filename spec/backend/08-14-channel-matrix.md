@@ -1,6 +1,6 @@
 # 경유 서비스 매트릭스 (F-05)
 
-> **출처** — [서비스 기획서 v1.2](../../docs/plans/08-13-service-plan.html) §4
+> **출처** — [서비스 기획서 v1.2](../../assets/artifacts/plans/08-13-service-plan.html) §4
 
 **매뉴얼 분기 엔진(KB)의 원본 데이터**입니다.
 
@@ -31,7 +31,7 @@
 
 ## 표준 절차의 기한 (`CH-bank` 기준)
 
-[사후처리 리서치](../../docs/context/08-13-aftermath-research.html) 기준. 통신사기피해환급법.
+[사후처리 리서치](../../assets/artifacts/context/08-13-aftermath-research.html) 기준. 통신사기피해환급법.
 
 | 단계 | 내용 | 기한 |
 | --- | --- | --- |

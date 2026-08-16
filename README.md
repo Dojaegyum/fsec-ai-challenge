@@ -6,7 +6,7 @@
 > 보이스피싱 피해자가 진술만 하면 **자기 사건에 맞는 절차를 찾아주고, 기한과 서류를 몇 달에 걸쳐 대신 관리**하는 웹 서비스.
 > 112를 대체하지 않습니다 — **신고 이후를 맡습니다.**
 
-출전 주제 확정([ADR-0001](decisions/08-16-topic-selection.md)) · 이름 확정([ADR-0002](decisions/08-16-project-name.md)).
+출전 주제 확정([ADR-001](decisions/001-topic-selection.md)) · 이름 확정([ADR-002](decisions/002-project-name.md)).
 현재 단계: **백엔드 모듈 설계 중, 구현 착수 전.**
 
 ## 왜 이것인가
@@ -24,8 +24,8 @@
 | [`rfc/`](rfc/) | 규약 — 무엇을 어디에 두고 어떻게 일하는가 | 현행 규칙 |
 | [`decisions/`](decisions/) | 판단 근거 — 왜 그렇게 정했나 (ADR) | 이력 |
 | [`spec/`](spec/) | 구현이 따라야 할 제품 계약 (Markdown) | **개발 정본** |
-| [`docs/`](docs/) | 사람이 보는 문서 — 기획·배경·아카이브 | 원본·배경 |
-| [`assets/`](assets/) | 자산 원본 — 로고·favicon·컴포넌트 raw | 원본 |
+| [`docs/`](docs/) | 읽고 고치는 Markdown — 구현 계획·배경 | 문서 |
+| [`assets/`](assets/) | 산출물·자산 원본 — 로고·favicon, **HTML 아티팩트** | 원본 |
 | [`src/`](src/) | 코드 (Next.js 스캐폴딩) | 착수 전 |
 
 ```
@@ -35,42 +35,44 @@
               └→ src/   구현
 ```
 
-새 문서를 만들기 전에 [RFC-0001 저장소 구조 규약](rfc/08-16-repo-structure.md)의 결정 트리를 보세요.
+새 문서를 만들기 전에 [RFC-001 저장소 구조 규약](rfc/001-repo-structure.md)의 결정 트리를 보세요.
 
-## docs — 문서 인덱스
+## 문서 인덱스
 
-브라우저로 여는 단일 HTML 문서입니다. 외부 의존성 없이 파일 하나로 완결됩니다.
+**Markdown은 `docs/`, HTML 아티팩트는 `assets/artifacts/`** 입니다. 가르는 축은 읽는 비용이고,
+성격 구분(`plans`·`context`)은 양쪽에서 같은 이름으로 반복됩니다 → [ADR-006](decisions/006-artifacts-and-numbering.md).
 
-`plans/`와 `context/`는 **형식이 아니라 성격**으로 갈립니다 — 우리가 정한 설계는 `plans/`,
-확인한 바깥 사실은 `context/`입니다.
+- [`docs/plans/`](docs/plans/) — 구현 계획 Markdown. **아직 비어 있습니다**
+- [`docs/context/AGENDA.md`](docs/context/AGENDA.md) — 대회 개요·일정·진행 상황
 
-### 우리가 정한 설계 — `docs/plans/`
+아래는 브라우저로 여는 HTML 아티팩트입니다. 외부 의존성 없이 파일 하나로 완결됩니다.
 
-| 문서 | 내용 |
-| --- | --- |
-| [08-13-service-plan.html](docs/plans/08-13-service-plan.html) | 서비스 기획서 v1.2 — 분석 파이프라인, 슬롯 티어링, PII 격리, 경유 서비스 8유형, KB 운영, 완수 검증, 3-패널 화면, 기능명세 F-01~F-11. ⚠️ **구 명칭(골든30) 시점 문서**이고 포지셔닝이 30분 긴급 대응에 맞춰져 있습니다 — 개정 예정 |
-
-### 확인한 사실 — `docs/context/`
+### 우리가 정한 설계 — `assets/artifacts/plans/`
 
 | 문서 | 내용 |
 | --- | --- |
-| [08-13-aftermath-research.html](docs/context/08-13-aftermath-research.html) | 절차 지식의 근거. 통신사기피해환급법·경찰청·금감원 기준 사후처리 전 과정 |
-| [주최기관-정합성-분석.html](docs/context/주최기관-정합성-분석.html) | 금융보안원의 연혁·3대 사업축·2026 중점 어젠다와 2025년 1회 수상작 분석 |
-| [AGENDA.md](docs/context/AGENDA.md) | 대회 개요·일정·진행 상황. 아직 못 채운 칸은 `확인 필요`로 표시돼 있습니다 |
+| [08-13-service-plan.html](assets/artifacts/plans/08-13-service-plan.html) | 서비스 기획서 v1.2 — 분석 파이프라인, 슬롯 티어링, PII 격리, 경유 서비스 8유형, KB 운영, 완수 검증, 3-패널 화면, 기능명세 F-01~F-11. ⚠️ **구 명칭(골든30) 시점 문서**이고 포지셔닝이 30분 긴급 대응에 맞춰져 있습니다 — 개정 예정 |
 
-### 아카이브 — `docs/archived/`
+### 확인한 사실 — `assets/artifacts/context/`
 
-주제가 FinAlly로 확정되면서([ADR-0001](decisions/08-16-topic-selection.md)) 역할이 끝난 문서들입니다.
+| 문서 | 내용 |
+| --- | --- |
+| [08-13-aftermath-research.html](assets/artifacts/context/08-13-aftermath-research.html) | 절차 지식의 근거. 통신사기피해환급법·경찰청·금감원 기준 사후처리 전 과정 |
+| [주최기관-정합성-분석.html](assets/artifacts/context/주최기관-정합성-분석.html) | 금융보안원의 연혁·3대 사업축·2026 중점 어젠다와 2025년 1회 수상작 분석 |
+
+### 아카이브 — `assets/artifacts/archived/`
+
+주제가 FinAlly로 확정되면서([ADR-001](decisions/001-topic-selection.md)) 역할이 끝난 문서들입니다.
 **판단 과정 자체는 ADR에 정리돼 있으니**, 아래는 그 근거 원문이 필요할 때만 엽니다. 갱신하지 않습니다.
 
 | 문서 | 내용 |
 | --- | --- |
-| [candidates/최종후보군-보드.html](docs/archived/candidates/최종후보군-보드.html) | 주제 선정의 최종본. 다섯 기준 재평가·신규 후보 14건 검증·탈락 사유. **제도 변경과 법적 경계 부분은 아직 이 문서가 최신**이라 근거로 살아 있습니다 |
-| [candidates/주제후보군-보드.html](docs/archived/candidates/주제후보군-보드.html) | 초기 후보 9건 보드 v2 |
-| [candidates/tier1/](docs/archived/candidates/tier1/) | 탈락 후보 컨셉 스펙 — 금융약관 해석기 · 소상공인 매칭 · 보안관제 AI비서 |
+| [candidates/최종후보군-보드.html](assets/artifacts/archived/candidates/최종후보군-보드.html) | 주제 선정의 최종본. 다섯 기준 재평가·신규 후보 14건 검증·탈락 사유. **제도 변경과 법적 경계 부분은 아직 이 문서가 최신**이라 근거로 살아 있습니다 |
+| [candidates/주제후보군-보드.html](assets/artifacts/archived/candidates/주제후보군-보드.html) | 초기 후보 9건 보드 v2 |
+| [candidates/tier1/](assets/artifacts/archived/candidates/tier1/) | 탈락 후보 컨셉 스펙 — 금융약관 해석기 · 소상공인 매칭 · 보안관제 AI비서 |
 
 ## 문서 규칙
 
 - HTML 아티팩트는 **단일 파일**로 작성합니다(외부 CSS/JS/폰트 의존 없음).
-- 기획서와 `spec/`이 어긋나면 **기획서가 상위**입니다. 다만 최종 후보 보드([아카이브](docs/archived/candidates/최종후보군-보드.html))에서 갱신된 사실(제도 변경 등)은 보드가 최신입니다.
-- 문서는 한국어, 코드 식별자는 영문. 이름 표기는 [ADR-0002](decisions/08-16-project-name.md) 참조.
+- 기획서와 `spec/`이 어긋나면 **기획서가 상위**입니다. 다만 최종 후보 보드([아카이브](assets/artifacts/archived/candidates/최종후보군-보드.html))에서 갱신된 사실(제도 변경 등)은 보드가 최신입니다.
+- 문서는 한국어, 코드 식별자는 영문. 이름 표기는 [ADR-002](decisions/002-project-name.md) 참조.
