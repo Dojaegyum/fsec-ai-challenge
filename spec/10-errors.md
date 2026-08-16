@@ -19,7 +19,7 @@
 class AppError(Exception):
     """FinAlly 서버의 모든 예외의 기반.
 
-    retryable 로 재시도 가능 여부를 표시한다. 오케스트레이터가 이 값만 보고
+    retryable 로 재시도 가능 여부를 표시한다. retry-checker 가 이 값만 보고
     재시도를 결정하므로, 예외 종류마다 반드시 값을 정한다.
     """
 
@@ -165,7 +165,11 @@ class StoreError(AppError):
 
 ## 2. 재시도 규칙
 
-오케스트레이터는 `retryable` 값만 보고 판단합니다. 예외 종류를 따로 분기하지 않습니다.
+**판단하는 자리를 `retry-checker` 라고 부릅니다** → [12-module-names.md](12-module-names.md).
+
+`retry-checker` 는 `retryable` 값만 보고 판단합니다. **예외 종류를 따로 분기하지 않습니다.**
+
+> **`08-api.md` 의 「분석 오케스트레이터」와 다른 것입니다.** 그쪽은 `F-04`·`F-05` 실행 순서를 조율하는 자리이고 `case-reader`·`slot-extractor`·`planner` 셋으로 나뉩니다. `retry-checker` 는 **어느 모듈이 던진 예외든 같은 판단을 하므로 층에 속하지 않습니다** — `audit-logger` 와 같은 자리입니다.
 
 | 예외 | 재시도 | 왜 |
 | --- | :---: | --- |
