@@ -44,6 +44,9 @@ spec/backend/08-14-channel-matrix.md
 | [08-14-glossary.md](common/08-14-glossary.md) | 용어 — 사건·슬롯·부산물·토큰. 코드 식별자 대응표 포함 |
 | [08-14-features.md](common/08-14-features.md) | 기능명세 F-01 ~ F-11, 우선순위 |
 | [08-14-pii-boundary.md](common/08-14-pii-boundary.md) | PII 격리 경계·토큰 규격·인젝션 방어 |
+| [08-16-domain-model.md](common/08-16-domain-model.md) | 엔티티·관계·상태 집합·저장 경계. **DB 스키마 설계의 입력** |
+| [08-16-module-boundaries.md](common/08-16-module-boundaries.md) | 모듈의 책임·입출력·금지. 모듈 역할 정의의 입력 |
+| [08-16-deadline-rules.md](common/08-16-deadline-rules.md) | 기한을 어떻게 세는가 — 기산점·영업일·표시 규칙 |
 | [08-14-api.md](common/08-14-api.md) | API 계약 — **미작성** |
 
 ### `backend/` — 서버
@@ -72,6 +75,7 @@ spec/backend/08-14-channel-matrix.md
 | **자율배상은 "대상인지 진단"** — 1년 4개월간 41건·피해액의 0.1%·평균 116일 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
 | 포지셔닝 전환 — 112 이후를 맡는 사건 관리, 상담 종료 후 링크 유입 | [screens](frontend/08-14-screens.md) 전반 | **미반영** |
 | 데이터: 한국어 공개 데이터 0건 → 합성 불가피 | [glossary](common/08-14-glossary.md) | **미반영** |
+| **보존 기간 충돌** — 기획서는 세션 24h 파기, 포지셔닝은 몇 달 관리. 둘이 정면으로 어긋납니다 | [pii-boundary](common/08-14-pii-boundary.md) [domain-model](common/08-16-domain-model.md) | **결정 대기** — DB 설계의 선행 조건 |
 
 ## 이 폴더의 규칙
 
