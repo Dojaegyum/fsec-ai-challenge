@@ -8,7 +8,7 @@
 
 API를 설계할 때 지켜야 하는 것들입니다. 이건 정해져 있습니다.
 
-- **PII 경계** — 외부 LLM으로 나가는 페이로드는 토큰화된 텍스트만. 스크러버를 우회하는 경로를 만들 수 없습니다 → [04](04-pii-boundary.md)
+- **PII 경계** — 외부 LLM으로 나가는 페이로드는 토큰화된 텍스트만. `pii-tokenizer` 를 우회하는 경로를 만들 수 없습니다 → [04](04-pii-boundary.md)
 - **복원 매핑의 복호화 키는 서버에 없음** — 매핑은 **암호문 상태로** 서버 볼트에 있고, 서버 API가 다루는 것은 토큰과 암호문뿐입니다 → [ADR-0003](../decisions/0003-복원-매핑-보관-위치.md)
 - **사건 수명 `CASE_PURGE_DAYS` (기본 90일)** — `case.purge_after` → [09](09-data-model.md) §2
 - **감사 로그** — 모든 LLM 호출 기록 (토큰화 텍스트 기준)
@@ -21,15 +21,31 @@ API를 설계할 때 지켜야 하는 것들입니다. 이건 정해져 있습�
 
 ## 서버 구성 요소
 
+**이름의 정본은 [12-module-names.md](12-module-names.md)입니다.**
+
 | 구성 요소 | 역할 | 관련 |
 | --- | --- | --- |
-| API Gateway | 진입 | 이 문서 |
-| Ingest 서비스 | STT(화자분리)·OCR | `F-02` |
-| 2차 PII 스크러버 | NER → 토큰화. **격리 경계** | [04](04-pii-boundary.md) |
-| 분석 오케스트레이터 | 파이프라인 조율 | `F-04` `F-05` |
-| 슬롯 체커 | 필수 정보 검사 | [02](02-slot-tiering.md) |
-| Case Store | 사건 상태 | [09](09-data-model.md) |
-| 감사 로그 | 토큰화 텍스트 기준 | [09](09-data-model.md) §10 |
+| `case-intake` | 사건 생성·파일 접수 | `F-01` §3.1 §3.2 |
+| `transcriber` | STT(화자분리)·OCR | `F-02` §3.3 |
+| `pii-tokenizer` | 개인정보를 토큰으로 치환. **격리 경계** | [04](04-pii-boundary.md) |
+| `case-reader` | 수법·위험도 판정, 근거 스팬 | `F-04` |
+| `slot-extractor` | 전사에서 슬롯 값 추출 | `F-05b` §3.4 |
+| `slot-checker` | T1 충족 판정, 다음 질문 1문항 | `F-05b` [02](02-slot-tiering.md) |
+| `planner` | KB를 인용해 `plan_step` 확정 | `F-05` §3.6 |
+| `date-checker` | 법정 기한을 **규칙으로** 계산 | `F-06` §3.7 |
+| `completion-checker` | 부산물로 완료 판정 (L1·L2·L3) | `F-06b` §3.8 |
+| `kb-finder` · `prompt-builder` · `citation-checker` | 챗 한 턴의 조회·조립·검증 | `F-07` §3.9 [11](11-chat-context.md) |
+| `audit-logger` | 모든 LLM 호출 기록 | [09](09-data-model.md) §10 |
+| `retry-checker` | `retryable` 을 보고 재시도 판단 | [10](10-errors.md) §2 |
+
+**아래 둘은 동작 단위가 아니라 [12](12-module-names.md) 목록에 없습니다.**
+
+| | 무엇 |
+| --- | --- |
+| API Gateway | 진입 경로 |
+| Case Store | 사건 상태 저장소 → [09](09-data-model.md) |
+
+> **「Ingest 서비스」·「2차 PII 스크러버」·「분석 오케스트레이터」를 쓰지 마세요.** 마지막 것은 `case-reader`·`slot-extractor`·`planner` 셋으로 갈렸습니다 — 실패했을 때 일어나는 일이 서로 달라 한 이름으로 부르면 구분해 말할 수 없습니다.
 
 ---
 
@@ -611,7 +627,7 @@ API를 설계할 때 지켜야 하는 것들입니다. 이건 정해져 있습�
 
 챗도 예외가 아닙니다. **서버가 KB를 조회해 프롬프트에 넣고 모델을 한 번 부릅니다.** 조회 조건(`track`·`channel_id`·`org_id`·조회 기준일·KB 버전)을 서버가 전부 알고 있어, 모델에게 물어볼 것이 없습니다 → [09](09-data-model.md) §11.2
 
-**모든 호출이 스크러버를 통과한 페이로드로만 이루어집니다.** 우회 경로를 만들지 않습니다.
+**모든 호출이 `pii-tokenizer` 를 통과한 페이로드로만 이루어집니다.** 우회 경로를 만들지 않습니다.
 
 **기한 계산은 이 넷 어디에도 없습니다.** 코드의 규칙입니다.
 

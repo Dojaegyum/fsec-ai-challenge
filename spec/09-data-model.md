@@ -101,7 +101,7 @@ CREATE TABLE evidence (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-**`transcript_masked`에 스크러버를 통과한 문자열만 저장합니다.** 전사·OCR 원문을 저장하지 않습니다.
+**`transcript_masked`에 `pii-tokenizer` 를 통과한 문자열만 저장합니다.** 전사·OCR 원문을 저장하지 않습니다.
 
 **업로드 원본은 사건과 같은 기간 보관합니다** (`case.purge_after`, 기본 90일).
 
@@ -322,7 +322,7 @@ CREATE TABLE artifact (
 | `verify_level` | 방식 | `plan_step.state` 결과 |
 | --- | --- | --- |
 | `L1` | 접수번호 포맷 체크 + 접수증 OCR 대조 | `done_verified` |
-| `L2` | 캡처·서류 업로드 (스크러버 통과) | `done_verified` |
+| `L2` | 캡처·서류 업로드 (`pii-tokenizer` 통과) | `done_verified` |
 | `L3` | 자기 신고 | **`unconfirmed`** |
 
 **`L3`만으로 `done_verified`가 되는 경로를 만들지 않습니다.** 이 기능의 존재 이유가 사라집니다 → [05-completion-hook.md](05-completion-hook.md) 구현 주의.
@@ -472,7 +472,7 @@ CREATE TABLE message (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-**`content_masked`에 스크러버를 통과한 문자열만 저장합니다.** 사용자가 채팅창에 계좌번호를 그대로 치는 일이 흔합니다.
+**`content_masked`에 `pii-tokenizer` 를 통과한 문자열만 저장합니다.** 사용자가 채팅창에 계좌번호를 그대로 치는 일이 흔합니다.
 
 **`citations`에 저장하는 것은 「이 문장이 어디서 나왔는가」입니다** → §9.3.
 
@@ -1232,8 +1232,8 @@ page = 1
 | 금지 | 대신 |
 | --- | --- |
 | 계좌·주민번호·전화·이름·주소 원문 | 토큰 (`[계좌-1]`) |
-| 전사·OCR 원문 | 스크러버 통과 후 (`evidence.transcript_masked`) |
-| 채팅 입력 원문 | 스크러버 통과 후 (`message.content_masked`) |
+| 전사·OCR 원문 | `pii-tokenizer` 통과 후 (`evidence.transcript_masked`) |
+| 채팅 입력 원문 | `pii-tokenizer` 통과 후 (`message.content_masked`) |
 | 볼트 복호화 키 | 키 식별자만 (`case.session_key_id`) |
 | LLM 요청·응답 원문 | 토큰화 상태 본문만 |
 | 프롬프트·판단 근거의 원문 | 토큰화 상태 (`prompt_masked`·`reasoning_masked`) |

@@ -56,13 +56,13 @@ class RestoreDeniedError(PiiBoundaryError):
     http_status = 403
 
 
-class ScrubberUnavailableError(PiiBoundaryError):
-    """2차 스크러버(NER)를 쓸 수 없다.
+class PiiTokenizerUnavailableError(PiiBoundaryError):
+    """pii-tokenizer(NER)를 쓸 수 없다.
 
-    스크러버 없이 LLM을 호출하는 우회 경로를 만들지 않는다.
-    스크러버가 죽으면 LLM 기능 전체가 멈춘다 — 의도된 것이다.
+    토큰화 없이 LLM을 호출하는 우회 경로를 만들지 않는다.
+    pii-tokenizer 가 죽으면 LLM 기능 전체가 멈춘다 — 의도된 것이다.
     """
-    code = "SCRUBBER_UNAVAILABLE"
+    code = "PII_TOKENIZER_UNAVAILABLE"
     http_status = 503
     retryable = True
 
@@ -102,7 +102,7 @@ class KbUnavailableError(KbError):
     """KB 조회 자체가 실패했다. DB 장애 등.
 
     챗을 멈춘다. 근거 없는 답변보다 멈추는 편이 낫다.
-    ScrubberUnavailableError 와 같은 논리다 — 통제를 우회하는
+    PiiTokenizerUnavailableError 와 같은 논리다 — 통제를 우회하는
     폴백 경로를 만들지 않는다.
 
     KbEntryNotFoundError(404) 와 구분한다:
@@ -173,12 +173,12 @@ class StoreError(AppError):
 
 `retry-checker` 는 `retryable` 값만 보고 판단합니다. **예외 종류를 따로 분기하지 않습니다.**
 
-> **`08-api.md` 의 「분석 오케스트레이터」와 다른 것입니다.** 그쪽은 `F-04`·`F-05` 실행 순서를 조율하는 자리이고 `case-reader`·`slot-extractor`·`planner` 셋으로 나뉩니다. `retry-checker` 는 **어느 모듈이 던진 예외든 같은 판단을 하므로 층에 속하지 않습니다** — `audit-logger` 와 같은 자리입니다.
+> **한때 `08-api.md` 가 「분석 오케스트레이터」라고 부르던 것과 다릅니다.** 그쪽은 `F-04`·`F-05` 실행 순서를 조율하는 자리였고 지금은 `case-reader`·`slot-extractor`·`planner` 셋으로 갈렸습니다 → [12](12-module-names.md). `retry-checker` 는 **어느 모듈이 던진 예외든 같은 판단을 하므로 층에 속하지 않습니다** — `audit-logger` 와 같은 자리입니다.
 
 | 예외 | 재시도 | 왜 |
 | --- | :---: | --- |
 | `PiiBoundaryError` 계열 | ✗ | PII 처리 실패를 다시 시도하지 않습니다 |
-| `ScrubberUnavailableError` | ✓ | 서비스 장애는 일시적일 수 있습니다. 최대 2회 |
+| `PiiTokenizerUnavailableError` | ✓ | 서비스 장애는 일시적일 수 있습니다. 최대 2회 |
 | `KbCitationMissingError` | ✓ | **`ref` 검증 위반일 때만.** 최대 2회 → §4.2. `insufficient` 는 재시도하지 않습니다 |
 | `LlmError` | ✓ | 일시적 실패가 흔합니다. 최대 2회 |
 | `LlmBadRequestError` | ✗ | 같은 요청은 같은 결과 |
@@ -206,7 +206,7 @@ class StoreError(AppError):
 | --- | --- | --- |
 | `EGRESS_BLOCKED` | 422 | 개인정보가 남아 있어 요청을 중단했습니다. 다시 시도해 주세요. |
 | `RESTORE_DENIED` | 403 | 요청하신 정보를 표시할 수 없습니다. |
-| `SCRUBBER_UNAVAILABLE` | 503 | 지금은 분석할 수 없습니다. 잠시 후 다시 시도해 주세요. |
+| `PII_TOKENIZER_UNAVAILABLE` | 503 | 지금은 분석할 수 없습니다. 잠시 후 다시 시도해 주세요. |
 | `KB_CITATION_MISSING` | 502 | 안내를 만들지 못했습니다. 다시 시도해 주세요. |
 | `KB_ENTRY_NOT_FOUND` | 404 | 해당하는 절차 정보를 찾지 못했습니다. |
 | `KB_UNAVAILABLE` | 503 | 지금은 절차를 안내할 수 없습니다. 급하시면 1332(금융감독원)로 연락해 주세요. |
@@ -224,7 +224,7 @@ class StoreError(AppError):
 
 **할 수 있는 다음 행동을 함께 줍니다.** "다시 시도해 주세요", "다른 파일로 시도해 주세요"처럼 끝냅니다.
 
-**기술 용어를 노출하지 않습니다.** "스크러버", "NER", "토큰"은 사용자 문구에 쓰지 않습니다. 단 화면에 보이는 파란 토큰은 예외이며, 그건 [04-pii-boundary.md](04-pii-boundary.md)가 정한 안내 문구를 씁니다.
+**기술 용어를 노출하지 않습니다.** 모듈 이름(`pii-tokenizer` 등)·"NER"·"토큰"은 사용자 문구에 쓰지 않습니다. 단 화면에 보이는 파란 토큰은 예외이며, 그건 [04-pii-boundary.md](04-pii-boundary.md)가 정한 안내 문구를 씁니다.
 
 ---
 
@@ -269,7 +269,7 @@ class StoreError(AppError):
 
 **공통 안전 절차(T0)로 폴백할 수 없습니다.** [08-api.md](08-api.md) §3.1을 보면 T0 단계에도 `citation`이 붙습니다. **T0 자체가 KB 항목**(`report-112` 등)이라, 조회가 안 되면 T0도 인용 없이 내보낼 수 없습니다.
 
-`ScrubberUnavailableError`와 같은 논리입니다 — **통제를 우회하는 폴백 경로를 만들지 않습니다.** 근거 없는 절차 안내보다 멈추는 편이 낫습니다.
+`PiiTokenizerUnavailableError`와 같은 논리입니다 — **통제를 우회하는 폴백 경로를 만들지 않습니다.** 근거 없는 절차 안내보다 멈추는 편이 낫습니다.
 
 다만 사용자를 빈손으로 두지 않도록 **에러 메시지에 1332를 넣습니다.** 이건 절차 안내가 아니라 연락처 안내라 인용이 필요 없습니다.
 
