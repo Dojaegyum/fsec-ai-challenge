@@ -64,10 +64,16 @@
 | [004](004-agenda-and-assets.md) | AGENDA.md를 `docs/context/`로 옮기고 `assets/` 신설 | 채택 |
 | [005](005-filename-convention.md) | 파일명 규약을 전 폴더로 통일하고 번호를 문서 안 ID로 분리 | 부분 대체됨(→006) |
 | [006](006-artifacts-and-numbering.md) | HTML 아티팩트를 `assets/`로 분리하고 RFC·ADR 파일명에 번호 복원 | 채택 |
+| [007](007-architecture-doc.md) | 시스템 구조를 최상위 `ARCHITECTURE.md`에 둔다 | 채택 |
+| [008](008-structure-gate-ci.md) | 폴더 구조가 바뀌면 RFC 수정을 CI로 강제한다 | 채택 |
 
 ## 아직 안 쓴 것
 
-- [ ] 백엔드 모듈 경계와 역할 — **@kth9245** (진행 중. 다른 세션에서 같은 ADR을 쓰지 마세요)
+- [ ] 백엔드 모듈 경계와 역할 — **@kth9245** (진행 중. 다른 세션에서 같은 ADR을 쓰지 마세요).
+      정의는 [`ARCHITECTURE.md`](../ARCHITECTURE.md)에 쓰고, 선행 결정 넷은
+      [백엔드 핸드오프](../docs/plans/08-16-backend-handoff.md)에서 답을 기다립니다
+- [ ] 사건 보존 기간 — 24시간 파기와 몇 달 관리의 충돌 (핸드오프 ①)
+- [ ] 재진입·식별 모델 — `User` 테이블의 존재 여부가 걸립니다 (핸드오프 ②)
 - [ ] 데스크톱 웹 우선 · 모바일 P1
 - [ ] 기술 스택 확정 (기획서 §9는 예정안)
 - [ ] MVP 범위 컷 — P0/P1 경계를 대회 일정에 맞춰 재확정

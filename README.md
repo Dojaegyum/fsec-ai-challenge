@@ -21,6 +21,7 @@
 | 폴더 | 무엇 | 성격 |
 | --- | --- | --- |
 | [`CLAUDE.md`](CLAUDE.md) | 에이전트 작업 규약 — 정본 위치, 불변 규칙, ID 체계 | **먼저 읽는 곳** |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 시스템이 어떻게 구성되는가 — 기술 선택·모듈 배치·배포 | **뼈대만** ([ADR-007](decisions/007-architecture-doc.md)) |
 | [`rfc/`](rfc/) | 규약 — 무엇을 어디에 두고 어떻게 일하는가 | 현행 규칙 |
 | [`decisions/`](decisions/) | 판단 근거 — 왜 그렇게 정했나 (ADR) | 이력 |
 | [`spec/`](spec/) | 구현이 따라야 할 제품 계약 (Markdown) | **개발 정본** |
@@ -42,7 +43,7 @@
 **Markdown은 `docs/`, HTML 아티팩트는 `assets/artifacts/`** 입니다. 가르는 축은 읽는 비용이고,
 성격 구분(`plans`·`context`)은 양쪽에서 같은 이름으로 반복됩니다 → [ADR-006](decisions/006-artifacts-and-numbering.md).
 
-- [`docs/plans/`](docs/plans/) — 구현 계획 Markdown. **아직 비어 있습니다**
+- [`docs/plans/08-16-backend-handoff.md`](docs/plans/08-16-backend-handoff.md) — 백엔드 선행 결정 넷. **답을 기다리는 일시 문서**
 - [`docs/context/AGENDA.md`](docs/context/AGENDA.md) — 대회 개요·일정·진행 상황
 
 아래는 브라우저로 여는 HTML 아티팩트입니다. 외부 의존성 없이 파일 하나로 완결됩니다.

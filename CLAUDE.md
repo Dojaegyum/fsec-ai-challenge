@@ -28,13 +28,14 @@
 | 알고 싶은 것 | 볼 곳 | 성격 |
 | --- | --- | --- |
 | **구현이 따라야 할 계약** | `spec/` (`common/`·`backend/`·`frontend/`) | **정본.** 코드를 쓰기 전 여기부터 |
+| **시스템이 무엇으로 어떻게 도는가** | [ARCHITECTURE.md](ARCHITECTURE.md) | 기술 선택·모듈 배치·저장소·배포. **뼈대만** — 백엔드 정의 대기 |
 | **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-001](rfc/001-repo-structure.md) |
 | 왜 그렇게 정했나 | `decisions/` | 판단 근거의 이력(ADR). 과거형, 고치지 않음 |
 | 서비스 기획 전체 그림 | `assets/artifacts/plans/08-13-service-plan.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
 | 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
 | **제도·경쟁·법적 경계의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
-| 구현 계획 | `docs/plans/` | **아직 비어 있음.** 무엇을 어떤 순서로 만들지 |
+| 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. 지금은 [백엔드 선행 결정 핸드오프](docs/plans/08-16-backend-handoff.md) 하나 |
 | 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
 | 코드 | `src/` | Next.js 스캐폴딩만 — 도메인 코드 없음 |
 | 로고·favicon·컴포넌트 원본 | `assets/brand/`, `assets/components/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
