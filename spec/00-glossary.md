@@ -38,7 +38,7 @@ CLIENT   SERVER     SERVER(격리경계)  LLM API    LLM + KB      CLIENT
 | LLM | **Grok (xAI)** — 분석·플랜 생성·챗. OpenAI 호환 API (`https://api.x.ai/v1`). **도구 호출을 쓰지 않습니다** → [11](11-chat-context.md) |
 | STT | Whisper급 + 브라우저 Web Speech 폴백 |
 | OCR | Vision 입력 |
-| KB | 구조화 JSON + RAG |
+| KB | 관계형 테이블 (본문은 JSON). **조건 조회** — 벡터 유사도 검색이 아닙니다 → [11](11-chat-context.md) |
 | PII | 클라이언트 정규식 + 서버 NER |
 | 문서 | docx 생성 |
 | 배포 | Vercel (배포 URL 요건) |
