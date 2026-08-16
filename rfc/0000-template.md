@@ -1,6 +1,6 @@
 # RFC-NNNN. <제안 한 문장>
 
-- 상태: **초안** | 논의중 | 채택됨(→ `decisions/NNNN`) | 폐기
+- 상태: **초안** | 논의중  ← 결론이 나면 이 파일은 `decisions/`로 옮기고 지웁니다
 - 작성일: YYYY-MM-DD
 - 관련: `spec/...`, `decisions/...`
 
