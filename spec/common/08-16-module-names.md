@@ -68,8 +68,16 @@
 
 【층 2】 사용자가 말할 때마다 (매 턴)
 
-   pii-masker → pii-tokenizer → kb-finder → prompt-builder
-        → [ 모델 1회 호출 ] → citation-checker → pii-restorer
+   pii-masker          ← 브라우저 · 보내기 전 1차 마스킹
+        ↓
+   chat-receiver       ← 아래 순서를 부르는 자리. 판정도 조립도 하지 않는다
+        └ pii-tokenizer → kb-finder → prompt-builder → [ 모델 1회 호출 ]
+        ↓
+   citation-checker    ← 갈래 셋을 판정 (답변 · 1332 안내 · 슬롯 질문)
+        ↓
+   chat-publisher      ← 한 형태로 씌우고, 판단 근거 분리 · 잔여 PII 검사
+        ↓
+   pii-restorer        ← 브라우저 · 부분 복원
 
    브라우저에서 도는 것은 양 끝 둘뿐 — pii-masker(입력) · pii-restorer(표시)
 
@@ -94,7 +102,7 @@
 | `pii-masker` | 정규식으로 계좌·주민번호·카드·전화를 치환한다. **1차 마스킹** | **브라우저** | `F-03` [04](08-14-pii-boundary.md) |
 | `case-intake` | 사건을 생성하고 파일을 접수한다 | 서버 | `F-01` [08](08-14-api.md) §3.1 §3.2 |
 | `transcriber` | STT(화자 분리)·OCR(대화 구조 보존) | 서버 | `F-02` |
-| `pii-tokenizer` | 개인정보를 토큰으로 치환하고, **송출 직전 잔여 PII를 검사한다.** 격리 경계 | 서버 | `F-03` [04](08-14-pii-boundary.md) |
+| `pii-tokenizer` | 개인정보를 토큰으로 치환한다. **격리 경계** | 서버 | `F-03` [04](08-14-pii-boundary.md) |
 | `case-reader` | 수법과 위험도를 판정하고 근거 스팬을 낸다 | 서버 | `F-04` |
 | `slot-extractor` | 전사·OCR 결과에서 슬롯 값을 추출한다 | 서버 | `F-05b` [02](../backend/08-14-slot-tiering.md) |
 
@@ -104,7 +112,7 @@
 
 > `pii-masker`가 다루는 것은 **사용자가 입력한 텍스트**입니다. 녹음·이미지 파일은 정규식을 걸 대상이 아니라 그대로 업로드되고([08](08-14-api.md) §3.2 presigned), 전사된 뒤 서버에서 `pii-tokenizer`가 받습니다.
 
-**송출 직전 검사를 `pii-tokenizer`에 둔 이유**는 경계를 지키는 일이 한 모듈에 모여야 우회 경로가 안 생기기 때문입니다. 이 검사가 걸리면 `EgressBlockedError`(422)로 요청을 중단하며, 통과시키고 로그만 남기는 경로를 만들지 않습니다 → [10](../backend/08-16-errors.md) §1.
+**들어올 때와 나갈 때가 다른 모듈입니다.** `pii-tokenizer`는 **들어온 텍스트를 토큰으로 바꾸는** 자리이고, 나가기 직전 **잔여 PII를 검사하는** 자리는 `chat-publisher`입니다 → [ADR-022](../../decisions/022-chat-turn-boundaries.md). 나가는 것을 마지막으로 만지는 자리가 하나여야 우회 경로가 생길 자리도 하나입니다. 검사가 걸리면 `EgressBlockedError`(422)로 요청을 중단하며, **통과시키고 로그만 남기는 경로를 만들지 않습니다** → [10](../backend/08-16-errors.md) §1.
 
 **`case-reader`의 산출물은 절차 분기에 쓰이지 않습니다.** 분기축은 경유 서비스 하나입니다 → [03](../backend/08-14-channel-matrix.md). 이 모듈의 결과는 화면 표시([06](../frontend/08-14-screens.md))와 관리자 조회([08](08-14-api.md) §5)에서 소비됩니다.
 
@@ -117,13 +125,21 @@
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
 | `pii-masker` | 발화를 보내기 전에 정규식으로 치환한다 (층 1과 같은 모듈) | **브라우저** | [04](08-14-pii-boundary.md) |
-| `pii-tokenizer` | 입력을 토큰화하고 송출 직전 잔여를 검사한다 (층 1과 같은 모듈) | 서버 | [04](08-14-pii-boundary.md) |
+| `chat-receiver` | 층 2의 **순서를 부른다.** 갈래 판정·직접 조회·응답 조립은 하지 않는다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) |
+| `pii-tokenizer` | 입력을 토큰화한다 (층 1과 같은 모듈) | 서버 | [04](08-14-pii-boundary.md) |
 | `kb-finder` | KB를 `applied`·`reference` 두 묶음으로 조회한다 | 서버 | [11](../backend/08-16-chat-context.md) §2 |
 | `prompt-builder` | 7블록을 순서대로 조립하고 비신뢰 블록에 격리 태그를 씌운다 | 서버 | [11](../backend/08-16-chat-context.md) §3 §4 |
 | `citation-checker` | 인용 네 가지를 확인하고, 비었으면 **되묻기로 넘길지** 판정한다 | 서버 | [11](../backend/08-16-chat-context.md) §6 |
+| `chat-publisher` | 세 갈래를 한 형태로 씌우고, 판단 근거를 분리하고, **잔여 PII를 검사한다** | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) |
 | `pii-restorer` | 복원해도 되는 토큰인지 검사하고 되돌린다 | **브라우저** | [11](../backend/08-16-chat-context.md) §8 |
 
 **모델 호출은 한 번이고 모델은 도구를 부르지 않습니다.** 조회 조건은 서버가 전부 알고 있습니다 → [11](../backend/08-16-chat-context.md) §1.
+
+**`chat-receiver`는 순서를 부르기만 합니다.** 갈래를 판정하지 않고(그것은 `citation-checker`), 조회·조립·토큰화를 직접 하지 않고, 응답 형태를 만들지 않습니다(그것은 `chat-publisher`). **이 금지 조항이 없으면 재시도 판단·감사 로그·캐싱 경계가 전부 이 자리로 몰려 반드시 비대해집니다** → [ADR-022](../../decisions/022-chat-turn-boundaries.md).
+
+**`chat-publisher`가 송출 전 검사 셋 중 둘을 맡습니다.** 인용 검증은 `citation-checker`가 하고, **판단 근거 분리**와 **잔여 PII 검사**가 여기입니다. `EgressBlockedError`(422)를 던지는 자리이기도 합니다 → [11](../backend/08-16-chat-context.md) §9 · [10](../backend/08-16-errors.md) §1.
+
+> **`chat-publisher`의 `publisher`는 전송 방식을 뜻하지 않습니다.** `chat-receiver`와 대칭을 이루려고 고른 말이고, 실제로 하는 일은 HTTP 응답 본문을 만드는 것입니다. 구독·푸시·발행과 무관하며 **웹소켓·스트리밍을 쓰지 않습니다** → [모듈 경계](08-16-module-boundaries.md).
 
 > ⚠️ **`pii-restorer`는 서버에 존재해서는 안 되는 모듈입니다.** 복원 여부 검사도, 실제 복원도 브라우저에서 일어납니다. 서버는 토큰 상태 그대로 내려보내고 끝입니다 — 복호화 키가 없어 복원 자체가 불가능합니다 → [04](08-14-pii-boundary.md) · [ADR-009](../../decisions/009-restore-mapping-location.md).
 >

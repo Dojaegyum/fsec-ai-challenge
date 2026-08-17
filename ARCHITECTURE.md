@@ -167,24 +167,32 @@ flowchart LR
 ```mermaid
 flowchart TB
     IN["사용자 발화"] --> MASK2["pii-masker · 브라우저"]
-    MASK2 --> TOK2["pii-tokenizer"]
+    MASK2 --> RECV["chat-receiver · 순서를 부른다"]
+    RECV --> TOK2["pii-tokenizer"]
     TOK2 --> FIND["kb-finder · applied · reference 두 묶음"]
     FIND --> PB["prompt-builder · 7블록 조립 · 격리 태그"]
     PB --> LLM{{"Grok · 1회 호출"}}
     LLM --> CC["citation-checker"]
 
-    CC -->|"인용 있음"| OUT["응답 200"]
-    CC -->|"인용 없음 · KB 조회 0건"| G1332["1332 안내"]
+    CC -->|"인용 있음"| PUB["chat-publisher · 한 형태로 · 근거 분리 · 잔여 PII"]
+    CC -->|"인용 없음 · KB 조회 0건"| PUB
     CC -->|"인용 없음 · 조회는 됐음"| SLOT["slot-checker · 질문 1문항"]
+    SLOT --> PUB
 
-    OUT --> BROWSER["pii-restorer · 브라우저 · 부분 복원"]
-    G1332 --> BROWSER
-    SLOT --> BROWSER
+    PUB --> BROWSER["pii-restorer · 브라우저 · 부분 복원"]
 
     style MASK2 fill:#bfdbfe,stroke:#1d4ed8,color:#111
     style TOK2 fill:#fde68a,stroke:#b45309,color:#111
+    style PUB fill:#fde68a,stroke:#b45309,color:#111
     style BROWSER fill:#bfdbfe,stroke:#1d4ed8,color:#111
 ```
+
+**노란 칸이 둘입니다.** 들어올 때 `pii-tokenizer`, 나갈 때 `chat-publisher` — 경계를 지키는 자리가
+방향마다 하나씩입니다 → [ADR-022](decisions/022-chat-turn-boundaries.md).
+
+**세 갈래가 `chat-publisher` 로 모입니다.** 답변·1332 안내·슬롯 질문이 같은 껍데기로 나가서
+화면이 갈래를 분기하지 않습니다. **어느 갈래인지 판정하는 것은 `citation-checker`, 그 갈래를
+형태로 옮기는 것은 `chat-publisher`** 입니다 — 판정이 뒤로 새면 갈래가 두 곳에서 결정됩니다.
 
 **파란 칸 둘이 브라우저입니다** — 들어갈 때 `pii-masker`, 나올 때 `pii-restorer`. 이 사이의 모든 것이 서버입니다.
 
