@@ -97,6 +97,7 @@
 | [019](019-module-code-sync.md) | 코드 폴더를 모듈 이름에 묶고, 스키마가 바뀌면 마이그레이션을 함께 받는다 | 채택 |
 | [020](020-adr-threshold.md) | ADR은 제품 결정에만 쓰고, 저장소 운영 변경은 RFC 개정으로 끝낸다 | 채택 |
 | [021](021-runtime-and-module-shape.md) | 백엔드를 Next.js 안에 TypeScript로 두고, 모듈은 필요한 것을 인터페이스로 선언한다 | 채택 |
+| [022](022-chat-turn-boundaries.md) | 챗 한 턴의 진입과 송출에 이름을 붙이고, 근거 화면은 보류한다 | 채택 |
 
 ## 아직 안 쓴 것
 
