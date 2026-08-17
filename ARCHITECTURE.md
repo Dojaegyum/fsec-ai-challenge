@@ -225,6 +225,28 @@ flowchart LR
     style REV fill:#fecaca,stroke:#b91c1c,color:#111
 ```
 
+**같은 층에 사건을 건드리는 잡이 둘 더 있습니다.** KB 운영과 달리 **사용자 데이터를 읽고 지웁니다.**
+
+```mermaid
+flowchart LR
+    CRON{{"Supabase pg_cron"}} --> RS["reminder-sender"]
+    CRON --> CP["case-purger"]
+
+    RS --> DL[("deadline · plan_step<br/>다가온 기한 · 미확인")]
+    RS --> MAIL["이메일 · 준 사람에게만"]
+
+    CP --> PG[("사건 상태")]
+    CP --> BLOB[("업로드 원본")]
+    CP --> KV[("복원 매핑 암호문")]
+    CP --> VERIFY["삭제 확인 · 한 층만 남으면 실패"]
+
+    style CP fill:#fecaca,stroke:#b91c1c,color:#111
+```
+
+**Vercel 서버리스에는 상시 배치가 없어 앱 안에서 못 돕니다** →
+[ADR-016](decisions/016-retention-and-datastore.md). 실행 트리거가 `pg_cron`인 이유입니다.
+**메일 발송 수단은 아직 정해지지 않았습니다** → §10.
+
 **빨간 칸을 건너뛰는 경로를 만들지 않습니다.** 수집기가 `kb_entry`를 직접 쓰지 않습니다 →
 [KB 운영](spec/backend/08-14-kb-operations.md) 원칙 4.
 

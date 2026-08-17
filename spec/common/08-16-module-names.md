@@ -73,9 +73,11 @@
    completion-checker → date-checker · planner 재호출
 
 
-【층 4】 하루 1회
+【층 4】 하루 1회 — 사용자 요청 없이 돈다 (Supabase pg_cron)
 
    kb-collector → kb-reviewer → 버전 릴리스
+   reminder-sender ─ 다가온 기한·미확인 단계를 이메일로
+   case-purger     ─ purge_after 도달 시 세 층을 함께 지우고 확인
 
 
 【층 C】 브라우저 — 서버가 대신할 수 없는 것
@@ -165,12 +167,45 @@
 
 ## 층 4 · 하루 1회
 
-| 이름 | 맡는 일 | 관련 |
-| --- | --- | --- |
-| `kb-collector` | 감시 소스에서 원문을 가져와 스냅샷으로 보관한다 | `F-11` [07](../backend/08-14-kb-operations.md) |
-| `kb-reviewer` | 변경분을 사람이 검수·승인하고 버전을 릴리스한다 | `F-11` [09](../backend/08-16-data-model.md) §12 |
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `kb-collector` | 감시 소스에서 원문을 가져와 스냅샷으로 보관한다 | 서버 | `F-11` [07](../backend/08-14-kb-operations.md) |
+| `kb-reviewer` | 변경분을 사람이 검수·승인하고 버전을 릴리스한다 | 서버 | `F-11` [09](../backend/08-16-data-model.md) §12 |
+| `reminder-sender` | 다가온 기한과 `미확인` 단계를 찾아 이메일로 알린다 | 서버 | `F-06b` [ADR-021](../../decisions/021-reentry-and-identity.md) |
+| `case-purger` | `purge_after`가 지난 사건의 **세 층을 함께 지우고 실제로 지워졌는지 확인한다** | 서버 | [ADR-016](../../decisions/016-retention-and-datastore.md) |
 
 **`kb-reviewer`의 승인은 사람이 합니다.** LLM은 영향 분석까지이고 릴리스 판단은 사람의 몫입니다 → [07](../backend/08-14-kb-operations.md).
+
+### `reminder-sender` — 보낼 수 없는 사건이 있습니다
+
+**이메일을 안 준 사건에는 보낼 방법이 없습니다.** [ADR-021](../../decisions/021-reentry-and-identity.md)이
+그렇게 정했고, 그것이 그 결정의 값입니다. **연락처를 새로 요구하는 흐름을 만들지 마세요** — 이메일은 선택입니다.
+
+**확정되지 않은 기한으로 알리지 마세요.** 부산물이 아직 없으면 기한은 추정일 뿐이라
+[기한 계산 규칙](08-16-deadline-rules.md)이 「미확인 배지와 함께 추정만」으로 정했습니다.
+**추정 날짜를 메일로 보내면 사용자는 그것을 확정으로 읽습니다.**
+
+> TODO(미정): 발송 주기와 문구, 그리고 **메일 발송 수단**.
+> 실행 트리거는 아래 「어디서 도나」로 정해졌지만 **무엇으로 보내는지는 정해지지 않았습니다**
+> → [ADR-021](../../decisions/021-reentry-and-identity.md) 「남은 것」.
+
+### `case-purger` — 조용히 실패하면 안 됩니다
+
+**세 층이 같은 날 함께 사라집니다** — 토큰화된 사건 상태 · 업로드 원본 · 복원 매핑 암호문.
+[ADR-016](../../decisions/016-retention-and-datastore.md)이 층마다 수명을 다르게 두지 않기로 한 이유가
+**「파기가 한 층에서 조용히 실패하면 어느 한 층만 남고, 그게 무엇인지 추적할 방법이 없다」**입니다.
+
+**그래서 이 모듈은 지우는 것만으로 끝나지 않고 확인까지 합니다.**
+ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지워지는지 검증해야 한다**」고 못박았습니다.
+
+### 어디서 도나 — Vercel에는 상시 배치가 없습니다
+
+**둘 다 요청이 없어도 돌아야 하는데, 배포가 서버리스입니다**
+→ [ADR-016](../../decisions/016-retention-and-datastore.md).
+실행 트리거는 **Supabase `pg_cron`**이고, Next.js 앱 안에서 도는 것이 아닙니다.
+
+**이 둘만 「사용자 요청 없이 도는」 모듈입니다.** `kb-collector`도 그렇지만 그쪽은 사건에 닿지 않습니다 —
+`reminder-sender`와 `case-purger`는 **사건 데이터를 읽고 지웁니다.**
 
 ## 층 없음 · 항상
 
