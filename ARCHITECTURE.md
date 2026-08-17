@@ -1,7 +1,9 @@
 # 아키텍처 — FinAlly가 어떻게 구성되는가
 
-> **상태: 채워짐(2026-08-16).** 백엔드 정의가 끝나 각 절이 실제 선택을 가리킵니다.
-> 남은 미결은 §10에 모아 두었습니다 — **모듈의 물리 배치**와 **파기·리마인더 실행 수단**이 큰 둘입니다.
+> **상태: 채워짐(2026-08-16 · 2026-08-17 개정).** 백엔드 정의가 끝나 각 절이 실제 선택을 가리킵니다.
+> **모듈의 물리 배치와 언어는 [ADR-021](decisions/021-runtime-and-module-shape.md)로 해소됐습니다** —
+> Next.js 안, 전부 TypeScript입니다. 남은 미결은 §10에 모아 두었습니다 —
+> **NER 선택**과 **파기·리마인더 실행 수단**이 큰 둘입니다.
 
 ## 이 문서의 자리
 
@@ -27,7 +29,7 @@
 flowchart TB
     subgraph CLIENT["브라우저"]
         UI["Next.js 화면 · 3-패널"]
-        MASK["1차 마스킹 · 정규식"]
+        MASK["pii-masker · 1차 마스킹 · 정규식"]
         KEY["세션키 보관 · 복호화 키"]
         REST["pii-restorer · 복원은 여기서만"]
     end
@@ -78,6 +80,7 @@ flowchart TB
 
 | 영역 | 선택 | 정본 |
 | --- | --- | --- |
+| **언어** | **TypeScript** — 화면·API·도메인 모듈 전부. 별도 백엔드 없음 | [ADR-021](decisions/021-runtime-and-module-shape.md) |
 | 프론트 | Next.js (App Router) · React · Tailwind v4 · shadcn/ui | `src/package.json` |
 | 디자인 토큰 | FinAlly 도메인 토큰 | `src/app/globals.css` · [design-system](spec/frontend/design-system/) |
 | 백엔드 런타임 | **Vercel 서버리스 함수** | [API 계약](spec/common/08-14-api.md) |
@@ -136,6 +139,7 @@ flowchart TB
 ```mermaid
 flowchart LR
     UP["업로드 · presigned"] --> INTAKE["case-intake"]
+    MASK1["pii-masker · 브라우저 · 텍스트 1차 마스킹"] --> INTAKE
     INTAKE --> TR["transcriber · STT · OCR"]
     TR --> TOK["pii-tokenizer · 격리 경계"]
     TOK --> READER["case-reader · 수법 · 위험도"]
@@ -144,8 +148,13 @@ flowchart LR
     SX --> DB
     TOK --> VAULT[("볼트 · 암호문")]
 
+    style MASK1 fill:#bfdbfe,stroke:#1d4ed8,color:#111
     style TOK fill:#fde68a,stroke:#b45309,color:#111
 ```
+
+**`pii-masker` 는 텍스트 입력에만 겁니다.** 녹음·이미지는 정규식을 걸 대상이 아니라 그대로
+객체 저장소로 올라가고(presigned), 전사된 뒤 `pii-tokenizer` 가 받습니다. **파일 경로에서는
+1차 마스킹이 없으므로 2차가 유일한 방어선입니다** → [PII 격리 경계](spec/common/08-14-pii-boundary.md).
 
 **`case-reader`의 산출물은 절차 분기에 쓰이지 않습니다.** 분기축은 경유 서비스 하나입니다 →
 [채널 매트릭스](spec/backend/08-14-channel-matrix.md). 화면 표시와 관리자 조회에서만 소비됩니다.
@@ -157,7 +166,8 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    IN["사용자 발화"] --> TOK2["pii-tokenizer"]
+    IN["사용자 발화"] --> MASK2["pii-masker · 브라우저"]
+    MASK2 --> TOK2["pii-tokenizer"]
     TOK2 --> FIND["kb-finder · applied · reference 두 묶음"]
     FIND --> PB["prompt-builder · 7블록 조립 · 격리 태그"]
     PB --> LLM{{"Grok · 1회 호출"}}
@@ -171,9 +181,12 @@ flowchart TB
     G1332 --> BROWSER
     SLOT --> BROWSER
 
+    style MASK2 fill:#bfdbfe,stroke:#1d4ed8,color:#111
     style TOK2 fill:#fde68a,stroke:#b45309,color:#111
     style BROWSER fill:#bfdbfe,stroke:#1d4ed8,color:#111
 ```
+
+**파란 칸 둘이 브라우저입니다** — 들어갈 때 `pii-masker`, 나올 때 `pii-restorer`. 이 사이의 모든 것이 서버입니다.
 
 **이 층에서 에러가 나가지 않는 경로가 둘입니다.** 근거를 못 찾으면 실패가 아니라
 **되묻기**로 갑니다 → [ADR-015](decisions/015-citation-and-reask.md) · `CLAUDE.md` 불변 규칙 5.
@@ -232,7 +245,26 @@ flowchart LR
 
 ### 물리 배치
 
-**아직 정해지지 않았습니다** — Next.js 라우트 핸들러 안인가, 별도 백엔드인가 → §10.
+**Next.js 안입니다. 별도 백엔드를 두지 않습니다** → [ADR-021](decisions/021-runtime-and-module-shape.md).
+
+| 무엇 | 어디 | 어디서 도나 |
+| --- | --- | --- |
+| 화면 | `src/app/**/page.tsx` | 브라우저 |
+| API 진입점 | `src/app/api/**/route.ts` | 서버 (Vercel 함수) |
+| 도메인 모듈 | `src/modules/{이름}/` | 대부분 서버. `pii-masker`·`pii-restorer` 는 **브라우저** |
+| 자원 접근 구현 | `src/lib/` | 서버 |
+
+**진입점은 HTTP만 알고 판단은 모듈이 합니다.** `route.ts` 가 맡는 것은 요청 파싱·인증·속도 제한·
+상태 코드·계측 헤더까지이고, 도메인 모듈은 **자기가 HTTP로 불렸는지 모릅니다.** 그래야 파기 배치나
+리마인더처럼 다른 경로에서 같은 모듈을 부를 수 있고, HTTP 없이 시험할 수 있습니다.
+
+**각 모듈은 필요한 외부 자원을 자기 폴더의 `contract.ts` 에 인터페이스로 선언하고 구현을 주입받습니다.**
+NER 모델·볼트 제품·공휴일 출처가 미정이어도 그 자리를 인터페이스로 두면 모듈을 완성할 수 있습니다.
+**저장소 접근과 LLM 호출에는 모듈 이름을 만들지 않습니다** — 도메인 판단을 하지 않는 자원 접근입니다.
+
+**`pii-restorer` 를 서버에서 부르면 빌드가 실패해야 합니다.** `server-only`·`client-only` 표시로
+[ADR-009](decisions/009-restore-mapping-location.md)를 문서가 아니라 구조로 강제합니다.
+
 위 이름들은 **책임의 단위이지 서버의 개수가 아닙니다** → [모듈 경계](spec/common/08-16-module-boundaries.md).
 
 ## 5. 데이터 흐름
@@ -354,7 +386,6 @@ sequenceDiagram
 
 | 무엇 | 왜 걸려 있나 | 어디에 |
 | --- | --- | --- |
-| **모듈의 물리 배치** | Next.js 라우트 핸들러 안인가, 별도 백엔드인가 | [모듈 경계](spec/common/08-16-module-boundaries.md) |
 | **볼트 제품** | 분리 원칙(다른 인스턴스)과 리전을 함께 만족해야 합니다. Vercel KV 유지 여부 | [ADR-016](decisions/016-retention-and-datastore.md) |
 | **파기·리마인더 실행 수단** | `pg_cron`이 답이 됐지만 **Storage 파일 파기는 직접 구현**해야 합니다 | [ADR-016](decisions/016-retention-and-datastore.md) |
 | **재진입·식별 모델** | 계정을 안 만들기로 했는데 **180일** 뒤 사용자가 어떻게 돌아오나 | [핸드오프 ②](docs/plans/08-16-backend-handoff.md) |
@@ -365,7 +396,10 @@ sequenceDiagram
 
 ### 채우면 되는 것
 
-- NER 모델·서비스 선택 (경계 그 자체라 우선순위가 높습니다)
+- NER 모델·서비스 선택 (경계 그 자체라 우선순위가 높습니다).
+  **[ADR-021](decisions/021-runtime-and-module-shape.md) 이후 제약이 하나 붙었습니다** — Vercel 서버리스 함수에
+  모델을 띄울 수 없어, 자체 호스팅을 택하면 `pii-tokenizer` 만 별도 서비스로 떼야 합니다.
+  인터페이스로 선언해 두므로 나머지 모듈은 영향을 받지 않습니다
 - Grok 모델명과 단가
 - 마이그레이션 방식 · `.env.example` · 환경 분리 · 시드 데이터 · 애플리케이션 로그
 
