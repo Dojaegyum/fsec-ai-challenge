@@ -57,8 +57,9 @@
 **F-06이 브라우저에서 셋으로 갈린 것이 가장 큰 변화입니다.** 「실행 보드」 한 덩어리였던 것이
 진행 표시(`plan-viewer`) · 기한 표시(`deadline-viewer`) · 작업 패널(`work-handler`)로 나뉘었습니다.
 
-> `chat-receiver`·`chat-publisher`는 [ADR-022](../../decisions/022-chat-turn-boundaries.md)로 이름이 정해졌으나
-> **[모듈 명칭](08-16-module-names.md)에 아직 등재되지 않았습니다** → TODO(미정).
+**F-07은 서버에서 다섯을 지납니다** — `chat-receiver`가 순서를 부르고
+(`pii-tokenizer` → `kb-finder` → `prompt-builder` → 모델 1회), `citation-checker`가 갈래를 판정하고,
+`chat-publisher`가 한 형태로 씌워 내보냅니다 → [ADR-022](../../decisions/022-chat-turn-boundaries.md).
 
 ## 구현 시 주의
 

@@ -65,7 +65,9 @@ pii-restorer              감사 로그(토큰화 기준)
 | `planner` | 슬롯 + 채널 + KB | 단계별 플랜 + **근거·시행일 인용** | **KB 인용 없이 절차를 만들기** |
 | `completion-checker` | 부산물 | L1/L2/L3 판정 → 단계 상태 | 사용자의 체크만으로 완료 처리 |
 | **`date-checker`** | 기산 이벤트(부산물) | 법정 기한 날짜 · D-day | **LLM에 날짜 계산을 시키기** |
+| `chat-receiver` | 사용자 발화 | 아래 셋을 부른 결과 + 모델 1회 호출 | **갈래를 판정하기** · 조회·조립·토큰화를 직접 하기 · 응답 형태를 만들기 |
 | `kb-finder` · `prompt-builder` · `citation-checker` | 사건 상태 · 발화 | 챗 한 턴 | 프롬프트에 없는 것을 답하게 두기 |
+| `chat-publisher` | 세 갈래 중 하나 | 한 형태의 응답 본문 | **판정을 여기서 하기** · 판단 근거를 응답에 싣기 · 잔여 PII를 통과시키기 |
 | `retry-checker` | 예외 | 재시도 여부 | 예외 종류로 분기하기 (`retryable` 만 봄) |
 | Case Store | — | 사건 상태 | 복호화 키 저장 · 원문 PII 저장 |
 | `audit-logger` | LLM 호출 | 기록 (**토큰화 기준**) | 원문 기록 |

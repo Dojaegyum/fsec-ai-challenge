@@ -61,8 +61,10 @@
 
 【층 2】 사용자가 말할 때마다 (매 턴)
 
-   pii-tokenizer → kb-finder → prompt-builder
-        → [ 모델 1회 호출 ] → citation-checker → pii-restorer
+   chat-receiver ─ 순서를 부르는 자리
+        └ pii-tokenizer → kb-finder → prompt-builder → [ 모델 1회 호출 ]
+              → citation-checker → chat-publisher ─ 나가는 것을 마지막으로 만지는 자리
+                    → (브라우저) pii-restorer
 
 
 【층 3】 사건 상태가 바뀔 때
@@ -114,11 +116,25 @@
 
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
+| `chat-receiver` | 발화를 받아 아래 셋을 순서대로 부르고 모델을 1회 호출한다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 하나 |
 | `pii-tokenizer` | 입력을 토큰화한다 (층 1과 같은 모듈) | 서버 | [04](08-14-pii-boundary.md) |
 | `kb-finder` | KB를 `applied`·`reference` 두 묶음으로 조회한다 | 서버 | [11](../backend/08-16-chat-context.md) §2 |
 | `prompt-builder` | 7블록을 순서대로 조립하고 비신뢰 블록에 격리 태그를 씌운다 | 서버 | [11](../backend/08-16-chat-context.md) §3 §4 |
 | `citation-checker` | 인용 네 가지를 확인하고, 비었으면 **되묻기로 넘길지** 판정한다 | 서버 | [11](../backend/08-16-chat-context.md) §6 |
+| `chat-publisher` | 세 갈래를 한 형태로 씌우고, 판단 근거를 분리하고, 잔여 PII를 검사한다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 둘 |
 | `pii-restorer` | 복원해도 되는 토큰인지 검사하고 되돌린다 | **브라우저** | [11](../backend/08-16-chat-context.md) §8 |
+
+**`chat-receiver`는 부르기만 합니다.** [ADR-022](../../decisions/022-chat-turn-boundaries.md)가 금지를 셋 걸었습니다 —
+**갈래를 판정하지 않고**(그건 `citation-checker`), **조회·조립·토큰화를 직접 하지 않고**,
+**응답 형태를 만들지 않습니다**(그건 `chat-publisher`).
+**이 조항이 없으면 반드시 비대해집니다** — 재시도 판단·감사 로그·캐싱 경계가 이 자리로 몰릴 힘이 있습니다.
+
+**`chat-publisher`의 이름은 전송 방식을 뜻하지 않습니다.** `receiver`와 대칭을 이루려고 고른 말이고,
+실제로 하는 일은 HTTP 응답 본문을 만드는 것입니다 — 구독·푸시·발행과 무관합니다.
+**여기가 「판단 근거 분리」와 「잔여 PII 검사」의 주인입니다** — ADR-022 이전에는 규칙만 있고 주인이 없었습니다.
+
+**`citation-checker`와 `chat-publisher`의 경계** — 어느 갈래인지 **판정**하는 것은 `citation-checker`,
+그 갈래를 **형태로 옮기는** 것은 `chat-publisher`입니다. 판정이 뒤로 새면 갈래가 두 곳에서 결정됩니다.
 
 **모델 호출은 한 번이고 모델은 도구를 부르지 않습니다.** 조회 조건은 서버가 전부 알고 있습니다 → [11](../backend/08-16-chat-context.md) §1.
 
@@ -337,9 +353,10 @@
 
 - ~~TODO(미정): 화면·프론트 구성의 명칭~~ → **2026-08-17 층 C로 확정** ([ADR-023](../../decisions/023-frontend-module-names.md)).
   화면 자체의 명칭(`S-xx`)은 [화면 설계](../frontend/08-14-screens.md)가 정합니다 — 여기는 **동작 단위**만 다룹니다.
-- TODO(미정): `chat-receiver`·`chat-publisher`가 **이 문서에 아직 없습니다.**
-  [ADR-022](../../decisions/022-chat-turn-boundaries.md)로 이름은 정해졌는데 층 2 표에 반영되지 않았습니다.
-  **백엔드 담당이 등재해야 합니다** — 등재 전에는 `src/modules/`에 폴더를 만들 수 없습니다(CI가 막습니다).
+- ~~TODO(미정): `chat-receiver`·`chat-publisher` 등재~~ → **2026-08-18 층 2에 등재 완료.**
+  [ADR-022](../../decisions/022-chat-turn-boundaries.md)의 결정을 옮겨 적은 것이라 새 판단은 없습니다.
+- TODO(미정): **`chat-receiver`가 얇게 유지되는지 볼 방법.** 지금은 금지 조항뿐이고 강제하는 검사기가 없습니다
+  → [ADR-022](../../decisions/022-chat-turn-boundaries.md) 「남은 것」. `work-handler`도 같은 상태입니다.
 - TODO(미정): 리마인더 발송과 파기 실행을 맡을 이름. 층 4에 자리가 비어 있습니다 —
   선행 조건이던 재진입·연락처([ADR-021](../../decisions/021-reentry-and-identity.md))와
   상시 배치([ADR-016](../../decisions/016-retention-and-datastore.md)의 `pg_cron`)가 **둘 다 풀렸습니다.**

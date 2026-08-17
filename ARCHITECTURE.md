@@ -158,23 +158,30 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    IN["사용자 발화"] --> TOK2["pii-tokenizer"]
+    IN["사용자 발화"] --> RECV["chat-receiver · 순서를 부르는 자리"]
+    RECV --> TOK2["pii-tokenizer"]
     TOK2 --> FIND["kb-finder · applied · reference 두 묶음"]
     FIND --> PB["prompt-builder · 7블록 조립 · 격리 태그"]
     PB --> LLM{{"Grok · 1회 호출"}}
     LLM --> CC["citation-checker"]
 
-    CC -->|"인용 있음"| OUT["응답 200"]
+    CC -->|"인용 있음"| OUT["답변"]
     CC -->|"인용 없음 · KB 조회 0건"| G1332["1332 안내"]
     CC -->|"인용 없음 · 조회는 됐음"| SLOT["slot-checker · 질문 1문항"]
 
-    OUT --> BROWSER["pii-restorer · 브라우저 · 부분 복원"]
-    G1332 --> BROWSER
-    SLOT --> BROWSER
+    OUT --> PUB["chat-publisher · 한 형태로 씌움<br/>판단 근거 분리 · 잔여 PII 검사"]
+    G1332 --> PUB
+    SLOT --> PUB
+
+    PUB --> BROWSER["pii-restorer · 브라우저 · 부분 복원"]
 
     style TOK2 fill:#fde68a,stroke:#b45309,color:#111
+    style PUB fill:#fde68a,stroke:#b45309,color:#111
     style BROWSER fill:#bfdbfe,stroke:#1d4ed8,color:#111
 ```
+
+**세 갈래가 `chat-publisher` 하나로 모여 같은 껍데기로 나갑니다** — 화면이 갈래를 분기하지 않습니다
+→ [ADR-022](decisions/022-chat-turn-boundaries.md). `chat-receiver`는 **부르기만 하고 판정하지 않습니다.**
 
 **이 층에서 에러가 나가지 않는 경로가 둘입니다.** 근거를 못 찾으면 실패가 아니라
 **되묻기**로 갑니다 → [ADR-015](decisions/015-citation-and-reask.md) · `CLAUDE.md` 불변 규칙 5.
