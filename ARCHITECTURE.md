@@ -119,8 +119,9 @@ flowchart TB
   - 표준 트랙만 D+100이고(공고 2개월 + 환급금 결정 14일), 이의제기가 붙으면 D+160입니다 →
     [research/06](docs/research/06-경로별-실측조사.md) §5
   - 기산이 생성일이 아니라 **마지막 활동일**입니다. 공고 후에 피해를 알고 들어온 사람은 진입 시점에 이미 두 달이 지나 있습니다
-- **파기 실행 수단** — `pg_cron`이 유력합니다(Supabase 내장). 다만 ⚠️ **Storage에는 네이티브 만료가 없어**
-  파일 파기는 잡이 Storage API를 호출하도록 **직접 만들고 실제로 지워지는지 검증**해야 합니다 → §10
+- **파기 실행 수단** — `case-purger`가 앱의 API 라우트로 돌고 **Vercel Cron이 깨웁니다**
+  → [ADR-025](decisions/025-scheduled-jobs.md). ⚠️ **Storage에는 네이티브 만료가 없어**
+  **직접 지우고 실제로 지워졌는지 검증**해야 합니다 — 세 저장소를 한 코드에서 다루려고 앱 안을 고른 이유입니다
 
 > **DDL을 쓰기 전에** [저장 경계 표](spec/common/08-16-domain-model.md)를 확인하세요.
 > 복원 매핑 원문·복호화 키를 담는 컬럼은 어떤 이유로도 만들지 않습니다.
@@ -229,8 +230,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    CRON{{"Supabase pg_cron"}} --> RS["reminder-sender"]
-    CRON --> CP["case-purger"]
+    CRON{{"Vercel Cron"}} --> RS["reminder-sender · API 라우트"]
+    CRON --> CP["case-purger · API 라우트"]
 
     RS --> DL[("deadline · plan_step<br/>다가온 기한 · 미확인")]
     RS --> MAIL["이메일 · 준 사람에게만"]
@@ -243,9 +244,10 @@ flowchart LR
     style CP fill:#fecaca,stroke:#b91c1c,color:#111
 ```
 
-**Vercel 서버리스에는 상시 배치가 없어 앱 안에서 못 돕니다** →
-[ADR-016](decisions/016-retention-and-datastore.md). 실행 트리거가 `pg_cron`인 이유입니다.
-**메일 발송 수단은 아직 정해지지 않았습니다** → §10.
+**둘 다 앱의 API 라우트로 돌고 Vercel Cron이 깨웁니다** → [ADR-025](decisions/025-scheduled-jobs.md).
+`case-purger`가 **Postgres·Storage·볼트 셋을 지우고 확인해야 해서** 앱 SDK가 닿는 자리여야 했습니다.
+
+**메일 발송 수단과 플랜별 실행 제약은 아직 확인 전입니다** → §10.
 
 **빨간 칸을 건너뛰는 경로를 만들지 않습니다.** 수집기가 `kb_entry`를 직접 쓰지 않습니다 →
 [KB 운영](spec/backend/08-14-kb-operations.md) 원칙 4.
@@ -438,8 +440,9 @@ sequenceDiagram
 | --- | --- | --- |
 | **모듈의 물리 배치** | Next.js 라우트 핸들러 안인가, 별도 백엔드인가 | [모듈 경계](spec/common/08-16-module-boundaries.md) |
 | **볼트 제품** | 분리 원칙(다른 인스턴스)과 리전을 함께 만족해야 합니다. Vercel KV 유지 여부 | [ADR-016](decisions/016-retention-and-datastore.md) |
-| **파기·리마인더 실행 수단** | `pg_cron`이 답이 됐지만 **Storage 파일 파기는 직접 구현**해야 합니다 | [ADR-016](decisions/016-retention-and-datastore.md) |
-| **재진입·식별 모델** | 계정을 안 만들기로 했는데 **180일** 뒤 사용자가 어떻게 돌아오나 | [핸드오프 ②](docs/plans/08-16-backend-handoff.md) |
+| **Vercel Cron 실행 제약** | 플랜별 실행 빈도·타임아웃을 확인하지 않았습니다. 하루 1회가 되는지 | [ADR-025](decisions/025-scheduled-jobs.md) |
+| **메일 발송 수단** | 리마인더를 무엇으로 보내나. 주기·문구도 미정 | [ADR-021](decisions/021-reentry-and-identity.md) |
+| **`org.contact` 키 구조** | `call_center`·`app_path` 같은 이름. **연락처 값과 함께** 정해야 합니다 | [ADR-024](decisions/024-step-action-and-url.md) |
 | **문진 선택지의 정본** | 질문 문구와 선택지를 어디서 가져오나 | [핸드오프 ⑤](docs/plans/08-16-backend-handoff.md) |
 
 **재진입은 복호화 키와 직결됩니다.** 브라우저를 바꾸면 키가 없어 서류를 못 만듭니다 →

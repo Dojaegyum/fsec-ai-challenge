@@ -73,7 +73,7 @@
    completion-checker → date-checker · planner 재호출
 
 
-【층 4】 하루 1회 — 사용자 요청 없이 돈다 (Supabase pg_cron)
+【층 4】 하루 1회 — 사용자 요청 없이 돈다 (Vercel Cron)
 
    kb-collector → kb-reviewer → 버전 릴리스
    reminder-sender ─ 다가온 기한·미확인 단계를 이메일로
@@ -198,14 +198,19 @@
 **그래서 이 모듈은 지우는 것만으로 끝나지 않고 확인까지 합니다.**
 ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지워지는지 검증해야 한다**」고 못박았습니다.
 
-### 어디서 도나 — Vercel에는 상시 배치가 없습니다
+### 어디서 도나 — Vercel Cron이 깨웁니다
 
-**둘 다 요청이 없어도 돌아야 하는데, 배포가 서버리스입니다**
-→ [ADR-016](../../decisions/016-retention-and-datastore.md).
-실행 트리거는 **Supabase `pg_cron`**이고, Next.js 앱 안에서 도는 것이 아닙니다.
+**둘 다 요청이 없어도 돌아야 합니다.** 실행 트리거는 **Vercel Cron**이고, 도는 코드는 **앱의 API 라우트**입니다
+→ [ADR-025](../../decisions/025-scheduled-jobs.md).
 
-**이 둘만 「사용자 요청 없이 도는」 모듈입니다.** `kb-collector`도 그렇지만 그쪽은 사건에 닿지 않습니다 —
-`reminder-sender`와 `case-purger`는 **사건 데이터를 읽고 지웁니다.**
+**`case-purger`가 세 저장소를 지우고 확인해야 하는 것이 결정적이었습니다** — Postgres·Storage·볼트를
+같은 코드에서 SDK로 다루려면 앱 안이어야 합니다. `pg_cron`은 SQL만 돌아 나머지에 `pg_net`·Edge Function이 또 필요합니다.
+
+> [ADR-016](../../decisions/016-retention-and-datastore.md)의 *"Vercel 서버리스에 상시 배치가 없습니다"*는
+> **웹소켓 같은 상주 프로세스**를 말한 것이고, 크론 트리거는 별개입니다 → [ADR-025](../../decisions/025-scheduled-jobs.md).
+
+**이 둘만 「사용자 요청 없이 사건 데이터를 건드리는」 모듈입니다.** `kb-collector`도 요청 없이 돌지만
+그쪽은 사건에 닿지 않습니다 — `reminder-sender`와 `case-purger`는 **사건을 읽고 지웁니다.**
 
 ## 층 없음 · 항상
 
@@ -394,7 +399,7 @@ ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지�
   → [ADR-022](../../decisions/022-chat-turn-boundaries.md) 「남은 것」. `work-handler`도 같은 상태입니다.
 - TODO(미정): 리마인더 발송과 파기 실행을 맡을 이름. 층 4에 자리가 비어 있습니다 —
   선행 조건이던 재진입·연락처([ADR-021](../../decisions/021-reentry-and-identity.md))와
-  상시 배치([ADR-016](../../decisions/016-retention-and-datastore.md)의 `pg_cron`)가 **둘 다 풀렸습니다.**
+  주기 실행([ADR-025](../../decisions/025-scheduled-jobs.md)의 Vercel Cron)이 **둘 다 풀렸습니다.**
 
 ### 상태·등급의 호칭은 정하지 않기로 했습니다
 

@@ -90,8 +90,11 @@
 - [x] **프론트 모듈 경계·역할 정의** — 층 C 열하나 ([ADR-023](../../decisions/023-frontend-module-names.md)) ← **지금 여기**
 - [ ] 화면 설계 재작성 — [08-14-screens.md](../../spec/frontend/08-14-screens.md)가 아직 3-패널 상황실 시절
 - [ ] 문진 선택지 3축 확정 — 제안까지 됨, `plan_step` 유형 필드가 걸림
-- [x] 리마인더·파기 실행 모듈 — `reminder-sender`·`case-purger`, 실행 트리거는 Supabase `pg_cron`
+- [x] 리마인더·파기 실행 모듈 — `reminder-sender`·`case-purger`, **Vercel Cron이 앱 라우트를 깨움** ([ADR-025](../../decisions/025-scheduled-jobs.md))
+- [x] 워크스페이스 유형·주소를 계약에 담기 — `body.action` 일곱 + `url` ([ADR-024](../../decisions/024-step-action-and-url.md))
 - [ ] 메일 발송 수단·리마인더 주기·문구 — 모듈은 섰으나 무엇으로 보내는지 미정
+- [ ] `org.contact` 키 구조 — 연락처 값과 함께 정해야 함 ([research/04](../research/04-기관정보.md)가 전부 비어 있음)
+- [ ] Vercel Cron 플랜별 실행 빈도·타임아웃 확인
 - [ ] MVP 범위 컷 — P0/P1 경계를 일정에 맞춰 재확정
 - [ ] 매뉴얼 KB 8유형 구축 (근거 확인 필요)
 - [ ] 구현 착수 · 배포

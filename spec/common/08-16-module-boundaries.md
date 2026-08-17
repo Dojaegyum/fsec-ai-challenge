@@ -119,10 +119,10 @@ file-sender(C) → pii-masker(C) → transcriber(S) → pii-tokenizer(S·경계)
 - ~~TODO(미정): 진행 상태 전달 방식~~ → **폴링으로 확정.** 서버가 `poll_after_ms` 로 다음 호출 시점을 지시합니다.
   **챗에도 스트리밍을 쓰지 않습니다** — 송출 전 검사 셋(인용 검증·판단 근거 분리·잔여 PII)이 응답을 다 받은 뒤에야 가능하고,
   스트리밍이면 근거 없는 절차 문장이 화면에 먼저 뜬 뒤 지워집니다 → [API 계약](08-14-api.md) §3.3 · §3.9.
-- ~~TODO(미정): 리마인더 발송 주체 · 파기 실행~~ → **2026-08-18 모듈로 확정.**
-  `reminder-sender`·`case-purger`가 맡고, **실행 트리거는 Supabase `pg_cron`**입니다
-  (Vercel 서버리스에 상시 배치가 없어 앱 안에서는 못 돕니다 → [ADR-016](../../decisions/016-retention-and-datastore.md)).
+- ~~TODO(미정): 리마인더 발송 주체 · 파기 실행~~ → **2026-08-18 확정.**
+  `reminder-sender`·`case-purger`가 맡고, **Vercel Cron이 앱의 API 라우트를 깨웁니다**
+  → [ADR-025](../../decisions/025-scheduled-jobs.md).
   선행 조건이던 재진입·연락처는 [ADR-021](../../decisions/021-reentry-and-identity.md)로 풀렸습니다.
-  **남은 것은 메일 발송 수단과 주기·문구입니다** → TODO(미정).
+  **남은 것은 메일 발송 수단과 주기·문구, 그리고 플랜별 실행 제약 확인입니다** → TODO(미정).
 - TODO(미정): STT·OCR·NER의 구현 선택(자체 모델 vs 외부 API). **외부 API라면 그것도 PII 경계를 지나는 호출입니다** —
   스크러버 이전 단계이므로 경계 정의를 다시 확인해야 합니다.
