@@ -1,5 +1,20 @@
 # 화면 설계
 
+> ⚠️ **재작성 대기 중입니다.** 아래는 골든30(30분 긴급 대응) 시점의 3-패널 상황실이고,
+> 포지셔닝이 **사건 관리**로 옮겨가면서 전제가 바뀌었습니다 →
+> [서비스 골자](../common/08-17-service-concept.md). 특히 **`S-01`이 업로드 화면인 근거가 사라졌습니다**
+> — 첫 화면은 랜딩이고 업로드는 두 번째 화면의 선택 항목입니다.
+>
+> **그동안 확정된 것은 다른 문서에 있습니다.**
+>
+> | 무엇 | 어디 |
+> | --- | --- |
+> | 여정·페이지 플로우·화면 목업 | [여정과 화면](../../assets/artifacts/plans/08-17-journey-and-screens.html) · [화면 목업](../../assets/artifacts/plans/08-17-screen-mockups.html) |
+> | 단계를 수행하는 자리 `WS-*` 7유형 | [워크스페이스 패널](08-17-workspace-panels.md) |
+> | 어느 모듈이 어느 화면을 그리나 | [모듈 명칭](../common/08-16-module-names.md) 층 C |
+>
+> **`S-xx` 번호는 재사용하지 않습니다** — 다시 쓸 때 새 번호를 부여합니다.
+
 > **출처** — [서비스 기획서 v1.2](../../assets/artifacts/plans/08-13-service-plan.html) §6
 
  목업 원본은 [기획서 HTML](../../assets/artifacts/plans/08-13-service-plan.html)에서 직접 보세요.

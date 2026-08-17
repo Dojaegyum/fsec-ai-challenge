@@ -81,9 +81,16 @@
 - [x] 구현 계약 추출 ([spec/](../../spec/))
 - [x] **출전 주제 확정** — 보이스피싱 사후 대응 ([ADR-001](../../decisions/001-topic-selection.md))
 - [x] **프로젝트 이름 확정** — FinAlly ([ADR-002](../../decisions/002-project-name.md))
-- [ ] 백엔드 모듈 경계·역할 정의 ← **지금 여기**
-- [ ] 기획서·spec 개정 — 포지셔닝 전환(긴급 진입 → 사건 관리)과 제도 변경 반영
-- [ ] API 계약 정의 ([spec/common/08-14-api.md](../../spec/common/08-14-api.md) 비어 있음)
+- [x] 백엔드 모듈 경계·역할 정의 — 서버 네 층 ([ADR-014](../../decisions/014-module-names.md)·[ADR-022](../../decisions/022-chat-turn-boundaries.md))
+- [x] **API 계약 정의** — 엔드포인트 10 + 관리자 2 ([spec/common/08-14-api.md](../../spec/common/08-14-api.md))
+- [x] **서비스 골자 재정립** — 기획서 §0을 대체 ([spec/common/08-17-service-concept.md](../../spec/common/08-17-service-concept.md)).
+      진입은 검색·직접 접속, 재진입은 익명 링크 + 이메일 선택 ([ADR-021](../../decisions/021-reentry-and-identity.md))
+- [x] **프론트 설계** — 여정 6국면 · 페이지 플로우 · 화면 목업 · 워크스페이스 `WS-*` 7유형
+      ([spec/frontend/08-17-workspace-panels.md](../../spec/frontend/08-17-workspace-panels.md))
+- [x] **프론트 모듈 경계·역할 정의** — 층 C 열하나 ([ADR-023](../../decisions/023-frontend-module-names.md)) ← **지금 여기**
+- [ ] 화면 설계 재작성 — [08-14-screens.md](../../spec/frontend/08-14-screens.md)가 아직 3-패널 상황실 시절
+- [ ] 문진 선택지 3축 확정 — 제안까지 됨, `plan_step` 유형 필드가 걸림
+- [ ] 리마인더·파기 실행 모듈 — 선행 조건(재진입·상시 배치) 둘 다 해소됨
 - [ ] MVP 범위 컷 — P0/P1 경계를 일정에 맞춰 재확정
 - [ ] 매뉴얼 KB 8유형 구축 (근거 확인 필요)
 - [ ] 구현 착수 · 배포

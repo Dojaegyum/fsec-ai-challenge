@@ -370,7 +370,8 @@ def check(groups, tables, base=None, head=None):
 def main():
     ap = argparse.ArgumentParser(
         description="FinAlly 인벤토리 — 모듈과 DB 스키마를 정본에서 읽어 표로 낸다",
-        epilog="층은 번호가 아니라 '언제 도는가'로 부릅니다. --chat 은 층 2 입니다.")
+        epilog="층은 번호가 아니라 '언제 도는가'로 부릅니다. --chat 은 층 2 입니다. "
+               "층 C(--client)만 예외로 '무엇을 책임지는가'로 묶입니다 — ADR-023.")
 
     layer = ap.add_mutually_exclusive_group()
     layer.add_argument("--intake", dest="layer", action="store_const", const="1",
@@ -383,6 +384,8 @@ def main():
                        help="하루 1회 도는 모듈 (층 4)")
     layer.add_argument("--always", dest="layer", action="store_const", const="없음",
                        help="어느 층에도 안 묶인 모듈")
+    layer.add_argument("--client", dest="layer", action="store_const", const="C",
+                       help="브라우저에서 도는 모듈 (층 C)")
     layer.add_argument("--layer", dest="layer", help=argparse.SUPPRESS)  # 층 번호로도 부를 수 있게
 
     ap.add_argument("what", nargs="?", choices=["module", "table"],

@@ -24,6 +24,11 @@ python .claude/skills/module-inventory/scripts/inventory.py --find slot
 
 ## 주의 — 여기 있다고 전부 서버 코드가 아닙니다
 
+**절반 가까이가 브라우저 모듈입니다** — 정본의 **층 C** 열하나(`pii-masker` `key-handler` `case-opener`
+`poll-checker` `file-sender` `transcript-viewer` `plan-viewer` `deadline-viewer` `chat-handler`
+`work-handler` `doc-filler`)와, 층 2에 있는 `pii-restorer`까지 열둘입니다
+→ [ADR-023](../../decisions/023-frontend-module-names.md).
+
 `pii-restorer`는 **브라우저에서만** 도는 모듈입니다. 서버에는 복호화 키가 없어 복원 자체가 불가능합니다
 → [PII 격리 경계](../../spec/common/08-14-pii-boundary.md) · [ADR-009](../../decisions/009-restore-mapping-location.md).
 **서버에 복원 함수를 만들면 규칙 위반입니다.**

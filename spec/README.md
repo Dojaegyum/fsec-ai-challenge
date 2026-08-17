@@ -47,8 +47,9 @@ spec/backend/08-14-channel-matrix.md
 | [08-16-domain-model.md](common/08-16-domain-model.md) | 엔티티·관계·상태 집합·저장 경계. **DB 스키마 설계의 입력** |
 | [08-16-module-boundaries.md](common/08-16-module-boundaries.md) | 모듈의 책임·입출력·금지. 모듈 역할 정의의 입력 |
 | [08-16-deadline-rules.md](common/08-16-deadline-rules.md) | 기한을 어떻게 세는가 — 기산점·영업일·표시 규칙 |
-| [08-16-module-names.md](common/08-16-module-names.md) | 모듈 명칭 — 동작 단위의 이름과 네 층 구분 |
+| [08-16-module-names.md](common/08-16-module-names.md) | 모듈 명칭 — 동작 단위의 이름. 서버 네 층 + **브라우저 층 C** |
 | [08-14-api.md](common/08-14-api.md) | API 계약 — 엔드포인트 10개 + 관리자 2개, 요청·응답, 계측 헤더 |
+| [08-17-service-concept.md](common/08-17-service-concept.md) | **서비스 골자** — 무엇이고 무엇이 아닌가, 누가 어디서 들어와 어떻게 돌아오는가. 기획서 §0을 대체 |
 
 ### `backend/` — 서버
 
@@ -67,6 +68,7 @@ spec/backend/08-14-channel-matrix.md
 | 파일 | 내용 |
 | --- | --- |
 | [08-14-screens.md](frontend/08-14-screens.md) | 화면 S-01 ~ S-03, 3-패널 레이아웃 |
+| [08-17-workspace-panels.md](frontend/08-17-workspace-panels.md) | **워크스페이스 패널 `WS-*` 7유형** — 단계를 실제로 수행하는 자리와, 어느 패널을 열지 정하는 시그널 |
 | [design-system/](frontend/design-system/) | 디자인 계약 — 토큰 의미론·컴포넌트 규칙·접근성 기준. **뼈대만** |
 
 ## 개정해야 할 것 (최종 후보 보드 기준)
@@ -77,7 +79,8 @@ spec/backend/08-14-channel-matrix.md
 | **통장묶기 트랙 신설** — 피해자가 아니라 억울하게 묶인 사람. 5월부터 소명자료 제출 시 5영업일 내 결과 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
 | **기한 계산에 LLM 금지** — 규칙으로 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
 | **자율배상은 "대상인지 진단"** — 1년 4개월간 41건·피해액의 0.1%·평균 116일 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
-| 포지셔닝 전환 — 112 이후를 맡는 사건 관리, 상담 종료 후 링크 유입 | [screens](frontend/08-14-screens.md) 전반 | **미반영** |
+| 포지셔닝 전환 — 112 이후를 맡는 사건 관리 | [service-concept](common/08-17-service-concept.md) | **반영됨** — 골자를 다시 세웠습니다. 진입은 상담 링크가 아니라 **검색·직접 접속**으로 확정 ([ADR-021](../decisions/021-reentry-and-identity.md)) |
+| 화면이 그 전환을 못 따라감 — `S-01`이 업로드 화면인 근거가 사라짐 | [screens](frontend/08-14-screens.md) 전반 | **미반영** — 재작성 대기 |
 | 데이터: 한국어 공개 데이터 0건 → 합성 불가피 | [glossary](common/08-14-glossary.md) | **미반영** |
 | ~~보존 기간 충돌~~ | [pii-boundary](common/08-14-pii-boundary.md) [data-model](backend/08-16-data-model.md) | **해소됨** — [ADR-010](../decisions/010-case-store.md) 으로 통일, [ADR-016](../decisions/016-retention-and-datastore.md) 으로 **마지막 활동일부터 180일** 확정 (경로 10종 실측) |
 | ~~저장소 제품~~ — `Vercel Postgres` 는 폐지된 제품 (2024-12 → Neon, 서울 리전 없음) | [ADR-016](../decisions/016-retention-and-datastore.md) | **해소됨** — Supabase(서울)로 결정하고 `ARCHITECTURE.md`·`data-model`·`api` 반영 완료. **볼트 제품만 미결** |
@@ -99,7 +102,8 @@ spec/backend/08-14-channel-matrix.md
 
 | 기획서 | spec |
 | --- | --- |
-| §0 전제, §1 파이프라인 | glossary, features |
+| §0 전제 | **service-concept** — 그대로 옮긴 것이 아니라 확정된 결정에 맞춰 **다시 세운 것**입니다 |
+| §1 파이프라인 | glossary, features |
 | §2 슬롯 티어링 | slot-tiering |
 | §3 PII 격리 | pii-boundary |
 | §4 매뉴얼 매트릭스·KB 운영 | channel-matrix, kb-operations |

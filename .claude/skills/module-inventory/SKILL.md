@@ -28,6 +28,7 @@ python $I module --intake    # 증거가 들어올 때
 python $I module --plan      # 사건 상태가 바뀔 때
 python $I module --kb        # 하루 1회
 python $I module --always    # 어느 층에도 안 묶인 것
+python $I module --client    # 브라우저에서 도는 것 (층 C)
 python $I table              # 소스 DB 테이블 목록
 python $I table case_slot    # 그 테이블의 컬럼·타입·제약·허용값
 python $I --find slot        # 모듈·컬럼 동시 검색
@@ -37,6 +38,12 @@ python $I --check            # 정본과 실제가 어긋났는지 점검
 **층을 번호가 아니라 「언제 도는가」로 부릅니다.** `--chat`이 층 2입니다 —
 번호를 외우는 것보다 "챗 한 턴에 도는 것"이 대화에서 바로 나옵니다.
 문서가 "층 2"라고 적고 있으므로 `--layer 2`도 그대로 받습니다(도움말에는 안 보입니다).
+
+⚠️ **층 C(`--client`)만 「언제」가 아니라 「무엇을 책임지는가」로 묶입니다**
+→ [ADR-023](../../../decisions/023-frontend-module-names.md).
+브라우저는 화면이 열려 있는 동안 여러 가지가 동시에 돌아 시간축으로 갈라지지 않습니다.
+**답할 때 "층 C는 브라우저"라고만 하지 말고, 다른 층과 가르는 축이 다르다는 것을 함께 말하세요.**
+`pii-restorer`는 챗 한 턴의 마지막 단계라 **층 C가 아니라 층 2에 있습니다** — 브라우저 모듈인데도 그렇습니다.
 
 `--source`는 컬럼·타입·제약·정의에 더해 **`CHECK ... IN (...)`의 허용값**까지 폅니다.
 `track`이 `victim | frozen_account` 둘뿐이라는 것이 표에서 바로 보입니다.

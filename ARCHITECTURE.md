@@ -25,10 +25,11 @@
 
 ```mermaid
 flowchart TB
-    subgraph CLIENT["브라우저"]
-        UI["Next.js 화면 · 3-패널"]
-        MASK["1차 마스킹 · 정규식"]
-        KEY["세션키 보관 · 복호화 키"]
+    subgraph CLIENT["브라우저 · 층 C"]
+        OPEN["case-opener · URL이 곧 열쇠"]
+        UI["보여주고 작업하는 것 · §4"]
+        MASK["pii-masker · 1차 마스킹"]
+        KEY["key-handler · 복호화 키"]
         REST["pii-restorer · 복원은 여기서만"]
     end
 
@@ -229,6 +230,58 @@ flowchart LR
 | --- | --- |
 | `audit-logger` | 모든 LLM 호출을 토큰화 텍스트 기준으로 기록. 해시 사슬로 사후 조작 검출 |
 | `retry-checker` | 예외의 `retryable` 하나만 보고 재시도 판단. 예외 종류를 분기하지 않음 |
+
+### 층 C · 브라우저 (서버가 대신할 수 없는 것)
+
+**시간축이 아니라 「무엇을 책임지는가」로 묶입니다** → [ADR-023](decisions/023-frontend-module-names.md).
+화면이 열려 있는 동안 여러 가지가 동시에 돌아 시간축으로는 갈라지지 않습니다.
+
+```mermaid
+flowchart LR
+    OPEN["case-opener<br/>URL 토큰으로 사건을 연다"]
+
+    subgraph OUTBOUND["나가는 길"]
+        MASK["pii-masker<br/>1차 마스킹"]
+        SEND["file-sender<br/>증거·부산물 업로드"]
+    end
+
+    subgraph INBOUND["들어오는 길"]
+        POLL["poll-checker<br/>poll_after_ms 로 재조회"]
+        KEY["key-handler<br/>복호화 키 · 볼트 복호"]
+        REST2["pii-restorer<br/>복원 심사"]
+    end
+
+    subgraph SHOW["보여주는 곳"]
+        TV["transcript-viewer"]
+        PV["plan-viewer"]
+        DV["deadline-viewer"]
+        CH["chat-handler"]
+        WH["work-handler"]
+        DF["doc-filler"]
+    end
+
+    OPEN --> SHOW
+    SHOW --> MASK --> SEND --> SERVER[["서버"]]
+    SERVER --> POLL --> REST2 --> SHOW
+    KEY --> REST2
+    KEY --> DF
+```
+
+| 이름 | 맡는 일 | 절대 하지 않는 것 |
+| --- | --- | --- |
+| `case-opener` | URL 토큰으로 사건을 열고 복사·공유를 제공 | 잃은 링크를 복구해 주는 척하기 |
+| `pii-masker` | 나가기 전 정규식 1차 마스킹 | 마스킹 전 원문을 네트워크로 보내기 |
+| `key-handler` | 복호화 키 보관 · 볼트 암호문 복호 | 키를 서버·로그·DB로 보내기 |
+| `poll-checker` | `poll_after_ms` 로 재조회 · 재시도 판단 | 스트리밍·웹소켓 쓰기 |
+| `file-sender` | 증거·부산물 업로드와 상태 추적 | `pii-masker` 를 건너뛴 경로 만들기 |
+| `transcript-viewer` | 전사 표시 (**전체 복원** 허용) | 복원된 원문을 서버로 되돌리기 |
+| `plan-viewer` | 타임라인·단계·배지 · T0 상시 노출 | 체크만으로 완료 표시 · T0 를 종속시키기 |
+| `deadline-viewer` | 기한 표시 (`primary`·`grace`·`info`) | **날짜를 계산하기** |
+| `chat-handler` | 발화 전송 · 응답·슬롯 질문 표시 | 인용 번호·판단 근거를 화면에 쓰기 |
+| `work-handler` | 작업 차례 판정 + 유형별 패널 렌더 | 판정을 렌더 안에 섞기 |
+| `doc-filler` | 초안에 원문을 채워 완성 | 서버가 만든 완성 문서를 그대로 받기 |
+
+**`pii-masker` 가 1차, 서버의 `pii-tokenizer` 가 2차입니다.** 둘 다 지나야 외부 LLM에 닿습니다.
 
 ### 물리 배치
 

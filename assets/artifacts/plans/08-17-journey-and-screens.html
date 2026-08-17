@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FinAlly 여정과 화면</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    /* FinAlly 도메인 토큰 — 값의 정본은 src/app/globals.css */
+    --ground:   oklch(0 0 0);
+    --stage:    oklch(0.16 0.004 285.9);
+    --surface:  oklch(0.231 0 89.9);
+    --hairline: oklch(0.305 0.013 267.1 / 52%);
+    --chip:     oklch(1 0 0 / 4%);
+    --ink-1:    oklch(1 0 89.9);
+    --ink-2:    oklch(0.845 0.009 271.3);
+    --ink-3:    oklch(0.714 0.019 261.3);
+    --icon:     oklch(0.609 0.008 260.7);
+    --pii:      oklch(0.697 0.16 258.2);
+    --pii-bg:   oklch(0.231 0.047 259.1);
+    --deadline: oklch(0.761 0.117 70.9);
+    --horizon:  oklch(0.811 0.14 66.9);
+
+    --font: Pretendard, "Pretendard Variable", -apple-system, BlinkMacSystemFont,
+            "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+    --radius: 14px;
+  }
+
+  html { font-family: var(--font); }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink-2);
+    font-size: 16px;
+    line-height: 1.72;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 120px; }
+
+  h1, h2, h3 { color: var(--ink-1); text-wrap: balance; margin: 0; line-height: 1.28; }
+  p { margin: 0; }
+  a { color: var(--pii); }
+
+  /* ─────────── 히어로 ─────────── */
+  .hero { position: relative; padding: 108px 0 72px; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: -40% 20% auto; height: 460px;
+    background: radial-gradient(ellipse at 50% 0%, var(--horizon), transparent 68%);
+    opacity: .16; filter: blur(52px); pointer-events: none;
+  }
+  .hero > * { position: relative; }
+
+  .eyebrow {
+    font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 20px;
+  }
+  .hero h1 { font-size: clamp(34px, 5.4vw, 56px); font-weight: 680; letter-spacing: -.022em; }
+  .hero .lede {
+    margin-top: 22px; max-width: 54ch; font-size: clamp(16px, 1.9vw, 19px);
+    color: var(--ink-3);
+  }
+
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 34px;
+  }
+
+  /* ─────────── 칩 (공통 재질) ─────────── */
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 13px; border-radius: 999px;
+    background: var(--chip); border: 1px solid var(--hairline);
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 7%);
+    font-size: 13px; color: var(--ink-3); white-space: nowrap;
+  }
+  .chip.on   { color: var(--pii);      border-color: oklch(0.697 0.16 258.2 / 42%); background: oklch(0.697 0.16 258.2 / 9%); }
+  .chip.open { color: var(--deadline); border-color: oklch(0.761 0.117 70.9 / 42%); background: oklch(0.761 0.117 70.9 / 9%); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+  /* ─────────── 섹션 ─────────── */
+  section { padding-top: 86px; }
+  .shead { border-top: 1px solid var(--hairline); padding-top: 26px; margin-bottom: 34px; }
+  .snum {
+    font-size: 12px; letter-spacing: .16em; color: var(--icon);
+    display: block; margin-bottom: 10px;
+  }
+  .shead h2 { font-size: clamp(23px, 3vw, 30px); font-weight: 640; letter-spacing: -.014em; }
+  .shead p { margin-top: 12px; max-width: 62ch; color: var(--ink-3); font-size: 15.5px; }
+
+  /* ─────────── 여정 레일 ─────────── */
+  .phase {
+    display: grid; grid-template-columns: 168px 1fr; gap: 28px;
+    padding: 26px 0; border-top: 1px solid var(--hairline); position: relative;
+  }
+  .phase:first-of-type { border-top: 0; }
+  .phase-when { padding-top: 2px; }
+  .phase-when .t {
+    color: var(--ink-1); font-size: 15px; font-weight: 620; letter-spacing: -.01em;
+  }
+  .phase-when .d { color: var(--icon); font-size: 12.5px; margin-top: 3px; }
+  .phase-when .dev { margin-top: 12px; }
+
+  .phase-body h3 { font-size: 18px; font-weight: 620; letter-spacing: -.012em; }
+  .phase-body .said {
+    margin: 12px 0 16px; padding: 12px 16px; border-radius: 11px;
+    background: var(--pii-bg); border: 1px solid oklch(0.697 0.16 258.2 / 26%);
+    color: var(--ink-2); font-size: 15px;
+  }
+  .phase-body .said b { color: var(--pii); font-weight: 600; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 16px; }
+  .col-t {
+    font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--icon); margin-bottom: 9px;
+  }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 5px 0; font-size: 14.8px; color: var(--ink-2); }
+  li::marker { color: var(--icon); }
+
+  .note {
+    margin-top: 16px; padding: 13px 16px; border-radius: 11px;
+    border: 1px solid oklch(0.761 0.117 70.9 / 34%);
+    background: oklch(0.761 0.117 70.9 / 7%);
+    font-size: 14.6px; color: var(--ink-2);
+  }
+  .note b { color: var(--deadline); font-weight: 620; }
+
+  /* ─────────── 플로우 ─────────── */
+  .flow { display: grid; gap: 14px; }
+  .frow { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .node {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius); padding: 17px 19px;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 5%);
+  }
+  .node .route {
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, monospace;
+    font-size: 13px; color: var(--pii); letter-spacing: -.01em;
+  }
+  .node .nm { color: var(--ink-1); font-size: 16.5px; font-weight: 620; margin-top: 5px; }
+  .node .ds { color: var(--ink-3); font-size: 14.4px; margin-top: 7px; }
+  .node.entry { border-color: oklch(0.697 0.16 258.2 / 38%); }
+  .node.hubx { background: linear-gradient(180deg, oklch(0.231 0 89.9), oklch(0.19 0.004 285.9)); border-color: oklch(0.761 0.117 70.9 / 34%); }
+
+  .arrow {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    color: var(--icon); font-size: 13px; padding: 2px 0;
+  }
+  .arrow::before, .arrow::after {
+    content: ""; height: 1px; flex: 1; max-width: 120px;
+    background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  }
+  .subgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+  .sub {
+    border: 1px dashed var(--hairline); border-radius: 12px; padding: 14px 16px;
+    background: var(--chip);
+  }
+  .sub .nm { color: var(--ink-1); font-size: 14.6px; font-weight: 600; }
+  .sub .ds { color: var(--ink-3); font-size: 13.4px; margin-top: 5px; }
+
+  /* ─────────── 화면 카드 ─────────── */
+  .screens { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius); padding: 20px 21px;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 5%);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .card .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .card h3 { font-size: 17px; font-weight: 630; letter-spacing: -.012em; }
+  .card .route {
+    font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, monospace;
+    font-size: 12.5px; color: var(--pii); white-space: nowrap;
+  }
+  .card .job { color: var(--ink-2); font-size: 14.8px; }
+  .card .job b { color: var(--ink-1); font-weight: 620; }
+  .kv { border-top: 1px solid var(--hairline); padding-top: 12px; display: grid; gap: 7px; }
+  .kv div { display: grid; grid-template-columns: 76px 1fr; gap: 10px; font-size: 13.6px; }
+  .kv dt, .kv .k { color: var(--icon); }
+  .kv .v { color: var(--ink-3); }
+  .kv .v code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.4px; color: var(--ink-2);
+  }
+
+  /* ─────────── 표 ─────────── */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--hairline); border-radius: var(--radius); }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 14.6px; }
+  th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  th { color: var(--icon); font-weight: 520; font-size: 12.5px; letter-spacing: .07em; text-transform: uppercase; background: var(--chip); }
+  td { color: var(--ink-2); }
+  tr:last-child td { border-bottom: 0; }
+  td b { color: var(--ink-1); font-weight: 620; }
+
+  /* ─────────── 열린 결정 ─────────── */
+  .q { border-top: 1px solid var(--hairline); padding: 20px 0; display: grid; grid-template-columns: 30px 1fr; gap: 16px; }
+  .q .n { color: var(--deadline); font-size: 14px; font-weight: 640; padding-top: 2px; }
+  .q h3 { font-size: 16.5px; font-weight: 620; }
+  .q p { color: var(--ink-3); font-size: 14.8px; margin-top: 7px; }
+  .q .why { color: var(--ink-2); font-size: 14.4px; margin-top: 9px; padding-left: 13px; border-left: 2px solid var(--hairline); }
+
+  footer {
+    margin-top: 96px; padding-top: 26px; border-top: 1px solid var(--hairline);
+    color: var(--icon); font-size: 13.4px;
+  }
+  footer a { color: var(--ink-3); }
+
+  @media (max-width: 760px) {
+    .wrap { padding: 0 18px 84px; }
+    .phase { grid-template-columns: 1fr; gap: 14px; }
+    .phase-when { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+    .phase-when .dev { margin-top: 0; }
+    .cols, .screens, .subgrid { grid-template-columns: 1fr; }
+    .card .top { flex-direction: column; gap: 4px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* ═══════ 문서 캔버스 — 제품 팔레트와 분리 ═══════
+     목업 안쪽(.frameA)은 제품 그대로(순수 검정 ground)를 유지하고,
+     문서 바탕만 한 단계 올려 기기가 캔버스 위에 떠 보이게 합니다.
+     여기 값들은 문서용이라 src/app/globals.css 의 토큰이 아닙니다. */
+  :root {
+    --doc-bg:   oklch(0.194 0.011 274);
+    --doc-1:    oklch(0.246 0.012 274);
+    --doc-2:    oklch(0.292 0.013 274);
+    --doc-line: oklch(0.386 0.016 274 / 72%);
+    --doc-chip: oklch(1 0 0 / 5.5%);
+  }
+  body { background: var(--doc-bg); }
+  .hero::before { opacity: .13; }
+
+  /* 문서 표면 */
+  .card, .node, .sub, .card2 { background: var(--doc-1); border-color: var(--doc-line); }
+  .node.hubx { background: linear-gradient(180deg, var(--doc-2), var(--doc-1)); }
+  .chip { background: var(--doc-chip); border-color: var(--doc-line); }
+
+  /* 문서 선 */
+  .shead, .phase, .q, .kv, footer, .tablewrap { border-color: var(--doc-line); }
+  .dec { border-left-color: var(--doc-line); }
+  th, td { border-color: var(--doc-line); }
+  table th { background: var(--doc-chip); }
+  .arrow::before, .arrow::after {
+    background: linear-gradient(90deg, transparent, var(--doc-line), transparent);
+  }
+
+  /* 기기는 캔버스 위에 뜬다 */
+  .frameA {
+    border-color: oklch(0.44 0.017 274 / 88%);
+    box-shadow: 0 28px 64px -22px oklch(0 0 0 / 82%), 0 2px 8px oklch(0 0 0 / 45%);
+  }
+
+  /* 프레임 안쪽은 제품 팔레트로 되돌린다 */
+  .frameA .chip  { background: var(--chip);   border-color: var(--hairline); }
+  .frameA .card2 { background: var(--surface); border-color: var(--hairline); }
+  .frameA .chip.b { background: oklch(0.697 0.16 258.2 / 9%); border-color: oklch(0.697 0.16 258.2 / 42%); }
+  .frameA .chip.a { background: oklch(0.761 0.117 70.9 / 9%); border-color: oklch(0.761 0.117 70.9 / 42%); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">FinAlly · 프론트엔드 설계</div>
+    <h1>여정과 화면</h1>
+    <p class="lede">
+      피해자가 검색으로 들어와 180일 뒤 사건이 닫히기까지, 무엇을 겪고 우리가 어떤 화면으로 받는가.
+      화면 목록과 디자인 시스템은 여기서 갈라져 나옵니다.
+    </p>
+    <div class="meta">
+      <span class="chip"><span class="dot"></span>2026-08-17</span>
+      <span class="chip on"><span class="dot"></span>확정 — 근거 문서 있음</span>
+      <span class="chip open"><span class="dot"></span>미정 — 사람이 정해야 함</span>
+    </div>
+    <p class="lede" style="margin-top:22px;font-size:15.5px">
+      → 이 여정을 실제 레이아웃으로 옮긴 것은
+      <a href="08-17-screen-mockups.html" style="color:var(--pii)">화면 목업</a>에 있습니다.
+    </p>
+  </header>
+
+  <!-- ══════════ 1. 전제 ══════════ -->
+  <section>
+    <div class="shead">
+      <span class="snum">01</span>
+      <h2>이 문서가 서 있는 전제</h2>
+      <p>
+        아래 여섯 줄이 확정되지 않았다면 이 여정은 다른 모양이 됩니다.
+        각 줄의 근거는 <code>spec/common/08-17-service-concept.md</code>에 있습니다.
+      </p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>무엇</th><th>정한 것</th><th>근거</th></tr></thead>
+        <tbody>
+          <tr><td><b>진입</b></td><td>검색·직접 접속. 상담 종료 후 링크 유입은 기대하지 않는다</td><td>ADR-021</td></tr>
+          <tr><td><b>재진입</b></td><td>익명 링크 토큰 — <b>URL이 곧 열쇠.</b> 계정·로그인 없음. 발급 즉시 복사 제공, <b>잃으면 사용자 귀책</b></td><td>ADR-021</td></tr>
+          <tr><td><b>알림</b></td><td>이메일만 <b>선택</b> 입력. 안 주면 알림이 없고 <b>일회성 조회로 끝남 — 이 차이를 UI에 적는다</b></td><td>ADR-021</td></tr>
+          <tr><td><b>종결</b></td><td><b>사용자가 닫을 때.</b> 시스템이 판단해 닫지 않는다</td><td>서비스 골자</td></tr>
+          <tr><td><b>수명</b></td><td>마지막 활동일 + 180일. <b>닫혔든 열려 있든 같다</b></td><td>ADR-016</td></tr>
+          <tr><td><b>증거</b></td><td>선택. 있으면 받아 플랜을 정밀화하고, <b>없어도 진술만으로 시작</b></td><td>슬롯 티어링 T0</td></tr>
+          <tr><td><b>가족</b></td><td>링크를 건네면 같은 화면. 권한 모델 없음</td><td>ADR-021</td></tr>
+          <tr><td><b>기기</b></td><td><b>반응형 웹서비스 하나.</b> 화면마다 「폰용」·「데스크톱용」을 가르지 않는다</td><td>AGENDA 제출물</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════ 2. 여정 ══════════ -->
+  <section>
+    <div class="shead">
+      <span class="snum">02</span>
+      <h2>여정 — 여섯 국면</h2>
+      <p>
+        표준 트랙(은행 계좌이체 <code>CH-bank</code>) 하나를 끝까지 그립니다.
+        다른 일곱 유형은 분기 지점에서만 갈라지므로, 갈라지는 자리에만 표시했습니다.
+      </p>
+    </div>
+
+    <div class="phase">
+      <div class="phase-when">
+        <div class="t">국면 0 · 발견</div>
+        <div class="d">우리를 만나기 전</div>
+        <div class="dev"><span class="chip">좁은 폭</span></div>
+      </div>
+      <div class="phase-body">
+        <h3>“내가 당했다”를 방금 깨달았다</h3>
+        <div class="said">머릿속에 있는 문장 — <b>“지금 뭘 해야 하지?”</b></div>
+        <div class="cols">
+          <div>
+            <div class="col-t">사용자</div>
+            <ul>
+              <li>손이 떨리고 판단이 안 선다</li>
+              <li>폰으로 “보이스피싱 당했을 때”를 검색한다</li>
+              <li>검색 결과 대부분이 <b>설명하는 글</b>이다</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-t">우리</div>
+            <ul>
+              <li>아직 아무것도 못 한다</li>
+              <li>검색에서 발견되는 것 자체가 첫 관문</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          <b>여기가 이 서비스의 진짜 첫 화면입니다.</b> 검색 결과에 뜨지 않으면 여정 전체가 시작되지 않습니다.
+          랜딩은 “뭐 하는 곳인지 모르는 사람”을 3초 안에 납득시켜야 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-when">
+        <div class="t">국면 1 · 첫 10분</div>
+        <div class="d">진입 ~ +10분</div>
+        <div class="dev"><span class="chip">좁은 폭</span></div>
+      </div>
+      <div class="phase-body">
+        <h3>멈추게 하고, 밖으로 내보낸다</h3>
+        <div class="said">“일단 뭘 안 해야 하는지부터 알려줘”</div>
+        <div class="cols">
+          <div>
+            <div class="col-t">사용자가 하는 일</div>
+            <ul>
+              <li>랜딩에서 <b>[지금 시작]</b>을 누른다</li>
+              <li>동의하고, 아는 만큼만 고른다 (건너뛰기 가능)</li>
+              <li>챗에 자기 말로 상황을 적는다</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-t">우리가 하는 일</div>
+            <ul>
+              <li><b>T0 공통 안전 절차 즉시</b> — 112 · 1332 · 추가 송금 금지 · 악성앱 의심 시 비행기모드</li>
+              <li>진술에서 슬롯 자동 추출</li>
+              <li>T1(송금 여부·수단)이 비면 버튼 1문항, “모름” 상시</li>
+              <li>사건 URL 발급 — <b>각인시켜야 하는 순간</b></li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          <b>112와 1332로 내보내는 것이 이 국면의 성공입니다.</b> 우리 화면 안에 붙잡아 두면 서비스가 해를 끼칩니다.
+          동시에 <b>여기서 사용자가 두 부류로 갈립니다</b> — 이메일을 준 사람은 180일 관리를 받고,
+          안 준 사람은 이 화면을 닫는 순간 일회성 조회로 끝납니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-when">
+        <div class="t">국면 2 · 당일 ~ D+3</div>
+        <div class="d">지급정지와 신청</div>
+        <div class="dev"><span class="chip">두 폭 모두</span></div>
+      </div>
+      <div class="phase-body">
+        <h3>절차가 실제로 굴러가기 시작한다</h3>
+        <div class="said">“은행에 전화했는데, 이제 뭘 하면 되죠?”</div>
+        <div class="cols">
+          <div>
+            <div class="col-t">사용자가 하는 일</div>
+            <ul>
+              <li>은행에 지급정지를 건다 — <b>통화 동반 모드</b></li>
+              <li>접수 문자·사건접수번호를 올린다</li>
+              <li>피해구제를 신청한다 (2026년 7월부터 <b>은행 앱 비대면</b>)</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-t">우리가 하는 일</div>
+            <ul>
+              <li>채널별 플랜 생성 — KB 근거·시행일 인용</li>
+              <li><b>3영업일 D-day</b> — 규칙으로 계산, 모델은 세지 않음</li>
+              <li>부산물로 완료 판정 (L1/L2/L3)</li>
+              <li>슬롯이 채워지면 플랜 재생성, 완료 단계는 보존</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          <b>여기서 기기가 바뀝니다.</b> 통화·촬영은 폰이고 서류 확인은 데스크톱입니다.
+          같은 URL이 두 기기에서 이어져야 하는데, 계정이 없으므로 <b>링크를 옮기는 방법</b>이 화면에 있어야 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-when">
+        <div class="t">국면 3 · D+3 ~ D+20</div>
+        <div class="d">서류와 유예</div>
+        <div class="dev"><span class="chip">넓은 폭</span></div>
+      </div>
+      <div class="phase-body">
+        <h3>놓치면 되돌릴 수 없는 구간</h3>
+        <div class="said">“서류를 냈는데 이게 맞게 낸 건가?”</div>
+        <div class="cols">
+          <div>
+            <div class="col-t">사용자가 하는 일</div>
+            <ul>
+              <li>피해구제 신청서를 만든다 (F-08)</li>
+              <li>접수증을 받아 올린다</li>
+              <li>기한을 넘겼다면 <b>14일 유예</b> 안에 마무리한다</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-t">우리가 하는 일</div>
+            <ul>
+              <li>서류 초안 생성 — <b>PII 복원은 브라우저에서만</b></li>
+              <li>접수증 = 환급 타임라인의 기산점으로 확정</li>
+              <li>기한이 지나도 <b>화면에서 지우지 않는다</b> — 유예가 남아 있다</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          <b>이 국면이 서비스의 존재 이유입니다.</b> 3영업일을 놓치면 권리가 사라지고,
+          바로 그 시점이 사용자가 가장 지쳐 있는 때입니다. 리마인더가 여기서 반드시 도달해야 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-when">
+        <div class="t">국면 4 · D+20 ~ D+90</div>
+        <div class="d">채권소멸 공고 2개월</div>
+        <div class="dev"><span class="chip">좁은 폭</span></div>
+      </div>
+      <div class="phase-body">
+        <h3>아무 일도 일어나지 않는 두 달</h3>
+        <div class="said">“두 달째 아무 연락이 없는데, 잘못된 건가요?”</div>
+        <div class="cols">
+          <div>
+            <div class="col-t">사용자가 겪는 것</div>
+            <ul>
+              <li>할 일이 없다. 그런데 불안은 계속된다</li>
+              <li>돈이 돌아온다는 보장이 없다는 걸 이때 실감한다</li>
+              <li><b>가장 이탈하기 쉬운 구간</b></li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-t">우리가 하는 일</div>
+            <ul>
+              <li>“지금은 기다리는 것이 정상”을 <b>상태로</b> 보여준다</li>
+              <li>환급을 카운트다운으로 만들지 않는다 — 매일 실망을 준다</li>
+              <li>명의도용 점검(F-10) 같은 <b>할 수 있는 일</b>을 이 구간에 배치</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          <b>설계가 가장 어려운 국면인데 지금 화면이 하나도 없습니다.</b>
+          할 일이 없는 두 달을 어떻게 보여줄지가 “알려주는 서비스”와 “관리하는 서비스”를 가릅니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-when">
+        <div class="t">국면 5 · D+90 ~ D+180</div>
+        <div class="d">결정과 종결</div>
+        <div class="dev"><span class="chip">넓은 폭</span></div>
+      </div>
+      <div class="phase-body">
+        <h3>끝나거나, 더 길어지거나</h3>
+        <div class="said">“이제 끝난 건가요?”</div>
+        <div class="cols">
+          <div>
+            <div class="col-t">일어나는 일</div>
+            <ul>
+              <li>채권 소멸 → 환급금 결정 <b>14일</b></li>
+              <li>명의인이 이의를 제기하면 <b>+2개월</b> (≈D+160)</li>
+              <li>자율배상 대상이면 별도 트랙 — <b>진단까지만</b></li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-t">우리가 하는 일</div>
+            <ul>
+              <li>결과를 기록하고, 남은 권리(3년 창 등)를 리포트로 내려준다</li>
+              <li>활동이 멈추면 180일 뒤 조용히 파기</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          <b>끝을 선언하는 것은 사용자입니다.</b> 시스템이 “끝났습니다”라고 먼저 말하지 않습니다 —
+          환급 결정이 나도 이의제기로 2개월이 얹힐 수 있고, 카드·명의도용은 3년 창이 따로 남습니다.
+          닫아도 <b>180일 수명은 그대로</b>라, 잘못 닫아도 되돌릴 수 있습니다.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 3. 페이지 플로우 ══════════ -->
+  <section>
+    <div class="shead">
+      <span class="snum">03</span>
+      <h2>페이지 플로우</h2>
+      <p>
+        계정이 없으므로 로그인·회원가입·비밀번호 찾기가 통째로 없습니다.
+        대신 <b>사건 URL 하나가 모든 재진입을 받습니다</b> — 국면 2에서 들어오든 국면 5에서 들어오든 같은 주소입니다.
+      </p>
+    </div>
+
+    <div class="flow">
+      <div class="node entry">
+        <div class="route">검색 결과</div>
+        <div class="nm">“보이스피싱 당했을 때”</div>
+        <div class="ds">유일한 유입 경로. SEO가 곧 진입 설계입니다.</div>
+      </div>
+
+      <div class="arrow">클릭</div>
+
+      <div class="node">
+        <div class="route">/</div>
+        <div class="nm">랜딩</div>
+        <div class="ds">3초 안에 “여기가 뭐 하는 곳인지”. 유일한 행동은 [지금 시작].</div>
+      </div>
+
+      <div class="arrow">지금 시작</div>
+
+      <div class="node">
+        <div class="route">/start</div>
+        <div class="nm">동의 · 기본 데이터 선택 제공</div>
+        <div class="ds">동의만 관문. 나머지는 전부 선택이고 「건너뛰고 바로 시작」이 같은 화면에 있습니다.</div>
+      </div>
+
+      <div class="arrow">사건 생성 · URL 발급</div>
+
+      <div class="node hubx">
+        <div class="route">/c/{token}</div>
+        <div class="nm">사건 — 모든 재진입이 여기로</div>
+        <div class="ds">
+          <b>플랜이 없으면 챗이 화면을 채우고, 플랜이 생기면 보드가 나타나며 챗이 옆으로 물러납니다.</b>
+          같은 주소가 사건 상태에 따라 다른 얼굴을 합니다.
+        </div>
+        <div class="subgrid">
+          <div class="sub"><div class="nm">챗</div><div class="ds">진술 → 슬롯 → 플랜. 이후에는 상시 질의응답</div></div>
+          <div class="sub"><div class="nm">보드</div><div class="ds">단계 · 기한 · 진행 타임라인</div></div>
+          <div class="sub"><div class="nm">증거함</div><div class="ds">업로드와 전사·토큰화 상태</div></div>
+        </div>
+      </div>
+
+      <div class="arrow">단계를 열면</div>
+
+      <div class="frow">
+        <div class="node">
+          <div class="route">/c/{token}/step/{id}</div>
+          <div class="nm">단계 상세 · 부산물 제출</div>
+          <div class="ds">통화 동반 모드, 접수번호 입력, 캡처 업로드. 완료는 여기서만 판정됩니다.</div>
+        </div>
+        <div class="node">
+          <div class="route">/c/{token}/doc/{id}</div>
+          <div class="nm">서류 초안 <span class="chip open" style="margin-left:6px"><span class="dot"></span>P1</span></div>
+          <div class="ds">피해구제신청서·자율배상 신청. 내려받을 때 PII를 <b>브라우저에서만</b> 복원합니다.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 4. 화면 ══════════ -->
+  <section>
+    <div class="shead">
+      <span class="snum">04</span>
+      <h2>화면이 하는 일</h2>
+      <p>
+        <b>S-ID는 아직 붙이지 않았습니다.</b> 기존 <code>S-01~S-03</code>은 3-패널 상황실 시절 것이고,
+        번호는 재사용하지 않으므로 <code>spec/frontend/08-14-screens.md</code>를 다시 쓸 때 한 번에 부여합니다.
+      </p>
+    </div>
+
+    <div class="screens">
+      <div class="card">
+        <div class="top"><h3>랜딩</h3><span class="route">/</span></div>
+        <p class="job">검색으로 온 사람에게 <b>“여기는 신고 다음을 맡는 곳”</b>이라는 것 하나를 이해시킵니다. 설명을 늘리면 실패합니다.</p>
+        <div class="kv">
+          <div><span class="k">기기</span><span class="v">폰 우선</span></div>
+          <div><span class="k">행동</span><span class="v">[지금 시작] 하나</span></div>
+          <div><span class="k">미정</span><span class="v">아직 신고 전인 사람을 112로 즉시 보내는 경로를 여기 둘지</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="top"><h3>동의 · 선택 제공</h3><span class="route">/start</span></div>
+        <p class="job">동의를 받고, <b>줄 수 있는 사람만</b> 증거와 기본 정보를 줍니다. 폼을 통과해야 다음으로 가는 구조를 만들면 원칙 위반입니다.</p>
+        <div class="kv">
+          <div><span class="k">관문</span><span class="v">동의(법적 필수)만</span></div>
+          <div><span class="k">필수</span><span class="v">「건너뛰고 바로 시작」이 같은 화면에</span></div>
+          <div><span class="k">이메일</span><span class="v">선택 입력. <b>안 주면 알림 없음·일회성</b>이라는 것을 같은 크기로 옆에</span></div>
+          <div><span class="k">고칠 것</span><span class="v">동의 문구가 아직 “24시간 후 파기” — <b>180일</b>로 수정 필요</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="top"><h3>사건 — 챗 국면</h3><span class="route">/c/{token}</span></div>
+        <p class="job">진술을 받아 <b>가장 적절한 매뉴얼을 고르는</b> 이 서비스의 핵심 동작. T0 안전 절차가 슬롯과 무관하게 상시 붙어 있습니다.</p>
+        <div class="kv">
+          <div><span class="k">API</span><span class="v"><code>POST /messages</code> · <code>GET /slots</code></span></div>
+          <div><span class="k">규칙</span><span class="v">질문은 한 번에 하나 · 전부 버튼 · “모름” 상시</span></div>
+          <div><span class="k">주의</span><span class="v">응답은 스트리밍하지 않습니다 (확정)</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="top"><h3>사건 — 보드 국면</h3><span class="route">/c/{token}</span></div>
+        <p class="job">며칠 뒤 링크를 열었을 때 <b>“지금 뭘 해야 하나”가 첫 줄</b>이어야 합니다. 빈 챗창이 뜨면 관리 서비스가 아닙니다.</p>
+        <div class="kv">
+          <div><span class="k">API</span><span class="v"><code>GET /plan</code> · <code>GET /deadlines</code></span></div>
+          <div><span class="k">기한</span><span class="v">서버가 계산한 값만 표시. 화면은 세지 않습니다</span></div>
+          <div><span class="k">색</span><span class="v">기한 임박은 앰버. <b>빨강을 쓰지 않습니다</b></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="top"><h3>단계 상세 · 부산물</h3><span class="route">/step/{id}</span></div>
+        <p class="job">완료가 판정되는 유일한 자리. 통화 종료 직후 <b>“접수번호를 지금 받아적으세요”</b>가 뜨는 것이 이 화면의 핵심 장치입니다.</p>
+        <div class="kv">
+          <div><span class="k">API</span><span class="v"><code>POST /steps/{id}/artifacts</code></span></div>
+          <div><span class="k">상태</span><span class="v">미시작 · 진행중 · 완료(증빙됨) · 미확인 · 건너뜀</span></div>
+          <div><span class="k">금지</span><span class="v">체크만으로 완료가 되는 경로</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="top"><h3>증거함</h3><span class="route">/c/{token}</span></div>
+        <p class="job">전사가 흐르고 <b>PII가 파란 토큰으로 바뀌는 것이 눈에 보이는</b> 자리. “AI가 뭘 하고 있는지 투명한 것” 자체가 심사 차별점입니다.</p>
+        <div class="kv">
+          <div><span class="k">API</span><span class="v"><code>POST /evidence</code> · <code>GET /evidence/{id}</code></span></div>
+          <div><span class="k">상태</span><span class="v">pending · processing · done · failed</span></div>
+          <div><span class="k">의미</span><span class="v">파란 토큰 = “서버로 안 갔다”</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 5. 열린 결정 ══════════ -->
+  <section>
+    <div class="shead">
+      <span class="snum">05</span>
+      <h2>정해진 것과 막혀 있는 것</h2>
+      <p>2026-08-17에 넷이 풀렸습니다. 남은 것은 추측으로 채우면 안 되는 자리이고, 화면이 실제로 막히는 순서대로 놓았습니다.</p>
+    </div>
+
+    <div class="q">
+      <div class="n">01</div>
+      <div>
+        <h3>리마인더를 어떻게 보내는가 <span class="chip on"><span class="dot"></span>정해짐</span></h3>
+        <p><b>이메일을 선택으로 받습니다.</b> 안 준 사용자에게는 알림이 없고, 그 사실을 UI에 같은 크기로 적습니다.</p>
+        <div class="why">
+          웹 푸시·.ics만으로는 3영업일을 못 지킵니다 — iOS에서 홈 화면 추가를 요구하고 브라우저를 바꾸면 끊깁니다.
+          <b>대가는 사용자가 두 부류로 갈린다는 것</b>이고, 그걸 숨기면 기만이 됩니다 → ADR-021
+        </div>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="n">02</div>
+      <div>
+        <h3>할 일이 없는 두 달을 무엇으로 채우는가</h3>
+        <p>국면 4에 화면이 하나도 없습니다. 진행 타임라인만으로 두 달을 버티게 할 수 있는지.</p>
+        <div class="why">
+          여기서 이탈하면 국면 5의 환급 결정을 못 받습니다. “알려주는 서비스”와 갈리는 지점이 정확히 여기입니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="n">03</div>
+      <div>
+        <h3>사건이 언제 끝났다고 말하는가 <span class="chip on"><span class="dot"></span>정해짐</span></h3>
+        <p><b>사용자가 닫을 때</b>입니다. 시스템이 판단해 닫지 않고, 닫아도 수명은 그대로 180일입니다.</p>
+        <div class="why">
+          닫자마자 지우면 잘못 닫은 것을 되돌릴 수 없습니다. 이의제기·뒤늦은 통지로 절차가 다시 열리는 경로가 실제로 있습니다.
+          <b>남은 것 — 닫은 사건을 다시 여는 화면 경로</b>가 아직 없습니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="n">04</div>
+      <div>
+        <h3>문진 선택지 <span class="chip open"><span class="dot"></span>제안 — 결재 필요</span></h3>
+        <p>
+          초안의 7개는 <b>경유 서비스 한 축만</b> 묻습니다. 조사 결과 <b>축이 셋</b>이고,
+          빠진 축을 안 물으면 <b>정반대 안내가 나갑니다.</b> 상세는 아래 06절.
+        </p>
+        <div class="why">
+          축 1 <b>내가 피해자인가 묶인 사람인가</b> (research 06 §6.1 — 경로와 직교) ·
+          축 2 <b>환급법 트랙이 열리는가</b> (법 제2조제2호 단서 — 재화·용역 가장은 제외) ·
+          축 3 <b>돈이 어느 경로로 나갔나</b> (8유형 + 카드)
+        </div>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="n">05</div>
+      <div>
+        <h3>한 사건에 경유 서비스가 여럿일 때</h3>
+        <p>실제 피해는 계좌이체·상품권·간편송금이 섞입니다. 플랜을 어떻게 합치고 기한이 각각 도는지 정의가 없습니다.</p>
+        <div class="why">보드 화면의 구조가 갈립니다 — 트랙이 하나인지 여럿인지에 따라 레이아웃이 다릅니다.</div>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="n">06</div>
+      <div>
+        <h3>링크를 잃은 사람은 어떻게 하는가 <span class="chip on"><span class="dot"></span>정해짐</span></h3>
+        <p><b>발급 즉시 복사할 수 있게 하고, 그래도 잃으면 사용자 귀책입니다.</b> 우리가 복구해 주지 않습니다.</p>
+        <div class="why">
+          이메일을 준 사용자는 메일함이 곧 백업이라 실질 위험이 줄었습니다.
+          안 준 사용자에게는 <b>이것이 일회성이라는 뜻</b>이고, 그 사실을 발급 화면에서 알립니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="n">07</div>
+      <div>
+        <h3>KB에 들어갈 매뉴얼이 몇 건인가</h3>
+        <p>화면이 아니라 <b>범위</b>가 여기서 갈립니다. 유형 기본 항목은 추산이 되는데, 기관 전용 항목은 폭발합니다.</p>
+        <div class="why">
+          유형 기본 <b>≈90건</b>은 2인이 감당 가능한 크기입니다. 기관 전용은 150곳이 넘어
+          <b>MVP에서 몇 곳까지 채울지</b>를 정해야 합니다. 근거와 계산은 아래 06절.
+        </div>
+      </div>
+    </div>
+
+    <div class="q">
+      <div class="n">08</div>
+      <div>
+        <h3>매뉴얼 구조를 어디서 가져오는가</h3>
+        <p>“genlab의 것을 쓴다”고 정해졌는데, <b>그 구조가 이 저장소에 없습니다.</b></p>
+        <div class="why">
+          회사 자산을 개인 프로젝트 저장소에 복사해도 되는지가 먼저입니다.
+          구조만 참고하는 것과 내용을 옮기는 것은 다른 문제라, <b>확인 없이 진행하지 않습니다.</b>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 6. 문진과 KB ══════════ -->
+  <section>
+    <div class="shead">
+      <span class="snum">06</span>
+      <h2>문진 선택지 — 축이 하나가 아닙니다</h2>
+      <p>
+        진입 플로우 초안의 7개는 <b>“돈이 어느 경로로 나갔나” 한 축만</b> 묻습니다.
+        조사 문서를 대조하니 <b>안 묻고 있는 축이 둘 더 있고, 둘 다 안 물으면 정반대 안내가 나갑니다.</b>
+      </p>
+    </div>
+
+    <div class="tablewrap" style="margin-bottom:28px">
+      <table>
+        <thead><tr><th>축</th><th>안 물으면 무슨 일이 나나</th><th>근거</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>내가 피해자인가<br>묶인 사람인가</b></td>
+            <td><b>정반대 안내.</b> 통장묶기 사용자에게 “지급정지를 요청하세요”라고 말하게 됩니다 — 그 사람은 지급정지를 <b>풀어야</b> 합니다</td>
+            <td>research 06 §6.1<br>“경로와 <b>직교</b>한다”</td>
+          </tr>
+          <tr>
+            <td><b>환급법 트랙이<br>열리는가</b></td>
+            <td>트랙이 안 열리는 사용자에게 <b>“은행에 전화해 지급정지를 거세요”</b>라고 안내하게 됩니다. 법 제2조제2호 단서가 <b>재화·용역 제공을 가장한 행위를 정의에서 제외</b>합니다</td>
+            <td>research 06 §3<br>신뢰도 <b>확인</b>(조문)</td>
+          </tr>
+          <tr>
+            <td><b>돈이 어느 경로로<br>나갔나</b></td>
+            <td>요청처와 순서가 틀립니다. 초안에 <b><code>CH-securities</code>·<code>CH-carrier</code>가 빠져 있고, 카드는 8유형에 아예 없습니다</b></td>
+            <td>research 02 §1<br>research 06 §6</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:14px">제안하는 질문 순서</h3>
+    <p style="color:var(--ink-3);font-size:15px;margin-bottom:20px;max-width:62ch">
+      슬롯 티어링의 “한 번에 하나 · 전부 버튼 · 모름 상시”를 지키고,
+      <b>플랜을 가장 크게 바꾸는 것부터</b> 묻습니다.
+    </p>
+
+    <div class="flow" style="margin-bottom:28px">
+      <div class="node">
+        <div class="route">Q1 · track</div>
+        <div class="nm">무슨 일이 있으셨나요?</div>
+        <div class="ds">
+          내 돈이 나갔어요 <span style="color:var(--icon)">→ victim</span> ·
+          내 계좌가 갑자기 묶였어요 <span style="color:var(--icon)">→ frozen_account</span> ·
+          모르겠어요<br>
+          <b>이게 첫 질문이어야 하는 이유 — 유일하게 “정반대 안내”가 나오는 갈림길입니다.</b>
+        </div>
+      </div>
+
+      <div class="arrow">victim 이면</div>
+
+      <div class="node">
+        <div class="route">Q2 · 환급법 개폐</div>
+        <div class="nm">상대가 어떤 명목으로 접근했나요?</div>
+        <div class="ds">
+          기관 사칭(검찰·경찰·금감원) · 대출을 해준다고 함 · 가족·지인 사칭
+          <span style="color:var(--pii)">→ 트랙 열림</span><br>
+          물건 거래 · 투자 권유
+          <span style="color:var(--deadline)">→ 안 열릴 수 있음</span> · 모르겠어요
+        </div>
+      </div>
+
+      <div class="arrow">이어서</div>
+
+      <div class="node">
+        <div class="route">Q3 · 경로</div>
+        <div class="nm">돈이 어떻게 나갔나요?</div>
+        <div class="ds">
+          계좌로 이체 <span style="color:var(--icon)">→ Q3b</span> · 간편송금 앱 · 코인 ·
+          직접 만나서 현금 · 상품권 핀번호 · 휴대폰 결제 · <b>카드 결제·대출</b> · 모르겠어요
+          <span style="color:var(--icon)">(8개)</span>
+        </div>
+        <div class="subgrid" style="grid-template-columns:repeat(2,1fr)">
+          <div class="sub">
+            <div class="nm">Q3b · 어디 계좌였나요?</div>
+            <div class="ds">시중·지방은행 · 인터넷은행 · 증권사 · 모르겠어요 <span style="color:var(--icon)">(4개)</span></div>
+          </div>
+          <div class="sub">
+            <div class="nm">왜 2단으로 나누나</div>
+            <div class="ds">셋은 <b>절차가 같고 창구만 다릅니다</b>(research 02 §2.2·§2.3). 한 번에 9개를 늘어놓는 것보다 낫습니다</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-bottom:28px">
+      <b>Q2는 확정이 아니라 제안입니다.</b> 법 제2조제2호 단서가 “재화의 공급 또는 용역의 제공을 가장한 행위”를
+      제외한다는 것은 조문으로 확인됐지만, <b>투자 권유 사기가 전부 여기 들어가는지는 유권해석이 없습니다.</b>
+      확정 전까지는 U-22(무통장입금)와 같은 방식으로 — <b>슈퍼셋으로 안내하고 “거절될 수 있습니다”를 함께</b> 붙입니다.
+      단정해서 “대상이 아닙니다”라고 말하면 안 됩니다.
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:14px">초안 7개에서 무엇이 달라지나</h3>
+    <div class="tablewrap" style="margin-bottom:44px">
+      <table>
+        <thead><tr><th>초안</th><th>제안</th><th>왜</th></tr></thead>
+        <tbody>
+          <tr><td>은행이체</td><td>Q3 「계좌로 이체」 → Q3b 시중·지방은행</td><td>2단으로 내려 버튼 수를 줄임</td></tr>
+          <tr><td>인터넷은행</td><td>Q3b로 이동</td><td>절차가 표준과 같고 창구만 다름</td></tr>
+          <tr><td>간편송금 · 대면 · 상품권 · 코인 · 모름</td><td>그대로</td><td>—</td></tr>
+          <tr><td>(없음)</td><td><b>증권사</b> — Q3b에 추가</td><td><code>CH-securities</code>가 8유형에 있는데 초안에 빠짐</td></tr>
+          <tr><td>(없음)</td><td><b>휴대폰 결제</b> 추가</td><td><code>CH-carrier</code>가 초안에 빠짐</td></tr>
+          <tr><td>(없음)</td><td><b>카드 결제·대출</b> 신설</td><td>근거법(여신전문금융업법)·손실 형태(<b>남은 빚</b>)·기한 방향(<b>소급 60일</b>)이 전부 다름 — 조건문으로 붙이면 뭉개짐. research 06 §6</td></tr>
+          <tr><td>(없음)</td><td><b>Q1 — 피해자 / 묶인 사람</b></td><td>경로와 직교하는 축. 안 물으면 정반대 안내</td></tr>
+          <tr><td>(없음)</td><td><b>Q2 — 환급법 개폐</b></td><td>트랙이 안 열리는 사람에게 지급정지를 시키게 됨</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="shead">
+      <span class="snum">06.2</span>
+      <h2>KB에 몇 건이 들어가나 — 추산</h2>
+      <p>
+        <b>추산이지 실측이 아닙니다.</b> 아래 단계 수는 조사 문서의 절차를 세어 잡은 것이라,
+        매뉴얼을 실제로 쓰기 시작하면 달라집니다. 계산을 보이는 이유는 <b>검산할 수 있게</b> 하려는 것입니다.
+      </p>
+    </div>
+
+    <div class="tablewrap" style="margin-bottom:20px">
+      <table>
+        <thead><tr><th>묶음</th><th>건수</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td><b>전체 공통</b><br><code>channel · org 둘 다 NULL</code></td><td><b>8</b></td>
+              <td>T0 안전절차 4(112 · 1332 · 추가 송금 금지 · 악성앱 비행기모드) + 공통 후속 4(명의도용 점검 · 악성앱 초기화 · 자율배상 진단 · 환급 기대치)</td></tr>
+          <tr><td><code>CH-bank</code></td><td>10</td>
+              <td>표준 트리 6(지급정지 · 확인원 · 피해구제 신청 · 14일 유예 · 공고 2개월 · 환급 결정) + <b>조건부 4</b>(1만원 이하 30일 · 공고 후 2개월 · 이의제기 2개월 · 90일 종료)</td></tr>
+          <tr><td><code>CH-neobank</code></td><td>4</td><td>앱 내 신고 경로 · 비대면 접수 · 나머지는 공통 참조</td></tr>
+          <tr><td><code>CH-securities</code></td><td>3</td><td>창구 차이만</td></tr>
+          <tr><td><code>CH-easypay</code></td><td>6</td><td>요청처 둘(선불업자 + 연계 은행) · 통지 대기</td></tr>
+          <tr><td><code>CH-crypto</code></td><td><b>11</b></td><td><b>시행일 두 벌</b> — ~2026-09-30 / 2026-10-01~. 시행일 분기가 실제로 도는 증거</td></tr>
+          <tr><td><code>CH-facetoface</code></td><td>8</td><td><b>순서 역전 — 별도 트리.</b> 표준에 조건문을 붙이면 안 됨</td></tr>
+          <tr><td><code>CH-giftcard</code></td><td>4</td><td>핀 사용정지 · 분쟁조정 · 형사 · <b>사각지대 고지</b></td></tr>
+          <tr><td><code>CH-carrier</code></td><td>5</td><td>정정요구 2주 · 차단 설정 · 사각지대 고지</td></tr>
+          <tr><td><b>카드</b> (신설)</td><td>6</td><td>소급 60일 · 이의제기 · 책임분담 3년</td></tr>
+          <tr><td><b>통장묶기</b> <code>track=frozen_account</code></td><td>5</td><td>소명자료 · 5영업일 통보 · 소액·생계 즉시 해제</td></tr>
+          <tr><td colspan="2"><b>유형 기본 소계</b></td><td><b>≈ 70건</b> — 여유를 두면 <b>90건</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tablewrap" style="margin-bottom:20px">
+      <table>
+        <thead><tr><th>기관 전용 <code>org_id</code> 있음</th><th>곳</th><th>MVP</th></tr></thead>
+        <tbody>
+          <tr><td>시중·지방은행 15 + 상호금융 3</td><td>18</td><td>상위 5곳</td></tr>
+          <tr><td>인터넷은행</td><td>3</td><td><b>전부</b></td></tr>
+          <tr><td>간편송금·선불업자</td><td>4</td><td><b>전부</b> — 기관 없이는 요청처를 못 정함</td></tr>
+          <tr><td>가상자산 거래소</td><td>5</td><td>후순위 (10월 시행 전엔 안내가 적음)</td></tr>
+          <tr><td>증권사</td><td>8</td><td>후순위 — <b>피해 비중 미확인</b></td></tr>
+          <tr><td>통신사</td><td>3 + 알뜰폰</td><td>알뜰폰은 “가입 통신사 고객센터”로 뭉침</td></tr>
+          <tr><td>상품권 발행사</td><td>5</td><td>후순위</td></tr>
+          <tr><td colspan="2"><b>합계</b></td><td><b>47곳</b> → MVP는 <b>약 15곳</b> (research 04 §9 우선순위 1~4)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>결론 — MVP KB는 약 100~120건입니다.</b> 유형 기본 70~90 + 기관 전용 15~30.
+      기관을 다 안 채워도 서비스는 돕니다 — 조회가 <b>기관 전용 → 유형 기본 → 전체 공통</b>으로 내려가게 설계돼 있어서입니다.<br><br>
+      <b>다만 건수보다 무거운 것은 검증입니다.</b> research 04가 <b>모든 연락처를 <code>TODO(근거 필요)</code>로 비워 뒀고</b>,
+      research 06은 기관 정보가 “제도가 아니라 전산 개발 진척에 따라 바뀌는 값”이라 <b>90일 재검증 대상</b>이라고 했습니다.
+      100건을 쓰는 것보다 <b>100건의 출처를 확인하는 것</b>이 일정을 먹습니다.
+    </div>
+  </section>
+
+  <footer>
+    근거 문서 — <code>spec/common/08-17-service-concept.md</code> ·
+    <code>decisions/021-reentry-and-identity.md</code> ·
+    <code>decisions/016-retention-and-datastore.md</code> ·
+    <code>spec/backend/08-14-slot-tiering.md</code> ·
+    <code>spec/common/08-16-deadline-rules.md</code> ·
+    <code>docs/research/02-경유서비스-8유형.md</code> ·
+    <code>docs/research/04-기관정보.md</code> ·
+    <code>docs/research/06-경로별-실측조사.md</code><br>
+    이 문서에 등장하는 전화번호·금액·기관명은 전부 예시입니다. 실제 연락처는 KB 구축 시 출처와 함께 확인합니다.
+  </footer>
+
+</div>
+</body>
+</html>

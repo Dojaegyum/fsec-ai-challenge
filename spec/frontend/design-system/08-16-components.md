@@ -50,10 +50,37 @@
 패키지에 `"use client"`가 없는데 훅을 쓰므로 **래퍼에서 클라이언트 경계를 세웁니다.**
 서버 컴포넌트에서 직접 import하면 런타임에 실패합니다.
 
+## 어느 모듈의 것인가
+
+**컴포넌트는 모듈이 아닙니다.** 아래는 각 컴포넌트가 **어느 모듈의 화면을 이루는지**입니다
+→ [모듈 명칭](../../common/08-16-module-names.md) 층 C · [ADR-023](../../../decisions/023-frontend-module-names.md).
+
+| 컴포넌트 | 모듈 |
+| --- | --- |
+| `PiiToken` | `pii-restorer` (표시 전 복원 심사) |
+| `Composer` · `SlotQuestion` | `chat-handler` |
+| `CaseTimeline` · `StepItem` · `ChannelBadge` · `SafetyRail` | `plan-viewer` |
+| `DeadlineTracker` | `deadline-viewer` |
+| `EvidenceCard` | `file-sender` (올리기) · `transcript-viewer` (전사 표시) |
+| **워크스페이스 패널 `WS-*` 7종** | `work-handler` → [워크스페이스 패널](../08-17-workspace-panels.md) |
+
+## 파일을 어디에 두나
+
+- **도메인 모듈 코드는 `src/modules/{모듈 이름}/`** 입니다. 폴더 이름이 정본과 글자 그대로 같아야 하고,
+  **정본에 없는 이름으로 만들면 CI가 막습니다** → [ADR-019](../../../decisions/019-module-code-sync.md).
+- **shadcn 컴포넌트와 공용 UI 조각은 `src/components/`** 입니다. 모듈이 아닙니다.
+- **가르는 기준은 「절대 하지 않는 것」이 붙어 있는가**입니다. 금지가 걸린 자리는 모듈이고,
+  버튼·카드처럼 어디에나 쓰이는 조각은 컴포넌트입니다.
+
+> `PiiToken`이 헷갈리는 예입니다. **컴포넌트는 `src/components/`** 에 두되,
+> **복원해도 되는 자리인지 판정하는 코드는 `src/modules/pii-restorer/`** 에 있습니다.
+> 판정을 컴포넌트 안에 넣으면 [PII 격리 경계](../../common/08-14-pii-boundary.md)의 규칙이 UI에 흩어집니다.
+
 ## TODO
 
-- TODO(정해야 함): 컴포넌트 파일 위치와 명명 (`src/components/` 아래 도메인별로 나눌지)
-- TODO(정해야 함): 로딩·에러·빈 상태의 공통 처리 방식
+- ~~TODO(정해야 함): 컴포넌트 파일 위치와 명명~~ → **위 「파일을 어디에 두나」로 확정**
+  ([ADR-023](../../../decisions/023-frontend-module-names.md)). 파일 **명명 규칙**은 아직입니다 → TODO(미정).
+- TODO(정해야 함): 로딩·에러·빈 상태의 공통 처리 방식. `poll-checker`가 상태를 내주므로 **그 모듈과 함께 정합니다**
 - TODO(정해야 함): shadcn 컴포넌트를 수정할 때의 규칙 (원본 수정 vs 래핑)
 - TODO(정해야 함): 칩 높이가 접근성 권장 터치 목표(44px)에 미달 → [접근성](08-16-accessibility.md)
 
