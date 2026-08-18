@@ -40,6 +40,7 @@
 | 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. 지금은 [백엔드 선행 결정 핸드오프](docs/plans/08-16-backend-handoff.md) 하나 |
 | 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
 | 코드 | `src/` | Next.js 스캐폴딩만 — 도메인 코드 없음 |
+| **매뉴얼을 어떻게 쓰나** | [RFC-002](rfc/002-kb-authoring.md) | KB 원본은 `src/kb/`. **DB는 사본이라 직접 INSERT 하지 않습니다** |
 | 로고·favicon·컴포넌트 원본 | `assets/brand/`, `assets/components/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
 
 `src/`에는 create-next-app이 생성한 `AGENTS.md`·`CLAUDE.md`가 있습니다. `next dev`가 `AGENTS.md`를
