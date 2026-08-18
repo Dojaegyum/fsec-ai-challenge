@@ -7,10 +7,14 @@ import Link from "next/link";
  * 계약: spec/frontend/08-14-screens.md
  * 목업: assets/artifacts/plans/08-17-screen-mockups.html 「화면 01」
  *
- * **목업의 구조·간격·크기를 그대로 옮긴 것입니다.** 임의로 바꾸지 마세요.
- * 하나만 다릅니다 — 목업의 12.4px(`.xs`)를 **13px**로 올렸습니다.
- * 디자인 시스템이 「13px 미만을 쓰지 않습니다」로 정했고(고령 사용자 기준),
- * 차이가 0.6px이라 인상이 바뀌지 않습니다 → design-system/08-16-tokens.md.
+ * **목업의 구조·비율을 따릅니다.** 실제 브라우저는 목업 창(1180px)보다 넓어서,
+ * 폭과 헤드라인 크기는 화면에 맞춰 키웠습니다 — 목업 값을 그대로 쓰면
+ * 넓은 화면에서 콘텐츠가 가운데 작게 뭉칩니다.
+ *
+ * 목업과 다른 곳 셋 (전부 의도적)
+ *  · `.xs` 12.4px → **13px** — 디자인 시스템의 「13px 미만 금지」(고령 사용자 기준)
+ *  · 헤드라인 40px → **clamp(38…66px)** — 넓은 화면에서 히어로가 히어로답게
+ *  · 기대치 문구를 「대상인지 알려드리는 것」 → **「방향을 잡아드리는 것」**
  *
  * 지켜야 할 것
  *  · 행동은 [지금 시작하기] 하나. 메뉴·소개·요금 링크를 붙이지 않습니다
@@ -26,9 +30,12 @@ const 하는일 = [
 ] as const;
 
 /** 목업의 `.cd` — 떠 있는 카드 */
-const cd = "rounded-[14px] border border-hairline bg-surface px-[17px] py-[15px]";
+const cd = "rounded-[14px] border border-hairline bg-surface px-[18px] py-[16px]";
 /** 목업의 `.cd.dash` — 배경 없이 점선만 */
-const cdDash = "rounded-[14px] border border-dashed px-[17px] py-[15px]";
+const cdDash = "rounded-[14px] border border-dashed px-[18px] py-[16px]";
+
+/** 위에서 아래로 차례로 나타납니다. 값은 등장 순서 */
+const step = (i: number) => ({ animationDelay: `${60 + i * 70}ms` });
 
 export default function Landing() {
   return (
@@ -36,40 +43,52 @@ export default function Landing() {
       {/* 브랜드 분위기. 의미를 싣지 않습니다 → design-system/08-16-tokens.md */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[46vh] opacity-55
-                   [background:radial-gradient(120%_150%_at_50%_150%,var(--color-horizon)_0%,oklch(0.42_0.09_58)_38%,transparent_72%)]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[62vh] opacity-60
+                   [background:radial-gradient(110%_140%_at_50%_142%,var(--color-horizon)_0%,oklch(0.44_0.10_58)_34%,transparent_70%)]"
+      />
+      {/* 위쪽에 아주 옅은 빛 하나 — 헤더가 허공에 뜬 것처럼 보이지 않게 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[38vh] opacity-[0.07]
+                   [background:radial-gradient(80%_100%_at_50%_0%,var(--color-pii)_0%,transparent_70%)]"
       />
 
       {/* 목업 `.top` — stage 바탕에 실선 하나 */}
-      <header className="relative flex items-center justify-between gap-4 border-b border-hairline bg-stage px-[26px] py-[14px]">
-        {/* 목업 `.brand` — 심볼은 브랜드 자산, 워드마크는 텍스트.
-            가로 로고에는 태그라인이 함께 그려져 있어 28px 높이에서 뭉개집니다 */}
-        <div className="flex items-center gap-2.5">
-          <Image
-            src="/brand/symbol-mark.png"
-            alt=""
-            width={169}
-            height={158}
-            priority
-            className="h-6 w-auto invert"
-          />
-          <span className="text-[18px] font-[660] tracking-[-0.02em] text-ink-1">
-            Fin<span className="text-pii">Ally</span>
+      <header className="relative z-10 border-b border-hairline bg-stage/80 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-shell items-center justify-between gap-4 px-[clamp(20px,4.2vw,72px)] py-[15px]">
+          {/* 목업 `.brand` — 심볼은 브랜드 자산, 워드마크는 텍스트.
+              가로 로고에는 태그라인이 함께 그려져 있어 28px 높이에서 뭉개집니다 */}
+          <div className="rise flex items-center gap-2.5">
+            <Image
+              src="/brand/symbol-mark.png"
+              alt=""
+              width={169}
+              height={158}
+              priority
+              className="h-[26px] w-auto invert"
+            />
+            <span className="text-[19px] font-[660] tracking-[-0.02em] text-ink-1">
+              Fin<span className="text-pii">Ally</span>
+            </span>
+          </div>
+          <span
+            style={step(0)}
+            className="rise inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-[6px] text-[13px] text-pii
+                       border border-[oklch(0.697_0.16_258.2/42%)] bg-[oklch(0.697_0.16_258.2/10%)]"
+          >
+            <span aria-hidden className="size-1.5 rounded-full bg-current" />
+            개인정보는 브라우저 밖으로 나가지 않습니다
           </span>
         </div>
-        <span
-          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-[11px] py-[5px] text-[13px] text-pii
-                     border border-[oklch(0.697_0.16_258.2/42%)] bg-[oklch(0.697_0.16_258.2/10%)]"
-        >
-          <span aria-hidden className="size-1.5 rounded-full bg-current" />
-          개인정보는 브라우저 밖으로 나가지 않습니다
-        </span>
       </header>
 
-      <div className="relative mx-auto grid w-full max-w-wide flex-1 items-center gap-10 px-6 py-14 md:grid-cols-[1.15fr_1fr] md:gap-[52px] md:px-[52px] md:pb-14 md:pt-16">
+      <div className="relative mx-auto grid w-full max-w-shell flex-1 items-center gap-12 px-[clamp(20px,4.2vw,72px)] py-[clamp(48px,7vh,88px)] md:grid-cols-[1.15fr_minmax(0,1fr)] md:gap-[clamp(36px,4.5vw,76px)]">
         {/* ── 왼쪽 · 포지셔닝과 단 하나의 행동 ───────────────── */}
         <section>
-          <h1 className="text-[40px] font-[690] leading-[1.18] tracking-[-0.03em] text-ink-1">
+          <h1
+            style={step(1)}
+            className="rise text-[clamp(38px,4.6vw,66px)] font-[690] leading-[1.14] tracking-[-0.035em] text-ink-1"
+          >
             신고는 하셨나요?
             <br />
             그다음부터
@@ -77,17 +96,24 @@ export default function Landing() {
             저희가 맡습니다.
           </h1>
 
-          <p className="mt-[22px] max-w-[40ch] text-[17px] leading-[1.66] text-ink-3">
+          <p
+            style={step(2)}
+            className="rise mt-6 max-w-[42ch] text-[clamp(17px,1.35vw,19px)] leading-[1.66] text-ink-3"
+          >
             은행에 언제 무엇을 내야 하는지, 기한이 며칠 남았는지 — 몇 달 동안 대신
             챙깁니다.
           </p>
 
-          <div className="mt-[30px] flex flex-wrap items-center gap-[14px]">
+          <div
+            style={step(3)}
+            className="rise mt-9 flex flex-wrap items-center gap-x-4 gap-y-3"
+          >
             <Link
               href="/start"
               className="inline-flex min-h-[var(--size-touch)] items-center justify-center rounded-[12px]
-                         bg-ink-1 px-[26px] text-[15.5px] font-[660] text-ground
-                         transition-opacity hover:opacity-90
+                         bg-ink-1 px-8 text-[16px] font-[660] text-ground
+                         shadow-[0_1px_0_oklch(1_0_0/40%)_inset,0_10px_30px_-12px_oklch(1_0_0/35%)]
+                         transition-[transform,opacity] duration-200 hover:-translate-y-px hover:opacity-95
                          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pii"
             >
               지금 시작하기
@@ -99,20 +125,22 @@ export default function Landing() {
 
           {/* 전환율을 깎는 자리입니다. 빼면 가장 급한 사람을 우리 화면에 붙잡습니다 */}
           <aside
-            className={`${cdDash} mt-[34px] max-w-[44ch] border-[oklch(0.761_0.117_70.9/40%)]`}
+            style={step(4)}
+            className={`${cdDash} rise mt-10 max-w-[46ch] border-[oklch(0.761_0.117_70.9/40%)] bg-[oklch(0.761_0.117_70.9/4%)]`}
           >
-            <div className="flex items-start gap-[11px]">
+            <div className="flex items-start gap-3">
               <span
                 aria-hidden
-                className="text-[16px] leading-none text-deadline-urgent"
+                className="mt-px grid size-[18px] shrink-0 place-items-center rounded-full
+                           bg-[oklch(0.761_0.117_70.9/18%)] text-[12px] font-bold text-deadline-urgent"
               >
                 !
               </span>
               <div>
-                <div className="text-[14.4px] font-[620] text-ink-1">
+                <div className="text-[14.5px] font-[620] text-ink-1">
                   아직 신고 전이신가요?
                 </div>
-                <p className="mt-[3px] text-[13.4px] text-ink-3">
+                <p className="mt-1 text-[13.5px] leading-[1.6] text-ink-3">
                   <b className="font-[660] text-deadline-urgent" data-numeric>
                     112
                   </b>
@@ -124,31 +152,41 @@ export default function Landing() {
         </section>
 
         {/* ── 오른쪽 · 문단이 아니라 세 장의 카드 ─────────────── */}
-        <section className="grid gap-[11px]">
-          {하는일.map(([n, title, body]) => (
-            <article key={n} className={`${cd} flex items-start gap-[13px]`}>
+        <section className="grid content-center gap-3">
+          {하는일.map(([n, title, body], i) => (
+            <article
+              key={n}
+              style={step(2 + i)}
+              className={`${cd} rise flex items-start gap-[13px]
+                          transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/38%)]`}
+            >
               <span
                 aria-hidden
                 data-numeric
-                className="mt-[3px] grid size-[21px] shrink-0 place-items-center rounded-full
+                className="mt-[3px] grid size-[22px] shrink-0 place-items-center rounded-full
                            border border-[oklch(0.697_0.16_258.2/45%)] bg-[oklch(0.697_0.16_258.2/22%)]
-                           text-[11.5px] font-bold text-pii"
+                           text-[12px] font-bold text-pii"
               >
                 {n}
               </span>
               <div>
-                <h2 className="text-[15px] font-[620] text-ink-1">{title}</h2>
-                <p className="mt-[2px] text-[13.4px] text-ink-3">{body}</p>
+                <h2 className="text-[15.5px] font-[620] leading-[1.45] text-ink-1">
+                  {title}
+                </h2>
+                <p className="mt-[3px] text-[13.5px] leading-[1.6] text-ink-3">
+                  {body}
+                </p>
               </div>
             </article>
           ))}
 
           {/* 기대치 관리를 랜딩에서 합니다 → CLAUDE.md 불변 규칙 8 */}
           <p
-            className={`${cdDash} mt-[6px] border-hairline text-[13px] leading-[1.62] text-icon`}
+            style={step(5)}
+            className={`${cdDash} rise mt-2 border-hairline text-[13px] leading-[1.65] text-icon`}
           >
             환급을 보장하지 않습니다.{" "}
-            <b className="font-[660] text-ink-2">대상인지 알려드리는 것</b>
+            <b className="font-[660] text-ink-2">방향을 잡아드리는 것</b>
             까지가 저희 몫입니다.
           </p>
         </section>
