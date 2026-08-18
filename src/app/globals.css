@@ -194,7 +194,9 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    /* 다크 전용입니다 → ADR 없음 · 08-16-tokens.md 「다크 전용입니다」.
+       shadcn 의 --background 가 아니라 제품 팔레트의 바닥을 씁니다 */
+    @apply bg-ground text-ink-2;
   }
   html {
     @apply font-sans;
