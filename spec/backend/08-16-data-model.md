@@ -61,15 +61,26 @@ erDiagram
     case ||--o{ plan_step : "플랜 단계"
     case ||--o{ deadline : "기한"
     case ||--o{ message : "대화"
-    case ||--o{ audit_log : "감사"
+    case ||..o{ audit_log : "감사 (논리 참조)"
     plan_step ||--o{ artifact : "부산물"
     plan_step }o..|| kb_entry : "인용 (논리 참조)"
     deadline }o..|| kb_entry : "근거 (논리 참조)"
     case_channel }o..|| org : "기관 (논리 참조)"
     kb_entry }o..o| org : "기관 전용 항목"
+    source_registry ||..o{ source_snapshot : "감시 소스 (논리 참조)"
+    source_snapshot ||..o{ source_change : "변경 감지 (논리 참조)"
+    source_change }o..o| kb_entry : "승인 후 반영 (논리 참조)"
 ```
 
+**실선이 외래키, 점선이 논리 참조입니다.** 외래키는 일곱뿐이고 전부 `case` 또는 `plan_step`을 향합니다 — 사건이 죽으면 딸린 것이 함께 죽습니다(`ON DELETE CASCADE`).
+
 `kb_entry`를 향하는 참조는 **논리 참조**입니다. 외래키를 걸지 않습니다. KB는 버전 릴리스로 교체되며([07-kb-operations.md](08-14-kb-operations.md)), 외래키가 있으면 릴리스가 막힙니다. 대신 `deadline.rule_snapshot`이 근거를 자체 보관하므로 참조가 끊겨도 값을 검증할 수 있습니다.
+
+**`audit_log.case_id`에도 외래키가 없습니다.** 사건이 파기돼도(§14) 감사 로그는 남아야 합니다 —
+`ON DELETE CASCADE`가 걸려 있으면 파기가 곧 감사 기록의 소멸이 됩니다. 해시 사슬은 그대로 이어집니다.
+
+**위 그림의 마지막 셋은 `kb_entry` 앞단의 수집 파이프라인입니다**(§12). 사건과 이어지지 않고, 셋 사이에도 외래키가
+없습니다 — `source_key`로 묶일 뿐입니다.
 
 ---
 
@@ -144,6 +155,10 @@ CREATE INDEX idx_evidence_case ON evidence (case_id, created_at);
 **`transcript_masked`에 `pii-tokenizer` 를 통과한 문자열만 저장합니다.** 전사·OCR 원문을 저장하지 않습니다.
 
 **업로드 원본은 사건과 같은 기간 보관합니다** (`case.purge_after`, 마지막 활동일부터 180일).
+
+> ⚠️ **여기 저장되는 「원본」은 주민등록번호가 이미 가려진 사본입니다** → [ADR-026](../../decisions/026-raw-upload-retention.md).
+> 가리지 않은 파일은 **사용자 기기를 떠나지 않습니다.** 개인정보 보호법 제24조의2는 **정보주체가 동의해도** 주민등록번호를 처리할 수 없게 하고,
+> 180일 보관은 「급박한 이익」 예외로 덮이지 않습니다 → [research/08](../../docs/research/08-업로드-법적요건.md).
 
 즉시 파기하면 저장 공간과 유출 위험이 줄지만, **추출 오류를 되돌릴 수 없습니다.** 전사가 잘못됐거나 판독이 틀렸을 때 원본이 없으면 다시 뽑을 수 없고, 사용자에게 재업로드를 요구해야 합니다. 충격 상태의 사용자에게 그건 큰 부담입니다.
 
@@ -896,11 +911,15 @@ report-112              | report-112          | NULL    |  3   |  ✓
   "summary": "지급정지를 걸었어도 이 신청을 해야 효력이 유지됩니다.",
   "steps": [
     { "text": "은행 앱에서 피해구제 신청서를 작성해 제출합니다. 계좌번호와 거래내역은 자동으로 채워집니다.",
-      "channel": ["app"],
-      "contact_ref": null },
+      "action": "visit",                         // 무슨 행동인가 — §11.4.6
+      "channel": ["app"],                        // 어느 창구로
+      "contact_ref": "org.contact.app_path",     // 기관별 값은 가리킨다
+      "url": null },                             // 기관 무관 고정 주소일 때만
     { "text": "앱 제출이 어려우면 영업점을 방문해 신분증 사본과 함께 제출합니다.",
+      "action": "visit",
       "channel": ["visit"],
-      "contact_ref": null }
+      "contact_ref": null,
+      "url": null }
   ],
 
   // ── 언제까지 ────────────────────────────────────
@@ -929,8 +948,10 @@ report-112              | report-112          | NULL    |  3   |  ✓
 | `requires_slots` | [§5.1](#51-슬롯-이름) 목록의 이름만. 없는 이름이면 **적재 거부** |
 | `after` | 존재하는 `step_key` 만. 순환 참조면 **적재 거부** |
 | `conditional` | 값이 있으면 슈퍼셋 플랜의 조건부 단계. `plan_step.conditional` 로 그대로 감 |
-| `steps[].channel` | `app` · `phone` · `visit` · `web` 중에서만 |
+| `steps[].action` | **일곱 중 하나. 비면 적재 거부** — §11.4.6 |
+| `steps[].channel` | `app` · `phone` · `visit` · `web` 중에서만. **`action`이 `call`·`visit`이 아니면 빈 배열** |
 | `steps[].contact_ref` | **번호를 직접 쓰지 않습니다.** §11.4.1 |
+| `steps[].url` | **기관과 무관한 고정 주소만.** 기관별 주소는 `contact_ref` — §11.4.7 |
 | `deadline.from` | [§5.1](#51-슬롯-이름) 슬롯 이름 또는 `artifact:{kind}` |
 | `deadline.owner` | **`user` / `bank` / `agency`.** §11.4.2 |
 | `required_artifact` | [05-completion-hook.md](08-14-completion-hook.md) 의 증거 연쇄 |
@@ -1084,11 +1105,66 @@ report-112              | report-112          | NULL    |  3   |  ✓
 | 선행 참조 | `after` 가 존재하지 않는 `step_key` 를 가리킴 |
 | 순환 참조 | `after` 가 서로를 가리킴 |
 | 채널 값 | `steps[].channel` 에 목록 밖 값 |
+| **행동 값** | `steps[].action` 이 비었거나 [§11.4.6](#1146-stepsaction--사용자가-무슨-행동을-하나) 일곱 밖 |
+| **행동·채널 어긋남** | `action` 이 `call`·`visit` 이 아닌데 `channel` 이 비어 있지 않음 |
 | 기한 주인 | `deadline` 이 있는데 `owner` 가 없음 |
 | 연락처 직접 기입 | `steps[].text` 에 전화번호 형태 문자열이 있음 |
+| **주소 직접 기입** | `steps[].text` 에 `http` 로 시작하는 문자열이 있음 → [§11.4.7](#1147-url도-본문에-직접-쓰지-않습니다) |
 | 근거 | 칼럼 `legal_basis`·`source_url`·`effective_from` 중 하나라도 빔 |
 
 ---
+
+#### 11.4.6 `steps[].action` — 사용자가 무슨 행동을 하나
+
+> 2026-08-18 신설 → [ADR-024](../../decisions/024-step-action-and-url.md).
+
+**같은 「절차 한 단계」여도 사용자가 하는 행동이 다릅니다.** 전화를 걸거나, 밖에 나갔다 오거나,
+받아적거나, 파일을 올리거나, 서류를 내려받거나, 그냥 기다립니다.
+**이 값이 화면의 작업 패널을 정합니다** → [워크스페이스 패널](../frontend/08-17-workspace-panels.md).
+
+| 값 | 사용자가 하는 일 | 예 |
+| --- | --- | --- |
+| `call` | 전화를 걸어 말하고 값을 받아온다 | 은행 콜센터 지급정지 요청 |
+| `visit` | 다른 앱·사이트·창구에서 처리하고 **돌아온다** | 은행 앱 피해구제 신청 · 정부24 확인원 |
+| `write` | 짧은 값을 입력한다 | 112 사건접수번호 |
+| `upload` | 파일을 올린다 | 접수 문자 캡처 · 접수증 · 받은 통지문 |
+| `download` | 우리가 만든 초안을 내려받는다 | 피해구제신청서 (F-08) |
+| `wait` | 없다 | 채권소멸 공고 2개월 |
+| `read` | 알고만 있으면 된다 | 사각지대 고지 |
+
+**`action`과 `channel`은 다른 축입니다.** `action`은 **무슨 행동인가**(하나), `channel`은
+**어느 창구로**(복수 가능)입니다. `["phone", "app"]`은 전화로도 앱으로도 된다는 뜻이고,
+그때도 행동은 `visit` 하나입니다.
+
+**`channel` 값을 늘려 대신하는 안을 버렸습니다.** `visit`이 이미 「영업점 방문」 뜻으로 쓰이고 있어
+「외부 사이트 이동」과 부딪힙니다 → [ADR-024](../../decisions/024-step-action-and-url.md).
+
+**`wait`은 `actor`와 함께 봐야 합니다.** `actor`가 `victim`이 아니면 대개 `wait`이지만,
+「사용자가 통지를 받고 30일 안에 요청해야 하는 것」처럼 **기관이 진행해도 사용자 기한이 붙는 단계**가 있습니다
+→ [research/06](../../docs/research/06-경로별-실측조사.md) §2.1. **`actor`만 보고 `wait`으로 단정하지 마세요.**
+
+#### 11.4.7 URL도 본문에 직접 쓰지 않습니다
+
+§11.4.1이 전화번호에 건 규칙을 주소에도 그대로 적용합니다.
+
+```jsonc
+// 나쁨 — 기관별 주소가 유형 기본 절차에 박힘
+{ "text": "국민은행 앱에서 신청합니다", "url": "https://kbstar.com/..." }
+
+// 좋음 — 기관 정보를 가리킴
+{ "text": "송금하신 은행 앱에서 신청합니다", "contact_ref": "org.contact.app_path" }
+
+// 좋음 — 기관과 무관한 고정 주소
+{ "text": "정부24에서 사건사고사실확인원을 발급받습니다",
+  "action": "visit", "channel": ["web"],
+  "url": "https://www.gov.kr/...", "url_label": "정부24에서 발급" }
+```
+
+**`url`을 쓰는 것은 기관과 무관한 곳뿐입니다** — 정부24 · 어카운트인포 · 엠세이퍼.
+**기관별 주소를 `url`에 쓰면 은행 수만큼 절차 항목을 복사하게 됩니다** — §11.4.1과 같은 이유입니다.
+
+> ⬜ **TODO(근거 필요): `org.contact`의 키 구조.** `call_center`·`app_path` 같은 이름이 아직 정의되지 않았습니다.
+> [기관정보 조사](../../docs/research/04-기관정보.md)가 **연락처를 전부 비워 둔 상태**라 값과 함께 정합니다.
 
 ## 12. 수집 파이프라인 — `source_snapshot` · `source_change` · `source_registry`
 

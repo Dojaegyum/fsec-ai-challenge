@@ -16,7 +16,7 @@
 
 ## 이 서비스가 무엇이 아닌지 — 먼저 알아야 할 것
 
-- **112를 대체하지 않습니다.** 신고 이후의 며칠~몇 달을 맡습니다. 진입은 112·1332 상담이 끝난 시점에 링크로 들어오는 것을 전제합니다.
+- **112를 대체하지 않습니다.** 신고 이후의 며칠~몇 달을 맡습니다. 진입은 **검색·직접 접속**을 전제합니다 — 상담 종료 후 링크 유입은 우리가 제어할 수 없어 기대하지 않습니다 ([ADR-021](decisions/021-reentry-and-identity.md)).
 - **"알려주는 서비스"가 아닙니다.** 3영업일을 설명하는 글은 이미 넘칩니다 — **사건을 대신 관리**하는 것이어야 합니다. 알림 하나가 전부면 은행 앱이 흡수합니다.
 - 핵심 동작은 **진입점에서 사용자의 진술을 받아 가장 적절한 매뉴얼을 고르는 것**이고, 거기서 사건 관리로 넘어갑니다.
 
@@ -27,17 +27,21 @@
 
 | 알고 싶은 것 | 볼 곳 | 성격 |
 | --- | --- | --- |
+| **이 서비스가 무엇을 약속하나** | [spec/common/08-17-service-concept.md](spec/common/08-17-service-concept.md) | **골자.** 기획서 §0을 대체 — 판단이 갈리면 여기로 거슬러 오세요 |
 | **구현이 따라야 할 계약** | `spec/` (`common/`·`backend/`·`frontend/`) | **정본.** 코드를 쓰기 전 여기부터 |
 | **시스템이 무엇으로 어떻게 도는가** | [ARCHITECTURE.md](ARCHITECTURE.md) | 기술 선택·모듈 배치·저장소·배포. **뼈대만** — 백엔드 정의 대기 |
+| **모듈 이름이 무엇이고 무엇을 맡나** | [spec/common/08-16-module-names.md](spec/common/08-16-module-names.md) | 서버 네 층 + **브라우저 층 C**. 코드 폴더가 여기 묶여 있어 CI가 강제 |
 | **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-001](rfc/001-repo-structure.md) |
 | 왜 그렇게 정했나 | `decisions/` | 판단 근거의 이력(ADR). 과거형, 고치지 않음 |
 | 서비스 기획 전체 그림 | `assets/artifacts/plans/08-13-service-plan.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
+| **색·크기·상태를 눈으로** | `assets/artifacts/plans/08-18-design-system.html` | 팔레트·타입 사다리·대비 실측. 값의 정본은 `src/app/globals.css` |
 | 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
 | **제도·경쟁·법적 경계의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
-| 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. 지금은 [백엔드 선행 결정 핸드오프](docs/plans/08-16-backend-handoff.md) 하나 |
+| 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. [착수 기준선](docs/plans/08-18-backend-baseline.md)이 순서와 의존, [핸드오프](docs/plans/08-16-backend-handoff.md)가 남은 선행 결정 |
 | 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
 | 코드 | `src/` | Next.js 스캐폴딩만 — 도메인 코드 없음 |
+| **매뉴얼을 어떻게 쓰나** | [RFC-002](rfc/002-kb-authoring.md) | KB 원본은 `src/kb/`. **DB는 사본이라 직접 INSERT 하지 않습니다** |
 | 로고·favicon·컴포넌트 원본 | `assets/brand/`, `assets/components/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
 
 `src/`에는 create-next-app이 생성한 `AGENTS.md`·`CLAUDE.md`가 있습니다. `next dev`가 `AGENTS.md`를
@@ -91,7 +95,7 @@
 | 접두 | 무엇 | 정의된 곳 |
 | --- | --- | --- |
 | `F-01` … | 기능 | `spec/common/08-14-features.md` |
-| `S-01` … | 화면 | `spec/frontend/08-14-screens.md` |
+| `S-04` … | 화면 | `spec/frontend/08-14-screens.md` |
 | `CH-bank` … | 경유 서비스 유형 | `spec/backend/08-14-channel-matrix.md` |
 | `T0/T1/T2` | 슬롯 티어 | `spec/backend/08-14-slot-tiering.md` |
 | `ADR-001` | 판단 근거 | `decisions/` |

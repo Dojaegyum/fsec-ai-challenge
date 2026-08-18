@@ -19,12 +19,16 @@
 
 | 파일 | 내용 | 상태 |
 | --- | --- | --- |
-| [08-16-tokens.md](08-16-tokens.md) | 색·타이포·간격 토큰의 의미론 | 표면·텍스트·상태 확정 · 위험도 색 TODO |
-| [08-16-components.md](08-16-components.md) | shadcn 위에 우리가 정하는 컴포넌트 규칙 | 목록·제약 확정 · 파일 배치 TODO |
-| [08-16-accessibility.md](08-16-accessibility.md) | 고령·패닉 사용자 기준 | 대비 실측 완료 · **미해결 1건** |
+| [08-16-tokens.md](08-16-tokens.md) | 색·타이포·폭·상태 토큰의 의미론 | **확정** — 다크 전용, 위험도 색은 만들지 않음 |
+| [08-16-components.md](08-16-components.md) | shadcn 위에 우리가 정하는 컴포넌트 규칙 | **확정** — 파일 이름·래핑·로딩/에러/빈 상태 |
+| [08-16-accessibility.md](08-16-accessibility.md) | 고령·패닉 사용자 기준 | **확정** — AA 바닥 + 기한·금액 AAA. 대비 미달 0건 |
 
 값은 [진입 플로우 초안](../../../assets/artifacts/plans/08-16-entry-flow-mockup.html)
-(랜딩 → 동의·상황 → 챗 콘솔)을 실제로 만들어 보고 확정했습니다.
+(랜딩 → 동의·상황 → 챗 콘솔)을 실제로 만들어 보고 확정했고, 2026-08-18에 **대비를 실측해
+두 값을 조정**했습니다 (`--color-ink-4` · `--color-deadline-urgent`).
+
+**눈으로 보는 정본은 [디자인시스템 아티팩트](../../../assets/artifacts/plans/08-18-design-system.html)입니다** —
+팔레트·타입 사다리·상태 표현·대비표를 실제 색으로 봅니다.
 
 ## 전제
 

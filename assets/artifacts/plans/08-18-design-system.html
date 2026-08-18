@@ -1,0 +1,722 @@
+<title>FinAlly 디자인시스템</title>
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   문서 크롬 — 보는 사람의 테마를 따릅니다.
+   제품 팔레트는 아래 .spec 안에서만 삽니다(다크 전용).
+   두 팔레트를 섞지 않으려고 접두사를 갈랐습니다: --doc-* vs --ground 등
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --doc-bg:      #f7f5f2;
+  --doc-panel:   #ffffff;
+  --doc-1:       #1a1714;
+  --doc-2:       #4a4239;
+  --doc-3:       #7d7267;
+  --doc-line:    #e3ddd4;
+  --doc-line-2:  #cfc6b9;
+  --doc-accent:  #b26a1f;
+  --doc-accent-soft: #f4e6d2;
+  --doc-code-bg: #f0ece5;
+  --doc-shadow:  0 1px 2px rgb(26 23 20 / .05), 0 8px 24px -12px rgb(26 23 20 / .18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --doc-bg:      #14120f;
+    --doc-panel:   #1c1916;
+    --doc-1:       #f3efe9;
+    --doc-2:       #c2b8aa;
+    --doc-3:       #8d8377;
+    --doc-line:    #2c2721;
+    --doc-line-2:  #423b32;
+    --doc-accent:  #e0a35c;
+    --doc-accent-soft: #33261a;
+    --doc-code-bg: #221e19;
+    --doc-shadow:  0 1px 2px rgb(0 0 0 / .4), 0 8px 24px -12px rgb(0 0 0 / .6);
+  }
+}
+:root[data-theme="dark"] {
+  --doc-bg:      #14120f;
+  --doc-panel:   #1c1916;
+  --doc-1:       #f3efe9;
+  --doc-2:       #c2b8aa;
+  --doc-3:       #8d8377;
+  --doc-line:    #2c2721;
+  --doc-line-2:  #423b32;
+  --doc-accent:  #e0a35c;
+  --doc-accent-soft: #33261a;
+  --doc-code-bg: #221e19;
+  --doc-shadow:  0 1px 2px rgb(0 0 0 / .4), 0 8px 24px -12px rgb(0 0 0 / .6);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--doc-bg);
+  color: var(--doc-2);
+  font-family: "Pretendard Variable", Pretendard, system-ui, "Malgun Gothic",
+               "Apple SD Gothic Neo", sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 120px; }
+
+/* ── 머리 ───────────────────────────────────────────────── */
+header.top {
+  padding: 88px 0 40px;
+  border-bottom: 1px solid var(--doc-line);
+  margin-bottom: 56px;
+}
+.eyebrow {
+  font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--doc-accent); font-weight: 700; margin: 0 0 18px;
+}
+h1 {
+  margin: 0 0 20px; font-size: clamp(34px, 5vw, 52px); line-height: 1.15;
+  letter-spacing: -.02em; color: var(--doc-1); font-weight: 800;
+  text-wrap: balance;
+}
+.lede { margin: 0; font-size: 18px; max-width: 62ch; color: var(--doc-2); }
+.meta {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px;
+}
+.meta span {
+  font-size: 13px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--doc-line-2); color: var(--doc-3);
+  background: var(--doc-panel);
+}
+.meta span b { color: var(--doc-1); font-weight: 600; }
+
+/* ── 절 ─────────────────────────────────────────────────── */
+section { margin: 0 0 72px; scroll-margin-top: 24px; }
+h2 {
+  margin: 0 0 6px; font-size: 26px; line-height: 1.3; letter-spacing: -.01em;
+  color: var(--doc-1); font-weight: 700; text-wrap: balance;
+}
+h2 .num {
+  display: inline-block; min-width: 2.2em;
+  color: var(--doc-accent); font-variant-numeric: tabular-nums;
+  font-size: 15px; font-weight: 700; letter-spacing: .04em;
+  vertical-align: 3px;
+}
+.sub { margin: 0 0 28px; color: var(--doc-3); font-size: 15px; max-width: 66ch; }
+h3 {
+  margin: 40px 0 14px; font-size: 17px; color: var(--doc-1); font-weight: 700;
+  letter-spacing: -.005em;
+}
+p { max-width: 68ch; }
+code, .mono {
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  font-size: .88em;
+}
+code {
+  background: var(--doc-code-bg); border: 1px solid var(--doc-line);
+  padding: 1px 6px; border-radius: 5px; color: var(--doc-1);
+}
+
+/* ── 제품 팔레트가 사는 자리 ─────────────────────────────── */
+.spec {
+  /* 여기 안에서는 제품 토큰이 정본입니다. 문서 테마와 섞지 않습니다. */
+  --ground:  oklch(0 0 0);
+  --stage:   oklch(0.16 0.004 285.9);
+  --surface: oklch(0.231 0 89.9);
+  --hairline: oklch(0.305 0.013 267.1 / 52%);
+  --chip:    oklch(1 0 0 / 4%);
+  --ink-1:   oklch(1 0 89.9);
+  --ink-2:   oklch(0.845 0.009 271.3);
+  --ink-3:   oklch(0.714 0.019 261.3);
+  --ink-4:   oklch(0.65 0 89.9);
+  --icon:    oklch(0.609 0.008 260.7);
+  --pii:     oklch(0.697 0.16 258.2);
+  --pii-bg:  oklch(0.231 0.047 259.1);
+  --urgent:  oklch(0.77 0.117 70.9);
+  --horizon: oklch(0.811 0.14 66.9);
+
+  background: var(--ground);
+  color: var(--ink-2);
+  border: 1px solid var(--doc-line-2);
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: var(--doc-shadow);
+}
+.spec.on-stage   { background: var(--stage); }
+.spec.on-surface { background: var(--surface); }
+
+/* 표면 스와치 */
+.surfaces { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr)); }
+.surf {
+  border-radius: 12px; padding: 18px; min-height: 130px;
+  border: 1px solid var(--hairline);
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.surf .nm { font-size: 13px; color: var(--ink-1); font-weight: 700; }
+.surf .ds { font-size: 12.5px; color: var(--ink-3); line-height: 1.55; }
+.s-ground  { background: var(--ground); }
+.s-stage   { background: var(--stage); }
+.s-surface { background: var(--surface); }
+.s-chip    { background: var(--chip); }
+.s-hairline{ background: var(--ground); border: 1px solid var(--hairline);
+             box-shadow: inset 0 0 0 4px var(--surface); }
+
+/* 텍스트 사다리 */
+.inks { display: flex; flex-direction: column; gap: 2px; }
+.ink-row {
+  display: grid; grid-template-columns: 132px 1fr auto; gap: 16px;
+  align-items: baseline; padding: 13px 14px; border-radius: 9px;
+}
+.ink-row + .ink-row { border-top: 1px solid var(--hairline); }
+.ink-row .tk { font-size: 12.5px; color: var(--ink-3); }
+.ink-row .sm { font-size: 17px; line-height: 1.6; }
+.ink-row .rt {
+  font-size: 12.5px; color: var(--ink-3); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.i1 { color: var(--ink-1); } .i2 { color: var(--ink-2); }
+.i3 { color: var(--ink-3); } .i4 { color: var(--ink-4); }
+.ic { color: var(--icon); }
+
+/* 칩 — 제품의 공통 재질 */
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--chip);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 8%);
+  border: 1px solid var(--hairline);
+  border-radius: 999px; padding: 6px 13px;
+  font-size: 13.5px; color: var(--ink-2); line-height: 1.4;
+}
+.chip.sel { background: oklch(1 0 0 / 10%); border-color: oklch(1 0 0 / 24%); color: var(--ink-1); }
+.chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .75; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.token-pill {
+  display: inline-block; background: var(--pii-bg); color: var(--pii);
+  border-radius: 6px; padding: 1px 7px; font-size: .95em;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.dday {
+  color: var(--urgent); font-size: 20px; font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+}
+
+/* 표 */
+.tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--doc-line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--doc-3); font-weight: 700; }
+td.n { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+td.worst { font-weight: 700; color: var(--doc-1); background: var(--doc-accent-soft); }
+tbody tr:last-child td { border-bottom: 0; }
+.badge {
+  display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 8px; border-radius: 5px; white-space: nowrap;
+}
+.b-aaa { background: #1d6b3f; color: #fff; }
+.b-aa  { background: var(--doc-accent-soft); color: var(--doc-accent); border: 1px solid var(--doc-accent); }
+.b-nt  { background: transparent; color: var(--doc-3); border: 1px solid var(--doc-line-2); }
+
+/* 타입 사다리 */
+.type-row {
+  display: grid; grid-template-columns: 128px 1fr; gap: 20px;
+  padding: 16px 0; border-bottom: 1px solid var(--hairline); align-items: baseline;
+}
+.type-row:last-child { border-bottom: 0; }
+.type-row .lbl { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.type-row .lbl b { display: block; color: var(--ink-2); font-size: 13px; font-weight: 700; }
+.t-xs   { font-size: 13px;   line-height: 1.6;  color: var(--ink-3); }
+.t-sm   { font-size: 15px;   line-height: 1.7;  color: var(--ink-3); }
+.t-base { font-size: 17px;   line-height: 1.75; color: var(--ink-2); }
+.t-lg   { font-size: 20px;   line-height: 1.6;  color: var(--ink-1); }
+.t-xl   { font-size: 24px;   line-height: 1.45; color: var(--ink-1); font-weight: 600; }
+.t-2xl  { font-size: 30px;   line-height: 1.35; color: var(--ink-1); font-weight: 700; }
+.t-3xl  { font-size: 40px;   line-height: 1.25; color: var(--ink-1); font-weight: 800; letter-spacing: -.02em; }
+
+/* 상태 카드 */
+.states { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.state {
+  background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: 11px; padding: 15px 16px;
+}
+.state.doing { border-color: oklch(1 0 0 / 28%); }
+.state .hd { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.state .nm { font-size: 14.5px; font-weight: 700; }
+.state .by { font-size: 13px; line-height: 1.55; }
+
+/* 결정 카드 */
+.decisions { display: grid; gap: 14px; }
+.dec {
+  background: var(--doc-panel); border: 1px solid var(--doc-line);
+  border-left: 3px solid var(--doc-accent);
+  border-radius: 0 10px 10px 0; padding: 16px 20px;
+}
+.dec h4 { margin: 0 0 6px; font-size: 15.5px; color: var(--doc-1); font-weight: 700; }
+.dec p { margin: 0; font-size: 14.5px; color: var(--doc-2); max-width: none; }
+
+.note {
+  background: var(--doc-accent-soft); border: 1px solid var(--doc-accent);
+  border-radius: 10px; padding: 14px 18px; margin: 22px 0;
+  font-size: 14.5px; color: var(--doc-1);
+}
+.note b { font-weight: 700; }
+
+.map { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.map div {
+  border: 1px solid var(--doc-line); border-radius: 10px; padding: 14px 16px;
+  background: var(--doc-panel);
+}
+.map .k { font-size: 12.5px; color: var(--doc-3); margin-bottom: 4px; }
+.map .v { font-size: 14px; color: var(--doc-1); font-weight: 600; }
+.map .v .mono { font-size: 13px; }
+
+footer {
+  border-top: 1px solid var(--doc-line); padding-top: 26px; margin-top: 20px;
+  font-size: 13.5px; color: var(--doc-3);
+}
+
+@media (max-width: 640px) {
+  .ink-row { grid-template-columns: 1fr; gap: 4px; }
+  .ink-row .rt { text-align: left; }
+  .type-row { grid-template-columns: 1fr; gap: 6px; }
+  header.top { padding-top: 56px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow">FinAlly · 화면이 지키는 계약</p>
+  <h1>디자인시스템</h1>
+  <p class="lede">
+    색·크기·상태를 <b>무엇을 뜻하는가</b>로 정의합니다. 취향이 아니라 계약입니다 —
+    파란 토큰은 “서버로 안 갔다”는 뜻이고, 그 색이 틀리면 제품이 틀립니다.
+  </p>
+  <div class="meta">
+    <span><b>다크 전용</b> · 라이트 없음</span>
+    <span>대비 <b>AA 바닥 + 기한·금액 AAA</b></span>
+    <span>본문 <b>17px</b> / 1.75</span>
+    <span>값의 정본 <b class="mono">src/app/globals.css</b></span>
+    <span>2026-08-18 확정</span>
+  </div>
+</header>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="surfaces">
+  <h2><span class="num">01</span>표면 사다리</h2>
+  <p class="sub">
+    깊이를 색으로 구분합니다. 테두리 대신 <b>표면 밝기와 inset 하이라이트</b>로 층을 만듭니다.
+    아래는 실제 색입니다.
+  </p>
+
+  <div class="spec">
+    <div class="surfaces">
+      <div class="surf s-ground">
+        <div class="nm">--color-ground</div>
+        <div class="ds">페이지 바닥<br>랜딩 배경</div>
+      </div>
+      <div class="surf s-stage">
+        <div class="nm">--color-stage</div>
+        <div class="ds">작업이 일어나는 무대<br>챗 콘솔 영역</div>
+      </div>
+      <div class="surf s-surface">
+        <div class="nm">--color-surface</div>
+        <div class="ds">떠 있는 카드<br>사건 보드, 입력 카드</div>
+      </div>
+      <div class="surf s-chip">
+        <div class="nm">--color-chip</div>
+        <div class="ds">눌러지거나 상태를 나타내는 알약<br>반투명 흰색 4%</div>
+      </div>
+      <div class="surf s-hairline">
+        <div class="nm">--color-hairline</div>
+        <div class="ds">표면끼리 맞닿는 경계</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>대비의 최악 배경은 「칩 위」입니다.</b> 칩이 반투명 흰색이라 표면을 살짝 밝히는데,
+    기한 칩·배지가 정확히 그 조합입니다. 그래서 아래 실측은 표면이 아니라
+    <b>칩을 얹은 표면</b>을 기준으로 판정합니다.
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="ink">
+  <h2><span class="num">02</span>텍스트 사다리</h2>
+  <p class="sub">얼마나 중요한가를 밝기로 나눕니다. 오른쪽은 최악 배경(칩 on surface) 기준 대비입니다.</p>
+
+  <div class="spec on-surface">
+    <div class="inks">
+      <div class="ink-row">
+        <div class="tk mono">--color-ink-1</div>
+        <div class="sm i1">반드시 읽어야 하는 것 — 헤드라인, 금액, 기한 숫자</div>
+        <div class="rt">15.11:1</div>
+      </div>
+      <div class="ink-row">
+        <div class="tk mono">--color-ink-2</div>
+        <div class="sm i2">본문 — 단계 설명, 칩 라벨</div>
+        <div class="rt">9.40:1</div>
+      </div>
+      <div class="ink-row">
+        <div class="tk mono">--color-ink-3</div>
+        <div class="sm i3">보조 설명 — 부연, 힌트</div>
+        <div class="rt">5.96:1</div>
+      </div>
+      <div class="ink-row">
+        <div class="tk mono">--color-ink-4</div>
+        <div class="sm i4">가장 약한 것 — placeholder</div>
+        <div class="rt">4.67:1</div>
+      </div>
+      <div class="ink-row">
+        <div class="tk mono">--color-icon</div>
+        <div class="sm ic">아이콘 선 — 비텍스트 3:1 기준</div>
+        <div class="rt">3.97:1</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>--color-ink-4의 값을 올렸습니다.</b> 초안 값은 최악 배경에서 <b>2.03:1</b>이라 기준 미달이었습니다.
+    고령 사용자가 주 대상인데 “못 읽어도 치명적이지 않은 자리”를 남겨 두는 것은 앞뒤가 안 맞습니다.
+    <b>비활성은 색이 아니라 불투명도와 <span class="mono">aria-disabled</span>로</b> 표현합니다.
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="status">
+  <h2><span class="num">03</span>뜻이 실린 색</h2>
+  <p class="sub">이 셋만 의미를 갖습니다. 나머지는 사다리입니다.</p>
+
+  <div class="spec on-stage">
+    <div style="display:grid; gap:22px;">
+      <div>
+        <div style="font-size:13px; color:var(--ink-3); margin-bottom:9px;">
+          <span class="mono">--color-pii</span> · 가려진 개인정보 = “서버로 안 갔다”
+        </div>
+        <div style="font-size:17px; line-height:1.9; color:var(--ink-2);">
+          그래서 <span class="token-pill">[은행]</span> 계좌
+          <span class="token-pill">[계좌번호]</span>로
+          <span class="token-pill">[금액]</span>을 보내셨다는 말씀이시죠.
+        </div>
+        <div style="font-size:13px; color:var(--ink-3); margin-top:9px;">
+          색이 안 보여도 <b style="color:var(--ink-2)">토큰 형태</b>로 가려진 것이 읽힙니다 —
+          색만으로 뜻을 전달하지 않습니다.
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:13px; color:var(--ink-3); margin-bottom:9px;">
+          <span class="mono">--color-deadline-urgent</span> · 놓치면 권리가 사라지는 것
+        </div>
+        <div class="chips" style="align-items:center;">
+          <span class="chip"><span class="dot" style="background:var(--urgent)"></span>
+            피해구제 신청</span>
+          <span class="dday">3영업일 남음</span>
+          <span class="chip" style="color:var(--ink-3)">2026-08-21 까지</span>
+        </div>
+        <div style="font-size:13px; color:var(--ink-3); margin-top:11px;">
+          <b style="color:var(--ink-2)">빨강을 쓰지 않습니다.</b> 사용자는 이미 각성 상태이고,
+          빨간 경보를 더하면 판단을 돕는 게 아니라 굳게 만듭니다.
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:13px; color:var(--ink-3); margin-bottom:9px;">
+          <span class="mono">--color-horizon</span> · 브랜드 분위기(장식). <b>의미를 싣지 마세요</b>
+        </div>
+        <div style="height:64px; border-radius:10px;
+                    background: radial-gradient(120% 150% at 50% 130%,
+                      var(--horizon) 0%, oklch(0.5 0.11 60) 34%, transparent 70%);
+                    border:1px solid var(--hairline);"></div>
+        <div style="font-size:13px; color:var(--ink-3); margin-top:9px;">
+          랜딩 히어로의 오렌지 글로우. 상태를 뜻하지 않으므로 여기에 정보를 얹지 않습니다.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="contrast">
+  <h2><span class="num">04</span>대비 실측</h2>
+  <p class="sub">
+    WCAG 2.1 상대휘도로 계산했습니다(추정이 아니라 실측).
+    <b>기한 숫자·금액만 AAA(7:1)</b>를 요구하고, 나머지는 AA(4.5:1)가 바닥입니다.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>전경</th>
+          <th class="n">ground</th>
+          <th class="n">stage</th>
+          <th class="n">surface</th>
+          <th class="n">칩 on surface</th>
+          <th class="n">pii-bg</th>
+          <th>판정</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">--color-ink-1</td><td class="n">21.00</td><td class="n">19.42</td><td class="n">16.85</td><td class="n worst">15.11</td><td class="n">16.87</td><td><span class="badge b-aaa">AAA</span></td></tr>
+        <tr><td class="mono">--color-ink-2</td><td class="n">13.06</td><td class="n">12.08</td><td class="n">10.48</td><td class="n worst">9.40</td><td class="n">10.50</td><td><span class="badge b-aaa">AAA</span></td></tr>
+        <tr><td class="mono">--color-ink-3</td><td class="n">8.28</td><td class="n">7.66</td><td class="n">6.64</td><td class="n worst">5.96</td><td class="n">6.66</td><td><span class="badge b-aa">AA</span></td></tr>
+        <tr><td class="mono">--color-ink-4</td><td class="n">6.49</td><td class="n">6.00</td><td class="n">5.21</td><td class="n worst">4.67</td><td class="n">5.22</td><td><span class="badge b-aa">AA</span></td></tr>
+        <tr><td class="mono">--color-icon</td><td class="n">5.52</td><td class="n">5.10</td><td class="n">4.43</td><td class="n worst">3.97</td><td class="n">4.43</td><td><span class="badge b-nt">비텍스트 3:1</span></td></tr>
+        <tr><td class="mono">--color-pii</td><td class="n">7.70</td><td class="n">7.12</td><td class="n">6.18</td><td class="n worst">5.54</td><td class="n">6.19</td><td><span class="badge b-aa">AA</span></td></tr>
+        <tr><td class="mono">--color-deadline-urgent</td><td class="n">9.94</td><td class="n">9.19</td><td class="n">7.98</td><td class="n worst">7.16</td><td class="n">7.99</td><td><span class="badge b-aaa">AAA</span></td></tr>
+        <tr><td class="mono">--color-horizon</td><td class="n">11.37</td><td class="n">10.51</td><td class="n">9.12</td><td class="n worst">8.18</td><td class="n">9.13</td><td><span class="badge b-nt">장식</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>조정한 두 값 — 팔레트는 그대로 살았습니다</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>토큰</th><th>왜</th><th class="n">전</th><th class="n">후</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">--color-ink-4</td>
+          <td>읽어야 하는 자리에 쓰이는데 기준 미달이었습니다</td>
+          <td class="n">2.03</td><td class="n worst">4.67</td>
+        </tr>
+        <tr>
+          <td class="mono">--color-deadline-urgent</td>
+          <td>기한 숫자가 정확히 칩 위에 얹히는데 AAA에 못 미쳤습니다</td>
+          <td class="n">6.93</td><td class="n worst">7.16</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:14px; font-size:14.5px;">
+    앰버는 <b>색상(hue)을 유지한 채 밝기만 0.009 올렸습니다.</b> 인상은 그대로입니다.
+  </p>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="type">
+  <h2><span class="num">05</span>크기 사다리</h2>
+  <p class="sub">
+    <b>본문이 17px입니다</b> — 기본값 16px보다 한 단 위. 고령 사용자가 주 대상입니다.
+    행간도 라틴 기준보다 넉넉합니다: 한글은 글자가 네모라 같은 행간에서 더 빽빽해 보입니다.
+  </p>
+
+  <div class="spec on-surface">
+    <div class="type-row">
+      <div class="lbl"><b>text-3xl</b>40px / 1.25</div>
+      <div class="t-3xl">신고는 하셨나요</div>
+    </div>
+    <div class="type-row">
+      <div class="lbl"><b>text-2xl</b>30px / 1.35</div>
+      <div class="t-2xl">지금 해야 할 일</div>
+    </div>
+    <div class="type-row">
+      <div class="lbl"><b>text-xl</b>24px / 1.45</div>
+      <div class="t-xl">피해구제 신청</div>
+    </div>
+    <div class="type-row">
+      <div class="lbl"><b>text-lg</b>20px / 1.6<br>기한 숫자</div>
+      <div class="t-lg">은행에 전화해 지급정지를 요청합니다 · <span class="dday">3영업일</span></div>
+    </div>
+    <div class="type-row">
+      <div class="lbl"><b>text-base</b>17px / 1.75<br>본문 최소</div>
+      <div class="t-base">
+        끊기 전에 접수번호를 꼭 받아적으세요. 다음 단계에서 그 번호가 필요합니다.
+      </div>
+    </div>
+    <div class="type-row">
+      <div class="lbl"><b>text-sm</b>15px / 1.7</div>
+      <div class="t-sm">모르셔도 됩니다. 모른 채로도 안내는 계속됩니다.</div>
+    </div>
+    <div class="type-row">
+      <div class="lbl"><b>text-xs</b>13px / 1.6<br>하한</div>
+      <div class="t-xs">최종 확인 2026-08-18 · 읽지 않아도 되는 것만</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>13px 미만을 쓰지 않습니다.</b> Tailwind 기본 <span class="mono">text-xs</span>(12px)를
+    그대로 쓰면 이 선을 넘습니다. <b>기한 숫자는 20px 이상</b> + tabular-nums —
+    자릿수가 흔들리면 오독하고, 여기서 오독은 곧 권리 상실입니다.
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="states">
+  <h2><span class="num">06</span>다섯 상태 — 색을 새로 만들지 않았습니다</h2>
+  <p class="sub">
+    단계 상태 다섯을 색으로 가르지 않습니다. <b>전부 텍스트 라벨이 함께 갑니다.</b>
+  </p>
+
+  <div class="spec">
+    <div class="states">
+      <div class="state">
+        <div class="hd"><span class="chip"><span class="dot" style="opacity:.4"></span>미시작</span></div>
+        <div class="by" style="color:var(--ink-3)">중립 칩 + ink-3</div>
+      </div>
+      <div class="state doing">
+        <div class="hd"><span class="chip sel"><span class="dot"></span>진행중</span></div>
+        <div class="by" style="color:var(--ink-2)">칩 테두리 강조 + ink-2</div>
+      </div>
+      <div class="state">
+        <div class="hd">
+          <span class="nm" style="color:var(--ink-3)">✓ 완료</span>
+          <span class="chip" style="font-size:12.5px">접수증 확보</span>
+        </div>
+        <div class="by" style="color:var(--ink-3)">
+          체크 + <b style="color:var(--ink-2)">부산물 이름 병기</b> 후 가라앉힘
+        </div>
+      </div>
+      <div class="state">
+        <div class="hd">
+          <span class="nm" style="color:var(--ink-2)">지급정지 요청</span>
+          <span class="chip" style="border-color:var(--urgent); color:var(--urgent)">미확인</span>
+        </div>
+        <div class="by" style="color:var(--ink-3)">
+          <b style="color:var(--ink-2)">숨기지 않습니다.</b> 사용자 자기 신고는 미확인으로 남습니다
+        </div>
+      </div>
+      <div class="state">
+        <div class="hd"><span class="nm i4">건너뜀</span></div>
+        <div class="by i4">ink-4. <b>취소선을 쓰지 않습니다</b> — 읽기 어려워집니다</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="not">
+  <h2><span class="num">07</span>만들지 않기로 한 것</h2>
+  <p class="sub">디자인시스템에서 가장 중요한 것은 무엇을 더했는가가 아니라 무엇을 안 더했는가입니다.</p>
+
+  <div class="decisions">
+    <div class="dec">
+      <h4>위험도 전용 색 <span class="mono" style="font-weight:400; font-size:13px;">--color-risk-*</span></h4>
+      <p>
+        위험도는 절차를 가르지 않습니다 — 분기축은 경유 서비스 하나이고, 판정 결과는
+        화면 표시와 관리자 조회에서만 쓰입니다. 색이 하나 늘 때마다 외울 것이 늘고,
+        색만으로 구분하지 않는다는 원칙 때문에 어차피 라벨이 필요합니다.
+        <b>텍스트 라벨 + 아이콘으로 표시합니다.</b>
+      </p>
+    </div>
+    <div class="dec">
+      <h4>완료·미확인 전용 색</h4>
+      <p>
+        중립 칩 + 텍스트 사다리로 구분합니다. 상태마다 색을 파면 사용자가 색 사전을 외워야 합니다.
+      </p>
+    </div>
+    <div class="dec">
+      <h4>빨강</h4>
+      <p>
+        기한 임박은 앰버입니다. 빨강은 <span class="mono">--destructive</span>(파괴적 동작 확인)에만
+        남겨 둡니다.
+      </p>
+    </div>
+    <div class="dec">
+      <h4>라이트 모드</h4>
+      <p>
+        랜딩은 기존 테마(다크 + 오렌지 호라이즌)를 유지하고 나머지 화면도 다크입니다.
+        <b>다만 이 결정이 근거를 부정하지는 않습니다</b> — 백내장·난시가 있는 눈에서는 검정 바탕의
+        흰 글자가 번져 보입니다(halation). 글자 크기·대비·행간으로 보완했고,
+        그것이 완전한 대체가 아니라는 것을 적어 둡니다. 되돌리려면 도메인 토큰 14개의 라이트 짝을
+        만들고 대비를 다시 재야 합니다 — <b>구조적 장벽은 없고 드는 것은 시간입니다.</b>
+      </p>
+    </div>
+    <div class="dec">
+      <h4>브레이크포인트 둘 이상</h4>
+      <p>
+        <span class="mono">md</span>(768px) 하나만 씁니다. 늘리면 그만큼 확인할 조합이 늘어납니다.
+        화면마다 「폰용」·「데스크톱용」을 정하지 않습니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="rules">
+  <h2><span class="num">08</span>조판과 히트 영역</h2>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>규칙</th><th>없으면</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">word-break: keep-all</td><td>“동/행합니다”처럼 어절이 중간에서 쪼개집니다</td></tr>
+        <tr><td class="mono">overflow-wrap: break-word</td><td>긴 URL·계좌번호가 레이아웃을 밀어냅니다</td></tr>
+        <tr><td class="mono">font-variant-numeric: tabular-nums</td><td>기한 숫자 자릿수가 흔들려 오독합니다</td></tr>
+        <tr><td class="mono">&lt;html lang="ko"&gt;</td><td>낭독기 발음과 줄바꿈 규칙이 라틴 기준으로 잡힙니다</td></tr>
+        <tr><td class="mono">prefers-reduced-motion</td><td>전정 장애가 있는 사용자에게 회전하는 테두리가 증상을 유발합니다</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>칩은 작아 보이지만 44px입니다</h3>
+  <p>
+    칩의 시각적 높이는 24~36px이라 권장 터치 목표에 못 미칩니다.
+    <b>크기를 키워 밀도를 무너뜨리는 대신 히트 영역만 넓혔습니다</b> —
+    <span class="mono">[data-hit]</span>이 가상 요소로 44px 영역을 만듭니다.
+    칩끼리 붙일 때는 히트 영역이 겹치지 않게 간격을 둡니다.
+  </p>
+
+  <h3>폰트</h3>
+  <p>
+    <b>Pretendard</b> — SIL Open Font License 1.1이라 번들·임베딩·상업 이용이 모두 됩니다
+    (폰트 단독 판매만 금지, 재배포 시 라이선스 원문 동봉). <b>로컬 번들이 원칙</b>이고
+    외부 CDN을 쓰지 않습니다 — 심사 환경의 네트워크에 의존하지 않으려는 것입니다.
+  </p>
+  <div class="note">
+    ⬜ <b>아직 파일이 없습니다.</b> 토큰은 서 있고 시스템 폴백으로 돌지만,
+    <span class="mono">.woff2</span>를 번들하기 전에는 심사위원 기기마다 다른 글꼴로 보입니다.
+    <b>배포 전 필수 작업입니다.</b>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="where">
+  <h2><span class="num">09</span>어디에 무엇이 있나</h2>
+  <p class="sub">두 곳에 적으면 반드시 어긋납니다. 값과 뜻의 자리를 갈라 뒀습니다.</p>
+
+  <div class="map">
+    <div>
+      <div class="k">값 (색·크기)</div>
+      <div class="v"><span class="mono">src/app/globals.css</span></div>
+    </div>
+    <div>
+      <div class="k">의미·규칙</div>
+      <div class="v"><span class="mono">spec/frontend/design-system/</span></div>
+    </div>
+    <div>
+      <div class="k">화면 구조</div>
+      <div class="v"><span class="mono">spec/frontend/08-14-screens.md</span></div>
+    </div>
+    <div>
+      <div class="k">단계를 수행하는 자리</div>
+      <div class="v"><span class="mono">08-17-workspace-panels.md</span></div>
+    </div>
+    <div>
+      <div class="k">로고·아이콘 원본</div>
+      <div class="v"><span class="mono">assets/brand/</span></div>
+    </div>
+    <div>
+      <div class="k">우리 컴포넌트 / shadcn 원본</div>
+      <div class="v"><span class="mono">components/*.tsx</span> · <span class="mono">components/ui/</span></div>
+    </div>
+  </div>
+
+  <p style="margin-top:20px;">
+    <b>spec 문서에는 색상 코드를 적지 않습니다.</b> 토큰 이름으로 부릅니다 —
+    실제 값이 궁금하면 이 페이지나 <span class="mono">globals.css</span>를 봅니다.
+  </p>
+</section>
+
+<footer>
+  FinAlly — 금융보안원 2026 금융 AI Challenge 출품작 ·
+  기반 shadcn/ui(radix-nova, neutral) + Tailwind v4 ·
+  대비 수치는 WCAG 2.1 상대휘도 실측 · 2026-08-18
+</footer>
+
+</div>

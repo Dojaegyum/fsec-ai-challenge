@@ -26,11 +26,6 @@
 > **도메인 모듈 코드는 `src/modules/{여기 정한 이름}/`에 둡니다.** 이름이 코드에 닿지 않으면
 > "슬롯 체커에서 막혔다"고 말해도 열어볼 파일이 없어, 이 문서가 장식이 됩니다.
 > **정본에 없는 이름으로 폴더를 만들면 CI가 막습니다.**
->
-> 2026-08-17 [ADR-021](../../decisions/021-runtime-and-module-shape.md)로 **`pii-masker` 가 더해지고
-> 모듈 코드가 TypeScript로 확정됐습니다.** 각 모듈은 필요한 외부 자원을 자기 폴더의 `contract.ts` 에
-> 인터페이스로 선언하고 구현을 밖에서 받습니다. **저장소 접근·LLM 호출에는 이름을 만들지 않습니다** —
-> 도메인 판단을 하지 않는 자원 접근이라 여기서 말하는 동작 단위가 아닙니다.
 
 **용어집입니다.** 이름이 폴더명이나 클래스명과 일치할 의무는 없습니다. 문서·대화·커밋 메시지에서 같은 것을 같은 말로 부르는 것이 목적입니다.
 
@@ -56,8 +51,6 @@
 ```
 【층 1】 증거가 들어올 때만 (한 번)
 
-   pii-masker     ← 브라우저 · 텍스트 입력에만
-        ↓
    transcriber
         ↓
    pii-tokenizer  ← 격리 경계
@@ -68,18 +61,10 @@
 
 【층 2】 사용자가 말할 때마다 (매 턴)
 
-   pii-masker          ← 브라우저 · 보내기 전 1차 마스킹
-        ↓
-   chat-receiver       ← 아래 순서를 부르는 자리. 판정도 조립도 하지 않는다
+   chat-receiver ─ 순서를 부르는 자리
         └ pii-tokenizer → kb-finder → prompt-builder → [ 모델 1회 호출 ]
-        ↓
-   citation-checker    ← 갈래 셋을 판정 (답변 · 1332 안내 · 슬롯 질문)
-        ↓
-   chat-publisher      ← 한 형태로 씌우고, 판단 근거 분리 · 잔여 PII 검사
-        ↓
-   pii-restorer        ← 브라우저 · 부분 복원
-
-   브라우저에서 도는 것은 양 끝 둘뿐 — pii-masker(입력) · pii-restorer(표시)
+              → citation-checker → chat-publisher ─ 나가는 것을 마지막으로 만지는 자리
+                    → (브라우저) pii-restorer
 
 
 【층 3】 사건 상태가 바뀔 때
@@ -88,31 +73,40 @@
    completion-checker → date-checker · planner 재호출
 
 
-【층 4】 하루 1회
+【층 4】 하루 1회 — 사용자 요청 없이 돈다 (Vercel Cron)
 
    kb-collector → kb-reviewer → 버전 릴리스
+   reminder-sender ─ 다가온 기한·미확인 단계를 이메일로
+   case-purger     ─ purge_after 도달 시 세 층을 함께 지우고 확인
+
+
+【층 C】 브라우저 — 서버가 대신할 수 없는 것
+
+   case-opener  ── URL 토큰으로 사건을 연다 (계정이 없어 이 자리가 인증을 대신함)
+
+   나가는 길    pii-masker → file-sender → (서버)
+   들어오는 길  (서버) → poll-checker → pii-restorer ← key-handler
+   보여주는 곳  transcript-viewer · plan-viewer · deadline-viewer
+                chat-handler · work-handler · doc-filler
 ```
+
+**층 C만 「언제 도는가」가 아니라 「무엇을 책임지는가」로 묶습니다.** 브라우저는 화면이 열려 있는 동안
+여러 가지가 동시에 도는 자리라, 시간축으로 가르면 대부분이 한 칸에 몰려 이름 체계의 목적(어디서 막혔나를
+한마디로 지목하는 것)이 사라집니다. **가르는 실질 기준은 「절대 하지 않는 것」이 다른가**입니다.
 
 ---
 
 ## 층 1 · 증거가 들어올 때만
 
-| 이름 | 맡는 일 | 어디서 도나 | 관련 |
-| --- | --- | --- | --- |
-| `pii-masker` | 정규식으로 계좌·주민번호·카드·전화를 치환한다. **1차 마스킹** | **브라우저** | `F-03` [04](08-14-pii-boundary.md) |
-| `case-intake` | 사건을 생성하고 파일을 접수한다 | 서버 | `F-01` [08](08-14-api.md) §3.1 §3.2 |
-| `transcriber` | STT(화자 분리)·OCR(대화 구조 보존) | 서버 | `F-02` |
-| `pii-tokenizer` | 개인정보를 토큰으로 치환한다. **격리 경계** | 서버 | `F-03` [04](08-14-pii-boundary.md) |
-| `case-reader` | 수법과 위험도를 판정하고 근거 스팬을 낸다 | 서버 | `F-04` |
-| `slot-extractor` | 전사·OCR 결과에서 슬롯 값을 추출한다 | 서버 | `F-05b` [02](../backend/08-14-slot-tiering.md) |
+| 이름 | 맡는 일 | 관련 |
+| --- | --- | --- |
+| `case-intake` | 사건을 생성하고 파일을 접수한다 | `F-01` [08](08-14-api.md) §3.1 §3.2 |
+| `transcriber` | STT(화자 분리)·OCR(대화 구조 보존) | `F-02` |
+| `pii-tokenizer` | 개인정보를 토큰으로 치환한다. **격리 경계** | `F-03` [04](08-14-pii-boundary.md) |
+| `case-reader` | 수법과 위험도를 판정하고 근거 스팬을 낸다 | `F-04` |
+| `slot-extractor` | 전사·OCR 결과에서 슬롯 값을 추출한다 | `F-05b` [02](../backend/08-14-slot-tiering.md) |
 
 **`pii-tokenizer`를 거치지 않은 텍스트는 외부 LLM으로 나갈 수 없습니다.** 이 모듈만이 경계이며, 우회 경로를 만드는 것은 [04-pii-boundary.md](08-14-pii-boundary.md) 위반입니다.
-
-**`pii-masker`와 `pii-tokenizer`는 2중 스크러빙의 각 단계입니다** → [04](08-14-pii-boundary.md) 「2중 스크러빙」. 앞의 것은 브라우저에서 정규식으로 걸러 **원문이 네트워크를 타기 전에** 줄이고, 뒤의 것은 서버에서 NER로 잔여를 잡습니다. **1차가 있다고 2차를 건너뛸 수 없고, 2차가 있다고 1차를 생략할 수 없습니다** — 1차를 빼면 원문이 우리 서버까지 오고, 2차를 빼면 정규식이 못 잡는 이름·기관이 외부로 나갑니다.
-
-> `pii-masker`가 다루는 것은 **사용자가 입력한 텍스트**입니다. 녹음·이미지 파일은 정규식을 걸 대상이 아니라 그대로 업로드되고([08](08-14-api.md) §3.2 presigned), 전사된 뒤 서버에서 `pii-tokenizer`가 받습니다.
-
-**들어올 때와 나갈 때가 다른 모듈입니다.** `pii-tokenizer`는 **들어온 텍스트를 토큰으로 바꾸는** 자리이고, 나가기 직전 **잔여 PII를 검사하는** 자리는 `chat-publisher`입니다 → [ADR-022](../../decisions/022-chat-turn-boundaries.md). 나가는 것을 마지막으로 만지는 자리가 하나여야 우회 경로가 생길 자리도 하나입니다. 검사가 걸리면 `EgressBlockedError`(422)로 요청을 중단하며, **통과시키고 로그만 남기는 경로를 만들지 않습니다** → [10](../backend/08-16-errors.md) §1.
 
 **`case-reader`의 산출물은 절차 분기에 쓰이지 않습니다.** 분기축은 경유 서비스 하나입니다 → [03](../backend/08-14-channel-matrix.md). 이 모듈의 결과는 화면 표시([06](../frontend/08-14-screens.md))와 관리자 조회([08](08-14-api.md) §5)에서 소비됩니다.
 
@@ -124,28 +118,31 @@
 
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
-| `pii-masker` | 발화를 보내기 전에 정규식으로 치환한다 (층 1과 같은 모듈) | **브라우저** | [04](08-14-pii-boundary.md) |
-| `chat-receiver` | 층 2의 **순서를 부른다.** 갈래 판정·직접 조회·응답 조립은 하지 않는다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) |
+| `chat-receiver` | 발화를 받아 아래 셋을 순서대로 부르고 모델을 1회 호출한다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 하나 |
 | `pii-tokenizer` | 입력을 토큰화한다 (층 1과 같은 모듈) | 서버 | [04](08-14-pii-boundary.md) |
 | `kb-finder` | KB를 `applied`·`reference` 두 묶음으로 조회한다 | 서버 | [11](../backend/08-16-chat-context.md) §2 |
 | `prompt-builder` | 7블록을 순서대로 조립하고 비신뢰 블록에 격리 태그를 씌운다 | 서버 | [11](../backend/08-16-chat-context.md) §3 §4 |
 | `citation-checker` | 인용 네 가지를 확인하고, 비었으면 **되묻기로 넘길지** 판정한다 | 서버 | [11](../backend/08-16-chat-context.md) §6 |
-| `chat-publisher` | 세 갈래를 한 형태로 씌우고, 판단 근거를 분리하고, **잔여 PII를 검사한다** | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) |
+| `chat-publisher` | 세 갈래를 한 형태로 씌우고, 판단 근거를 분리하고, 잔여 PII를 검사한다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 둘 |
 | `pii-restorer` | 복원해도 되는 토큰인지 검사하고 되돌린다 | **브라우저** | [11](../backend/08-16-chat-context.md) §8 |
+
+**`chat-receiver`는 부르기만 합니다.** [ADR-022](../../decisions/022-chat-turn-boundaries.md)가 금지를 셋 걸었습니다 —
+**갈래를 판정하지 않고**(그건 `citation-checker`), **조회·조립·토큰화를 직접 하지 않고**,
+**응답 형태를 만들지 않습니다**(그건 `chat-publisher`).
+**이 조항이 없으면 반드시 비대해집니다** — 재시도 판단·감사 로그·캐싱 경계가 이 자리로 몰릴 힘이 있습니다.
+
+**`chat-publisher`의 이름은 전송 방식을 뜻하지 않습니다.** `receiver`와 대칭을 이루려고 고른 말이고,
+실제로 하는 일은 HTTP 응답 본문을 만드는 것입니다 — 구독·푸시·발행과 무관합니다.
+**여기가 「판단 근거 분리」와 「잔여 PII 검사」의 주인입니다** — ADR-022 이전에는 규칙만 있고 주인이 없었습니다.
+
+**`citation-checker`와 `chat-publisher`의 경계** — 어느 갈래인지 **판정**하는 것은 `citation-checker`,
+그 갈래를 **형태로 옮기는** 것은 `chat-publisher`입니다. 판정이 뒤로 새면 갈래가 두 곳에서 결정됩니다.
 
 **모델 호출은 한 번이고 모델은 도구를 부르지 않습니다.** 조회 조건은 서버가 전부 알고 있습니다 → [11](../backend/08-16-chat-context.md) §1.
 
-**`chat-receiver`는 순서를 부르기만 합니다.** 갈래를 판정하지 않고(그것은 `citation-checker`), 조회·조립·토큰화를 직접 하지 않고, 응답 형태를 만들지 않습니다(그것은 `chat-publisher`). **이 금지 조항이 없으면 재시도 판단·감사 로그·캐싱 경계가 전부 이 자리로 몰려 반드시 비대해집니다** → [ADR-022](../../decisions/022-chat-turn-boundaries.md).
-
-**`chat-publisher`가 송출 전 검사 셋 중 둘을 맡습니다.** 인용 검증은 `citation-checker`가 하고, **판단 근거 분리**와 **잔여 PII 검사**가 여기입니다. `EgressBlockedError`(422)를 던지는 자리이기도 합니다 → [11](../backend/08-16-chat-context.md) §9 · [10](../backend/08-16-errors.md) §1.
-
-> **`chat-publisher`의 `publisher`는 전송 방식을 뜻하지 않습니다.** `chat-receiver`와 대칭을 이루려고 고른 말이고, 실제로 하는 일은 HTTP 응답 본문을 만드는 것입니다. 구독·푸시·발행과 무관하며 **웹소켓·스트리밍을 쓰지 않습니다** → [모듈 경계](08-16-module-boundaries.md).
-
-> ⚠️ **`pii-restorer`는 서버에 존재해서는 안 되는 모듈입니다.** 복원 여부 검사도, 실제 복원도 브라우저에서 일어납니다. 서버는 토큰 상태 그대로 내려보내고 끝입니다 — 복호화 키가 없어 복원 자체가 불가능합니다 → [04](08-14-pii-boundary.md) · [ADR-009](../../decisions/009-restore-mapping-location.md).
+> ⚠️ **`pii-restorer`는 이 표에서 유일하게 서버 모듈이 아닙니다.** 복원 여부 검사도, 실제 복원도 브라우저에서 일어납니다. 서버는 토큰 상태 그대로 내려보내고 끝입니다 — 복호화 키가 없어 복원 자체가 불가능합니다 → [04](08-14-pii-boundary.md) · [ADR-009](../../decisions/009-restore-mapping-location.md).
 >
 > **서버에 복원 함수를 만들면 규칙 위반입니다.** 이 이름이 다른 서버 모듈과 같은 표에 있다는 이유로 서버 구현으로 오해하지 마세요.
->
-> **`pii-masker`도 브라우저에서 돌지만 성격이 다릅니다.** 그쪽은 원문이 네트워크를 타기 전에 걸러야 해서 브라우저에 있는 것이라, 서버에 같은 정규식이 있어도 위반은 아닙니다. `pii-restorer`는 **서버에 있는 것 자체가 위반**입니다.
 
 **`citation-checker`는 대조만 하는 것이 아닙니다.** 인용이 비었을 때 에러로 끝낼지 되묻기로 넘길지를 여기서 가릅니다 → [11](../backend/08-16-chat-context.md) §6.3 · [ADR-015](../../decisions/015-citation-and-reask.md). 조회 결과가 0건이면 1332 안내로 가고, 조회는 됐는데 인용을 못 붙인 경우에는 `slot-checker`로 넘겨 질문 한 문항을 내보냅니다. **이 경로에서는 에러가 아니라 질문이 나갑니다.**
 
@@ -170,12 +167,50 @@
 
 ## 층 4 · 하루 1회
 
-| 이름 | 맡는 일 | 관련 |
-| --- | --- | --- |
-| `kb-collector` | 감시 소스에서 원문을 가져와 스냅샷으로 보관한다 | `F-11` [07](../backend/08-14-kb-operations.md) |
-| `kb-reviewer` | 변경분을 사람이 검수·승인하고 버전을 릴리스한다 | `F-11` [09](../backend/08-16-data-model.md) §12 |
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `kb-collector` | 감시 소스에서 원문을 가져와 스냅샷으로 보관한다 | 서버 | `F-11` [07](../backend/08-14-kb-operations.md) |
+| `kb-reviewer` | 변경분을 사람이 검수·승인하고 버전을 릴리스한다 | 서버 | `F-11` [09](../backend/08-16-data-model.md) §12 |
+| `reminder-sender` | 다가온 기한과 `미확인` 단계를 찾아 이메일로 알린다 | 서버 | `F-06b` [ADR-021](../../decisions/021-reentry-and-identity.md) |
+| `case-purger` | `purge_after`가 지난 사건의 **세 층을 함께 지우고 실제로 지워졌는지 확인한다** | 서버 | [ADR-016](../../decisions/016-retention-and-datastore.md) |
 
 **`kb-reviewer`의 승인은 사람이 합니다.** LLM은 영향 분석까지이고 릴리스 판단은 사람의 몫입니다 → [07](../backend/08-14-kb-operations.md).
+
+### `reminder-sender` — 보낼 수 없는 사건이 있습니다
+
+**이메일을 안 준 사건에는 보낼 방법이 없습니다.** [ADR-021](../../decisions/021-reentry-and-identity.md)이
+그렇게 정했고, 그것이 그 결정의 값입니다. **연락처를 새로 요구하는 흐름을 만들지 마세요** — 이메일은 선택입니다.
+
+**확정되지 않은 기한으로 알리지 마세요.** 부산물이 아직 없으면 기한은 추정일 뿐이라
+[기한 계산 규칙](08-16-deadline-rules.md)이 「미확인 배지와 함께 추정만」으로 정했습니다.
+**추정 날짜를 메일로 보내면 사용자는 그것을 확정으로 읽습니다.**
+
+> TODO(미정): 발송 주기와 문구, 그리고 **메일 발송 수단**.
+> 실행 트리거는 아래 「어디서 도나」로 정해졌지만 **무엇으로 보내는지는 정해지지 않았습니다**
+> → [ADR-021](../../decisions/021-reentry-and-identity.md) 「남은 것」.
+
+### `case-purger` — 조용히 실패하면 안 됩니다
+
+**세 층이 같은 날 함께 사라집니다** — 토큰화된 사건 상태 · 업로드 원본 · 복원 매핑 암호문.
+[ADR-016](../../decisions/016-retention-and-datastore.md)이 층마다 수명을 다르게 두지 않기로 한 이유가
+**「파기가 한 층에서 조용히 실패하면 어느 한 층만 남고, 그게 무엇인지 추적할 방법이 없다」**입니다.
+
+**그래서 이 모듈은 지우는 것만으로 끝나지 않고 확인까지 합니다.**
+ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지워지는지 검증해야 한다**」고 못박았습니다.
+
+### 어디서 도나 — Vercel Cron이 깨웁니다
+
+**둘 다 요청이 없어도 돌아야 합니다.** 실행 트리거는 **Vercel Cron**이고, 도는 코드는 **앱의 API 라우트**입니다
+→ [ADR-025](../../decisions/025-scheduled-jobs.md).
+
+**`case-purger`가 세 저장소를 지우고 확인해야 하는 것이 결정적이었습니다** — Postgres·Storage·볼트를
+같은 코드에서 SDK로 다루려면 앱 안이어야 합니다. `pg_cron`은 SQL만 돌아 나머지에 `pg_net`·Edge Function이 또 필요합니다.
+
+> [ADR-016](../../decisions/016-retention-and-datastore.md)의 *"Vercel 서버리스에 상시 배치가 없습니다"*는
+> **웹소켓 같은 상주 프로세스**를 말한 것이고, 크론 트리거는 별개입니다 → [ADR-025](../../decisions/025-scheduled-jobs.md).
+
+**이 둘만 「사용자 요청 없이 사건 데이터를 건드리는」 모듈입니다.** `kb-collector`도 요청 없이 돌지만
+그쪽은 사건에 닿지 않습니다 — `reminder-sender`와 `case-purger`는 **사건을 읽고 지웁니다.**
 
 ## 층 없음 · 항상
 
@@ -191,6 +226,91 @@
 > ⚠️ **[08-api.md](08-14-api.md)의 「분석 오케스트레이터」와 다른 것입니다.** 그쪽은 수법 판별과 플랜 생성의 실행 순서를 조율하는 자리로, 이 체계에서는 `case-reader`·`slot-extractor`·`planner` 셋으로 갈려 사라집니다. `retry-checker`는 실행 순서와 무관하게 **실패 처리만** 맡습니다.
 >
 > 두 문서가 같은 「오케스트레이터」라는 말을 서로 다른 뜻으로 쓰고 있었습니다. **그래서 이 이름에 `orchestrator`를 쓰지 않습니다** — 없어질 것을 가리키는 이름이 됩니다.
+
+## 층 C · 브라우저에서 도는 것
+
+**서버가 대신할 수 없는 것들입니다** → [ADR-023](../../decisions/023-frontend-module-names.md).
+복호화 키가 클라이언트에만 있고, 사건의 열쇠가 URL이며, 원문이 여기서만 펼쳐지기 때문입니다.
+
+> `pii-restorer`는 **층 2에 이미 있습니다.** 챗 한 턴의 마지막 단계라 거기 두었고, 여기 다시 적지 않습니다
+> — 한 모듈이 두 표에 있으면 인벤토리가 두 번 셉니다.
+
+### 원문을 다루는 자리
+
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `pii-masker` | 나가기 전 계좌·주민번호·카드·전화를 가린다. **텍스트만이 아니라 올릴 파일도** | 브라우저 | [04](08-14-pii-boundary.md) · [ADR-026](../../decisions/026-raw-upload-retention.md) |
+| `key-handler` | 복호화 키를 세션에 보관하고 볼트 암호문을 복호한다 | 브라우저 | [ADR-009](../../decisions/009-restore-mapping-location.md) |
+
+**주민등록번호가 든 파일은 아예 올리지 않습니다** → [ADR-026](../../decisions/026-raw-upload-retention.md).
+가리지 못하면 업로드를 막고 사용자에게 알립니다 — **막는 것이 아니라 갈림길을 주는 것**이라,
+파일 하나를 빼도 T0는 그대로 돕니다.
+
+**`pii-masker`와 `pii-restorer`는 방향이 반대입니다.** 나갈 때 가리고, 들어올 때 되돌립니다.
+서버의 `pii-tokenizer`가 2차이고 이쪽이 1차입니다 — **1차를 건너뛴 전송 경로를 만들면 규칙 위반입니다.**
+
+**`key-handler`는 동작이 아니라 보관이라 흡수하고 싶어지는 자리입니다.** 그래도 이름을 두는 이유는
+「키를 서버·로그·DB로 보내지 않는다」는 불변 규칙을 **붙일 자리가 필요하기 때문**입니다.
+
+### 사건에 접속하는 자리
+
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `case-opener` | URL 토큰으로 사건을 열고, 발급 직후 복사·공유를 제공한다 | 브라우저 | [ADR-021](../../decisions/021-reentry-and-identity.md) |
+
+**계정이 없어 이 자리가 인증을 통째로 대신합니다.** `key-handler`의 「키」와 헷갈리지 마세요 —
+이쪽은 **URL에 박혀 돌아다니는 사건 토큰**이고, 저쪽은 **절대 클라이언트를 떠나지 않는 복호화 키**입니다.
+
+### 서버와 이야기하는 자리
+
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `poll-checker` | `poll_after_ms`를 보고 다시 묻는다. 실패를 재시도·표시로 가른다 | 브라우저 | [08](08-14-api.md) §3.3 · [10](../backend/08-16-errors.md) §2 |
+
+**스트리밍·웹소켓을 쓰지 않습니다** → [ADR-022](../../decisions/022-chat-turn-boundaries.md).
+서버의 `retry-checker`와 짝이며, 같은 규칙(`retryable` 하나만 본다)을 따릅니다.
+
+### 재료를 넣고 보는 자리
+
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `file-sender` | 파일을 받아 `pii-masker`를 태워 올리고 처리 상태를 추적한다 | 브라우저 | `F-01` [08](08-14-api.md) §3.2 §3.8 |
+| `transcript-viewer` | 전사·OCR 결과를 보여준다. 여기서는 **전체 복원**이 허용된다 | 브라우저 | `F-02` [11](../backend/08-16-chat-context.md) §8 |
+
+**`file-sender`는 증거와 부산물을 함께 맡습니다.** 엔드포인트는 다르지만
+(`/evidence`·`/steps/{id}/artifacts`) 클라이언트 동작이 같습니다 — 가리고, 올리고, 상태를 추적합니다.
+
+**`transcript-viewer`는 OCR을 하지 않습니다.** 전사는 서버 `transcriber`의 일이고 여기는 표시만 합니다.
+`file-sender`와 **PII 규칙이 정반대**입니다 — 하나는 가리고 하나는 펼칩니다.
+
+### 사건을 보여주는 자리
+
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `plan-viewer` | 타임라인·단계·상태 배지를 그린다. T0 안전 절차를 상시 노출한다 | 브라우저 | `F-06` [02](../backend/08-14-slot-tiering.md) |
+| `deadline-viewer` | 기한을 표시한다. `primary`·`grace`·`info`를 구분한다 | 브라우저 | `F-06` [기한 규칙](08-16-deadline-rules.md) |
+| `chat-handler` | 발화를 보내고 응답을 표시한다. 슬롯 질문을 버튼으로 렌더한다 | 브라우저 | `F-07` [08](08-14-api.md) §3.9 |
+
+**`deadline-viewer`를 `plan-viewer`에서 가른 이유는 「날짜를 계산하지 않는다」입니다.**
+합치면 그 금지가 갈 곳이 없어집니다. 표시 규칙이 일곱이고 그중 넷이 금지이며,
+카드 부정사용 보상 60일처럼 **과거를 향해 세는 기한**까지 있습니다 → [research/06](../../docs/research/06-경로별-실측조사.md) §2.2.
+
+**`chat-handler`는 인용 번호·판단 근거를 화면에 쓰지 않습니다** — 근거 화면은 보류 상태입니다
+→ [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 셋.
+
+### 작업하는 자리
+
+| 이름 | 맡는 일 | 어디서 도나 | 관련 |
+| --- | --- | --- | --- |
+| `work-handler` | 어느 단계를 할 차례인지 판정하고, 그 유형의 패널을 렌더한다 | 브라우저 | [워크스페이스 패널](../frontend/08-17-workspace-panels.md) |
+| `doc-filler` | 서류 초안을 받아 **브라우저에서** 원문을 채워 완성한다 | 브라우저 | `F-08` (P1) [04](08-14-pii-boundary.md) |
+
+**`work-handler`는 판정과 렌더를 함께 맡습니다.** 나누는 안을 검토하고 합쳤습니다
+→ [ADR-023](../../decisions/023-frontend-module-names.md). **대신 모듈 안에서 판정을 렌더와 섞지 않습니다** —
+섞이면 "왜 이 패널이 떴나"를 짚을 수 없습니다 → [모듈 경계](08-16-module-boundaries.md).
+
+**`doc-filler`는 서버가 만든 완성 문서를 받지 않습니다.** 초안에 원문을 채우는 것은 브라우저의 일이고,
+서버가 완성본을 내려주는 구조는 [04](08-14-pii-boundary.md) 위반입니다.
 
 ---
 
@@ -275,7 +395,15 @@
 
 ## TODO
 
-- TODO(미정): 화면·프론트 구성의 명칭 — 이번 범위에서 제외했습니다 ([06](../frontend/08-14-screens.md)).
+- ~~TODO(미정): 화면·프론트 구성의 명칭~~ → **2026-08-17 층 C로 확정** ([ADR-023](../../decisions/023-frontend-module-names.md)).
+  화면 자체의 명칭(`S-xx`)은 [화면 설계](../frontend/08-14-screens.md)가 정합니다 — 여기는 **동작 단위**만 다룹니다.
+- ~~TODO(미정): `chat-receiver`·`chat-publisher` 등재~~ → **2026-08-18 층 2에 등재 완료.**
+  [ADR-022](../../decisions/022-chat-turn-boundaries.md)의 결정을 옮겨 적은 것이라 새 판단은 없습니다.
+- TODO(미정): **`chat-receiver`가 얇게 유지되는지 볼 방법.** 지금은 금지 조항뿐이고 강제하는 검사기가 없습니다
+  → [ADR-022](../../decisions/022-chat-turn-boundaries.md) 「남은 것」. `work-handler`도 같은 상태입니다.
+- TODO(미정): 리마인더 발송과 파기 실행을 맡을 이름. 층 4에 자리가 비어 있습니다 —
+  선행 조건이던 재진입·연락처([ADR-021](../../decisions/021-reentry-and-identity.md))와
+  주기 실행([ADR-025](../../decisions/025-scheduled-jobs.md)의 Vercel Cron)이 **둘 다 풀렸습니다.**
 
 ### 상태·등급의 호칭은 정하지 않기로 했습니다
 

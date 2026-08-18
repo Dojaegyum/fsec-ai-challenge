@@ -1,9 +1,7 @@
 # 아키텍처 — FinAlly가 어떻게 구성되는가
 
-> **상태: 채워짐(2026-08-16 · 2026-08-17 개정).** 백엔드 정의가 끝나 각 절이 실제 선택을 가리킵니다.
-> **모듈의 물리 배치와 언어는 [ADR-021](decisions/021-runtime-and-module-shape.md)로 해소됐습니다** —
-> Next.js 안, 전부 TypeScript입니다. 남은 미결은 §10에 모아 두었습니다 —
-> **NER 선택**과 **파기·리마인더 실행 수단**이 큰 둘입니다.
+> **상태: 채워짐(2026-08-16).** 백엔드 정의가 끝나 각 절이 실제 선택을 가리킵니다.
+> 남은 미결은 §10에 모아 두었습니다 — **모듈의 물리 배치**와 **파기·리마인더 실행 수단**이 큰 둘입니다.
 
 ## 이 문서의 자리
 
@@ -27,10 +25,11 @@
 
 ```mermaid
 flowchart TB
-    subgraph CLIENT["브라우저"]
-        UI["Next.js 화면 · 3-패널"]
-        MASK["pii-masker · 1차 마스킹 · 정규식"]
-        KEY["세션키 보관 · 복호화 키"]
+    subgraph CLIENT["브라우저 · 층 C"]
+        OPEN["case-opener · URL이 곧 열쇠"]
+        UI["보여주고 작업하는 것 · §4"]
+        MASK["pii-masker · 1차 마스킹"]
+        KEY["key-handler · 복호화 키"]
         REST["pii-restorer · 복원은 여기서만"]
     end
 
@@ -80,7 +79,6 @@ flowchart TB
 
 | 영역 | 선택 | 정본 |
 | --- | --- | --- |
-| **언어** | **TypeScript** — 화면·API·도메인 모듈 전부. 별도 백엔드 없음 | [ADR-021](decisions/021-runtime-and-module-shape.md) |
 | 프론트 | Next.js (App Router) · React · Tailwind v4 · shadcn/ui | `src/package.json` |
 | 디자인 토큰 | FinAlly 도메인 토큰 | `src/app/globals.css` · [design-system](spec/frontend/design-system/) |
 | 백엔드 런타임 | **Vercel 서버리스 함수** | [API 계약](spec/common/08-14-api.md) |
@@ -121,8 +119,9 @@ flowchart TB
   - 표준 트랙만 D+100이고(공고 2개월 + 환급금 결정 14일), 이의제기가 붙으면 D+160입니다 →
     [research/06](docs/research/06-경로별-실측조사.md) §5
   - 기산이 생성일이 아니라 **마지막 활동일**입니다. 공고 후에 피해를 알고 들어온 사람은 진입 시점에 이미 두 달이 지나 있습니다
-- **파기 실행 수단** — `pg_cron`이 유력합니다(Supabase 내장). 다만 ⚠️ **Storage에는 네이티브 만료가 없어**
-  파일 파기는 잡이 Storage API를 호출하도록 **직접 만들고 실제로 지워지는지 검증**해야 합니다 → §10
+- **파기 실행 수단** — `case-purger`가 앱의 API 라우트로 돌고 **Vercel Cron이 깨웁니다**
+  → [ADR-025](decisions/025-scheduled-jobs.md). ⚠️ **Storage에는 네이티브 만료가 없어**
+  **직접 지우고 실제로 지워졌는지 검증**해야 합니다 — 세 저장소를 한 코드에서 다루려고 앱 안을 고른 이유입니다
 
 > **DDL을 쓰기 전에** [저장 경계 표](spec/common/08-16-domain-model.md)를 확인하세요.
 > 복원 매핑 원문·복호화 키를 담는 컬럼은 어떤 이유로도 만들지 않습니다.
@@ -139,7 +138,6 @@ flowchart TB
 ```mermaid
 flowchart LR
     UP["업로드 · presigned"] --> INTAKE["case-intake"]
-    MASK1["pii-masker · 브라우저 · 텍스트 1차 마스킹"] --> INTAKE
     INTAKE --> TR["transcriber · STT · OCR"]
     TR --> TOK["pii-tokenizer · 격리 경계"]
     TOK --> READER["case-reader · 수법 · 위험도"]
@@ -148,13 +146,8 @@ flowchart LR
     SX --> DB
     TOK --> VAULT[("볼트 · 암호문")]
 
-    style MASK1 fill:#bfdbfe,stroke:#1d4ed8,color:#111
     style TOK fill:#fde68a,stroke:#b45309,color:#111
 ```
-
-**`pii-masker` 는 텍스트 입력에만 겁니다.** 녹음·이미지는 정규식을 걸 대상이 아니라 그대로
-객체 저장소로 올라가고(presigned), 전사된 뒤 `pii-tokenizer` 가 받습니다. **파일 경로에서는
-1차 마스킹이 없으므로 2차가 유일한 방어선입니다** → [PII 격리 경계](spec/common/08-14-pii-boundary.md).
 
 **`case-reader`의 산출물은 절차 분기에 쓰이지 않습니다.** 분기축은 경유 서비스 하나입니다 →
 [채널 매트릭스](spec/backend/08-14-channel-matrix.md). 화면 표시와 관리자 조회에서만 소비됩니다.
@@ -166,35 +159,30 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    IN["사용자 발화"] --> MASK2["pii-masker · 브라우저"]
-    MASK2 --> RECV["chat-receiver · 순서를 부른다"]
+    IN["사용자 발화"] --> RECV["chat-receiver · 순서를 부르는 자리"]
     RECV --> TOK2["pii-tokenizer"]
     TOK2 --> FIND["kb-finder · applied · reference 두 묶음"]
     FIND --> PB["prompt-builder · 7블록 조립 · 격리 태그"]
     PB --> LLM{{"Grok · 1회 호출"}}
     LLM --> CC["citation-checker"]
 
-    CC -->|"인용 있음"| PUB["chat-publisher · 한 형태로 · 근거 분리 · 잔여 PII"]
-    CC -->|"인용 없음 · KB 조회 0건"| PUB
+    CC -->|"인용 있음"| OUT["답변"]
+    CC -->|"인용 없음 · KB 조회 0건"| G1332["1332 안내"]
     CC -->|"인용 없음 · 조회는 됐음"| SLOT["slot-checker · 질문 1문항"]
+
+    OUT --> PUB["chat-publisher · 한 형태로 씌움<br/>판단 근거 분리 · 잔여 PII 검사"]
+    G1332 --> PUB
     SLOT --> PUB
 
     PUB --> BROWSER["pii-restorer · 브라우저 · 부분 복원"]
 
-    style MASK2 fill:#bfdbfe,stroke:#1d4ed8,color:#111
     style TOK2 fill:#fde68a,stroke:#b45309,color:#111
     style PUB fill:#fde68a,stroke:#b45309,color:#111
     style BROWSER fill:#bfdbfe,stroke:#1d4ed8,color:#111
 ```
 
-**노란 칸이 둘입니다.** 들어올 때 `pii-tokenizer`, 나갈 때 `chat-publisher` — 경계를 지키는 자리가
-방향마다 하나씩입니다 → [ADR-022](decisions/022-chat-turn-boundaries.md).
-
-**세 갈래가 `chat-publisher` 로 모입니다.** 답변·1332 안내·슬롯 질문이 같은 껍데기로 나가서
-화면이 갈래를 분기하지 않습니다. **어느 갈래인지 판정하는 것은 `citation-checker`, 그 갈래를
-형태로 옮기는 것은 `chat-publisher`** 입니다 — 판정이 뒤로 새면 갈래가 두 곳에서 결정됩니다.
-
-**파란 칸 둘이 브라우저입니다** — 들어갈 때 `pii-masker`, 나올 때 `pii-restorer`. 이 사이의 모든 것이 서버입니다.
+**세 갈래가 `chat-publisher` 하나로 모여 같은 껍데기로 나갑니다** — 화면이 갈래를 분기하지 않습니다
+→ [ADR-022](decisions/022-chat-turn-boundaries.md). `chat-receiver`는 **부르기만 하고 판정하지 않습니다.**
 
 **이 층에서 에러가 나가지 않는 경로가 둘입니다.** 근거를 못 찾으면 실패가 아니라
 **되묻기**로 갑니다 → [ADR-015](decisions/015-citation-and-reask.md) · `CLAUDE.md` 불변 규칙 5.
@@ -238,6 +226,29 @@ flowchart LR
     style REV fill:#fecaca,stroke:#b91c1c,color:#111
 ```
 
+**같은 층에 사건을 건드리는 잡이 둘 더 있습니다.** KB 운영과 달리 **사용자 데이터를 읽고 지웁니다.**
+
+```mermaid
+flowchart LR
+    CRON{{"Vercel Cron"}} --> RS["reminder-sender · API 라우트"]
+    CRON --> CP["case-purger · API 라우트"]
+
+    RS --> DL[("deadline · plan_step<br/>다가온 기한 · 미확인")]
+    RS --> MAIL["이메일 · 준 사람에게만"]
+
+    CP --> PG[("사건 상태")]
+    CP --> BLOB[("업로드 원본")]
+    CP --> KV[("복원 매핑 암호문")]
+    CP --> VERIFY["삭제 확인 · 한 층만 남으면 실패"]
+
+    style CP fill:#fecaca,stroke:#b91c1c,color:#111
+```
+
+**둘 다 앱의 API 라우트로 돌고 Vercel Cron이 깨웁니다** → [ADR-025](decisions/025-scheduled-jobs.md).
+`case-purger`가 **Postgres·Storage·볼트 셋을 지우고 확인해야 해서** 앱 SDK가 닿는 자리여야 했습니다.
+
+**메일 발송 수단과 플랜별 실행 제약은 아직 확인 전입니다** → §10.
+
 **빨간 칸을 건너뛰는 경로를 만들지 않습니다.** 수집기가 `kb_entry`를 직접 쓰지 않습니다 →
 [KB 운영](spec/backend/08-14-kb-operations.md) 원칙 4.
 
@@ -251,28 +262,61 @@ flowchart LR
 | `audit-logger` | 모든 LLM 호출을 토큰화 텍스트 기준으로 기록. 해시 사슬로 사후 조작 검출 |
 | `retry-checker` | 예외의 `retryable` 하나만 보고 재시도 판단. 예외 종류를 분기하지 않음 |
 
+### 층 C · 브라우저 (서버가 대신할 수 없는 것)
+
+**시간축이 아니라 「무엇을 책임지는가」로 묶입니다** → [ADR-023](decisions/023-frontend-module-names.md).
+화면이 열려 있는 동안 여러 가지가 동시에 돌아 시간축으로는 갈라지지 않습니다.
+
+```mermaid
+flowchart LR
+    OPEN["case-opener<br/>URL 토큰으로 사건을 연다"]
+
+    subgraph OUTBOUND["나가는 길"]
+        MASK["pii-masker<br/>1차 마스킹"]
+        SEND["file-sender<br/>증거·부산물 업로드"]
+    end
+
+    subgraph INBOUND["들어오는 길"]
+        POLL["poll-checker<br/>poll_after_ms 로 재조회"]
+        KEY["key-handler<br/>복호화 키 · 볼트 복호"]
+        REST2["pii-restorer<br/>복원 심사"]
+    end
+
+    subgraph SHOW["보여주는 곳"]
+        TV["transcript-viewer"]
+        PV["plan-viewer"]
+        DV["deadline-viewer"]
+        CH["chat-handler"]
+        WH["work-handler"]
+        DF["doc-filler"]
+    end
+
+    OPEN --> SHOW
+    SHOW --> MASK --> SEND --> SERVER[["서버"]]
+    SERVER --> POLL --> REST2 --> SHOW
+    KEY --> REST2
+    KEY --> DF
+```
+
+| 이름 | 맡는 일 | 절대 하지 않는 것 |
+| --- | --- | --- |
+| `case-opener` | URL 토큰으로 사건을 열고 복사·공유를 제공 | 잃은 링크를 복구해 주는 척하기 |
+| `pii-masker` | 나가기 전 정규식 1차 마스킹 | 마스킹 전 원문을 네트워크로 보내기 |
+| `key-handler` | 복호화 키 보관 · 볼트 암호문 복호 | 키를 서버·로그·DB로 보내기 |
+| `poll-checker` | `poll_after_ms` 로 재조회 · 재시도 판단 | 스트리밍·웹소켓 쓰기 |
+| `file-sender` | 증거·부산물 업로드와 상태 추적 | `pii-masker` 를 건너뛴 경로 만들기 |
+| `transcript-viewer` | 전사 표시 (**전체 복원** 허용) | 복원된 원문을 서버로 되돌리기 |
+| `plan-viewer` | 타임라인·단계·배지 · T0 상시 노출 | 체크만으로 완료 표시 · T0 를 종속시키기 |
+| `deadline-viewer` | 기한 표시 (`primary`·`grace`·`info`) | **날짜를 계산하기** |
+| `chat-handler` | 발화 전송 · 응답·슬롯 질문 표시 | 인용 번호·판단 근거를 화면에 쓰기 |
+| `work-handler` | 작업 차례 판정 + 유형별 패널 렌더 | 판정을 렌더 안에 섞기 |
+| `doc-filler` | 초안에 원문을 채워 완성 | 서버가 만든 완성 문서를 그대로 받기 |
+
+**`pii-masker` 가 1차, 서버의 `pii-tokenizer` 가 2차입니다.** 둘 다 지나야 외부 LLM에 닿습니다.
+
 ### 물리 배치
 
-**Next.js 안입니다. 별도 백엔드를 두지 않습니다** → [ADR-021](decisions/021-runtime-and-module-shape.md).
-
-| 무엇 | 어디 | 어디서 도나 |
-| --- | --- | --- |
-| 화면 | `src/app/**/page.tsx` | 브라우저 |
-| API 진입점 | `src/app/api/**/route.ts` | 서버 (Vercel 함수) |
-| 도메인 모듈 | `src/modules/{이름}/` | 대부분 서버. `pii-masker`·`pii-restorer` 는 **브라우저** |
-| 자원 접근 구현 | `src/lib/` | 서버 |
-
-**진입점은 HTTP만 알고 판단은 모듈이 합니다.** `route.ts` 가 맡는 것은 요청 파싱·인증·속도 제한·
-상태 코드·계측 헤더까지이고, 도메인 모듈은 **자기가 HTTP로 불렸는지 모릅니다.** 그래야 파기 배치나
-리마인더처럼 다른 경로에서 같은 모듈을 부를 수 있고, HTTP 없이 시험할 수 있습니다.
-
-**각 모듈은 필요한 외부 자원을 자기 폴더의 `contract.ts` 에 인터페이스로 선언하고 구현을 주입받습니다.**
-NER 모델·볼트 제품·공휴일 출처가 미정이어도 그 자리를 인터페이스로 두면 모듈을 완성할 수 있습니다.
-**저장소 접근과 LLM 호출에는 모듈 이름을 만들지 않습니다** — 도메인 판단을 하지 않는 자원 접근입니다.
-
-**`pii-restorer` 를 서버에서 부르면 빌드가 실패해야 합니다.** `server-only`·`client-only` 표시로
-[ADR-009](decisions/009-restore-mapping-location.md)를 문서가 아니라 구조로 강제합니다.
-
+**아직 정해지지 않았습니다** — Next.js 라우트 핸들러 안인가, 별도 백엔드인가 → §10.
 위 이름들은 **책임의 단위이지 서버의 개수가 아닙니다** → [모듈 경계](spec/common/08-16-module-boundaries.md).
 
 ## 5. 데이터 흐름
@@ -394,20 +438,20 @@ sequenceDiagram
 
 | 무엇 | 왜 걸려 있나 | 어디에 |
 | --- | --- | --- |
+| **모듈의 물리 배치** | Next.js 라우트 핸들러 안인가, 별도 백엔드인가 | [모듈 경계](spec/common/08-16-module-boundaries.md) |
 | **볼트 제품** | 분리 원칙(다른 인스턴스)과 리전을 함께 만족해야 합니다. Vercel KV 유지 여부 | [ADR-016](decisions/016-retention-and-datastore.md) |
-| **파기·리마인더 실행 수단** | `pg_cron`이 답이 됐지만 **Storage 파일 파기는 직접 구현**해야 합니다 | [ADR-016](decisions/016-retention-and-datastore.md) |
-| **재진입·식별 모델** | 계정을 안 만들기로 했는데 **180일** 뒤 사용자가 어떻게 돌아오나 | [핸드오프 ②](docs/plans/08-16-backend-handoff.md) |
+| **Vercel Cron 실행 제약** | 플랜별 실행 빈도·타임아웃을 확인하지 않았습니다. 하루 1회가 되는지 | [ADR-025](decisions/025-scheduled-jobs.md) |
+| **메일 발송 수단** | 리마인더를 무엇으로 보내나. 주기·문구도 미정 | [ADR-021](decisions/021-reentry-and-identity.md) |
+| **`org.contact` 키 구조** | `call_center`·`app_path` 같은 이름. **연락처 값과 함께** 정해야 합니다 | [ADR-024](decisions/024-step-action-and-url.md) |
 | **문진 선택지의 정본** | 질문 문구와 선택지를 어디서 가져오나 | [핸드오프 ⑤](docs/plans/08-16-backend-handoff.md) |
 
 **재진입은 복호화 키와 직결됩니다.** 브라우저를 바꾸면 키가 없어 서류를 못 만듭니다 →
-[ADR-009](decisions/009-restore-mapping-location.md).
+[ADR-009](decisions/009-restore-mapping-location.md). **2026-08-18 [ADR-027](decisions/027-session-key-storage.md)로 감수하기로 확정**했습니다 —
+세션키는 꺼낼 수 없는 형태라 옮길 수 없습니다. **화면이 이 사실을 미리 알려야 합니다.**
 
 ### 채우면 되는 것
 
-- NER 모델·서비스 선택 (경계 그 자체라 우선순위가 높습니다).
-  **[ADR-021](decisions/021-runtime-and-module-shape.md) 이후 제약이 하나 붙었습니다** — Vercel 서버리스 함수에
-  모델을 띄울 수 없어, 자체 호스팅을 택하면 `pii-tokenizer` 만 별도 서비스로 떼야 합니다.
-  인터페이스로 선언해 두므로 나머지 모듈은 영향을 받지 않습니다
+- NER 모델·서비스 선택 (경계 그 자체라 우선순위가 높습니다)
 - Grok 모델명과 단가
 - 마이그레이션 방식 · `.env.example` · 환경 분리 · 시드 데이터 · 애플리케이션 로그
 

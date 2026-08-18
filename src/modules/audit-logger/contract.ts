@@ -3,7 +3,7 @@
  *
  * 정본: spec/backend/08-16-data-model.md §10 · §10.1 · §10.2
  *       spec/common/08-14-pii-boundary.md 「감사」
- * 근거: ADR-021
+ * 근거: ADR-028
  *
  * **서버 전용입니다.** 해시 계산에 node:crypto 를 씁니다.
  */

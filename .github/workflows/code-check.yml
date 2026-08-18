@@ -1,0 +1,43 @@
+name: code-check
+
+# 도메인 모듈의 타입과 테스트를 봅니다.
+# 사람이 손으로 돌리는 명령과 CI 가 같아야 게이트가 문지기가 아니라 안전망이 됩니다.
+#   cd src && npx tsc --noEmit && npm test
+# 근거: RFC-001 「CI가 강제합니다」
+#
+# ⚠️ lint 는 아직 여기 없습니다 — eslint 가 로컬(Windows)에서 응답하지 않아
+#    사람이 돌릴 수 없는 검사를 CI 에만 두지 않았습니다. 원인을 찾으면 추가합니다.
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - ".github/workflows/code-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - ".github/workflows/code-check.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 타입 검사
+        run: npx tsc --noEmit
+
+      - name: 테스트
+        run: npm test

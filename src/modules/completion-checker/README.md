@@ -7,7 +7,7 @@
 | 계약의 정본 | [05-completion-hook.md](../../../spec/backend/08-14-completion-hook.md) |
 | 저장 구조 | [09-data-model.md](../../../spec/backend/08-16-data-model.md) §7 |
 | 응답 형태 | [08-api.md](../../../spec/common/08-14-api.md) §3.8 |
-| 근거 | [ADR-021](../../../decisions/021-runtime-and-module-shape.md) |
+| 근거 | [ADR-028](../../../decisions/028-runtime-and-module-shape.md) |
 
 ## 왜 이 모듈이 있나
 

@@ -96,16 +96,24 @@
 | [018](018-inventory-skill.md) | 저장소를 조회하는 도구를 스킬로 두고, 정본을 복제하지 않는다 | 채택 |
 | [019](019-module-code-sync.md) | 코드 폴더를 모듈 이름에 묶고, 스키마가 바뀌면 마이그레이션을 함께 받는다 | 채택 |
 | [020](020-adr-threshold.md) | ADR은 제품 결정에만 쓰고, 저장소 운영 변경은 RFC 개정으로 끝낸다 | 채택 |
-| [021](021-runtime-and-module-shape.md) | 백엔드를 Next.js 안에 TypeScript로 두고, 모듈은 필요한 것을 인터페이스로 선언한다 | 부분 대체됨(→022) |
+| [021](021-reentry-and-identity.md) | 재진입을 익명 링크 토큰으로 하고, 알림용 이메일만 선택으로 받는다 | 채택 |
 | [022](022-chat-turn-boundaries.md) | 챗 한 턴의 진입과 송출에 이름을 붙이고, 근거 화면은 보류한다 | 채택 |
+| [023](023-frontend-module-names.md) | 브라우저에서 도는 것에 층 C를 만들고 열한 개 이름을 붙인다 | 채택 |
+| [024](024-step-action-and-url.md) | 절차 단계에 「무슨 행동인가」를 담고, 주소를 본문에 쓰지 않는다 | 채택 |
+| [025](025-scheduled-jobs.md) | 주기 실행을 Vercel Cron으로 하고 앱 안에서 돌린다 | 채택 |
+| [026](026-raw-upload-retention.md) | 주민등록번호가 든 원본을 받지 않고, 브라우저에서 가린 사본만 올린다 | 채택 |
+| [027](027-session-key-storage.md) | 세션키를 꺼낼 수 없는 형태로 만들어 브라우저에 가둔다 | 채택 |
+| [028](028-runtime-and-module-shape.md) | 백엔드를 Next.js 안에 TypeScript로 두고, 모듈은 필요한 것을 인터페이스로 선언한다 | 부분 대체됨(→022) |
 
 ## 아직 안 쓴 것
 
 - [x] ~~백엔드 모듈 경계와 역할~~ — [ADR-010](010-case-store.md)·[ADR-012](012-kb-collection.md)·[ADR-013](013-chat-context.md)·[ADR-014](014-module-names.md) 로 나뉘어 결정됨
 - [x] ~~사건 보존 기간~~ — [ADR-010](010-case-store.md)으로 한 층으로 통일하고,
       [ADR-016](016-retention-and-datastore.md)으로 **마지막 활동일부터 180일** 확정 (핸드오프 ①)
-- [ ] 재진입·식별 모델 — `User` 테이블의 존재 여부가 걸립니다 (핸드오프 ②). **아직 미정**
-- [ ] 데스크톱 웹 우선 · 모바일 P1
-- [ ] 기술 스택 확정 (기획서 §9는 예정안) — **언어·런타임은 [ADR-021](021-runtime-and-module-shape.md)로 확정.**
+- [x] ~~재진입·식별 모델~~ — [ADR-021](021-reentry-and-identity.md)로 **익명 링크 토큰 + 알림용 이메일 선택** 확정 (핸드오프 ②).
+      **`User` 테이블은 만들지 않습니다**
+- [x] ~~데스크톱 웹 우선 · 모바일 P1~~ — **반응형**으로 확정. 제출물이 배포 주소라 심사위원이 임의 기기로 엽니다
+      → [서비스 골자](../spec/common/08-17-service-concept.md)
+- [ ] 기술 스택 확정 (기획서 §9는 예정안) — **언어·런타임은 [ADR-028](028-runtime-and-module-shape.md)로 확정.**
       NER 모델·볼트 제품·작업 큐가 남았습니다 → [`ARCHITECTURE.md`](../ARCHITECTURE.md) §10
 - [ ] MVP 범위 컷 — P0/P1 경계를 대회 일정에 맞춰 재확정

@@ -4,7 +4,7 @@
  * 정본: spec/backend/08-14-completion-hook.md (검증 3단계·상태 머신)
  *       spec/backend/08-16-data-model.md §7 (artifact 테이블·레벨 대응)
  *       spec/common/08-14-api.md §3.8 (응답 형태)
- * 근거: ADR-021
+ * 근거: ADR-028
  *
  * **CLAUDE.md 불변 규칙 6을 집행하는 자리입니다** —
  * 완료는 사용자의 체크가 아니라 부산물로 판정합니다.

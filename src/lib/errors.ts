@@ -2,10 +2,10 @@
  * FinAlly 예외 계층.
  *
  * 정본: spec/backend/08-16-errors.md §1
- * 근거: ADR-021 (TypeScript 로 옮긴 결정) · ADR-020 (문턱)
+ * 근거: ADR-028 (TypeScript 로 옮긴 결정) · ADR-020 (문턱)
  *
  * 이 파일은 src/modules/ 밖에 있습니다. 모든 모듈이 쓰는 공용이고,
- * 도메인 판단을 하지 않기 때문입니다 → ADR-021.
+ * 도메인 판단을 하지 않기 때문입니다 → ADR-028.
  *
  * 브라우저에서도 씁니다 — pii-restorer 가 RestoreDeniedError 를 던집니다.
  * 그래서 server-only 표시를 달지 않습니다.

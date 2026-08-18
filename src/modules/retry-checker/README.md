@@ -8,7 +8,7 @@
 | 계약의 정본 | [10-errors.md](../../../spec/backend/08-16-errors.md) §2 · §2.1 |
 | 이름의 정본 | [12-module-names.md](../../../spec/common/08-16-module-names.md) 「층 없음 · 항상」 |
 | 책임의 정본 | [모듈 경계](../../../spec/common/08-16-module-boundaries.md) |
-| 근거 | [ADR-014](../../../decisions/014-module-names.md) · [ADR-021](../../../decisions/021-runtime-and-module-shape.md) |
+| 근거 | [ADR-014](../../../decisions/014-module-names.md) · [ADR-028](../../../decisions/028-runtime-and-module-shape.md) |
 
 ## 왜 층에 안 들어가는가
 

@@ -20,6 +20,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
 MODULE_SRC = os.path.join(REPO, "spec", "common", "08-16-module-names.md")
 SCHEMA_SRC = os.path.join(REPO, "spec", "backend", "08-16-data-model.md")
 ARCH = os.path.join(REPO, "ARCHITECTURE.md")
+README = os.path.join(REPO, "README.md")
 
 RETIRED = {
     "Ingest 서비스": "transcriber",
@@ -37,6 +38,10 @@ NOT_A_COLUMN = re.compile(
     r"^(PRIMARY|FOREIGN|UNIQUE|CHECK|CONSTRAINT|KEY|INDEX|EXCLUDE)\b", re.I)
 COLUMN = re.compile(r"^([a-z_][a-z0-9_]*)\s+([A-Za-z][A-Za-z0-9_]*(?:\([^)]*\))?)(.*)$")
 IN_VALUES = re.compile(r"IN\s*\(([^)]*)\)", re.I)
+
+ERD_BLOCK = re.compile(r"```mermaid\s*\n\s*erDiagram\s*\n(.*?)```", re.S)
+# "a ||--o{ b : 설명" — 이름 둘 사이에 카디널리티 기호만 있는 줄.
+ERD_REL = re.compile(r"^\s*([a-z_][a-z0-9_]*)\s+[|}o{.\-]{4,8}\s+([a-z_][a-z0-9_]*)\s*:")
 
 
 def _link(m):
@@ -234,6 +239,58 @@ def _git(*args):
     return out.stdout if out.returncode == 0 else None
 
 
+def erd_tables(path):
+    """그 문서의 첫 mermaid erDiagram 에 등장하는 테이블 이름."""
+    if not os.path.exists(path):
+        return None
+    try:
+        text = open(path, encoding="utf-8").read()
+    except (OSError, UnicodeDecodeError):
+        return None
+    block = ERD_BLOCK.search(text)
+    if not block:
+        return None
+    names = set()
+    for line in block.group(1).splitlines():
+        hit = ERD_REL.match(line)
+        if hit:
+            names.update(hit.groups())
+    return names
+
+
+def check_erd(tables):
+    """ERD 그림이 DDL 을 전부 담고 있는지.
+
+    그림은 두 곳에 있다 — 스키마 정본 §1 과 최상위 README.
+    표가 늘었는데 그림이 그대로면 여기서 걸린다.
+    """
+    ddl = {t["name"] for t in tables}
+    if not ddl:
+        print("   · DDL 을 못 읽어 건너뜁니다")
+        return 0
+
+    problems = 0
+    for label, path in (("스키마 정본 §1", SCHEMA_SRC), ("README", README)):
+        drawn = erd_tables(path)
+        if drawn is None:
+            problems += 1
+            print("   ✗ %s 에 mermaid erDiagram 이 없습니다" % label)
+            continue
+        missing = sorted(ddl - drawn)
+        stray = sorted(drawn - ddl)
+        if missing:
+            problems += 1
+            print("   ✗ %s 에 안 그려진 표: %s" % (label, ", ".join(missing)))
+        if stray:
+            problems += 1
+            print("   ✗ %s 에 DDL 이 없는 이름: %s" % (label, ", ".join(stray)))
+        if not missing and not stray:
+            print("   ✓ %s — 테이블 %d개 전부" % (label, len(ddl)))
+    if problems:
+        print("     → 표를 더하거나 지웠으면 두 그림을 같이 고칩니다")
+    return problems
+
+
 def check_code(known):
     """코드 폴더가 정본의 모듈 이름을 벗어나지 않는지.
 
@@ -357,10 +414,13 @@ def check(groups, tables, base=None, head=None):
         cols = sum(len(t["columns"]) for t in tables)
         print("   ✓ 테이블 %d개 · 컬럼 %d개" % (len(tables), cols))
 
-    print("\n4) 코드가 정본의 모듈 이름을 벗어나지 않았는지")
+    print("\n4) ERD 그림이 DDL 을 전부 담고 있는지")
+    problems += check_erd(tables)
+
+    print("\n5) 코드가 정본의 모듈 이름을 벗어나지 않았는지")
     problems += check_code(known)
 
-    print("\n5) 스키마가 바뀌었으면 마이그레이션이 함께 왔는지")
+    print("\n6) 스키마가 바뀌었으면 마이그레이션이 함께 왔는지")
     problems += check_migration(base, head)
 
     print("\n%s" % ("문제 없음" if not problems else "확인이 필요한 항목 %d건" % problems))
@@ -370,7 +430,8 @@ def check(groups, tables, base=None, head=None):
 def main():
     ap = argparse.ArgumentParser(
         description="FinAlly 인벤토리 — 모듈과 DB 스키마를 정본에서 읽어 표로 낸다",
-        epilog="층은 번호가 아니라 '언제 도는가'로 부릅니다. --chat 은 층 2 입니다.")
+        epilog="층은 번호가 아니라 '언제 도는가'로 부릅니다. --chat 은 층 2 입니다. "
+               "층 C(--client)만 예외로 '무엇을 책임지는가'로 묶입니다 — ADR-023.")
 
     layer = ap.add_mutually_exclusive_group()
     layer.add_argument("--intake", dest="layer", action="store_const", const="1",
@@ -383,6 +444,8 @@ def main():
                        help="하루 1회 도는 모듈 (층 4)")
     layer.add_argument("--always", dest="layer", action="store_const", const="없음",
                        help="어느 층에도 안 묶인 모듈")
+    layer.add_argument("--client", dest="layer", action="store_const", const="C",
+                       help="브라우저에서 도는 모듈 (층 C)")
     layer.add_argument("--layer", dest="layer", help=argparse.SUPPRESS)  # 층 번호로도 부를 수 있게
 
     ap.add_argument("what", nargs="?", choices=["module", "table"],
@@ -391,7 +454,7 @@ def main():
                     help="table 뒤에 이름을 주면 그 테이블의 컬럼·타입·제약·허용값")
     ap.add_argument("--find", metavar="Q", help="모듈·컬럼에서 검색")
     ap.add_argument("--names", action="store_true", help="모듈 이름만 한 줄씩")
-    ap.add_argument("--check", action="store_true", help="정본·연결구조·코드 동기화 점검")
+    ap.add_argument("--check", action="store_true", help="정본·연결구조·ERD·코드 동기화 점검")
     ap.add_argument("--base", help="비교 기준 커밋 (CI 에서 마이그레이션 동반 검사에 씀)")
     ap.add_argument("--head", help="비교 대상 커밋")
     args = ap.parse_args()

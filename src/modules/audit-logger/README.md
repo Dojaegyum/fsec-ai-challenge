@@ -6,7 +6,7 @@
 | --- | --- |
 | 계약의 정본 | [09-data-model.md](../../../spec/backend/08-16-data-model.md) §10 · §10.1 · §10.2 |
 | 감사 요구 | [04-pii-boundary.md](../../../spec/common/08-14-pii-boundary.md) 「감사」 |
-| 근거 | [ADR-021](../../../decisions/021-runtime-and-module-shape.md) |
+| 근거 | [ADR-028](../../../decisions/028-runtime-and-module-shape.md) |
 
 **서버 전용입니다.** 해시 계산에 `node:crypto`를 씁니다.
 

@@ -3,7 +3,7 @@
  *
  * 정본: spec/backend/08-14-slot-tiering.md · spec/common/08-14-api.md §3.4
  *       spec/backend/08-16-data-model.md §5.1 §5.2
- * 근거: ADR-014 · ADR-015 · ADR-021
+ * 근거: ADR-014 · ADR-015 · ADR-028
  *
  * **이 모듈은 어떤 입력에도 예외를 던지지 않습니다.** 슬롯이 하나도 없어도,
  * 물을 것이 없어도 정상 결과를 돌려줍니다 — 미충족은 정상 경로입니다.

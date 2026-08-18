@@ -3,7 +3,7 @@
  *
  * 정본: spec/common/08-14-api.md §3.9 · §5.4
  *       spec/backend/08-16-chat-context.md §9 · spec/backend/08-16-errors.md §4.1
- * 근거: ADR-022 (이 모듈을 세운 결정) · ADR-021
+ * 근거: ADR-022 (이 모듈을 세운 결정) · ADR-028
  *
  * 책임 셋 → ADR-022 결정 둘.
  *   1. 세 갈래를 한 형태로 씌운다

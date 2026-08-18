@@ -35,6 +35,32 @@
 
 → 상세: [07](../backend/08-14-kb-operations.md)
 
+## 어느 모듈이 맡나
+
+기능은 **모듈 여럿에 걸칩니다.** 특히 화면 쪽은 [ADR-023](../../decisions/023-frontend-module-names.md)으로
+갈렸습니다 → [모듈 명칭](08-16-module-names.md).
+
+| 기능 | 서버 | 브라우저 (층 C) |
+| --- | --- | --- |
+| F-01 사건 생성·업로드 | `case-intake` | `file-sender` · `pii-masker` · `case-opener` |
+| F-02 텍스트화 | `transcriber` | `transcript-viewer` |
+| F-03 PII 스크러버 | `pii-tokenizer` | `pii-masker`(1차) · `key-handler` · `pii-restorer` |
+| F-04 수법 판별 | `case-reader` | `plan-viewer` |
+| F-05 매뉴얼 분기 | `planner` · `kb-finder` | `plan-viewer` |
+| F-05b 슬롯 체커 | `slot-extractor` · `slot-checker` | `chat-handler` |
+| **F-06 실행 보드** | `date-checker` | **`plan-viewer` · `deadline-viewer` · `work-handler`** |
+| F-06b 완수 검증 | `completion-checker` · `reminder-sender` | `work-handler` · `file-sender` |
+| F-07 대응 비서 챗 | `chat-receiver` · `chat-publisher` · `citation-checker` | `chat-handler` |
+| F-08 서류 도우미 | `doc-builder` | **`doc-filler`** (완성은 브라우저에서만) |
+| F-11 KB 운영 | `kb-collector` · `kb-reviewer` | — |
+
+**F-06이 브라우저에서 셋으로 갈린 것이 가장 큰 변화입니다.** 「실행 보드」 한 덩어리였던 것이
+진행 표시(`plan-viewer`) · 기한 표시(`deadline-viewer`) · 작업 패널(`work-handler`)로 나뉘었습니다.
+
+**F-07은 서버에서 다섯을 지납니다** — `chat-receiver`가 순서를 부르고
+(`pii-tokenizer` → `kb-finder` → `prompt-builder` → 모델 1회), `citation-checker`가 갈래를 판정하고,
+`chat-publisher`가 한 형태로 씌워 내보냅니다 → [ADR-022](../../decisions/022-chat-turn-boundaries.md).
+
 ## 구현 시 주의
 
 - **F-04는 근거 스팬 인용이 필수**입니다. 판정만 내고 근거를 못 대는 응답은 스펙 위반입니다.

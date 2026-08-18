@@ -6,7 +6,7 @@
 | --- | --- |
 | 지시문 전문의 정본 | [13-system-prompt.md](../../../spec/backend/08-17-system-prompt.md) |
 | 조립 규칙 | [11-chat-context.md](../../../spec/backend/08-16-chat-context.md) §3 · §4 |
-| 근거 | [ADR-013](../../../decisions/013-chat-context.md) · [ADR-015](../../../decisions/015-citation-and-reask.md) · [ADR-021](../../../decisions/021-runtime-and-module-shape.md) |
+| 근거 | [ADR-013](../../../decisions/013-chat-context.md) · [ADR-015](../../../decisions/015-citation-and-reask.md) · [ADR-028](../../../decisions/028-runtime-and-module-shape.md) |
 
 ## 무엇을 내놓나
 

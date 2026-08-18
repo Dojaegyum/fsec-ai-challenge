@@ -1,6 +1,6 @@
 # ADR-014. 모듈 이름을 영어 한 층으로 정하고 동작을 네 층으로 나눈다
 
-- 상태: **부분 대체됨(→ [ADR-019](019-module-code-sync.md) · [ADR-021](021-runtime-and-module-shape.md))**
+- 상태: **부분 대체됨(→ [ADR-019](019-module-code-sync.md) · [ADR-021](028-runtime-and-module-shape.md))**
 - 날짜: 2026-08-16
 - 결정: @kth9245
 
@@ -8,7 +8,7 @@
 > [ADR-019](019-module-code-sync.md)로 뒤집혔습니다. 도메인 모듈 코드는 `src/modules/{module-name}/`에 두고,
 > 폴더 이름이 정본의 모듈 이름과 같아야 합니다. 이름이 코드에 닿지 않으면 용어집이 장식이 되기 때문입니다.
 >
-> **2026-08-17 [ADR-021](021-runtime-and-module-shape.md)로 이름 목록에 `pii-masker` 가 더해졌습니다.**
+> **2026-08-17 [ADR-021](028-runtime-and-module-shape.md)로 이름 목록에 `pii-masker` 가 더해졌습니다.**
 > [모듈 경계](../spec/common/08-16-module-boundaries.md)가 클라이언트 책임으로 적어둔 「1차 PII 마스킹」에
 > 이름이 없어 폴더를 만들 수 없었습니다. 같은 ADR이 **송출 직전 잔여 PII 검사를 `pii-tokenizer` 의 책임**으로
 > 명시했습니다 — 새 이름을 만들지 않았습니다. 이 ADR의 「재검토 트리거」가 예고한 *"구현에 착수해

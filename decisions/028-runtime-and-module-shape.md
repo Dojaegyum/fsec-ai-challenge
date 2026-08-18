@@ -1,4 +1,4 @@
-# ADR-021. 백엔드를 Next.js 안에 TypeScript로 두고, 모듈은 필요한 것을 인터페이스로 선언한다
+# ADR-028. 백엔드를 Next.js 안에 TypeScript로 두고, 모듈은 필요한 것을 인터페이스로 선언한다
 
 - 상태: **부분 대체됨(→ [ADR-022](022-chat-turn-boundaries.md))**
 - 날짜: 2026-08-17

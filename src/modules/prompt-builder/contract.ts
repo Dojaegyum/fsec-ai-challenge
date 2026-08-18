@@ -3,7 +3,7 @@
  *
  * 정본: spec/backend/08-17-system-prompt.md (지시문 전문·블록 순서)
  *       spec/backend/08-16-chat-context.md §3 §4 (조립 규칙·격리)
- * 근거: ADR-013 · ADR-015 · ADR-021
+ * 근거: ADR-013 · ADR-015 · ADR-028
  *
  * 이 모듈은 문자열 두 개를 만들 뿐입니다. 조회도 모델 호출도 토큰화도 하지 않습니다.
  */

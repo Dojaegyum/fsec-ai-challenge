@@ -7,7 +7,7 @@
 | 계약의 정본 | [11-chat-context.md](../../../spec/backend/08-16-chat-context.md) §6.1 · §6.2 · §6.3 |
 | 에러 처리 | [10-errors.md](../../../spec/backend/08-16-errors.md) §4.1 · §4.2 |
 | 이름의 정본 | [12-module-names.md](../../../spec/common/08-16-module-names.md) 「층 2」 |
-| 근거 | [ADR-015](../../../decisions/015-citation-and-reask.md) · [ADR-021](../../../decisions/021-runtime-and-module-shape.md) |
+| 근거 | [ADR-015](../../../decisions/015-citation-and-reask.md) · [ADR-028](../../../decisions/028-runtime-and-module-shape.md) |
 
 **이 모듈이 `CLAUDE.md` 불변 규칙 1(LLM은 절차를 창작하지 않는다)을 실제로 집행하는 자리입니다.**
 

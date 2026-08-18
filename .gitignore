@@ -14,6 +14,11 @@ Desktop.ini
 *.bak
 ~$*
 
+# 참고용으로 들여온 외부·사내 자료 — 저장소에 올리지 않습니다.
+# 구조만 참고하고, 내용은 이 저장소 밖에 둡니다.
+manual_ex.json
+*_ex.json
+
 # 의존성·빌드 산출물 (src/.gitignore와 중복이지만 안전망)
 node_modules/
 .next/

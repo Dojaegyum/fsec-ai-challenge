@@ -3,7 +3,7 @@
  *
  * 정본: spec/backend/08-14-completion-hook.md · spec/backend/08-16-data-model.md §7
  *       spec/common/08-14-api.md §3.8
- * 근거: ADR-021
+ * 근거: ADR-028
  *
  * **CLAUDE.md 불변 규칙 6** — 완료는 사용자의 체크가 아니라 부산물로 판정한다.
  * 체크리스트는 "체크는 됐는데 행위는 안 된 상태"를 막지 못하고, 은행·경찰 시스템 API 가

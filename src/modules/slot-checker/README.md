@@ -7,7 +7,7 @@
 | 계약의 정본 | [02-slot-tiering.md](../../../spec/backend/08-14-slot-tiering.md) |
 | 질문 구조 | [08-api.md](../../../spec/common/08-14-api.md) §3.4 — **`next_question` 의 정의는 그 절 하나입니다** |
 | 슬롯 이름·상태 | [09-data-model.md](../../../spec/backend/08-16-data-model.md) §5.1 · §5.2 |
-| 근거 | [ADR-014](../../../decisions/014-module-names.md) · [ADR-015](../../../decisions/015-citation-and-reask.md) · [ADR-021](../../../decisions/021-runtime-and-module-shape.md) |
+| 근거 | [ADR-014](../../../decisions/014-module-names.md) · [ADR-015](../../../decisions/015-citation-and-reask.md) · [ADR-028](../../../decisions/028-runtime-and-module-shape.md) |
 
 ## 이 모듈은 사용자를 막지 않습니다
 
