@@ -239,8 +239,12 @@ ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지�
 
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
-| `pii-masker` | 나가기 전 정규식으로 계좌·주민번호·카드·전화를 가린다 | 브라우저 | [04](08-14-pii-boundary.md) |
+| `pii-masker` | 나가기 전 계좌·주민번호·카드·전화를 가린다. **텍스트만이 아니라 올릴 파일도** | 브라우저 | [04](08-14-pii-boundary.md) · [ADR-026](../../decisions/026-raw-upload-retention.md) |
 | `key-handler` | 복호화 키를 세션에 보관하고 볼트 암호문을 복호한다 | 브라우저 | [ADR-009](../../decisions/009-restore-mapping-location.md) |
+
+**주민등록번호가 든 파일은 아예 올리지 않습니다** → [ADR-026](../../decisions/026-raw-upload-retention.md).
+가리지 못하면 업로드를 막고 사용자에게 알립니다 — **막는 것이 아니라 갈림길을 주는 것**이라,
+파일 하나를 빼도 T0는 그대로 돕니다.
 
 **`pii-masker`와 `pii-restorer`는 방향이 반대입니다.** 나갈 때 가리고, 들어올 때 되돌립니다.
 서버의 `pii-tokenizer`가 2차이고 이쪽이 1차입니다 — **1차를 건너뛴 전송 경로를 만들면 규칙 위반입니다.**
