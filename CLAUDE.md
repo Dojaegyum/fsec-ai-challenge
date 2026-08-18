@@ -34,6 +34,7 @@
 | **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-001](rfc/001-repo-structure.md) |
 | 왜 그렇게 정했나 | `decisions/` | 판단 근거의 이력(ADR). 과거형, 고치지 않음 |
 | 서비스 기획 전체 그림 | `assets/artifacts/plans/08-13-service-plan.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
+| **색·크기·상태를 눈으로** | `assets/artifacts/plans/08-18-design-system.html` | 팔레트·타입 사다리·대비 실측. 값의 정본은 `src/app/globals.css` |
 | 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
 | **제도·경쟁·법적 경계의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |

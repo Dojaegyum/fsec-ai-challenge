@@ -92,6 +92,9 @@
       ([research/08](../research/08-업로드-법적요건.md) · [ADR-026](../../decisions/026-raw-upload-retention.md)) ← **지금 여기**
 - [x] **화면 설계 재작성** — `S-01`·`S-02` 폐기, 화면 일곱 `S-04`~`S-10` + `S-03` 백신
       ([08-14-screens.md](../../spec/frontend/08-14-screens.md)). 경로 셋을 세 국면이 나눠 씁니다
+- [x] **디자인시스템 확립** — 다크 전용 확정, 대비 AA 바닥 + 기한·금액 AAA, 타입 사다리·다섯 상태·히트 영역
+      ([design-system/](../../spec/frontend/design-system/) · [아티팩트](../../assets/artifacts/plans/08-18-design-system.html))
+- [ ] **Pretendard `.woff2` 번들** — 토큰은 섰으나 파일이 없어 기기마다 글꼴이 달라집니다. 배포 전 필수
 - [ ] 문진 선택지 3축 확정 — 제안까지 됨, `plan_step` 유형 필드가 걸림
 - [x] 리마인더·파기 실행 모듈 — `reminder-sender`·`case-purger`, **Vercel Cron이 앱 라우트를 깨움** ([ADR-025](../../decisions/025-scheduled-jobs.md))
 - [x] 워크스페이스 유형·주소를 계약에 담기 — `body.action` 일곱 + `url` ([ADR-024](../../decisions/024-step-action-and-url.md))

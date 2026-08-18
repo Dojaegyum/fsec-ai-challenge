@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-korean);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-korean);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,6 +46,28 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* 타이포 사다리 — 고령 사용자 기준. 13px 미만을 쓰지 않습니다 */
+  --text-xs: 0.8125rem;        /* 13px — 라벨·캡션. 읽지 않아도 되는 것만 */
+  --text-xs--line-height: 1.6;
+  --text-sm: 0.9375rem;        /* 15px — 보조 설명 */
+  --text-sm--line-height: 1.7;
+  --text-base: 1.0625rem;      /* 17px — 본문 최소 크기 */
+  --text-base--line-height: 1.75;
+  --text-lg: 1.25rem;          /* 20px — 강조 문장·단계 제목·기한 숫자 */
+  --text-lg--line-height: 1.6;
+  --text-xl: 1.5rem;           /* 24px — 화면 제목 */
+  --text-xl--line-height: 1.45;
+  --text-2xl: 1.875rem;        /* 30px */
+  --text-2xl--line-height: 1.35;
+  --text-3xl: 2.5rem;          /* 40px — 랜딩 히어로 */
+  --text-3xl--line-height: 1.25;
+
+  /* 폭 — 브레이크포인트는 md(768px) 하나만 씁니다 */
+  --container-narrow: 45rem;   /* 720px — 좁은 폭 상한 */
+  --container-wide: 70rem;     /* 1120px — 넓은 폭 상한 */
+  --container-prose: 54ch;     /* 본문 측정 폭. 한글은 ch 가 라틴 기준이라 좁게 잡힙니다 */
+  --container-title: 26ch;     /* 제목 측정 폭 */
 
   /* FinAlly 도메인 토큰 — 뜻은 spec/frontend/design-system/08-16-tokens.md */
   --color-ground: var(--ground);
@@ -105,6 +127,13 @@
      진입 플로우 초안(다크)에서 확정한 값입니다. 라이트 모드는 아직
      정해지지 않아 .dark 와 같은 값을 씁니다 — 갈라야 할 때 .dark 를 채우세요. */
 
+  /* 한국어 폰트 — Pretendard(SIL OFL 1.1). 번들 전까지 시스템 폴백으로 돕니다 */
+  --font-korean: "Pretendard Variable", Pretendard, var(--font-geist-sans),
+                 system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+
+  /* 터치·클릭 목표 최소 크기. 칩이 작아 보여도 히트 영역은 이만큼 */
+  --size-touch: 2.75rem;   /* 44px */
+
   /* 표면 사다리 — 어디에 놓인 것인가 */
   --ground: oklch(0 0 0);
   --stage: oklch(0.16 0.004 285.9);
@@ -116,13 +145,13 @@
   --ink-1: oklch(1 0 89.9);
   --ink-2: oklch(0.845 0.009 271.3);
   --ink-3: oklch(0.714 0.019 261.3);
-  --ink-4: oklch(0.424 0 89.9);      /* 대비 2.03:1 — 읽어야 하는 문장에 쓰지 마세요 */
+  --ink-4: oklch(0.65 0 89.9);       /* 최악 배경(칩 on surface) 4.67:1 — AA 통과 */
   --icon: oklch(0.609 0.008 260.7);
 
   /* 상태 — 뜻이 실린 색 */
   --pii: oklch(0.697 0.16 258.2);            /* 가려진 개인정보 = 서버로 안 감 */
   --pii-bg: oklch(0.231 0.047 259.1);
-  --deadline-urgent: oklch(0.761 0.117 70.9); /* 법정 기한 임박. 빨강을 쓰지 않습니다 */
+  --deadline-urgent: oklch(0.77 0.117 70.9);  /* 기한 임박. 최악 배경 7.16:1 — AAA. 빨강을 쓰지 않습니다 */
   --horizon: oklch(0.811 0.14 66.9);          /* 장식 전용 — 의미를 싣지 마세요 */
 }
 
@@ -169,5 +198,36 @@
   }
   html {
     @apply font-sans;
+    /* 한국어 어절이 중간에서 쪼개지지 않게. 없으면 "동/행합니다"가 됩니다 */
+    word-break: keep-all;
+    /* 긴 URL·계좌번호가 레이아웃을 밀지 않게 */
+    overflow-wrap: break-word;
+  }
+
+  /* 제목은 줄 길이를 고르게 */
+  h1, h2, h3 { text-wrap: balance; }
+
+  /* 기한·금액 숫자. 자릿수가 흔들리면 오독하고, 여기서 오독은 곧 권리 상실입니다 */
+  [data-numeric] { font-variant-numeric: tabular-nums; }
+
+  /* 히트 영역 — 칩이 시각적으로 작아도 누를 수 있는 넓이는 확보합니다 */
+  [data-hit] { position: relative; }
+  [data-hit]::after {
+    content: "";
+    position: absolute;
+    inset: 50% 0 0 50%;
+    min-width: var(--size-touch);
+    min-height: var(--size-touch);
+    translate: -50% -50%;
+  }
+
+  /* 전정 장애가 있는 사용자에게 회전하는 테두리는 증상을 유발합니다. 선택이 아닙니다 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

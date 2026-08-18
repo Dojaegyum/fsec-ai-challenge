@@ -69,7 +69,7 @@ spec/backend/08-14-channel-matrix.md
 | --- | --- |
 | [08-14-screens.md](frontend/08-14-screens.md) | **화면 일곱** `S-04`~`S-10` + `S-03` 백신. 경로 셋을 세 국면이 나눠 씁니다 |
 | [08-17-workspace-panels.md](frontend/08-17-workspace-panels.md) | **워크스페이스 패널 `WS-*` 7유형** — 단계를 실제로 수행하는 자리와, 어느 패널을 열지 정하는 시그널 |
-| [design-system/](frontend/design-system/) | 디자인 계약 — 토큰 의미론·컴포넌트 규칙·접근성 기준. **뼈대만** |
+| [design-system/](frontend/design-system/) | 디자인 계약 — 토큰 의미론·컴포넌트 규칙·접근성 기준. **확정** (2026-08-18) |
 
 ## 개정해야 할 것 (최종 후보 보드 기준)
 
