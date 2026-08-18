@@ -37,6 +37,40 @@
 | [ADR-026](../../decisions/026-raw-upload-retention.md) 원본 업로드 경계 | 서버에 닿는 파일은 **주민등록번호가 이미 가려진 사본**입니다. 스키마는 그대로 |
 | [RFC-002](../../rfc/002-kb-authoring.md) KB 원본은 파일 | **`kb_entry`·`org`에 직접 INSERT 하지 않습니다.** `src/kb/`에서 적재합니다 |
 
+## 1-A. 이미 만들어진 모듈 — 2026-08-18 기준 열 개
+
+> @kth9245 의 초기 설계가 들어왔습니다. 이 절이 그 결과입니다.
+
+| 모듈 | 층 | 만든 이 |
+| --- | --- | --- |
+| `pii-masker` · `pii-restorer` · `key-handler` | C | @Dojaegyum |
+| `retry-checker` · `audit-logger` | 없음 | @kth9245 |
+| `citation-checker` · `prompt-builder` · `chat-publisher` | 2 | @kth9245 |
+| `slot-checker` · `completion-checker` | 3 | @kth9245 |
+
+**@kth9245 쪽 일곱은 아래 순서의 ④⑤ 에 해당합니다.** 순서를 거슬러 만든 셈인데,
+공통점이 **바깥 것 없이 판단만 하는 모듈**이라 KB·저장소·LLM 없이 설 수 있었기 때문입니다.
+인용할 KB 가 없어 **아직 쓰이지는 않는 상태로 서 있습니다.**
+
+시험 192개 · `src/lib/errors.ts` 에 예외 17개 · `src/lib/chat-turn.test.ts` 가 층 2 한 턴을
+실제로 이어 봅니다.
+
+**함께 선 정본** — [13-system-prompt.md](../../spec/backend/08-17-system-prompt.md)
+(시스템 지시문 전문. `grok-4.5` 로 형식 준수·인젝션 방어를 실측했습니다) ·
+[ADR-028](../../decisions/028-runtime-and-module-shape.md)(언어·물리 배치·모듈 모양).
+
+### 정본 두 곳이 어긋나 있습니다
+
+**챗 흐름을 조립할 때 반드시 정해져야 합니다.**
+
+| 어디 | 「슬롯을 다 채웠는데도 근거를 못 찾음」의 처리 |
+| --- | --- |
+| [11-chat-context.md](../../spec/backend/08-16-chat-context.md) §6.3 | `KB_CITATION_MISSING` (502 에러) |
+| [14-errors.md](../../spec/backend/08-16-errors.md) §9 | 200 + 1332 안내 |
+
+`citation-checker` 는 이 판단을 하지 않아(그 갈래는 `slot-checker` 결과를 받은 뒤에 갈립니다)
+당장 막히지는 않습니다.
+
 ## 2. 막혀 있는 것 — 무엇이 풀어야 하나
 
 **막힌 것과 안 막힌 것을 가르는 게 이 문서의 요점입니다.** 아래 다섯만 대기 중이고, 나머지는 지금 갑니다.
