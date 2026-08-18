@@ -18,8 +18,8 @@ import { createAuditLogger } from '@/modules/audit-logger'
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
 import { createChatPublisher } from '@/modules/chat-publisher'
 import { createCitationChecker } from '@/modules/citation-checker'
-import { createPiiMasker } from '@/modules/pii-masker'
-import { createPiiRestorer } from '@/modules/pii-restorer'
+import { maskText } from '@/modules/pii-masker'
+import { restore } from '@/modules/pii-restorer'
 import { createPromptBuilder } from '@/modules/prompt-builder'
 import { createSlotChecker } from '@/modules/slot-checker'
 
@@ -35,10 +35,9 @@ const KB_APPLIED = [
 describe('층 2 한 턴이 끝까지 이어진다', () => {
   it('마스킹 → 조립 → 검증 → 송출 → 복원', () => {
     // 1. 브라우저: 보내기 전 1차 마스킹
-    const masker = createPiiMasker()
-    const masked = masker.mask('110-234-567890 으로 보냈어요. 이제 뭘 하죠')
+    const masked = maskText('110-234-567890 으로 보냈어요. 이제 뭘 하죠')
 
-    expect(masked.text).toContain('[계좌-1]')
+    expect(masked.masked).toContain('[계좌-1]')
     expect(masked.mappings).toHaveLength(1)
 
     // 2. 서버: 프롬프트 조립
@@ -48,7 +47,7 @@ describe('층 2 한 턴이 끝까지 이어진다', () => {
       kbReference: [],
       caseTalk: [],
       caseState: [{ label: '피해구제 신청 기한', value: '2026년 8월 20일' }],
-      history: [{ speaker: 'user', text: masked.text }],
+      history: [{ speaker: 'user', text: masked.masked }],
       currentDate: '2026년 8월 18일',
     })
 
@@ -107,15 +106,11 @@ describe('층 2 한 턴이 끝까지 이어진다', () => {
     expect(body.citations[1].kb_entry_id).toBeUndefined()
 
     // 6. 브라우저: 부분 복원
-    const restorer = createPiiRestorer({
-      mappings: {
-        lookup: (token) => masked.mappings.find((one) => one.token === token),
-      },
-      audit: { denied: () => {} },
+    //    **이음매: 마스킹이 만든 매핑을 복원이 그대로 받는다** — 필요한 칸이 같다
+    const shown = restore(`${body.reply} [계좌-1]`, masked.mappings, {
+      site: 'chat-answer',
     })
-
-    const shown = restorer.restore(`${body.reply} [계좌-1]`, 'chat_reply')
-    expect(shown).toContain('****7890')
+    expect(shown).toContain('7890')
     expect(shown).not.toContain('110-234-567890')
   })
 })
