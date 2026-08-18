@@ -20,8 +20,8 @@ import {
   StoreError,
 } from '@/lib/errors'
 
-import type { RandomSource } from './contract'
-import { createRetryChecker } from './index'
+import type { RandomSource } from './types'
+import { createRetryChecker } from './retry'
 
 /** next() 가 0.5 면 흔들림 계수가 정확히 1이 되어 표의 값이 그대로 나온다 */
 const noJitter: RandomSource = { next: () => 0.5 }

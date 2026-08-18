@@ -7,8 +7,9 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { PromptInput } from './contract'
-import { createPromptBuilder, SYSTEM_PROMPT } from './index'
+import type { PromptInput } from './types'
+import { createPromptBuilder } from './build'
+import { SYSTEM_PROMPT } from './system-prompt'
 
 const builder = createPromptBuilder()
 

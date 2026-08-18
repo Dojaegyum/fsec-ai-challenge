@@ -10,8 +10,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { ReceiptNumberFormat } from './contract'
-import { createCompletionChecker } from './index'
+import type { ReceiptNumberFormat } from './types'
+import { createCompletionChecker } from './verify'
 
 /** 형식을 아는 기관 — 2026-1234567 꼴만 받는다 */
 const knownFormat: ReceiptNumberFormat = {

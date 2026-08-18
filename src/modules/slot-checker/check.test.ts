@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { QuestionSource, SlotKey, SlotSnapshot } from './contract'
-import { createSlotChecker } from './index'
+import type { QuestionSource, SlotKey, SlotSnapshot } from './types'
+import { createSlotChecker } from './check'
 
 /** 문진 대상 다섯에만 문구를 주는 최소 구현 */
 const questions: QuestionSource = {

@@ -11,8 +11,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { PiiBoundaryError } from '@/lib/errors'
 
-import type { AuditRecord, AuditStore } from './contract'
-import { createAuditLogger, hashOf, verifyChain } from './index'
+import type { AuditRecord, AuditStore } from './types'
+import { createAuditLogger, hashOf, verifyChain } from './audit'
 
 /** 메모리에 쌓는 시험용 저장소 */
 function memoryStore(): AuditStore & { rows: AuditRecord[] } {

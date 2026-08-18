@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest'
 
 import { EgressBlockedError } from '@/lib/errors'
 
-import type { NextQuestion, ResidualPiiScanner } from './contract'
-import { createChatPublisher } from './index'
+import type { NextQuestion, ResidualPiiScanner } from './types'
+import { createChatPublisher } from './publish'
 
 /** 아무것도 못 찾는 검사기 — 정상 경로용 */
 const clean: ResidualPiiScanner = { scan: () => ({}) }

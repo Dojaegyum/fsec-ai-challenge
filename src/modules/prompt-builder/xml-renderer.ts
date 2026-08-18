@@ -7,7 +7,7 @@
  * 다른 형식이 나으면 **이 파일만 갈아끼웁니다** — 블록 순서와 참조 번호는 index.ts 에 있습니다.
  */
 
-import type { BlockRenderer, PromptBlock, PromptItem } from './contract'
+import type { BlockRenderer, PromptBlock, PromptItem } from './types'
 
 export function createXmlRenderer(): BlockRenderer {
   return {

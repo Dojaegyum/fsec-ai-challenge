@@ -3,6 +3,8 @@
  *
  * 정본: spec/backend/08-16-errors.md §2 · §2.1
  * 이름: spec/common/08-16-module-names.md 「층 없음 · 항상」
+ *
+ * 절대 하지 않는 것: 예외 종류로 분기하기 · 스스로 기다리기 · 대기 값을 여기서 바꾸기
  */
 
 import type { AppError } from '@/lib/errors'

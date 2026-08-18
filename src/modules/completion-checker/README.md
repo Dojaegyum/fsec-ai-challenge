@@ -93,3 +93,11 @@ const verdict = checker.verify({
 })
 // { verifyLevel: 'L1', verifyResult: 'passed', stepState: 'done_verified' }
 ```
+
+## 판단이 필요했던 자리
+
+| 무엇 | 어떻게 | 왜 |
+| --- | --- | --- |
+| **형식을 모를 때** | **통과시키지 않는다** | 모른다고 통과시키면 아무 숫자나 완료가 됩니다. `format_unknown` 으로 「틀림」과 구분해 둡니다 |
+| **L1 실패** | 단계는 `in_progress`, 다음 길을 함께 | 막다른 길을 만들면 패닉 상태의 사용자가 이탈합니다 |
+| **L3 결과값** | `not_applicable` (실패 아님) | 검증할 것이 없었다는 뜻입니다. 사용자는 할 수 있는 것을 다 했습니다 |

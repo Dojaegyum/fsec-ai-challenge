@@ -7,8 +7,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { CitationInput } from './contract'
-import { createCitationChecker } from './index'
+import type { CitationInput } from './types'
+import { createCitationChecker } from './check'
 
 const checker = createCitationChecker()
 
