@@ -11,17 +11,21 @@
 
 **이 모듈이 `CLAUDE.md` 불변 규칙 1(LLM은 절차를 창작하지 않는다)을 실제로 집행하는 자리입니다.**
 
-## 확인하는 것 넷
+## 확인하는 것 셋
 
 | # | 확인 | 어기면 |
 | --- | --- | --- |
 | 1 | `ref` 가 이번 턴에 발급한 번호인가 | `unknown_ref` — 지어낸 참조 |
-| 2 | `kb-` 항목의 식별자·버전이 발급한 값과 같은가 | `citation_swapped` — 인용 바꿔치기 |
-| 3 | 각 항목의 `why` 가 비어 있지 않은가 | `why_empty` — 형식 위반 |
-| 4 | `insufficient` 가 `true` 인가 | 되묻기로 (아래) |
+| 2 | 각 항목의 `why` 가 비어 있지 않은가 | `why_empty` — 형식 위반 |
+| 3 | `insufficient` 가 `true` 인가 | 되묻기로 (아래) |
 
-**4번을 가장 먼저 봅니다.** 모델이 근거 없음을 밝혔다면 형식을 따질 일이 아니라 되묻기로 가야 합니다 —
+**3번을 가장 먼저 봅니다.** 모델이 근거 없음을 밝혔다면 형식을 따질 일이 아니라 되묻기로 가야 합니다 —
 같은 프롬프트로 다시 불러도 같은 답이 옵니다.
+
+> **2026-08-18 「인용 바꿔치기」 검사가 사라졌습니다.** 모델이 `kb_entry_id`·`kb_version` 을
+> 아예 받지 않게 되어(→ [11-chat-context.md](../../../spec/backend/08-16-chat-context.md) §5)
+> **바꿔칠 대상이 없어졌습니다.** 검사로 잡던 것을 구조로 막은 것입니다.
+> 서버가 `ref` 로 그 값들을 찾아 채웁니다.
 
 ## 판정 넷 — 어느 갈래로도 에러가 나가지 않는 것이 둘입니다
 
@@ -58,13 +62,6 @@
 뒤쪽에서 가장 위험한 것은 날짜인데, **그건 이 모듈이 아니라 프롬프트 조립이 막습니다.**
 날짜는 서버가 계산해 넣고 모델은 계산하지 않습니다 → §3.3 · `CLAUDE.md` 불변 규칙 7.
 
-## `kb-` 항목을 무엇으로 가리나
-
-**`ref` 의 접두 문자열이 아니라 발급 정보로 가릅니다.** 서버가 발급할 때 `kbEntryId` 를 붙였으면
-절차 항목입니다. 모델이 써 보낸 문자열보다 서버가 붙인 사실이 믿을 만하기 때문입니다.
-
-사건 정보(`case-`)와 전사(`t-`)에는 식별자 검사를 걸지 않습니다 — 지식 베이스 항목이 아닙니다 → §5.
-
 ## 쓰는 법
 
 ```ts
@@ -74,7 +71,7 @@ const citationChecker = createCitationChecker()
 
 const outcome = citationChecker.check({
   reply: { insufficient: modelReply.insufficient, citations: modelReply.citations },
-  issued: refsIssuedThisTurn,   // prompt-builder 가 붙인 번호 전부
+  issued: refsIssuedThisTurn,   // prompt-builder 가 붙인 번호 전부 (문자열 배열)
   kbResultEmpty: applied.length === 0 && reference.length === 0,
 })
 

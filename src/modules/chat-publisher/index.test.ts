@@ -132,7 +132,8 @@ describe('판단 근거는 응답에 실릴 수 없다', () => {
 
 describe('잔여 개인정보가 있으면 내보내지 않는다', () => {
   const dirty: ResidualPiiScanner = {
-    scan: (text) => (text.includes('900101-1234567') ? { resident_id: 1 } : {}),
+    scan: (text): Record<string, number> =>
+      text.includes('900101-1234567') ? { resident_id: 1 } : {},
   }
   const guarded = createChatPublisher({ residualPii: dirty })
 

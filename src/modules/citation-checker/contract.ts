@@ -9,30 +9,14 @@
  */
 
 /**
- * 서버가 이번 턴에 발급한 참조 번호 하나.
+ * 모델이 낸 인용 하나.
  *
- * 접두로 무엇인지 갈린다 → §3.4
- *   kb-    절차 항목 (프롬프트 블록 2·3)
- *   case-  사건 정보 — 슬롯·단계·기한·부산물 (블록 5)
- *   t-     전사 한 줄 (블록 4)
+ * **모델이 쓰는 것은 ref 와 why 뿐이다** → 08-16-chat-context.md §5.
+ * label·kb_entry_id·kb_version 은 서버가 ref 로 찾아 채우므로 모델에게 요구하지 않는다.
  */
-export interface IssuedRef {
-  readonly ref: string
-
-  /**
-   * kb- 항목에만 있다. 사건 정보와 전사는 지식 베이스 항목이 아니다 → §5
-   */
-  readonly kbEntryId?: string
-  readonly kbVersion?: string
-}
-
-/** 모델이 낸 인용 하나. why·reply·insufficient 만 모델이 새로 쓴다 → §5 */
 export interface ModelCitation {
   readonly ref?: string
-  readonly label?: string
   readonly why?: string
-  readonly kbEntryId?: string
-  readonly kbVersion?: string
 }
 
 /** 검증 대상이 되는 모델 응답의 부분 */
@@ -45,8 +29,15 @@ export interface ModelReply {
 export interface CitationInput {
   readonly reply: ModelReply
 
-  /** 이번 턴에 서버가 프롬프트에 넣으며 붙인 번호 전부 */
-  readonly issued: readonly IssuedRef[]
+  /**
+   * 이번 턴에 서버가 프롬프트에 넣으며 붙인 번호 전부.
+   *
+   * 접두로 무엇인지 갈린다 → §3.4
+   *   kb-    절차 항목
+   *   case-  사건 정보 — 슬롯·단계·기한·부산물
+   *   t-     사건 대화 한 줄
+   */
+  readonly issued: readonly string[]
 
   /**
    * KB 조회 결과가 0건이었는가.
@@ -61,8 +52,6 @@ export interface CitationInput {
 export type Violation =
   /** 이번 턴에 발급하지 않은 번호를 썼다 — 지어낸 참조 */
   | { readonly rule: 'unknown_ref'; readonly ref: string }
-  /** kb- 항목의 kb_entry_id·kb_version 이 발급한 값과 다르다 — 인용 바꿔치기 */
-  | { readonly rule: 'citation_swapped'; readonly ref: string }
   /** why 가 비어 있다 — 형식 위반 */
   | { readonly rule: 'why_empty'; readonly ref: string }
 

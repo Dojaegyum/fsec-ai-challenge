@@ -7,18 +7,13 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { CitationInput, IssuedRef } from './contract'
+import type { CitationInput } from './contract'
 import { createCitationChecker } from './index'
 
 const checker = createCitationChecker()
 
-/** 이번 턴에 서버가 붙인 번호 — 절차 둘, 사건 정보 하나, 전사 한 줄 */
-const ISSUED: readonly IssuedRef[] = [
-  { ref: 'kb-1', kbEntryId: 'bank-freeze-request', kbVersion: '2026.08.1' },
-  { ref: 'kb-2', kbEntryId: 'relief-application', kbVersion: '2026.08.1' },
-  { ref: 'case-3' },
-  { ref: 't-15' },
-]
+/** 이번 턴에 서버가 붙인 번호 — 절차 둘, 사건 정보 하나, 사건 대화 한 줄 */
+const ISSUED: readonly string[] = ['kb-1', 'kb-2', 'case-3', 't-15']
 
 function input(over: Partial<CitationInput> = {}): CitationInput {
   return {
@@ -33,9 +28,7 @@ describe('insufficient 는 에러가 아니라 되묻기다', () => {
   it('조회는 됐는데 근거를 못 찾으면 슬롯 질문으로 넘긴다', () => {
     // §6.3 — 사건 정보가 부족하다는 신호이지 시스템 실패가 아니다
     expect(
-      checker.check(
-        input({ reply: { insufficient: true, citations: [] } }),
-      ),
+      checker.check(input({ reply: { insufficient: true, citations: [] } })),
     ).toEqual({ kind: 'ask_slot' })
   })
 
@@ -76,7 +69,7 @@ describe('인용이 비어 있는 것 자체는 위반이 아니다', () => {
     // 0건이면 프롬프트에 kb- 항목이 없으므로, 모델이 절차를 지어내
     // kb- 를 쓰면 unknown_ref 로 걸린다. 그 방어로 충분하다 → §6.4
     expect(
-      checker.check(input({ kbResultEmpty: true, issued: [{ ref: 'case-3' }] })),
+      checker.check(input({ kbResultEmpty: true, issued: ['case-3'] })),
     ).toEqual({ kind: 'pass' })
   })
 })
@@ -119,93 +112,17 @@ describe('1. 발급하지 않은 번호는 지어낸 참조다', () => {
           reply: {
             insufficient: false,
             citations: [
-              {
-                ref: 'kb-1',
-                kbEntryId: 'bank-freeze-request',
-                kbVersion: '2026.08.1',
-                why: '지급정지 요청처를 안내하는 데 썼습니다',
-              },
-              {
-                ref: 'kb-2',
-                kbEntryId: 'relief-application',
-                kbVersion: '2026.08.1',
-                why: '다음 단계가 신청서라고 안내하는 데 썼습니다',
-              },
+              { ref: 'kb-1', why: '지급정지 요청처를 안내하는 데 썼습니다' },
+              { ref: 'kb-2', why: '다음 단계가 신청서라고 안내하는 데 썼습니다' },
             ],
           },
         }),
       ),
     ).toEqual({ kind: 'pass' })
   })
-})
 
-describe('2. kb- 항목의 식별자 바꿔치기를 잡는다', () => {
-  it('kb_entry_id 가 발급한 값과 다르면 걸린다', () => {
-    expect(
-      checker.check(
-        input({
-          reply: {
-            insufficient: false,
-            citations: [
-              {
-                ref: 'kb-1',
-                kbEntryId: 'easypay-freeze',
-                kbVersion: '2026.08.1',
-                why: '썼습니다',
-              },
-            ],
-          },
-        }),
-      ),
-    ).toEqual({
-      kind: 'retry',
-      violations: [{ rule: 'citation_swapped', ref: 'kb-1' }],
-    })
-  })
-
-  it('kb_version 이 다르면 걸린다', () => {
-    // 제도가 바뀐 뒤에는 같은 조회가 다른 답을 낸다 → 버전이 근거의 일부다
-    expect(
-      checker.check(
-        input({
-          reply: {
-            insufficient: false,
-            citations: [
-              {
-                ref: 'kb-1',
-                kbEntryId: 'bank-freeze-request',
-                kbVersion: '2026.07.1',
-                why: '썼습니다',
-              },
-            ],
-          },
-        }),
-      ),
-    ).toEqual({
-      kind: 'retry',
-      violations: [{ rule: 'citation_swapped', ref: 'kb-1' }],
-    })
-  })
-
-  it('kb- 항목인데 식별자를 아예 안 붙이면 걸린다', () => {
-    expect(
-      checker.check(
-        input({
-          reply: {
-            insufficient: false,
-            citations: [{ ref: 'kb-1', why: '썼습니다' }],
-          },
-        }),
-      ),
-    ).toEqual({
-      kind: 'retry',
-      violations: [{ rule: 'citation_swapped', ref: 'kb-1' }],
-    })
-  })
-
-  it('case- 항목에는 식별자 검사를 걸지 않는다', () => {
-    // §5 — kb_entry_id·kb_version 은 kb- 항목에만 붙는다.
-    // 사건 정보와 전사는 지식 베이스 항목이 아니다
+  it('사건 정보와 사건 대화도 인용할 수 있다', () => {
+    // 절차만 검사하면 없는 계좌번호를 말해도 안 잡힌다 → §3.4
     expect(
       checker.check(
         input({
@@ -213,20 +130,6 @@ describe('2. kb- 항목의 식별자 바꿔치기를 잡는다', () => {
             insufficient: false,
             citations: [
               { ref: 'case-3', why: '8월 20일이라는 날짜를 옮기는 데 썼습니다' },
-            ],
-          },
-        }),
-      ),
-    ).toEqual({ kind: 'pass' })
-  })
-
-  it('t- 항목에도 식별자 검사를 걸지 않는다', () => {
-    expect(
-      checker.check(
-        input({
-          reply: {
-            insufficient: false,
-            citations: [
               { ref: 't-15', why: '상대가 검사를 사칭했다는 대목에 썼습니다' },
             ],
           },
@@ -236,7 +139,7 @@ describe('2. kb- 항목의 식별자 바꿔치기를 잡는다', () => {
   })
 })
 
-describe('3. why 가 비면 형식 위반이다', () => {
+describe('2. why 가 비면 형식 위반이다', () => {
   it('why 가 없으면 걸린다', () => {
     expect(
       checker.check(
@@ -307,7 +210,6 @@ describe('위반을 모아서 보고한다', () => {
           insufficient: false,
           citations: [
             { ref: 'kb-9', why: '썼습니다' },
-            { ref: 'kb-1', kbEntryId: 'wrong', kbVersion: '2026.08.1', why: '썼습니다' },
             { ref: 'case-3', why: '' },
           ],
         },
@@ -318,38 +220,18 @@ describe('위반을 모아서 보고한다', () => {
       kind: 'retry',
       violations: [
         { rule: 'unknown_ref', ref: 'kb-9' },
-        { rule: 'citation_swapped', ref: 'kb-1' },
         { rule: 'why_empty', ref: 'case-3' },
       ],
     })
   })
 
-  it('한 항목이 두 규칙을 어기면 둘 다 담는다', () => {
-    const outcome = checker.check(
-      input({
-        reply: {
-          insufficient: false,
-          citations: [{ ref: 'kb-1', why: '' }],
-        },
-      }),
-    )
-
-    expect(outcome).toEqual({
-      kind: 'retry',
-      violations: [
-        { rule: 'citation_swapped', ref: 'kb-1' },
-        { rule: 'why_empty', ref: 'kb-1' },
-      ],
-    })
-  })
-
-  it('발급 안 된 번호는 식별자까지 따지지 않는다', () => {
+  it('발급 안 된 번호는 why 까지 따지지 않는다', () => {
     // 없는 번호라 대조할 발급값 자체가 없다. unknown_ref 하나로 끝낸다
     const outcome = checker.check(
       input({
         reply: {
           insufficient: false,
-          citations: [{ ref: 'kb-9', kbEntryId: 'whatever', why: '썼습니다' }],
+          citations: [{ ref: 'kb-9' }],
         },
       }),
     )

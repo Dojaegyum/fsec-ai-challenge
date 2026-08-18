@@ -61,6 +61,7 @@ spec/backend/08-14-channel-matrix.md
 | [08-16-data-model.md](backend/08-16-data-model.md) | 데이터 모델 — 테이블 DDL, 관계, 상태 전이, KB 조회 우선순위 |
 | [08-16-errors.md](backend/08-16-errors.md) | 에러 계약 — 예외 계층, HTTP 코드, 재시도, 에러가 아닌 실패 |
 | [08-16-chat-context.md](backend/08-16-chat-context.md) | 챗 컨텍스트 조립 — 프롬프트에 무엇을 어떤 순서로 넣는가 |
+| [08-17-system-prompt.md](backend/08-17-system-prompt.md) | 시스템 지시문 — 모델에게 실제로 보내는 문장 전문 |
 
 ### `frontend/` — 화면
 
