@@ -5,6 +5,7 @@
 | 문서 | 내용 |
 | --- | --- |
 | [08-16-backend-handoff.md](08-16-backend-handoff.md) | DDL·모듈 정의 전에 답이 필요한 선행 결정 넷. **일시 문서** — 답이 반영되면 지웁니다 |
+| [08-17-module-build-order.md](08-17-module-build-order.md) | 모듈 21개 중 무엇이 막혀 있고 무엇부터 만드나. 병목 셋과 사람이 정해야 할 것. **일시 문서** |
 
 ## 여기가 아닌 것
 
