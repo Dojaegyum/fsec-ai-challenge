@@ -9,6 +9,7 @@
 | --- | --- |
 | [`pii-masker/`](pii-masker/) | 나가기 전 계좌·주민번호·카드·전화를 가린다 (층 C) |
 | [`key-handler/`](key-handler/) | 세션키를 만들고 지키며, 매핑을 봉하고 연다 (층 C) |
+| [`pii-restorer/`](pii-restorer/) | 복원해도 되는지 심사하고 되돌린다 (층 C) |
 
 ## 규칙 셋
 
