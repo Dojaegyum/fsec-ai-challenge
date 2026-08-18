@@ -61,15 +61,26 @@ erDiagram
     case ||--o{ plan_step : "플랜 단계"
     case ||--o{ deadline : "기한"
     case ||--o{ message : "대화"
-    case ||--o{ audit_log : "감사"
+    case ||..o{ audit_log : "감사 (논리 참조)"
     plan_step ||--o{ artifact : "부산물"
     plan_step }o..|| kb_entry : "인용 (논리 참조)"
     deadline }o..|| kb_entry : "근거 (논리 참조)"
     case_channel }o..|| org : "기관 (논리 참조)"
     kb_entry }o..o| org : "기관 전용 항목"
+    source_registry ||..o{ source_snapshot : "감시 소스 (논리 참조)"
+    source_snapshot ||..o{ source_change : "변경 감지 (논리 참조)"
+    source_change }o..o| kb_entry : "승인 후 반영 (논리 참조)"
 ```
 
+**실선이 외래키, 점선이 논리 참조입니다.** 외래키는 일곱뿐이고 전부 `case` 또는 `plan_step`을 향합니다 — 사건이 죽으면 딸린 것이 함께 죽습니다(`ON DELETE CASCADE`).
+
 `kb_entry`를 향하는 참조는 **논리 참조**입니다. 외래키를 걸지 않습니다. KB는 버전 릴리스로 교체되며([07-kb-operations.md](08-14-kb-operations.md)), 외래키가 있으면 릴리스가 막힙니다. 대신 `deadline.rule_snapshot`이 근거를 자체 보관하므로 참조가 끊겨도 값을 검증할 수 있습니다.
+
+**`audit_log.case_id`에도 외래키가 없습니다.** 사건이 파기돼도(§14) 감사 로그는 남아야 합니다 —
+`ON DELETE CASCADE`가 걸려 있으면 파기가 곧 감사 기록의 소멸이 됩니다. 해시 사슬은 그대로 이어집니다.
+
+**위 그림의 마지막 셋은 `kb_entry` 앞단의 수집 파이프라인입니다**(§12). 사건과 이어지지 않고, 셋 사이에도 외래키가
+없습니다 — `source_key`로 묶일 뿐입니다.
 
 ---
 

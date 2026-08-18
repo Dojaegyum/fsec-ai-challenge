@@ -38,6 +38,46 @@
 
 새 문서를 만들기 전에 [RFC-001 저장소 구조 규약](rfc/001-repo-structure.md)의 결정 트리를 보세요.
 
+## 데이터 모델
+
+관계형 DB 테이블 **14개**입니다. 아래는 관계만 그린 것이고, **정본은
+[`spec/backend/08-16-data-model.md`](spec/backend/08-16-data-model.md)** 입니다 — DDL·제약·허용값·저장 금지 목록이 거기 있습니다.
+
+```mermaid
+erDiagram
+    case ||--o{ evidence : "증거"
+    case ||--o{ case_channel : "경유 서비스 (N)"
+    case ||--o{ case_slot : "슬롯"
+    case ||--o{ plan_step : "플랜 단계"
+    case ||--o{ deadline : "기한"
+    case ||--o{ message : "대화"
+    case ||..o{ audit_log : "감사 (논리 참조)"
+    plan_step ||--o{ artifact : "부산물"
+    plan_step }o..|| kb_entry : "인용 (논리 참조)"
+    deadline }o..|| kb_entry : "근거 (논리 참조)"
+    case_channel }o..|| org : "기관 (논리 참조)"
+    kb_entry }o..o| org : "기관 전용 항목"
+    source_registry ||..o{ source_snapshot : "감시 소스 (논리 참조)"
+    source_snapshot ||..o{ source_change : "변경 감지 (논리 참조)"
+    source_change }o..o| kb_entry : "승인 후 반영 (논리 참조)"
+```
+
+**실선이 외래키, 점선이 논리 참조입니다.** 세 덩어리로 읽습니다.
+
+| 덩어리 | 테이블 | 무엇 |
+| --- | --- | --- |
+| **사건** | `case` `evidence` `case_channel` `case_slot` `plan_step` `artifact` `deadline` `message` `audit_log` | 한 사람의 사건 하나가 겪는 전부. 외래키가 `case`로 모입니다 |
+| **KB** | `kb_entry` `org` | 절차 지식과 기관 마스터. **릴리스로만 갱신**되므로 외래키를 걸지 않습니다 |
+| **수집** | `source_snapshot` `source_change` `source_registry` | `kb_entry` 앞단. 사람 승인 없이는 KB로 넘어가지 않습니다 → [ADR-012](decisions/012-kb-collection.md) |
+
+**원문 개인정보는 이 표들 어디에도 들어가지 않습니다.** 계좌·주민번호·전화·이름은 브라우저에서
+토큰으로 바뀐 뒤에야 경계를 넘습니다. 토큰↔원문 대응은 **암호문으로** 볼트에, 증거 원본은 객체
+저장소에 따로 삽니다 — **복호화 키는 클라이언트에만 있습니다**
+→ [PII 경계](spec/common/08-14-pii-boundary.md) · [ADR-009](decisions/009-restore-mapping-location.md) · [ADR-010](decisions/010-case-store.md).
+
+컬럼·타입·허용값은 아래 인벤토리로 물어봅니다 (`python $I table case_slot`).
+**이 그림이 정본과 어긋나면 `--check`가 잡습니다.**
+
 ## 개발 도구
 
 설치가 필요 없습니다 — 전부 파이썬 표준 라이브러리만 씁니다. **저장소 루트에서** 실행하세요.
@@ -75,14 +115,14 @@ CI가 돌리는 것과 **같은 명령**입니다. 게이트를 문지기가 아
 
 ```bash
 python .github/scripts/doc-integrity.py    # 링크·ID·목차·ADR 불변성
-python $I --check                          # 모듈 이름·연결구조·코드·마이그레이션 동기화
+python $I --check                          # 모듈 이름·연결구조·ERD·코드·마이그레이션 동기화
 ```
 
 | 게이트 | 무엇을 막나 | 근거 |
 | --- | --- | --- |
 | `repo-structure-gate` | 폴더가 바뀌었는데 `rfc/` 수정이 없음 | [ADR-008](decisions/008-structure-gate-ci.md) |
 | `doc-integrity` | 깨진 링크·없는 ID·목차 누락·ADR 사후 수정 | [ADR-017](decisions/017-doc-integrity-ci.md) |
-| `module-sync` | 정본에 없는 이름의 모듈 폴더, DDL 변경에 빠진 마이그레이션 | [ADR-019](decisions/019-module-code-sync.md) |
+| `module-sync` | 정본에 없는 이름의 모듈 폴더, **DDL 에 표가 늘었는데 안 따라온 ERD**, DDL 변경에 빠진 마이그레이션 | [ADR-019](decisions/019-module-code-sync.md) |
 
 ## 문서 인덱스
 
