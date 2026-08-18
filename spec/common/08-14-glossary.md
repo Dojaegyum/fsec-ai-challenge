@@ -38,7 +38,7 @@ CLIENT   SERVER     SERVER(격리경계)  LLM API    LLM + KB      CLIENT
 
 | 영역 | 선택 |
 | --- | --- |
-| 프론트 | Next.js (App Router, 3-패널 SPA) |
+| 프론트 | Next.js (App Router) — **3-패널 SPA 아님** → [화면 설계](../frontend/08-14-screens.md) |
 | LLM | **Grok (xAI)** — 분석·플랜 생성·챗. OpenAI 호환 API (`https://api.x.ai/v1`). **도구 호출을 쓰지 않습니다** → [11](../backend/08-16-chat-context.md) |
 | STT | Whisper급 + 브라우저 Web Speech 폴백 |
 | OCR | Vision 입력 |

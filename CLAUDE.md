@@ -94,7 +94,7 @@
 | 접두 | 무엇 | 정의된 곳 |
 | --- | --- | --- |
 | `F-01` … | 기능 | `spec/common/08-14-features.md` |
-| `S-01` … | 화면 | `spec/frontend/08-14-screens.md` |
+| `S-04` … | 화면 | `spec/frontend/08-14-screens.md` |
 | `CH-bank` … | 경유 서비스 유형 | `spec/backend/08-14-channel-matrix.md` |
 | `T0/T1/T2` | 슬롯 티어 | `spec/backend/08-14-slot-tiering.md` |
 | `ADR-001` | 판단 근거 | `decisions/` |

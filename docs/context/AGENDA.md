@@ -90,7 +90,8 @@
 - [x] **프론트 모듈 경계·역할 정의** — 층 C 열하나 ([ADR-023](../../decisions/023-frontend-module-names.md))
 - [x] **업로드 법적 요건 조사 + 원본 보관 방향 확정** — 실물을 받되 주민등록번호는 브라우저에서 가립니다
       ([research/08](../research/08-업로드-법적요건.md) · [ADR-026](../../decisions/026-raw-upload-retention.md)) ← **지금 여기**
-- [ ] 화면 설계 재작성 — [08-14-screens.md](../../spec/frontend/08-14-screens.md)가 아직 3-패널 상황실 시절
+- [x] **화면 설계 재작성** — `S-01`·`S-02` 폐기, 화면 일곱 `S-04`~`S-10` + `S-03` 백신
+      ([08-14-screens.md](../../spec/frontend/08-14-screens.md)). 경로 셋을 세 국면이 나눠 씁니다
 - [ ] 문진 선택지 3축 확정 — 제안까지 됨, `plan_step` 유형 필드가 걸림
 - [x] 리마인더·파기 실행 모듈 — `reminder-sender`·`case-purger`, **Vercel Cron이 앱 라우트를 깨움** ([ADR-025](../../decisions/025-scheduled-jobs.md))
 - [x] 워크스페이스 유형·주소를 계약에 담기 — `body.action` 일곱 + `url` ([ADR-024](../../decisions/024-step-action-and-url.md))

@@ -12,7 +12,7 @@
 | `DeadlineTracker` | 3영업일 D-day·2개월 공고 등 법정 기한 | 기한 계산은 **규칙**이 함, 화면은 표시만 | 있음 |
 | `SlotQuestion` | 한 번에 한 문항·전부 버튼·"모름" 상시 노출 | [slot-tiering](../../backend/08-14-slot-tiering.md) | 있음 |
 | `StepItem` | 실행 단계 + 부산물 표시 (완료 판정) | [completion-hook](../../backend/08-14-completion-hook.md) | 있음 |
-| `EvidenceCard` | 업로드 파일과 처리 상태 | [screens S-01](../08-14-screens.md) | — |
+| `EvidenceCard` | 업로드 파일과 처리 상태 | [screens S-08](../08-14-screens.md) | — |
 | `SafetyRail` | T0 공통 안전 절차. 슬롯과 무관하게 **상시 노출** | [slot-tiering](../../backend/08-14-slot-tiering.md) | 있음 |
 | `CaseTimeline` | 사건 전체 진행 — 지급정지→피해구제→공고→환급 | [channel-matrix 기한표](../../backend/08-14-channel-matrix.md) | 있음 |
 | `Composer` | 진술 입력창. 자유 진술 + 빠른 시작 버튼 | [ADR-002](../../../decisions/002-project-name.md) 핵심 동작 | 있음 |

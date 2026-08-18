@@ -9,7 +9,7 @@ spec에서 이미 요구하고 있어 **협상 대상이 아닌** 것들입니�
 
 | 무엇 | 요구 | 출처 |
 | --- | --- | --- |
-| PII 토큰 | 전사 화면에서 **파란 토큰**으로 치환되는 것이 보여야 함 | [screens S-01](../08-14-screens.md) · [pii-boundary](../../common/08-14-pii-boundary.md) |
+| PII 토큰 | 전사 화면에서 **파란 토큰**으로 치환되는 것이 보여야 함 | [screens S-08](../08-14-screens.md) · [pii-boundary](../../common/08-14-pii-boundary.md) |
 | 미확정 정보 | 숨기지 않고 **'미확인' 배지**로 드러냄 | [screens](../08-14-screens.md) |
 | 경유 서비스 | 감지 결과를 **배지**로 표시 (CH-* 8유형) | [channel-matrix](../../backend/08-14-channel-matrix.md) |
 
