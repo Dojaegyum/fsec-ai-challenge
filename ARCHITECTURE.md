@@ -446,7 +446,8 @@ sequenceDiagram
 | **문진 선택지의 정본** | 질문 문구와 선택지를 어디서 가져오나 | [핸드오프 ⑤](docs/plans/08-16-backend-handoff.md) |
 
 **재진입은 복호화 키와 직결됩니다.** 브라우저를 바꾸면 키가 없어 서류를 못 만듭니다 →
-[ADR-009](decisions/009-restore-mapping-location.md).
+[ADR-009](decisions/009-restore-mapping-location.md). **2026-08-18 [ADR-027](decisions/027-session-key-storage.md)로 감수하기로 확정**했습니다 —
+세션키는 꺼낼 수 없는 형태라 옮길 수 없습니다. **화면이 이 사실을 미리 알려야 합니다.**
 
 ### 채우면 되는 것
 

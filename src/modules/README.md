@@ -7,7 +7,8 @@
 
 | 채워진 모듈 | |
 | --- | --- |
-| [`pii-masker/`](pii-masker/) | 나가기 전 계좌·주민번호·카드·전화를 가린다 (층 C). `npm test` |
+| [`pii-masker/`](pii-masker/) | 나가기 전 계좌·주민번호·카드·전화를 가린다 (층 C) |
+| [`key-handler/`](key-handler/) | 세션키를 만들고 지키며, 매핑을 봉하고 연다 (층 C) |
 
 ## 규칙 셋
 
