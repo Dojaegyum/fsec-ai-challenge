@@ -94,6 +94,8 @@
 - [ ] 문진 선택지 3축 확정 — 제안까지 됨, `plan_step` 유형 필드가 걸림
 - [x] 리마인더·파기 실행 모듈 — `reminder-sender`·`case-purger`, **Vercel Cron이 앱 라우트를 깨움** ([ADR-025](../../decisions/025-scheduled-jobs.md))
 - [x] 워크스페이스 유형·주소를 계약에 담기 — `body.action` 일곱 + `url` ([ADR-024](../../decisions/024-step-action-and-url.md))
+- [x] **백엔드 착수 기준선 작성** — 무엇이 서 있고 무엇이 막혀 있나, 어떤 순서로 만드나
+      ([plans/08-18-backend-baseline.md](../plans/08-18-backend-baseline.md)). @kth9245 설계가 오면 그 위에 고칩니다
 - [ ] 메일 발송 수단·리마인더 주기·문구 — 모듈은 섰으나 무엇으로 보내는지 미정
 - [ ] `org.contact` 키 구조 — 연락처 값과 함께 정해야 함 ([research/04](../research/04-기관정보.md)가 전부 비어 있음)
 - [ ] Vercel Cron 플랜별 실행 빈도·타임아웃 확인 ([ADR-025](../../decisions/025-scheduled-jobs.md))
