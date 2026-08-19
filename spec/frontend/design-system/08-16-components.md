@@ -31,6 +31,15 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
 | `ConsentModal` | 동의 전문. **요약 카드 넷 + 조항별 확인** | [screens S-05](../08-14-screens.md) · [ADR-016](../../../decisions/016-retention-and-datastore.md)·[ADR-026](../../../decisions/026-raw-upload-retention.md) | `app/start/page.tsx` |
 | `EvidenceSlot` | **종류별** 업로드 슬롯. 종류가 곧 안내이자 분류 | [screens S-05](../08-14-screens.md) 「자료」 | `app/start/page.tsx` |
 | `IssuedLink` | 발급된 사건 주소 + 복사. **전부 보이게 줄바꿈** | [ADR-021](../../../decisions/021-reentry-and-identity.md) | `app/start/page.tsx` |
+| `Bubble` | 챗 말풍선 (AI/사용자). 꼬리 반경 5px | [screens S-06](../08-14-screens.md) | `app/c/[token]/page.tsx` |
+| `PendingBubble` | **스트리밍 금지의 대가** — 무엇을 하는지 문장으로 | [screens S-06](../08-14-screens.md) · [ADR-022](../../../decisions/022-chat-turn-boundaries.md) | `app/c/[token]/page.tsx` |
+| `CaseFile` | 진술에서 파악한 슬롯이 채워지는 것을 보여줌 | [screens S-06](../08-14-screens.md) | `app/c/[token]/page.tsx` |
+| **`WS-*` 패널 일곱** | 유형별 작업 패널. **모듈로 뽑았습니다** | [워크스페이스 패널](../08-17-workspace-panels.md) · [ADR-033](../../../decisions/033-ws-panel-placement.md) | **`modules/work-handler/panels.tsx`** |
+
+**`WS-*` 패널만 모듈로 갔습니다.** 나머지는 화면 파일 안에 있습니다 — 「금지가 붙어 있는가」가
+기준이고, 패널에는 「`WS-read` 에 체크박스 금지」·「`WS-download` 외 원문 금지」처럼
+어기면 계약이 깨지는 것이 붙어 있습니다. `work-handler` 안에서도 **판정(`panel.ts`·`signal.ts`)과
+렌더(`panels.tsx`)를 섞지 않습니다.**
 
 **`/start`의 Q1은 `SlotQuestion`의 첫 사례입니다** — 한 번에 하나·전부 버튼·「모름」 상시.
 컴포넌트로 뽑을 때 이 화면의 형태를 기준으로 삼습니다.

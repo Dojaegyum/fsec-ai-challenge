@@ -256,6 +256,12 @@
   /* 글로우 호흡 — 오렌지 가우시안 */
   @keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
 
+  /* 사건 파일의 행이 채워질 때 한 번 훑고 사라집니다 — 챗 국면 전용 */
+  @keyframes row-flash {
+    from { background-color: oklch(0.697 0.16 258.2 / 12%); }
+    to   { background-color: transparent; }
+  }
+
   /* 전정 장애가 있는 사용자에게 회전하는 테두리는 증상을 유발합니다. 선택이 아닙니다 */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
