@@ -16,6 +16,8 @@ import { useState } from "react";
  *
  * 스펙 준수
  *  · 관문은 동의 하나. [건너뛰고 바로 시작]이 주 버튼과 같은 크기로 나란히
+ *  · 조항 다섯을 모두 확인해야 동의 성립 — 관문을 하나 더 세운 게 아니라
+ *    동의를 얻는 방식입니다 (ADR-031). 남은 개수를 항상 보여줍니다
  *  · 동의 문구 180일 파기(ADR-016) · 주민등록번호 미수집(ADR-026)
  *  · 발급 즉시 복사 가능, 복구 불가 고지, 거절 버튼명 정직하게(ADR-021)
  *  · 이메일 검증 없음 — 오타는 알림이 안 갈 뿐 사용자가 막히지 않습니다
@@ -26,10 +28,8 @@ import { useState } from "react";
  *  · CASE_URL — 발급 응답의 실제 토큰으로 교체
  *  · [저장하고 시작하기]/[이메일 없이 시작하기] → /c/{token} 라우팅
  *  · 업로드 슬롯 채택 시 POST …/evidence 에 kind 필드 협의
- *  · REQUIRE_ALL_CHECKS — 5조항 체크 관문. 「관문은 동의 하나뿐」과 긴장, 팀 판단
  */
 
-const REQUIRE_ALL_CHECKS = true;
 const CASE_URL = "finally.kr/c/7fK2p-Qx9mR4"; // TODO: 발급 응답으로 교체
 
 const 자료종류 = [
@@ -118,7 +118,7 @@ export default function Start() {
   const [copied, setCopied] = useState(false);
 
   const checkedCount = checks.filter(Boolean).length;
-  const canAgree = !REQUIRE_ALL_CHECKS || checkedCount === 5;
+  const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
   const toggle = (i: number) => setChecks((c) => c.map((v, j) => (j === i ? !v : v)));
   const agree = () => {
     if (!canAgree) return;
