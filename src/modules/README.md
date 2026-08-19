@@ -10,7 +10,7 @@
 | [`pii-masker/`](pii-masker/) | 나가기 전 계좌·주민번호·카드·전화를 가린다 (층 C) |
 | [`key-handler/`](key-handler/) | 세션키를 만들고 지키며, 매핑을 봉하고 연다 (층 C) |
 | [`pii-restorer/`](pii-restorer/) | 복원해도 되는지 심사하고 되돌린다 (층 C) |
-| [`retry-checker/`](retry-checker/) | 예외의 `retryable` 로 재시도 판단 (층 없음) |
+| [`work-handler/`](work-handler/) | 어느 작업 패널을 열지 정하고 그 패널을 맡는다 (층 C) — **판정만, 렌더는 아직** |
 | [`case-intake/`](case-intake/) | 사건 생성, 파일 접수 자리 발급 (층 1) |
 | [`citation-checker/`](citation-checker/) | 인용 셋 확인, 갈래 셋 판정 (층 2) |
 | [`prompt-builder/`](prompt-builder/) | 블록 조립·참조 번호 발급·격리 태그 (층 2) |
@@ -18,6 +18,7 @@
 | [`slot-checker/`](slot-checker/) | T1 충족 판정, 다음 질문 1문항 (층 3) |
 | [`date-checker/`](date-checker/) | 법정 기한을 규칙으로 계산, 잔여일 추적 (층 3) |
 | [`completion-checker/`](completion-checker/) | 부산물로 완료 판정 L1·L2·L3 (층 3) |
+| [`retry-checker/`](retry-checker/) | 예외의 `retryable` 로 재시도 판단 (층 없음) |
 | [`audit-logger/`](audit-logger/) | 해시 사슬로 기록, 사후 조작 검출 (층 없음) |
 
 **폴더 하나의 파일 골격은 [RFC-001](../../rfc/001-repo-structure.md)이 정합니다.**

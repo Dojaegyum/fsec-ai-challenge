@@ -14,14 +14,15 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "FinAlly",
-  description: "보이스피싱 신고 다음을 맡습니다 — 기한과 서류를 대신 관리합니다.",
+  description:
+    "FinAlly는 금융사기를 당했을 때, 당신이 올바르게 대응할 수 있도록 돕는 가장 든든한 동반자입니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
