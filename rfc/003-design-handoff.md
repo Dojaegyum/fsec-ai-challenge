@@ -3,10 +3,10 @@
 - 상태: **시행 중**
 - 제정: 2026-08-19
 - 최종 개정: 2026-08-19
-- 근거: [ADR-029](../decisions/029-design-handoff.md) (정본 이동·목업 동결) ·
-  [ADR-028](../decisions/028-scroll-landing.md) (첫 사례에서 드러난 것)
+- 근거: [ADR-030](../decisions/030-design-handoff.md) (정본 이동·목업 동결) ·
+  [ADR-029](../decisions/029-scroll-landing.md) (첫 사례에서 드러난 것)
 
-> 규약은 **현재형**으로 씁니다. 왜 그렇게 정했는지는 [ADR-029](../decisions/029-design-handoff.md)에 있습니다.
+> 규약은 **현재형**으로 씁니다. 왜 그렇게 정했는지는 [ADR-030](../decisions/030-design-handoff.md)에 있습니다.
 
 ## 무엇에 대한 규약인가
 
@@ -76,7 +76,7 @@ assets/artifacts/handoff/08-19-s04-landing/
 코드는 시안대로 넣고, **어긋난 지점을 PR에 미결로 올려 사람이 정합니다.**
 계약을 고치기로 하면 `spec/`을 고치고, 금지 항목을 뒤집는 것이면 ADR을 씁니다
 (→ [ADR-020](../decisions/020-adr-threshold.md)). S-04가 그 첫 사례입니다
-([ADR-028](../decisions/028-scroll-landing.md)).
+([ADR-029](../decisions/029-scroll-landing.md)).
 
 ### 4. 한 작업의 끝은 여기까지입니다
 
@@ -127,4 +127,4 @@ assets/artifacts/handoff/08-19-s04-landing/
 
 | 날짜 | 무엇 | 근거 |
 | --- | --- | --- |
-| 2026-08-19 | 제정 — 화면 디자인 정본을 Claude Design으로 옮기고 핸드오프 절차를 세움 | [ADR-029](../decisions/029-design-handoff.md) |
+| 2026-08-19 | 제정 — 화면 디자인 정본을 Claude Design으로 옮기고 핸드오프 절차를 세움 | [ADR-030](../decisions/030-design-handoff.md) |

@@ -1,11 +1,11 @@
-# ADR-028. 랜딩의 1스크린 금지를 풀고, 「3초」를 첫 화면에만 적용한다
+# ADR-029. 랜딩의 1스크린 금지를 풀고, 「3초」를 첫 화면에만 적용한다
 
 - 상태: **채택**
 - 날짜: 2026-08-19
 - 결정: @Dojaegyum
 - 관련 문서: [화면 설계 S-04](../spec/frontend/08-14-screens.md) (이 결정으로 개정됨) ·
   [ADR-021](021-reentry-and-identity.md) (진입은 검색·직접 접속) ·
-  [ADR-029](029-design-handoff.md) (이 시안이 나온 경로) ·
+  [ADR-030](030-design-handoff.md) (이 시안이 나온 경로) ·
   [서비스 골자](../spec/common/08-17-service-concept.md) · `src/app/page.tsx`
 
 ## 맥락

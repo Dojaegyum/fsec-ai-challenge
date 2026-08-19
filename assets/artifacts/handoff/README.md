@@ -1,7 +1,7 @@
 # handoff — 화면 디자인 핸드오프
 
 **Claude Design에서 만든 화면 시안을 넘겨받은 그대로 담아둡니다.**
-규약은 [RFC-003](../../../rfc/003-design-handoff.md), 근거는 [ADR-029](../../../decisions/029-design-handoff.md)입니다.
+규약은 [RFC-003](../../../rfc/003-design-handoff.md), 근거는 [ADR-030](../../../decisions/030-design-handoff.md)입니다.
 
 여기 있는 것은 **스냅샷**입니다. 코드가 나중에 바뀌어도 이 폴더는 고치지 않습니다 —
 `archived/`와 같은 성격입니다. 시안을 고쳐야 하면 캔버스에서 고쳐 **새 핸드오프를 받습니다.**

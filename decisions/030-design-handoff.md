@@ -1,11 +1,11 @@
-# ADR-029. 화면 디자인의 정본을 Claude Design으로 옮기고, 목업 HTML을 동결한다
+# ADR-030. 화면 디자인의 정본을 Claude Design으로 옮기고, 목업 HTML을 동결한다
 
 - 상태: **채택**
 - 날짜: 2026-08-19
 - 결정: @Dojaegyum
 - 관련 문서: [RFC-003](../rfc/003-design-handoff.md) (이 결정이 낳은 규약) ·
   [RFC-001](../rfc/001-repo-structure.md) (`assets/artifacts/handoff/` 신설) ·
-  [ADR-028](028-scroll-landing.md) (첫 사례) ·
+  [ADR-029](029-scroll-landing.md) (첫 사례) ·
   [화면 설계](../spec/frontend/08-14-screens.md) · [CLAUDE.md](../CLAUDE.md) 「정본의 위치」
 
 ## 맥락
@@ -63,7 +63,7 @@
 **「HTML이 상위」를 그대로 둘 수는 없습니다.** 그 규칙은 *사람이 직접 쓴 원본이 더 정확하다*는
 전제 위에 있었는데, 동결한 문서에는 그 전제가 없습니다. 앞으로 시안과 spec이 어긋나면
 **임의로 맞추지 않고 사람이 정합니다** — S-04에서 실제로 그렇게 처리했습니다
-([ADR-028](028-scroll-landing.md)).
+([ADR-029](029-scroll-landing.md)).
 
 ### 검토한 대안
 

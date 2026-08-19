@@ -361,5 +361,5 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-18 | 코드 게이트(`code-check`) 신설 — 타입 검사와 테스트. 테스트가 안 돌면 장식이 됩니다 | 커밋 메시지 |
 | 2026-08-18 | `src/kb/`를 폴더 지도와 결정 트리에 추가 — 매뉴얼 KB 원본의 자리 | [RFC-002](002-kb-authoring.md) |
 | 2026-08-19 | 코드 게이트의 타입 검사를 `npm run typecheck` 로 바꿈 — `next typegen` 을 먼저 돌려야 CI 가 생성 타입을 찾습니다 | 커밋 메시지 |
-| 2026-08-19 | `assets/artifacts/handoff/` 신설 — 밖에서 받은 화면 디자인의 자리. 구조 게이트가 이 폴더 안쪽을 보지 않게 함 | [RFC-003](003-design-handoff.md) · [ADR-029](../decisions/029-design-handoff.md) |
+| 2026-08-19 | `assets/artifacts/handoff/` 신설 — 밖에서 받은 화면 디자인의 자리. 구조 게이트가 이 폴더 안쪽을 보지 않게 함 | [RFC-003](003-design-handoff.md) · [ADR-030](../decisions/030-design-handoff.md) |
 | 2026-08-17 | `src/modules/`가 서버 전용이 아님을 명시. 브라우저 도메인 모듈(층 C)도 여기 들어가고, 모듈과 UI 컴포넌트를 「금지가 붙어 있는가」로 가름 | [ADR-023](../decisions/023-frontend-module-names.md) |
