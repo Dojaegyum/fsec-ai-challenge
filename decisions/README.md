@@ -106,6 +106,7 @@
 | [028](028-runtime-and-module-shape.md) | 백엔드를 Next.js 안에 TypeScript로 두고, 모듈은 필요한 것을 인터페이스로 선언한다 | 부분 대체됨(→022) |
 | [029](029-scroll-landing.md) | 랜딩의 1스크린 금지를 풀고, 「3초」를 첫 화면에만 적용한다 | 채택 |
 | [030](030-design-handoff.md) | 화면 디자인의 정본을 Claude Design으로 옮기고, 목업 HTML을 동결한다 | 채택 |
+| [031](031-consent-clause-ack.md) | 동의 전문의 조항별 확인을 동의의 성립 요건으로 둔다 | 채택 |
 
 ## 아직 안 쓴 것
 

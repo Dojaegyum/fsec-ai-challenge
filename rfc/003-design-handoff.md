@@ -36,7 +36,7 @@
 
 ```
 assets/artifacts/handoff/08-19-s04-landing/
-  README.md              ← 필수. 캔버스 URL · 대상 화면 ID · 적용 커밋
+  README.md              ← 필수. 캔버스 URL · 아트보드 이름 · 대상 화면 ID · 적용 커밋
   PR.md                  ← 시안이 스스로 밝힌 적용 방법·바뀐 것·지킨 것·미결
   globals-additions.css  ← 있으면
   src/app/page.tsx       ← 적용 위치를 경로로 드러냅니다 (src/ 기준 그대로)
@@ -48,6 +48,10 @@ assets/artifacts/handoff/08-19-s04-landing/
   적용할 때 판단이 끼어들지 않습니다.
 - `README.md`에 **캔버스 URL이 반드시 들어갑니다.** 모르면 커밋하기 전에 물어보세요 —
   URL 없는 스냅샷은 「어느 시안이었나」를 못 답합니다.
+- **캔버스 하나에 화면이 여럿 들어 있습니다.** 그래서 URL만으로는 부족하고,
+  **어느 아트보드에서 나왔는지**를 함께 적습니다 (`?file=` 로 고릅니다).
+  캔버스는 우리 저장소 밖이라 아트보드가 지워질 수도 있는데, 이름이라도 남으면
+  핸드오프 스냅샷과 짝지을 수 있습니다.
 
 ### 2. 받은 그대로 커밋하고, 그 뒤로 고치지 않습니다
 
@@ -85,13 +89,27 @@ assets/artifacts/handoff/08-19-s04-landing/
 2. 파일을 src/ 로 적용 (경로는 핸드오프가 이미 말하고 있습니다)
 3. 브랜드 자산이 필요하면 assets/brand/ → src/public/ 으로 복사
 4. 검증 — npm run typecheck · npm run lint · npm run build   (src/ 에서)
-5. spec/frontend/08-14-screens.md 의 그 화면 절을 실제와 맞춥니다
+5. spec 을 실제와 맞춥니다 — 아래 표의 **세 곳을 모두** 봅니다
 6. python .github/scripts/doc-integrity.py
 7. PR — 「지킨 것」과 「미결」을 본문에 적습니다
 ```
 
 **5번을 빼면 작업이 끝난 게 아닙니다.** 계약과 구현이 갈라지는 순간
 다음 사람은 어느 쪽이 정본인지 알 수 없습니다.
+
+**그리고 5번은 화면 문서 하나가 아닙니다.** 시안은 화면만 만드는 게 아니라
+**재질과 움직임도 함께 만듭니다.** 화면 절만 고치면 디자인 시스템이 조용히 낡습니다.
+
+| 무엇이 새로 생겼나 | 어디에 적나 |
+| --- | --- |
+| 화면의 구조·국면·금지 | [`spec/frontend/08-14-screens.md`](../spec/frontend/08-14-screens.md) 그 화면 절 |
+| **새 keyframes·모션·색 쓰임** | [`design-system/08-16-tokens.md`](../spec/frontend/design-system/08-16-tokens.md) |
+| **새 컴포넌트·재질·제약** | [`design-system/08-16-components.md`](../spec/frontend/design-system/08-16-components.md) |
+
+- **컴포넌트로 뽑지 않았어도 적습니다.** 화면 파일 안에 있는 채로 「어디에 있다」까지
+  적어두면, 두 번째 화면에서 다시 쓸 때 찾을 수 있습니다.
+- **새 keyframes 는 반드시 tokens 「모션」에 등록합니다.** 등록되지 않은 애니메이션은
+  다음 사람이 감속 모드 확인 없이 복사해 씁니다.
 
 ### 5. 새 keyframes·전역 CSS는 `globals.css`의 `@layer base`에 넣습니다
 
@@ -128,3 +146,5 @@ assets/artifacts/handoff/08-19-s04-landing/
 | 날짜 | 무엇 | 근거 |
 | --- | --- | --- |
 | 2026-08-19 | 제정 — 화면 디자인 정본을 Claude Design으로 옮기고 핸드오프 절차를 세움 | [ADR-030](../decisions/030-design-handoff.md) |
+| 2026-08-19 | 핸드오프 README 에 **아트보드 이름**을 추가 — 캔버스 하나에 화면이 여럿이라 URL 만으로는 어느 시안인지 못 가립니다 | 커밋 메시지 |
+| 2026-08-19 | 「한 작업의 끝」 5번을 화면 문서 하나에서 **spec 세 곳**으로 넓힘 — S-04 때 keyframes 넷과 새 컴포넌트가 디자인 시스템 문서에 한 줄도 안 남았습니다 | 커밋 메시지 |
