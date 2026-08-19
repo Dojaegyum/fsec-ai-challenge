@@ -313,8 +313,13 @@ python .claude/skills/module-inventory/scripts/inventory.py --check
 ### 코드 — 타입과 테스트
 
 ```
-cd src && npx tsc --noEmit && npm test
+cd src && npm run typecheck && npm test
 ```
+
+**`typecheck` 가 `next typegen` 을 먼저 돌립니다.** Next 16 은 `LayoutProps`·`PageProps` 같은
+전역 타입을 `.next/types/` 에 **생성해서** 주므로, 그걸 건너뛰고 `tsc` 만 돌리면
+없는 이름을 찾으며 터집니다. 로컬에는 `.next` 가 남아 있어 통과하고
+**CI 에서만 깨졌습니다** — 명령을 한 줄로 묶은 이유가 이것입니다.
 
 `src/` 가 바뀐 변경에서만 돕니다. **테스트가 안 돌면 있으나 마나입니다** —
 `pii-masker` 처럼 「새면 안 되는」 모듈은 검사가 붙어 있어야 규칙이 규칙으로 남습니다.
@@ -355,5 +360,6 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-18 | 모듈 하나의 파일 골격을 고정 — `pii-masker`가 첫 사례 | 커밋 메시지 |
 | 2026-08-18 | 코드 게이트(`code-check`) 신설 — 타입 검사와 테스트. 테스트가 안 돌면 장식이 됩니다 | 커밋 메시지 |
 | 2026-08-18 | `src/kb/`를 폴더 지도와 결정 트리에 추가 — 매뉴얼 KB 원본의 자리 | [RFC-002](002-kb-authoring.md) |
+| 2026-08-19 | 코드 게이트의 타입 검사를 `npm run typecheck` 로 바꿈 — `next typegen` 을 먼저 돌려야 CI 가 생성 타입을 찾습니다 | 커밋 메시지 |
 | 2026-08-19 | `assets/artifacts/handoff/` 신설 — 밖에서 받은 화면 디자인의 자리. 구조 게이트가 이 폴더 안쪽을 보지 않게 함 | [RFC-003](003-design-handoff.md) · [ADR-029](../decisions/029-design-handoff.md) |
 | 2026-08-17 | `src/modules/`가 서버 전용이 아님을 명시. 브라우저 도메인 모듈(층 C)도 여기 들어가고, 모듈과 UI 컴포넌트를 「금지가 붙어 있는가」로 가름 | [ADR-023](../decisions/023-frontend-module-names.md) |

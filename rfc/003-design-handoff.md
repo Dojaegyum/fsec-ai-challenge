@@ -84,7 +84,7 @@ assets/artifacts/handoff/08-19-s04-landing/
 1. 핸드오프 폴더를 assets/artifacts/handoff/ 에 그대로 커밋
 2. 파일을 src/ 로 적용 (경로는 핸드오프가 이미 말하고 있습니다)
 3. 브랜드 자산이 필요하면 assets/brand/ → src/public/ 으로 복사
-4. 검증 — npx tsc --noEmit · npm run lint · npm run build   (src/ 에서)
+4. 검증 — npm run typecheck · npm run lint · npm run build   (src/ 에서)
 5. spec/frontend/08-14-screens.md 의 그 화면 절을 실제와 맞춥니다
 6. python .github/scripts/doc-integrity.py
 7. PR — 「지킨 것」과 「미결」을 본문에 적습니다

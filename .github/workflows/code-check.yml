@@ -2,7 +2,11 @@ name: code-check
 
 # 도메인 모듈의 타입과 테스트를 봅니다.
 # 사람이 손으로 돌리는 명령과 CI 가 같아야 게이트가 문지기가 아니라 안전망이 됩니다.
-#   cd src && npx tsc --noEmit && npm test
+#   cd src && npm run typecheck && npm test
+#
+# typecheck 가 `next typegen` 을 먼저 돌립니다. Next 16 은 LayoutProps·PageProps 같은
+# 전역 타입을 .next/types/ 에 생성해서 주므로, 그걸 건너뛰면 tsc 가 없는 이름을
+# 찾으며 터집니다 — 로컬은 .next 가 남아 있어 통과하고 CI 만 깨졌습니다.
 # 근거: RFC-001 「CI가 강제합니다」
 #
 # ⚠️ lint 는 아직 여기 없습니다 — eslint 가 로컬(Windows)에서 응답하지 않아
@@ -37,7 +41,7 @@ jobs:
         run: npm ci
 
       - name: 타입 검사
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: 테스트
         run: npm test
