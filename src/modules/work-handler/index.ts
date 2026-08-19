@@ -4,8 +4,8 @@
  * 정본: spec/common/08-16-module-names.md · spec/frontend/08-17-workspace-panels.md
  * 근거: ADR-023(층 C) · ADR-024(`body.action` 신설)
  *
- * ⬜ **렌더는 아직입니다.** 지금은 판정(`panel.ts`·`signal.ts`)만 서 있고,
- *    화면이 설 때 같은 폴더에 붙습니다 — 판정과 렌더를 섞지 않는 것이 이 모듈의 규칙입니다.
+ * 판정은 `panel.ts`·`signal.ts`, 렌더는 `panels.tsx` 입니다.
+ * **둘을 섞지 마세요** — 한 모듈로 합친 대가라 경계가 모듈 안의 규칙으로만 남습니다.
  */
 
 export { panelFor, panelForStep, panelRule, exitFor } from "./panel";
@@ -17,6 +17,18 @@ export {
   emptyPanelState,
   isOpen,
 } from "./signal";
+export {
+  CallPanel,
+  VisitPanel,
+  WritePanel,
+  UploadPanel,
+  DownloadPanel,
+  WaitPanel,
+  ReadPanel,
+  Token,
+  PANEL_EYEBROW,
+} from "./panels";
+export type { PanelProps } from "./panels";
 export type {
   Exit,
   PanelId,
