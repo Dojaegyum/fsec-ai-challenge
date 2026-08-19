@@ -17,6 +17,24 @@
 | `CaseTimeline` | 사건 전체 진행 — 지급정지→피해구제→공고→환급 | [channel-matrix 기한표](../../backend/08-14-channel-matrix.md) | 있음 |
 | `Composer` | 진술 입력창. 자유 진술 + 빠른 시작 버튼 | [ADR-002](../../../decisions/002-project-name.md) 핵심 동작 | 있음 |
 
+### 화면이 서면서 실제로 생긴 것
+
+Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
+(→ [RFC-003](../../../rfc/003-design-handoff.md)). **아직 컴포넌트로 뽑지 않았고
+화면 파일 안에 있습니다** — 두 번째 화면에서 다시 쓰일 때 뽑습니다.
+
+| 이름(가칭) | 무엇 | 근거 | 어디 |
+| --- | --- | --- | --- |
+| `OrbitRing` | 랜딩 히어로의 심볼 둘레 링·글로우. **뜻이 없습니다** | [tokens](08-16-tokens.md) `--horizon`·「장식 keyframes」 | `app/page.tsx` |
+| `ScreenPreviewCard` | 화면 하나의 역할을 미니 목업 + **한 줄**로 | [screens S-04](../08-14-screens.md) 「스크롤 네 마디」③ | `app/page.tsx` |
+| `StepRail` | 국면 진행 레일 (동의 → 무슨 일 → 링크 발급) | [screens S-05](../08-14-screens.md) | `app/start/page.tsx` |
+| `ConsentModal` | 동의 전문. **요약 카드 넷 + 조항별 확인** | [screens S-05](../08-14-screens.md) · [ADR-016](../../../decisions/016-retention-and-datastore.md)·[ADR-026](../../../decisions/026-raw-upload-retention.md) | `app/start/page.tsx` |
+| `EvidenceSlot` | **종류별** 업로드 슬롯. 종류가 곧 안내이자 분류 | [screens S-05](../08-14-screens.md) 「자료」 | `app/start/page.tsx` |
+| `IssuedLink` | 발급된 사건 주소 + 복사. **전부 보이게 줄바꿈** | [ADR-021](../../../decisions/021-reentry-and-identity.md) | `app/start/page.tsx` |
+
+**`/start`의 Q1은 `SlotQuestion`의 첫 사례입니다** — 한 번에 하나·전부 버튼·「모름」 상시.
+컴포넌트로 뽑을 때 이 화면의 형태를 기준으로 삼습니다.
+
 「초안」은 [진입 플로우 목업](#출처)에서 실제로 만들어 본 것이라는 뜻입니다. 코드가 아니라 형태의 참조입니다.
 
 ## 공통 재질 — 칩
@@ -30,6 +48,10 @@
 
 - **`SlotQuestion`에는 "모름"이 항상 있습니다.** 없애는 변형을 만들지 마세요 — 정보 요구로
   사용자를 막지 않는 것이 이 서비스의 규칙입니다.
+- **"모름"을 `ink-3`보다 더 낮추지 않고, 크기와 자리도 다른 선택지와 같게 둡니다.**
+  고르기 부끄러운 선택지로 만들면 없앤 것과 같습니다.
+- **문항에 기본 선택을 두지 않습니다.** 미리 골라두면 화면이 답을 유도하고,
+  그 답이 그대로 사건의 축이 됩니다 → [screens S-05](../08-14-screens.md) 「Q1」.
 - **정보 입력 화면에는 「건너뛰고 바로 시작」이 같은 화면에 보입니다.** 폼을 통과해야 다음으로
   가는 구조는 [slot-tiering](../../backend/08-14-slot-tiering.md)의 "모달로 정보를 강제 입력받는
   UI 금지"에 걸립니다. 동의(법적 필수)만 관문이 될 수 있습니다.
