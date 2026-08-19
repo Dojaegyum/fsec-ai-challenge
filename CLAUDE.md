@@ -35,6 +35,8 @@
 | 왜 그렇게 정했나 | `decisions/` | 판단 근거의 이력(ADR). 과거형, 고치지 않음 |
 | 서비스 기획 전체 그림 | `assets/artifacts/plans/08-13-service-plan.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
 | **색·크기·상태를 눈으로** | `assets/artifacts/plans/08-18-design-system.html` | 팔레트·타입 사다리·대비 실측. 값의 정본은 `src/app/globals.css` |
+| **화면이 어떻게 생겼나** | Claude Design 캔버스 + `assets/artifacts/handoff/` | **디자인 정본.** 받은 그대로의 스냅샷과 캔버스 URL. 절차는 [RFC-003](rfc/003-design-handoff.md) |
+| 화면 목업(옛 그림) | `assets/artifacts/plans/08-17-screen-mockups.html` | **동결됨** — 화면 01(S-04)까지만 갱신. 레이아웃은 더 이상 정본이 아니고 **설계 노트만 유효**합니다 ([ADR-030](decisions/030-design-handoff.md)) |
 | 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
 | **제도·경쟁·법적 경계의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
@@ -54,6 +56,7 @@
 - **구현 작업에는 `spec/`을 읽으세요.** HTML 기획서는 50KB가 넘고 스타일·목업 마크업이 대부분이라, 필요한 계약만 담긴 `spec/`이 정확하고 쌉니다. **아티팩트를 통째로 읽지 마세요.**
 - 각 spec 문서 머리의 **출처 줄**이 원본과 절 번호를 가리킵니다. 근거가 필요하면 그걸 따라가세요.
 - 둘이 어긋나면 **HTML 기획서가 상위**입니다(사람이 직접 쓴 원본). 어긋난 걸 발견하면 임의로 맞추지 말고 사람에게 알리세요.
+- **단 화면 디자인은 예외입니다.** `08-17-screen-mockups.html` 은 동결됐고, 그림의 정본은 **Claude Design 핸드오프**입니다 ([RFC-003](rfc/003-design-handoff.md) · [ADR-030](decisions/030-design-handoff.md)). 시안과 `spec/` 이 어긋나면 어느 쪽도 자동으로 이기지 않습니다 — **사람이 정합니다.**
 - 기획서가 개정되면 `spec/`에 반영하는 것까지가 한 작업입니다.
 
 ### 파일명 — 폴더마다 다릅니다

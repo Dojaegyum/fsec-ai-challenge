@@ -9,6 +9,7 @@
 | --- | --- | --- |
 | [001](001-repo-structure.md) | 저장소 구조 — 무엇을 어디에 두는가 | 시행 중 |
 | [002](002-kb-authoring.md) | 매뉴얼 KB를 파일로 쓰고, 검수를 거쳐 적재한다 | 시행 중 |
+| [003](003-design-handoff.md) | 화면 디자인은 Claude Design에서 만들어 핸드오프로 넘긴다 | 시행 중 |
 
 ## `rfc/`와 `decisions/`의 차이
 

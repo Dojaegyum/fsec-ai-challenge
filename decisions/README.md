@@ -104,6 +104,8 @@
 | [026](026-raw-upload-retention.md) | 주민등록번호가 든 원본을 받지 않고, 브라우저에서 가린 사본만 올린다 | 채택 |
 | [027](027-session-key-storage.md) | 세션키를 꺼낼 수 없는 형태로 만들어 브라우저에 가둔다 | 채택 |
 | [028](028-runtime-and-module-shape.md) | 백엔드를 Next.js 안에 TypeScript로 두고, 모듈은 필요한 것을 인터페이스로 선언한다 | 부분 대체됨(→022) |
+| [029](029-scroll-landing.md) | 랜딩의 1스크린 금지를 풀고, 「3초」를 첫 화면에만 적용한다 | 채택 |
+| [030](030-design-handoff.md) | 화면 디자인의 정본을 Claude Design으로 옮기고, 목업 HTML을 동결한다 | 채택 |
 
 ## 아직 안 쓴 것
 
