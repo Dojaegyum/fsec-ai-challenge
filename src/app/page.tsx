@@ -80,24 +80,39 @@ export default function Landing() {
       {/* ── 히어로 · 심볼 오비트 + 포지셔닝 + 단 하나의 행동 ───────── */}
       <section className="relative mx-auto flex w-full max-w-shell flex-col items-center px-[clamp(20px,4.2vw,72px)] pt-[clamp(56px,9vh,88px)] pb-16 text-center">
         {/* 오비트 링 — 장식 전용. 회전은 reduced-motion 에서 멈춥니다 */}
-        <div aria-hidden className="relative mb-10 grid size-[180px] place-items-center">
+        {/* 아래 여백은 상자(180px)가 아니라 링의 바깥선 기준입니다 —
+            가장 바깥 링이 -inset-[80px] 로 상자 밖까지 나가므로,
+            80px 를 빼고 남는 것이 눈에 보이는 간격입니다 (40~64px).
+            바깥 링을 더하거나 빼면 이 값도 같이 옮기세요 */}
+        <div
+          aria-hidden
+          className="relative mb-[clamp(120px,12vh,144px)] grid size-[180px] place-items-center"
+        >
           {/* 오렌지 가우시안 글로우 */}
           <div
             className="pointer-events-none absolute -inset-[230px] rounded-full blur-[34px]
                        [background:radial-gradient(circle,oklch(0.811_0.14_66.9/42%)_0%,oklch(0.44_0.10_58/22%)_44%,transparent_70%)]
                        [animation:breathe_6s_ease-in-out_infinite]"
           />
-          <div className="absolute inset-0 rounded-full border border-[oklch(0.697_0.16_258.2/45%)] [animation:breathe_5s_ease-in-out_infinite]" />
-          <div className="absolute -inset-[26px] rounded-full border border-dashed border-[oklch(0.697_0.16_258.2/32%)] [animation:spin-slow_46s_linear_infinite]" />
-          <div className="absolute -inset-[52px] rounded-full border border-[oklch(0.305_0.013_267.1/70%)]" />
+          {/* 링 넷 — 안쪽 180 · 232 · 284 · 340px. 알파는 안에서 바깥으로 갈수록 옅어집니다 */}
+          <div className="absolute inset-0 rounded-full border border-[oklch(0.697_0.16_258.2/62%)] [animation:breathe_5s_ease-in-out_infinite]" />
+          <div className="absolute -inset-[26px] rounded-full border border-dashed border-[oklch(0.697_0.16_258.2/48%)] [animation:spin-slow_46s_linear_infinite]" />
+          <div className="absolute -inset-[52px] rounded-full border border-[oklch(0.42_0.018_267.1/88%)]" />
+          {/* 새 바깥 층 — 가장 옅고 가장 느립니다. 깊이만 더하고 시선을 끌지 않게 */}
+          <div className="absolute -inset-[80px] rounded-full border border-[oklch(0.36_0.014_267.1/52%)]" />
+          <div
+            className="absolute -inset-[80px] rounded-full [animation:spin-rev_64s_linear_infinite]
+                       [background:conic-gradient(from_300deg,transparent_0_88%,oklch(0.697_0.16_258.2/55%)_96%,transparent_100%)]
+                       [mask:radial-gradient(farthest-side,transparent_calc(100%-2px),#000_calc(100%-1px))]"
+          />
           <div
             className="absolute -inset-[52px] rounded-full [animation:spin-slow_9s_linear_infinite]
-                       [background:conic-gradient(from_0deg,transparent_0_78%,oklch(0.697_0.16_258.2/80%)_92%,transparent_100%)]
+                       [background:conic-gradient(from_0deg,transparent_0_78%,oklch(0.697_0.16_258.2/95%)_92%,transparent_100%)]
                        [mask:radial-gradient(farthest-side,transparent_calc(100%-2px),#000_calc(100%-1px))]"
           />
           <div
             className="absolute -inset-[26px] rounded-full [animation:spin-rev_14s_linear_infinite]
-                       [background:conic-gradient(from_180deg,transparent_0_86%,oklch(0.811_0.14_66.9/75%)_95%,transparent_100%)]
+                       [background:conic-gradient(from_180deg,transparent_0_86%,oklch(0.811_0.14_66.9/92%)_95%,transparent_100%)]
                        [mask:radial-gradient(farthest-side,transparent_calc(100%-2px),#000_calc(100%-1px))]"
           />
           <div
@@ -121,7 +136,15 @@ export default function Landing() {
         >
           신고는 하셨나요?
           <br />
-          그다음부터 저희가 맡습니다.
+          {/* 2행만 오른쪽으로 0.21em 밀어 광학 중앙을 맞춥니다.
+              가운데 정렬은 글자폭 기준인데 마침표는 폭만 차지하고 잉크가 거의 없어
+              2행이 왼쪽으로 밀려 보입니다. 1행은 「?」 가 폭을 채워 보정이 필요 없습니다.
+
+              ⚠️ margin 으로 하지 마세요. 이 section 이 flex + items-center 라
+              h1 이 내용에 맞춰 줄어드는데, 음수 margin 이 그 폭 계산에 섞이면
+              상자가 글자보다 좁아져 줄바꿈이 생깁니다. position:relative 는
+              레이아웃 폭을 건드리지 않아 안전합니다. */}
+          <span className="relative left-[0.21em]">그다음부터 저희가 맡습니다.</span>
         </h1>
 
         <p
@@ -155,7 +178,7 @@ export default function Landing() {
             key={n}
             style={step(3 + i)}
             className="rise rounded-[16px] border border-hairline p-6
-                       [background:linear-gradient(180deg,var(--surface),oklch(0.19_0.004_285.9))]
+                       [background:linear-gradient(180deg,var(--surface),var(--surface-low))]
                        shadow-[0_1px_0_oklch(1_0_0/7%)_inset,0_24px_48px_-28px_oklch(0_0_0)]
                        transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/38%)]"
           >
@@ -189,7 +212,7 @@ export default function Landing() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-4">
             {/* /start — 동의와 링크 발급 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-[oklch(0.19_0.004_285.9)]">
+            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
               <div aria-hidden className="flex h-[118px] flex-col gap-2 border-b border-hairline bg-stage p-4">
                 <div className={`${wireBar} h-[9px] w-[64%]`} />
                 <div className={`${wireBarDim} h-[9px] w-[44%]`} />
@@ -210,7 +233,7 @@ export default function Landing() {
             </article>
 
             {/* 챗 — 진술로 절차 선택 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-[oklch(0.19_0.004_285.9)]">
+            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
               <div aria-hidden className="flex h-[118px] flex-col gap-2 border-b border-hairline bg-stage p-4">
                 <div className="h-5 w-[58%] self-start rounded-[9px_9px_9px_3px] bg-[oklch(0.305_0.013_267.1/50%)]" />
                 <div className="h-5 w-[34%] self-end rounded-[9px_9px_3px_9px] border border-[oklch(0.697_0.16_258.2/35%)] bg-[oklch(0.697_0.16_258.2/25%)]" />
@@ -232,7 +255,7 @@ export default function Landing() {
             </article>
 
             {/* 보드 — 지금 할 일 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-[oklch(0.19_0.004_285.9)]">
+            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
               <div aria-hidden className="flex h-[118px] flex-col gap-[7px] border-b border-hairline bg-stage p-4">
                 <div className="flex items-center gap-2">
                   <div className="size-3 rounded-full border border-[oklch(0.697_0.16_258.2/60%)] bg-[oklch(0.697_0.16_258.2/25%)]" />
@@ -263,7 +286,7 @@ export default function Landing() {
             </article>
 
             {/* 증거함·서류 — PII 마스킹이 보이는 곳 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-[oklch(0.19_0.004_285.9)]">
+            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
               <div aria-hidden className="flex h-[118px] flex-col gap-2 border-b border-hairline bg-stage p-4">
                 <div className={`${wireBar} h-2 w-[70%] opacity-80`} />
                 <div className="flex flex-wrap items-center gap-[5px]">
