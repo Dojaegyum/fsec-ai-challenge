@@ -72,6 +72,14 @@ export function createDateChecker(deps: {
     isBusinessDay(date: string): boolean {
       return isBusinessDay(date, holidays)
     },
+
+    /**
+     * 날짜에 일수를 더한다. **법정 기한이 아닙니다** — 말일 이월을 걸지 않습니다.
+     * 보관 기한처럼 조문이 걸리지 않는 셈에만 씁니다.
+     */
+    addDays(date: string, amount: number): string {
+      return addDays(date, amount)
+    },
   }
 }
 

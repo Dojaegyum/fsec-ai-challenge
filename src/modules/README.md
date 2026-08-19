@@ -11,6 +11,7 @@
 | [`key-handler/`](key-handler/) | 세션키를 만들고 지키며, 매핑을 봉하고 연다 (층 C) |
 | [`pii-restorer/`](pii-restorer/) | 복원해도 되는지 심사하고 되돌린다 (층 C) |
 | [`retry-checker/`](retry-checker/) | 예외의 `retryable` 로 재시도 판단 (층 없음) |
+| [`case-intake/`](case-intake/) | 사건 생성, 파일 접수 자리 발급 (층 1) |
 | [`citation-checker/`](citation-checker/) | 인용 셋 확인, 갈래 셋 판정 (층 2) |
 | [`prompt-builder/`](prompt-builder/) | 블록 조립·참조 번호 발급·격리 태그 (층 2) |
 | [`chat-publisher/`](chat-publisher/) | 갈래를 한 형태로, 판단 근거 분리, 잔여 PII 검사 (층 2) |

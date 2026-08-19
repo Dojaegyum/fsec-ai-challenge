@@ -85,6 +85,16 @@ export interface DateChecker {
   daysLeft(dueDate: string): number
   /** 은행이 영업하는 날인가 */
   isBusinessDay(date: string): boolean
+  /**
+   * 날짜에 일수를 더한다. **법정 기한이 아닙니다.**
+   *
+   * 보관 기한(`case.purge_after`)처럼 **조문이 걸리지 않는 날짜 셈**에만 씁니다 —
+   * 민법 제161조 말일 이월을 적용하지 않습니다. 법정 기한은 `compute()` 로 계산하세요.
+   *
+   * 여기 있는 이유는 시간대 때문입니다. 밖에서 `Date` 로 날짜를 더하면 서버 위치에
+   * 따라 하루가 어긋나므로, 날짜 산술은 이 모듈 하나에 모읍니다.
+   */
+  addDays(date: string, amount: number): string
 }
 
 /**
