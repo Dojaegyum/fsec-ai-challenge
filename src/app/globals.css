@@ -236,6 +236,19 @@
     animation: rise-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   }
 
+  /* 아래 넷은 전부 장식입니다 — 뜻을 싣지 않습니다.
+     감속 모드가 rise 와 함께 이것들도 멈춥니다 */
+
+  /* 오비트 링 회전 — 랜딩 히어로 전용 */
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+  @keyframes spin-rev  { to { transform: rotate(-360deg); } }
+
+  /* 상태 점 맥동 — PII 배지 */
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  /* 글로우 호흡 — 오렌지 가우시안 */
+  @keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+
   /* 전정 장애가 있는 사용자에게 회전하는 테두리는 증상을 유발합니다. 선택이 아닙니다 */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
