@@ -9,8 +9,8 @@ export default defineConfig({
     },
   },
   test: {
-    // 도메인 모듈 테스트만 봅니다. Next 빌드 산출물은 제외
-    include: ["modules/**/*.test.ts"],
+    // 도메인 모듈과 공용(lib) 테스트를 봅니다. Next 빌드 산출물은 제외
+    include: ["{lib,modules}/**/*.test.ts"],
     environment: "node",
   },
 });

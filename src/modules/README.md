@@ -11,6 +11,24 @@
 | [`key-handler/`](key-handler/) | 세션키를 만들고 지키며, 매핑을 봉하고 연다 (층 C) |
 | [`pii-restorer/`](pii-restorer/) | 복원해도 되는지 심사하고 되돌린다 (층 C) |
 | [`work-handler/`](work-handler/) | 어느 작업 패널을 열지 정하고 그 패널을 맡는다 (층 C) — **판정만, 렌더는 아직** |
+| [`case-intake/`](case-intake/) | 사건 생성, 파일 접수 자리 발급 (층 1) |
+| [`citation-checker/`](citation-checker/) | 인용 셋 확인, 갈래 셋 판정 (층 2) |
+| [`prompt-builder/`](prompt-builder/) | 블록 조립·참조 번호 발급·격리 태그 (층 2) |
+| [`chat-publisher/`](chat-publisher/) | 갈래를 한 형태로, 판단 근거 분리, 잔여 PII 검사 (층 2) |
+| [`slot-checker/`](slot-checker/) | T1 충족 판정, 다음 질문 1문항 (층 3) |
+| [`date-checker/`](date-checker/) | 법정 기한을 규칙으로 계산, 잔여일 추적 (층 3) |
+| [`completion-checker/`](completion-checker/) | 부산물로 완료 판정 L1·L2·L3 (층 3) |
+| [`retry-checker/`](retry-checker/) | 예외의 `retryable` 로 재시도 판단 (층 없음) |
+| [`audit-logger/`](audit-logger/) | 해시 사슬로 기록, 사후 조작 검출 (층 없음) |
+
+**폴더 하나의 파일 골격은 [RFC-001](../../rfc/001-repo-structure.md)이 정합니다.**
+
+**모듈은 필요한 외부 자원을 직접 만들지 않고 인터페이스로 선언해 받습니다** →
+[ADR-028](../../decisions/028-runtime-and-module-shape.md). NER 모델·볼트 제품·공휴일 출처가
+아직 미정이어도 그 자리를 인터페이스로 두면 모듈을 완성할 수 있습니다.
+
+**저장소 접근과 LLM 호출에는 모듈 이름이 없습니다.** 도메인 판단을 하지 않는 자원 접근이라
+동작 단위가 아닙니다. 구현은 `src/lib/` 에 있고, 인터페이스는 그것을 쓰는 모듈이 소유합니다.
 
 ## 규칙 셋
 

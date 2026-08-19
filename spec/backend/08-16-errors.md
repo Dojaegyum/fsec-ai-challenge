@@ -2,6 +2,11 @@
 
 > **기획서 추출이 아닌 구현 결정입니다.** [08-api.md](../common/08-14-api.md)의 `TODO(미정): 에러 계약`을 채운 것입니다.
 > 바꿀 때는 spec을 직접 고치지 말고 RFC → ADR 절차를 거칩니다.
+>
+> **2026-08-17 §1의 예외 계층을 Python 에서 TypeScript 로 옮겼습니다** —
+> [ADR-021](../../decisions/028-runtime-and-module-shape.md)로 언어가 확정됐기 때문입니다.
+> **계약은 하나도 바뀌지 않았습니다** — 예외 14개, `code` 값, HTTP 번호, `retryable` 여부가 전부 그대로입니다.
+> 바뀐 것은 표기(`http_status` → `httpStatus`)와 `detail` 을 받는 방식뿐입니다 → §1.1.
 
 ## 원칙 셋
 
@@ -15,167 +20,199 @@
 
 ## 1. 예외 계층
 
-```python
-class AppError(Exception):
-    """FinAlly 서버의 모든 예외의 기반.
+> **구현 위치는 `src/lib/errors.ts` 입니다.** 모든 모듈이 쓰므로 `src/modules/` 밖의 공용에 둡니다
+> → [ADR-021](../../decisions/028-runtime-and-module-shape.md). 아래가 그 파일의 계약입니다.
 
-    retryable 로 재시도 가능 여부를 표시한다. retry-checker 가 이 값만 보고
-    재시도를 결정하므로, 예외 종류마다 반드시 값을 정한다.
-    """
+```ts
+/**
+ * FinAlly 서버의 모든 예외의 기반.
+ *
+ * retryable 로 재시도 가능 여부를 표시한다. retry-checker 가 이 값만 보고
+ * 재시도를 결정하므로, 예외 종류마다 반드시 값을 정한다.
+ */
+export class AppError extends Error {
+  readonly code: string = 'INTERNAL'
+  readonly httpStatus: number = 500
+  readonly retryable: boolean = false
 
-    code: str = "INTERNAL"
-    http_status: int = 500
-    retryable: bool = False
+  /** 감사 로그용. 응답 본문에 넣지 않는다 */
+  readonly detail: Record<string, unknown>
 
-    def __init__(self, message: str, *, detail: dict | None = None):
-        super().__init__(message)
-        self.detail = detail or {}       # 감사 로그용. 응답 본문에 넣지 않는다
+  constructor(message: string, detail: Record<string, unknown> = {}) {
+    super(message)
+    this.name = new.target.name
+    this.detail = detail
+  }
+}
 
+// ── PII 경계 (../common/08-14-pii-boundary.md) ─────────────────────────
 
-# ── PII 경계 (../common/08-14-pii-boundary.md) ─────────────────────────
-class PiiBoundaryError(AppError):
-    """PII 처리 실패.
+/**
+ * PII 처리 실패.
+ *
+ * 재시도하지 않는다. 실패한 요청을 다시 시도하면 같은 실패가 반복되거나,
+ * 더 나쁘게는 부분 처리된 상태로 통과할 수 있다.
+ */
+export class PiiBoundaryError extends AppError {
+  readonly code: string = 'PII_BOUNDARY'
+  readonly httpStatus: number = 500
+  readonly retryable: boolean = false
+}
 
-    재시도하지 않는다. 실패한 요청을 다시 시도하면 같은 실패가 반복되거나,
-    더 나쁘게는 부분 처리된 상태로 통과할 수 있다.
-    """
-    code = "PII_BOUNDARY"
-    http_status = 500
-    retryable = False
+/** 송출 직전 검사에서 잔여 PII 발견. 외부 LLM 호출을 중단했다. */
+export class EgressBlockedError extends PiiBoundaryError {
+  readonly code: string = 'EGRESS_BLOCKED'
+  readonly httpStatus: number = 422
+}
 
+/** 복원 거부. detail 에 거부 사유를 담는다 (ADR-011). */
+export class RestoreDeniedError extends PiiBoundaryError {
+  readonly code: string = 'RESTORE_DENIED'
+  readonly httpStatus: number = 403
+}
 
-class EgressBlockedError(PiiBoundaryError):
-    """송출 직전 검사에서 잔여 PII 발견. 외부 LLM 호출을 중단했다."""
-    code = "EGRESS_BLOCKED"
-    http_status = 422
+/**
+ * pii-tokenizer(NER)를 쓸 수 없다.
+ *
+ * 토큰화 없이 LLM을 호출하는 우회 경로를 만들지 않는다.
+ * pii-tokenizer 가 죽으면 LLM 기능 전체가 멈춘다 — 의도된 것이다.
+ */
+export class PiiTokenizerUnavailableError extends PiiBoundaryError {
+  readonly code: string = 'PII_TOKENIZER_UNAVAILABLE'
+  readonly httpStatus: number = 503
+  readonly retryable: boolean = true
+}
 
+// ── KB (08-14-kb-operations.md) ──────────────────────────────
 
-class RestoreDeniedError(PiiBoundaryError):
-    """복원 거부. detail 에 거부 사유를 담는다 (ADR-011)."""
-    code = "RESTORE_DENIED"
-    http_status = 403
+export class KbError extends AppError {
+  readonly code: string = 'KB_ERROR'
+  readonly httpStatus: number = 500
+}
 
+/**
+ * LLM 응답의 참조가 검증을 통과하지 못했다.
+ *
+ * 발급하지 않은 ref, kb_entry_id 바꿔치기, 어느 문장에도 안 쓰인 인용.
+ * CLAUDE.md 불변 규칙 1 위반. 응답을 버리고 재시도한다.
+ *
+ * 모델이 insufficient: true 로 근거 없음을 밝힌 경우는 여기 오지 않는다.
+ * 그건 실패가 아니라 슬롯 질문 경로다 → §4.2
+ */
+export class KbCitationMissingError extends KbError {
+  readonly code: string = 'KB_CITATION_MISSING'
+  readonly httpStatus: number = 502
+  readonly retryable: boolean = true
+}
 
-class PiiTokenizerUnavailableError(PiiBoundaryError):
-    """pii-tokenizer(NER)를 쓸 수 없다.
+/**
+ * 해당 시점에 유효한 KB 항목이 없다.
+ *
+ * 조회는 성공했고 결과가 0건인 경우다. 이건 정상 경로이므로
+ * 보통 예외로 던지지 않고 빈 결과로 반환한다 (§4 참조).
+ * 조회 결과가 반드시 있어야 하는 자리에서만 던진다.
+ */
+export class KbEntryNotFoundError extends KbError {
+  readonly code: string = 'KB_ENTRY_NOT_FOUND'
+  readonly httpStatus: number = 404
+}
 
-    토큰화 없이 LLM을 호출하는 우회 경로를 만들지 않는다.
-    pii-tokenizer 가 죽으면 LLM 기능 전체가 멈춘다 — 의도된 것이다.
-    """
-    code = "PII_TOKENIZER_UNAVAILABLE"
-    http_status = 503
-    retryable = True
+/**
+ * KB 조회 자체가 실패했다. DB 장애 등.
+ *
+ * 챗을 멈춘다. 근거 없는 답변보다 멈추는 편이 낫다.
+ * PiiTokenizerUnavailableError 와 같은 논리다 — 통제를 우회하는
+ * 폴백 경로를 만들지 않는다.
+ *
+ * KbEntryNotFoundError(404) 와 구분한다:
+ *   - 404 = 조회는 됐고 해당 항목이 없다
+ *   - 503 = 조회를 못 했다. 있는지 없는지도 모른다
+ */
+export class KbUnavailableError extends KbError {
+  readonly code: string = 'KB_UNAVAILABLE'
+  readonly httpStatus: number = 503
+  readonly retryable: boolean = true
+}
 
+// ── 사건 처리 ──────────────────────────────────────────────
 
-# ── KB (08-14-kb-operations.md) ──────────────────────────────
-class KbError(AppError):
-    code = "KB_ERROR"
-    http_status = 500
+export class CaseError extends AppError {
+  readonly code: string = 'CASE_ERROR'
+  readonly httpStatus: number = 400
+}
 
+/**
+ * 확정되지 않은 슬롯으로 기한을 계산하려 했다.
+ *
+ * CLAUDE.md 불변 규칙 7. extracted·unknown 상태로 계산하지 않는다.
+ */
+export class SlotNotConfirmedError extends CaseError {
+  readonly code: string = 'SLOT_NOT_CONFIRMED'
+  readonly httpStatus: number = 409
+}
 
-class KbCitationMissingError(KbError):
-    """LLM 응답의 참조가 검증을 통과하지 못했다.
+/**
+ * 선행 단계의 부산물이 없어 다음 단계를 만들 수 없다.
+ *
+ * 05-completion-hook.md 의 증거 연쇄.
+ */
+export class ArtifactRequiredError extends CaseError {
+  readonly code: string = 'ARTIFACT_REQUIRED'
+  readonly httpStatus: number = 409
+}
 
-    발급하지 않은 ref, kb_entry_id 바꿔치기, 어느 문장에도 안 쓰인 인용.
-    CLAUDE.md 불변 규칙 1 위반. 응답을 버리고 재시도한다.
+// ── 외부 의존 ──────────────────────────────────────────────
 
-    모델이 insufficient: true 로 근거 없음을 밝힌 경우는 여기 오지 않는다.
-    그건 실패가 아니라 슬롯 질문 경로다 → §4.2
-    """
-    code = "KB_CITATION_MISSING"
-    http_status = 502
-    retryable = True
+export class LlmError extends AppError {
+  readonly code: string = 'LLM_UNAVAILABLE'
+  readonly httpStatus: number = 503
+  readonly retryable: boolean = true
+}
 
+/** 잘못된 요청. 같은 요청은 같은 결과가 나오므로 재시도하지 않는다. */
+export class LlmBadRequestError extends LlmError {
+  readonly code: string = 'LLM_BAD_REQUEST'
+  readonly httpStatus: number = 500
+  readonly retryable: boolean = false
+}
 
-class KbEntryNotFoundError(KbError):
-    """해당 시점에 유효한 KB 항목이 없다.
+/** STT·OCR 실패. */
+export class IngestError extends AppError {
+  readonly code: string = 'INGEST_FAILED'
+  readonly httpStatus: number = 422
+  readonly retryable: boolean = true
+}
 
-    조회는 성공했고 결과가 0건인 경우다. 이건 정상 경로이므로
-    보통 예외로 던지지 않고 빈 결과로 반환한다 (§4 참조).
-    조회 결과가 반드시 있어야 하는 자리에서만 던진다.
-    """
-    code = "KB_ENTRY_NOT_FOUND"
-    http_status = 404
+export class StoreError extends AppError {
+  readonly code: string = 'STORE_ERROR'
+  readonly httpStatus: number = 503
+  readonly retryable: boolean = true
+}
 
+// ── 유입 제어 ──────────────────────────────────────────────
 
-class KbUnavailableError(KbError):
-    """KB 조회 자체가 실패했다. DB 장애 등.
-
-    챗을 멈춘다. 근거 없는 답변보다 멈추는 편이 낫다.
-    PiiTokenizerUnavailableError 와 같은 논리다 — 통제를 우회하는
-    폴백 경로를 만들지 않는다.
-
-    KbEntryNotFoundError(404) 와 구분한다:
-      - 404 = 조회는 됐고 해당 항목이 없다
-      - 503 = 조회를 못 했다. 있는지 없는지도 모른다
-    """
-    code = "KB_UNAVAILABLE"
-    http_status = 503
-    retryable = True
-
-
-# ── 사건 처리 ──────────────────────────────────────────────
-class CaseError(AppError):
-    code = "CASE_ERROR"
-    http_status = 400
-
-
-class SlotNotConfirmedError(CaseError):
-    """확정되지 않은 슬롯으로 기한을 계산하려 했다.
-
-    CLAUDE.md 불변 규칙 7. extracted·unknown 상태로 계산하지 않는다.
-    """
-    code = "SLOT_NOT_CONFIRMED"
-    http_status = 409
-
-
-class ArtifactRequiredError(CaseError):
-    """선행 단계의 부산물이 없어 다음 단계를 만들 수 없다.
-
-    05-completion-hook.md 의 증거 연쇄.
-    """
-    code = "ARTIFACT_REQUIRED"
-    http_status = 409
-
-
-# ── 외부 의존 ──────────────────────────────────────────────
-class LlmError(AppError):
-    code = "LLM_UNAVAILABLE"
-    http_status = 503
-    retryable = True
-
-
-class LlmBadRequestError(LlmError):
-    """잘못된 요청. 같은 요청은 같은 결과가 나오므로 재시도하지 않는다."""
-    code = "LLM_BAD_REQUEST"
-    http_status = 500
-    retryable = False
-
-
-class IngestError(AppError):
-    """STT·OCR 실패."""
-    code = "INGEST_FAILED"
-    http_status = 422
-    retryable = True
-
-
-class StoreError(AppError):
-    code = "STORE_ERROR"
-    http_status = 503
-    retryable = True
-
-
-# ── 유입 제어 ──────────────────────────────────────────────
-
-class RateLimitedError(AppError):
-    """속도 제한에 걸렸다 → 08-api.md §1.3
-
-    서버가 재시도하지 않는다. 기다렸다가 사용자가 다시 누른다.
-    """
-    code = "RATE_LIMITED"
-    http_status = 429
-    retryable = False
+/**
+ * 속도 제한에 걸렸다 → 08-api.md §1.3
+ *
+ * 서버가 재시도하지 않는다. 기다렸다가 사용자가 다시 누른다.
+ */
+export class RateLimitedError extends AppError {
+  readonly code: string = 'RATE_LIMITED'
+  readonly httpStatus: number = 429
+  readonly retryable: boolean = false
+}
 ```
+
+### 1.1 필드 이름과 타입 표기
+
+**`http_status` 를 `httpStatus` 로 씁니다.** 값과 뜻은 그대로이고 표기만 TypeScript 관례를 따릅니다.
+아래 §3 표의 `code` 값과 HTTP 번호는 **하나도 바뀌지 않았습니다.**
+
+**필드에 타입을 명시(`: string`)하는 이유**는 생략하면 리터럴 타입(`'PII_BOUNDARY'`)으로 좁혀져
+하위 클래스에서 다른 값으로 덮어쓸 때 타입이 어긋나기 때문입니다.
+
+**`detail` 을 두 번째 인자로 받습니다.** Python 의 키워드 전용 인자를 그대로 옮길 수 없어
+위치 인자로 바꿨습니다. **응답 본문에 넣지 않는다는 규칙은 그대로입니다** → §3.
 
 ---
 

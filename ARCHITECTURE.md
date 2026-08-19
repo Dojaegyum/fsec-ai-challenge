@@ -1,7 +1,8 @@
 # 아키텍처 — FinAlly가 어떻게 구성되는가
 
 > **상태: 채워짐(2026-08-16).** 백엔드 정의가 끝나 각 절이 실제 선택을 가리킵니다.
-> 남은 미결은 §10에 모아 두었습니다 — **모듈의 물리 배치**와 **파기·리마인더 실행 수단**이 큰 둘입니다.
+> **모듈의 물리 배치와 언어는 [ADR-028](decisions/028-runtime-and-module-shape.md)로 해소됐습니다** —
+> Next.js 안, 전부 TypeScript입니다. 남은 미결은 §10에 있습니다.
 
 ## 이 문서의 자리
 
@@ -79,6 +80,7 @@ flowchart TB
 
 | 영역 | 선택 | 정본 |
 | --- | --- | --- |
+| **언어** | **TypeScript** — 화면·API·도메인 모듈 전부. 별도 백엔드 없음 | [ADR-028](decisions/028-runtime-and-module-shape.md) |
 | 프론트 | Next.js (App Router) · React · Tailwind v4 · shadcn/ui | `src/package.json` |
 | 디자인 토큰 | FinAlly 도메인 토큰 | `src/app/globals.css` · [design-system](spec/frontend/design-system/) |
 | 백엔드 런타임 | **Vercel 서버리스 함수** | [API 계약](spec/common/08-14-api.md) |
@@ -113,7 +115,11 @@ flowchart TB
 > **볼트만 미결**입니다 — ADR-010의 "다른 인스턴스에 둔다"는 분리 원칙을 지키면서 리전도 맞춰야 해서입니다.
 
 - **DDL 위치** — [데이터 모델](spec/backend/08-16-data-model.md). 테이블 14개, **PostgreSQL 방언**입니다
-- **마이그레이션 방식** — 미정 → §10
+- **마이그레이션 방식** — **`psql` + 순번 SQL 파일** → [`src/migrations/`](src/migrations/).
+  ORM 을 끼우지 않는 이유는 **DDL 이 두 곳에 생기기 때문**입니다 — 정본이 이미 PostgreSQL
+  방언으로 쓰여 있어, ORM 스키마와 갈라지면 어느 쪽이 맞는지 알 수 없게 됩니다.
+  적용 이력은 `schema_migrations` 표에 남습니다. **아직 실제 데이터베이스에 적용해 보지는
+  않았습니다** — Supabase 프로젝트가 없습니다
 - **보존·파기** — `case.purge_after` **마지막 활동일부터 180일**(`CASE_PURGE_DAYS`).
   세 저장소가 **같은 날 함께** 죽습니다 → [ADR-016](decisions/016-retention-and-datastore.md)
   - 표준 트랙만 D+100이고(공고 2개월 + 환급금 결정 14일), 이의제기가 붙으면 D+160입니다 →
@@ -316,7 +322,24 @@ flowchart LR
 
 ### 물리 배치
 
-**아직 정해지지 않았습니다** — Next.js 라우트 핸들러 안인가, 별도 백엔드인가 → §10.
+**Next.js 안입니다. 별도 백엔드를 두지 않습니다** → [ADR-028](decisions/028-runtime-and-module-shape.md).
+
+| 무엇 | 어디 | 어디서 도나 |
+| --- | --- | --- |
+| 화면 | `src/app/**/page.tsx` | 브라우저 |
+| API 진입점 | `src/app/api/**/route.ts` | 서버 (Vercel 함수) |
+| 도메인 모듈 | `src/modules/{이름}/` | 층 1·2·3·4는 서버, **층 C는 브라우저** |
+| 자원 접근 구현 | `src/lib/` | 서버 |
+
+**진입점은 HTTP만 알고 판단은 모듈이 합니다.** `route.ts` 가 맡는 것은 요청 파싱·인증·
+속도 제한·상태 코드·계측 헤더까지이고, 도메인 모듈은 **자기가 HTTP로 불렸는지 모릅니다.**
+그래야 파기 배치나 리마인더처럼 다른 경로에서 같은 모듈을 부를 수 있습니다.
+
+**각 모듈은 필요한 외부 자원을 인터페이스로 선언하고 구현을 주입받습니다.** NER 모델·
+볼트 제품·공휴일 출처가 미정이어도 그 자리를 비워 두면 모듈을 완성할 수 있습니다.
+**저장소 접근과 LLM 호출에는 모듈 이름을 만들지 않습니다** — 도메인 판단을 하지 않는
+자원 접근입니다.
+
 위 이름들은 **책임의 단위이지 서버의 개수가 아닙니다** → [모듈 경계](spec/common/08-16-module-boundaries.md).
 
 ## 5. 데이터 흐름
@@ -438,7 +461,6 @@ sequenceDiagram
 
 | 무엇 | 왜 걸려 있나 | 어디에 |
 | --- | --- | --- |
-| **모듈의 물리 배치** | Next.js 라우트 핸들러 안인가, 별도 백엔드인가 | [모듈 경계](spec/common/08-16-module-boundaries.md) |
 | **볼트 제품** | 분리 원칙(다른 인스턴스)과 리전을 함께 만족해야 합니다. Vercel KV 유지 여부 | [ADR-016](decisions/016-retention-and-datastore.md) |
 | **Vercel Cron 실행 제약** | 플랜별 실행 빈도·타임아웃을 확인하지 않았습니다. 하루 1회가 되는지 | [ADR-025](decisions/025-scheduled-jobs.md) |
 | **메일 발송 수단** | 리마인더를 무엇으로 보내나. 주기·문구도 미정 | [ADR-021](decisions/021-reentry-and-identity.md) |
@@ -453,6 +475,7 @@ sequenceDiagram
 
 - NER 모델·서비스 선택 (경계 그 자체라 우선순위가 높습니다)
 - Grok 모델명과 단가
-- 마이그레이션 방식 · `.env.example` · 환경 분리 · 시드 데이터 · 애플리케이션 로그
+- `.env.example` · 환경 분리 · 시드 데이터 · 애플리케이션 로그
+  (마이그레이션 방식은 2026-08-18 확정 → §3)
 
 여기서 새로 생긴 미결은 각 절에 남기고, 결정되면 그 자리를 채우면서 근거를 `decisions/`에 ADR로 남깁니다.
