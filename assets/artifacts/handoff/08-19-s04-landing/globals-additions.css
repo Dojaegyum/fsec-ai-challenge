@@ -1,0 +1,12 @@
+/* globals.css 의 @layer base 안, rise-in 아래에 추가합니다.
+   전부 장식용 — 이미 있는 prefers-reduced-motion 블록이 함께 끕니다 */
+
+/* 오비트 링 회전 — 랜딩 히어로 전용 */
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@keyframes spin-rev  { to { transform: rotate(-360deg); } }
+
+/* 상태 점 맥동 — PII 배지 */
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* 글로우 호흡 — 오렌지 가우시안 */
+@keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }

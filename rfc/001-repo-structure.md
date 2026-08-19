@@ -37,6 +37,7 @@ assets/           산출물·자산 원본 — 빌드에 안 들어가는 것
   artifacts/        HTML 아티팩트 (브라우저로 여는 완성 문서)
     plans/            우리가 정한 설계
     context/          확인한 바깥 사실
+    handoff/          화면 디자인 핸드오프 스냅샷 (받은 그대로 · 안 고침)
     archived/         역할이 끝난 것 (이름도 내용도 안 건드림)
 src/              코드
   modules/          도메인 모듈 — 폴더 이름이 모듈 정본과 글자 그대로 같아야 함
@@ -65,6 +66,7 @@ src/              코드
    - 역할이 끝났다 → `archived/`
    - 우리가 정한 설계 → `plans/`
    - 확인한 바깥 사실 → `context/`
+   - **화면 디자인을 밖에서 받아온 것** → `handoff/{MM-dd-화면ID-slug}/` (→ [RFC-003](003-design-handoff.md))
 5. **구현이 따라야 할 제품 계약인가?** (이걸 어기면 제품이 틀린다) → `spec/`
    - 백엔드·프론트가 **함께** 지켜야 → `common/`
    - 서버만 → `backend/` · 화면만 → `frontend/`
@@ -117,7 +119,7 @@ rfc/001-repo-structure.md      →   # RFC-001. 저장소 구조 규약 …
 - 템플릿은 `000-template.md`.
 - 각 폴더 `README.md`의 목록에 반드시 등록합니다.
 
-### `MM-dd-{slug}` — `spec/` · `docs/` · `assets/artifacts/{plans,context}`
+### `MM-dd-{slug}` — `spec/` · `docs/` · `assets/artifacts/{plans,context,handoff}`
 
 순서를 약속하지 않는 이름입니다(→ [ADR-003](../decisions/003-spec-layout.md)).
 
@@ -129,6 +131,8 @@ assets/artifacts/plans/08-13-service-plan.html
 - **`MM-dd`는 최초 작성일이고, 개정해도 바꾸지 않습니다.** 날짜는 순서가 아니라 **출생기록**입니다 —
   바꾸면 그 문서를 가리키는 모든 링크가 한꺼번에 깨집니다. 최신성은 문서 **안에** 적습니다.
 - 같은 날 같은 slug이 겹치면 slug을 더 구체적으로 바꿉니다 (`08-14-api.md` → `08-14-api-case.md`).
+- `artifacts/handoff/`는 **파일이 아니라 폴더**에 이 이름을 씁니다 —
+  `08-19-s04-landing/`. 날짜는 **넘겨받은 날**입니다 (→ [RFC-003](003-design-handoff.md)).
 
 ### `NN-{제목}` — `docs/research/`
 
@@ -185,6 +189,8 @@ docs/research/06-경로별-실측조사.md
 
 - **원본만 둡니다.** 앱이 서빙하는 사본은 `src/public/`이고, 둘을 같은 곳에 두지 않습니다.
 - **HTML 아티팩트는 단일 파일로** 작성합니다(외부 CSS·JS·폰트 의존 없음).
+- **`artifacts/handoff/`만 폴더 단위**입니다 — 밖에서 받은 화면 디자인을 **받은 그대로** 담습니다.
+  `archived/`와 같이 **나중에 고치지 않습니다**. 절차는 [RFC-003](003-design-handoff.md).
 - 외부에서 받은 자산은 **출처와 라이선스를 함께 적습니다** — 대회 제출물에 들어가므로 출처 불명은 위험합니다.
 - `artifacts/archived/`는 **읽되 갱신하지 않고, 이름도 바꾸지 않습니다.**
 
@@ -349,4 +355,5 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-18 | 모듈 하나의 파일 골격을 고정 — `pii-masker`가 첫 사례 | 커밋 메시지 |
 | 2026-08-18 | 코드 게이트(`code-check`) 신설 — 타입 검사와 테스트. 테스트가 안 돌면 장식이 됩니다 | 커밋 메시지 |
 | 2026-08-18 | `src/kb/`를 폴더 지도와 결정 트리에 추가 — 매뉴얼 KB 원본의 자리 | [RFC-002](002-kb-authoring.md) |
+| 2026-08-19 | `assets/artifacts/handoff/` 신설 — 밖에서 받은 화면 디자인의 자리. 구조 게이트가 이 폴더 안쪽을 보지 않게 함 | [RFC-003](003-design-handoff.md) · [ADR-029](../decisions/029-design-handoff.md) |
 | 2026-08-17 | `src/modules/`가 서버 전용이 아님을 명시. 브라우저 도메인 모듈(층 C)도 여기 들어가고, 모듈과 UI 컴포넌트를 「금지가 붙어 있는가」로 가름 | [ADR-023](../decisions/023-frontend-module-names.md) |
