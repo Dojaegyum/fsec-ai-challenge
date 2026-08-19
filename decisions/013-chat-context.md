@@ -1,6 +1,6 @@
 # ADR-013. 챗은 도구를 쓰지 않고, 챗 답변의 토큰은 종류별로 부분 복원한다
 
-- 상태: **채택**
+- 상태: **채택** · **결정 B는 대체됨**(→ [ADR-034](034-browser-shows-plaintext.md))
 - 날짜: 2026-08-16
 - 결정: @kth9245
 - 관련: `spec/backend/08-16-chat-context.md` · [ADR-011](011-pii-boundary-hardening.md) 규칙 B 일부 조정
