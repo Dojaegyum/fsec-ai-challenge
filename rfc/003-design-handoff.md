@@ -67,7 +67,7 @@ assets/artifacts/handoff/08-19-s04-landing/
 | 볼 것 | 기준 | 정본 |
 | --- | --- | --- |
 | 색 | **도메인 토큰만.** 임의 hex·rgb 없음. **빨강 금지** | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「상태 색」 |
-| 글자 크기 | **실제 텍스트에 13px 미만 없음** (고령 사용자 기준) | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「크기 사다리」 |
+| 글자 크기 | **실제 텍스트에 12.5px 미만 없음** (고령 사용자 기준 · 우리가 정한 선) | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「크기 사다리」 · [ADR-032](../decisions/032-text-floor.md) |
 | 장식 | 뜻을 싣지 않음. `--horizon`은 장식 전용이고 전부 `aria-hidden` | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「상태 색」 |
 | 모션 | `prefers-reduced-motion`이 **전부** 멈춤. 새 keyframes도 포함 | [접근성](../spec/frontend/design-system/08-16-accessibility.md) 「모션」 |
 | 색만으로 구분 | 상태를 색 하나로 가르지 않음 (모양·글자를 함께) | [접근성](../spec/frontend/design-system/08-16-accessibility.md) |
@@ -146,5 +146,6 @@ assets/artifacts/handoff/08-19-s04-landing/
 | 날짜 | 무엇 | 근거 |
 | --- | --- | --- |
 | 2026-08-19 | 제정 — 화면 디자인 정본을 Claude Design으로 옮기고 핸드오프 절차를 세움 | [ADR-030](../decisions/030-design-handoff.md) |
+| 2026-08-19 | 수용 검사의 글자 크기 하한을 13px → **12.5px** 로. 근거 없이 굴러온 숫자였고, WCAG 요건이 아님을 함께 표기 | [ADR-032](../decisions/032-text-floor.md) |
 | 2026-08-19 | 핸드오프 README 에 **아트보드 이름**을 추가 — 캔버스 하나에 화면이 여럿이라 URL 만으로는 어느 시안인지 못 가립니다 | 커밋 메시지 |
 | 2026-08-19 | 「한 작업의 끝」 5번을 화면 문서 하나에서 **spec 세 곳**으로 넓힘 — S-04 때 keyframes 넷과 새 컴포넌트가 디자인 시스템 문서에 한 줄도 안 남았습니다 | 커밋 메시지 |
