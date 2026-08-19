@@ -17,6 +17,7 @@
 | [`prompt-builder/`](prompt-builder/) | 블록 조립·참조 번호 발급·격리 태그 (층 2) |
 | [`chat-publisher/`](chat-publisher/) | 갈래를 한 형태로, 판단 근거 분리, 잔여 PII 검사 (층 2) |
 | [`slot-checker/`](slot-checker/) | T1 충족 판정, 다음 질문 1문항 (층 3) |
+| [`planner/`](planner/) | KB 를 인용해 플랜 단계를 확정, 재생성 시 병합 (층 3) |
 | [`date-checker/`](date-checker/) | 법정 기한을 규칙으로 계산, 잔여일 추적 (층 3) |
 | [`completion-checker/`](completion-checker/) | 부산물로 완료 판정 L1·L2·L3 (층 3) |
 | [`retry-checker/`](retry-checker/) | 예외의 `retryable` 로 재시도 판단 (층 없음) |
