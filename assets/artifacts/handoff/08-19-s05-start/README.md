@@ -4,7 +4,8 @@
 | --- | --- |
 | 대상 화면 | **`S-05` 동의 · 선택 제공 `/start`** → [화면 설계](../../../../spec/frontend/08-14-screens.md) |
 | 넘겨받은 날 | 2026-08-19 |
-| 캔버스 | ⬜ **TODO(확인 필요)** — Claude Design 캔버스 URL |
+| 캔버스 | [FSEC 렌더 페이지 설계](https://claude.ai/design/p/4a2237c5-4584-4fac-aeaa-a256b3404f0b) — 화면 전체가 한 캔버스에 있습니다 |
+| 아트보드 | [「Consent Terms」](https://claude.ai/design/p/4a2237c5-4584-4fac-aeaa-a256b3404f0b?file=Consent+Terms.dc.html) · 「Start S-05」 · 「Link Issue Options」 |
 | 시안 | 「Start S-05」 **2c** + 「Link Issue Options」 **1a** |
 | 상태 | **적용됨** |
 

@@ -4,7 +4,8 @@
 | --- | --- |
 | 대상 화면 | **`S-04` 랜딩 `/`** → [화면 설계](../../../../spec/frontend/08-14-screens.md) |
 | 넘겨받은 날 | 2026-08-19 |
-| 캔버스 | ⬜ **TODO(확인 필요)** — Claude Design 캔버스 URL |
+| 캔버스 | [FSEC 렌더 페이지 설계](https://claude.ai/design/p/4a2237c5-4584-4fac-aeaa-a256b3404f0b) — 화면 전체가 한 캔버스에 있습니다 |
+| 아트보드 | 「Landing Options」 (`?file=` 로 고릅니다) |
 | 시안 | 「Landing Options」 **1c** 확정본 |
 | 적용 커밋 | `358ee33` — S-04 랜딩 리디자인 |
 | 상태 | **적용됨** |
