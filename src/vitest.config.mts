@@ -22,8 +22,11 @@ export default defineConfig({
     },
   },
   test: {
-    // 도메인 모듈과 공용(lib) 테스트를 봅니다. Next 빌드 산출물은 제외
-    include: ["{lib,modules}/**/*.test.ts"],
+    // 도메인 모듈과 공용(lib) 테스트, 그리고 src 바로 아래 파일의 시험을 봅니다.
+    // `proxy.ts` 는 Next 규약상 app/ 과 같은 층에 있어야 해서 lib/ 로 못 옮깁니다
+    // → node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md.
+    // Next 빌드 산출물(.next)은 제외됩니다
+    include: ["{lib,modules}/**/*.test.ts", "*.test.ts"],
     environment: "node",
   },
 });

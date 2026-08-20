@@ -47,8 +47,11 @@ export function configReport(container: Container): readonly PortStatus[] {
     row('관리자 계정', has(env, 'ADMIN_USERNAME', 'ADMIN_PASSWORD_HASH'),
       ['ADMIN_USERNAME', 'ADMIN_PASSWORD_HASH'],
       '관리자 조회가 열리지 않습니다'),
+    // 5단계 전에는 「밖에서 부를 수 있습니다」였습니다. 문지기(proxy.ts)가
+    // 붙은 뒤로 정반대가 됐습니다 — 비교할 값이 없으면 **전부 막습니다**.
+    // 설명이 낡으면 운영자가 유입 차단을 찾는 동안 파기가 계속 멈춰 있습니다
     row('크론 비밀값', has(env, 'CRON_SECRET'), ['CRON_SECRET'],
-      '주기 실행 경로를 밖에서 부를 수 있습니다'),
+      '크론 경로가 전부 401 입니다 — 사건 파기·기한 알림이 한 번도 안 돕니다'),
     row('공휴일', !isUnconfigured(ports.holidays), ['(정본에 키 이름 없음)'],
       '영업일 계산이 멈춥니다'),
     row('개인정보 토큰화', !isUnconfigured(ports.tokenizer), ['(모델 미선정)'],

@@ -12,16 +12,39 @@
  *
  * ## 담을 것이 없을 때 무엇을 찍나
  *
- * | 헤더 | 없을 때 | 왜 그 값이 사실인가 |
+ * | 헤더 | 없을 때 | 뜻 |
  * | --- | --- | --- |
- * | `X-Pii-Token-Count` | 빈 문자열 | 유형별 목록이 비었다는 뜻입니다. `0` 은 유형 이름이 없어 쓸 수 없습니다 |
+ * | `X-Pii-Token-Count` | `none` | 토큰화한 유형이 하나도 없습니다 |
  * | `X-Pii-Egress-Residual` | `0` | 나간 것이 없으면 나간 것 중 남은 것도 0 건입니다 |
- * | `X-Kb-Version` | 빈 문자열 | *"이 응답이 인용한 KB 버전"* 인데 인용이 없으면 버전도 없습니다 |
- * | `X-Audit-Id` | 빈 문자열 | 이 요청에 남은 감사 기록이 없다는 뜻입니다 |
+ * | `X-Kb-Version` | `none` | 이 응답이 인용한 KB 항목이 없습니다 |
+ * | `X-Audit-Id` | `none` | 이 요청에 남은 감사 기록이 없습니다 |
  *
- * ⬜ **빈 문자열이 「없음」의 표기로 맞는지는 정본에 없습니다.** 값을 지어내는 것보다
- * 낫다고 보고 고른 것입니다 — `-` 같은 기호를 쓰면 그건 정본에 없는 약속을
- * 새로 만드는 것이 됩니다. 정해지면 이 파일만 고칩니다.
+ * ⬜ **「없음」의 표기가 정본에 없습니다.** `none` 은 고른 것이지 정해진 것이
+ * 아닙니다. 다만 **빈 문자열은 쓸 수 없다는 것이 실측으로 확인됐습니다** — 아래.
+ *
+ * ### 빈 문자열을 쓰지 않는 이유 — 전송 중에 사라집니다
+ *
+ * 처음에는 빈 문자열로 두었습니다. 값을 지어내지 않는 쪽이 정직하다고 봤기
+ * 때문입니다. **그런데 문지기(`proxy.ts`)가 낸 응답에서는 그 헤더가 아예
+ * 사라집니다.**
+ *
+ * ```js
+ * // node_modules/next/dist/server/lib/router-utils/resolve-routes.js
+ * if (value) {                    // ← 빈 문자열은 falsy 라 통째로 버려집니다
+ *   resHeaders[key] = value
+ * }
+ * ```
+ *
+ * 라우트가 낸 응답은 이 자리를 안 지나서 빈 값이 그대로 나갑니다. 그래서
+ * **같은 규약이 경로에 따라 다르게 지켜지는** 상태였습니다 — `next dev` 와
+ * `next start` 양쪽에서 재현했습니다. §1.1 이 *"모든 응답에 붙습니다"* 인데
+ * 문지기가 낸 401 에서만 셋이 빠졌습니다.
+ *
+ * **빈 값이 아니면 어떤 경로에서도 안 사라집니다.** 지어낸 낱말 하나를 쓰는 것과
+ * 정본의 한 문장을 못 지키는 것 중에 앞을 골랐습니다.
+ *
+ * `none` 이 값과 헷갈릴 일은 없습니다 — KB 버전은 `2026.08.1` 꼴이고 감사
+ * 식별자는 26자 ULID 라 어느 쪽도 `none` 이 될 수 없습니다.
  *
  * **건수만 담습니다. 값을 담지 않습니다.**
  */
@@ -39,6 +62,13 @@ export interface Telemetry {
   /** 감사 로그 식별자 */
   readonly auditId?: string
 }
+
+/**
+ * 담을 것이 없을 때의 표기.
+ *
+ * **빈 문자열을 쓰면 문지기가 낸 응답에서 헤더가 통째로 사라집니다** — 위 참고.
+ */
+export const TELEMETRY_NONE = 'none'
 
 /** 네 이름. 시험이 「넷 다 붙었는가」를 이 목록으로 봅니다 */
 export const TELEMETRY_HEADER_NAMES = [
@@ -62,13 +92,15 @@ function formatCounts(counts: Readonly<Record<string, number>>): string {
  * **넷을 언제나 함께 냅니다.** 하나라도 조건부로 두면 §1.1 이 깨집니다.
  */
 export function telemetryHeaders(telemetry: Telemetry): Record<string, string> {
+  const counts = telemetry.piiTokenCounts
+    ? formatCounts(telemetry.piiTokenCounts)
+    : ''
+
   return {
-    'X-Pii-Token-Count': telemetry.piiTokenCounts
-      ? formatCounts(telemetry.piiTokenCounts)
-      : '',
+    'X-Pii-Token-Count': counts || TELEMETRY_NONE,
     'X-Pii-Egress-Residual': String(telemetry.piiEgressResidual ?? 0),
-    'X-Kb-Version': telemetry.kbVersion ?? '',
-    'X-Audit-Id': telemetry.auditId ?? '',
+    'X-Kb-Version': telemetry.kbVersion || TELEMETRY_NONE,
+    'X-Audit-Id': telemetry.auditId || TELEMETRY_NONE,
   }
 }
 

@@ -168,3 +168,22 @@ export class BadRequestError extends AppError {
   readonly code: string = 'BAD_REQUEST'
   readonly httpStatus: number = 400
 }
+
+/**
+ * 인증 없이 관리자·크론 경로에 왔다 → 08-14-api.md §5.1.
+ *
+ * *"`/api/admin/` 아래 모든 경로에 인증을 겁니다. 인증 없이 접근하면 `401` 입니다."*
+ *
+ * ⬜ **정본의 코드 표에 401 이 없습니다** → 08-16-errors.md §3. `BAD_REQUEST` 와
+ * 같은 자리입니다 — 표는 도메인 실패만 담고 있어 「인증이 없다」를 넣을 칸이
+ * 없습니다. 사용자 문구는 `INTERNAL` 것으로 떨어집니다.
+ *
+ * **왜 그래도 괜찮은가:** 이 경로의 상대는 피해자가 아니라 운영자입니다. 문구가
+ * 「처리 중 문제가 발생했습니다」로 나가도 피해자를 혼란시키지 않습니다.
+ * **그리고 무엇이 틀렸는지 자세히 알려주지 않는 편이 낫습니다** — 아이디가 틀렸는지
+ * 쿠키가 지났는지를 구분해 주면 그게 곧 힌트입니다.
+ */
+export class UnauthorizedError extends AppError {
+  readonly code: string = 'UNAUTHORIZED'
+  readonly httpStatus: number = 401
+}

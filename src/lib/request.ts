@@ -26,10 +26,13 @@
 
 import 'server-only'
 
+import { serverClock } from './clock'
 import type { Container } from './container'
-import { BadRequestError, fail, ok } from './http'
+import { isAdminPath } from './gated-paths'
+import { BadRequestError, UnauthorizedError, fail, ok } from './http'
 import { isUlid } from './ids'
 import type { CaseRateBucket, UpfrontRateBucket } from './rate-limit'
+import { hasAdminSession } from './session-cookie'
 import { createTelemetry, type TelemetryRecorder } from './telemetry'
 import { getContainer } from './wire'
 
@@ -52,9 +55,6 @@ export interface RequestContext {
    */
   limit(bucket: CaseRateBucket, caseId: string): Promise<void>
 }
-
-/** 관리자 경로는 제한하지 않습니다 → §1.3 · §5.1 */
-const ADMIN_PREFIX = '/api/admin/'
 
 /** 핸들러가 돌려주는 것. `Response` 가 아니라 본문입니다 */
 export interface RouteResult {
@@ -152,8 +152,10 @@ export async function handleRoute(
   const sessionId = sessionIdOf(request)
   const clientIp = clientIpOf(request)
 
-  // 관리자 경로는 계정이 하나뿐이고 조사 중에 걸리면 곤란합니다 → §1.3
-  const isAdmin = new URL(request.url).pathname.startsWith(ADMIN_PREFIX)
+  // 관리자 경로는 계정이 하나뿐이고 조사 중에 걸리면 곤란합니다 → §1.3.
+  // 어디까지가 관리자 경로인지는 문지기와 **같은 판단**을 씁니다 →
+  // [gated-paths.ts](./gated-paths.ts). 둘이 어긋나면 그 틈으로 들어옵니다
+  const isAdmin = isAdminPath(new URL(request.url).pathname)
 
   const ctx: RequestContext = {
     request,
@@ -168,6 +170,19 @@ export async function handleRoute(
   }
 
   try {
+    // 문지기(`proxy.ts`)가 이미 막았어야 하는 자리입니다. **한 번 더 봅니다.**
+    //
+    // Next 문서가 *"Always verify authentication and authorization inside each
+    // Server Function rather than relying on Proxy alone"* 라고 경고합니다 —
+    // `matcher` 를 한 줄 고치거나 경로를 옮기면 문지기가 **조용히** 안 걸립니다.
+    //
+    // **정본 §5.1 의 「엔드포인트마다 개별로 확인하지 않습니다」를 어기지 않습니다.**
+    // 그 문장이 막으려는 것은 *새 관리자 경로를 추가할 때 인증을 빠뜨리는 것*인데,
+    // 이 검사는 모든 라우트가 지나는 껍데기 한 곳에 있어 빠뜨릴 자리가 없습니다
+    if (isAdmin && !hasAdminSession(request, container.env, serverClock.nowMs())) {
+      throw new UnauthorizedError('관리자 인증이 없습니다', { gate: 'admin' })
+    }
+
     const upfront = options.rate ?? defaultRateFor(request.method)
     if (upfront !== 'none' && !isAdmin) {
       await container.rateLimiter.check(

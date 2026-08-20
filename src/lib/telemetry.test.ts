@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   TELEMETRY_HEADER_NAMES,
+  TELEMETRY_NONE,
   createTelemetry,
   telemetryHeaders,
 } from './telemetry'
@@ -27,12 +28,30 @@ describe('넷은 언제나 함께 나간다 — §1.1', () => {
   it('담을 것이 없으면 없다는 뜻의 값이 나간다', () => {
     const headers = telemetryHeaders({})
 
-    // 유형 목록이 비었다는 뜻입니다. `0` 은 유형 이름이 없어 쓸 수 없습니다
-    expect(headers['X-Pii-Token-Count']).toBe('')
+    expect(headers['X-Pii-Token-Count']).toBe(TELEMETRY_NONE)
     // 나간 것이 없으면 나간 것 중 남은 것도 0 건입니다
     expect(headers['X-Pii-Egress-Residual']).toBe('0')
-    expect(headers['X-Kb-Version']).toBe('')
-    expect(headers['X-Audit-Id']).toBe('')
+    expect(headers['X-Kb-Version']).toBe(TELEMETRY_NONE)
+    expect(headers['X-Audit-Id']).toBe(TELEMETRY_NONE)
+  })
+
+  it('빈 문자열을 값으로 쓰지 않는다 — 전송 중에 헤더가 통째로 사라진다', () => {
+    // node_modules/next/dist/server/lib/router-utils/resolve-routes.js 가
+    // 문지기 응답의 헤더를 옮길 때 `if (value)` 로 거릅니다. 빈 문자열은
+    // falsy 라 버려져, 문지기가 낸 401 에서만 헤더 셋이 사라졌습니다.
+    // 이 시험이 그 조건을 그대로 흉내 냅니다
+    const cases = [
+      telemetryHeaders({}),
+      telemetryHeaders({ piiTokenCounts: {} }),
+      telemetryHeaders({ piiTokenCounts: { account: 0 } }),
+      telemetryHeaders({ kbVersion: '', auditId: '' }),
+    ]
+
+    for (const headers of cases) {
+      for (const [name, value] of Object.entries(headers)) {
+        expect(Boolean(value), `${name} 이 falsy 면 Next 가 버립니다`).toBe(true)
+      }
+    }
   })
 
   it('건수만 담는다 — 값을 담지 않는다', () => {
@@ -45,7 +64,7 @@ describe('넷은 언제나 함께 나간다 — §1.1', () => {
   it('건수가 0 인 유형은 적지 않는다', () => {
     // 「없는 유형」을 나열하면 무엇이 실제로 토큰화됐는지가 묻힙니다
     expect(telemetryHeaders({ piiTokenCounts: { account: 0 } })['X-Pii-Token-Count'])
-      .toBe('')
+      .toBe(TELEMETRY_NONE)
   })
 })
 

@@ -17,9 +17,16 @@ import { readEnv } from './env'
 import { KbUnavailableError } from './errors'
 import { RATE_RULES } from './rate-limit'
 import { caseIdOf, clientIpOf, handleRoute, sessionIdOf, ulidParamOf } from './request'
+import { ADMIN_SESSION_COOKIE, issueAdminSession } from './session-cookie'
 import { TELEMETRY_HEADER_NAMES } from './telemetry'
 
 const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
+
+/** 관리자 계정이 설정된 서버 */
+const ADMIN_ENV = readEnv({
+  ADMIN_USERNAME: 'operator',
+  ADMIN_PASSWORD_HASH: 'hash-of-a-password',
+})
 
 let container: Container
 
@@ -29,6 +36,11 @@ beforeEach(() => {
   container = createContainer(readEnv({}))
 })
 
+/** 지금 유효한 관리자 세션 쿠키 한 줄 */
+function adminCookie(): Record<string, string> {
+  const made = issueAdminSession(ADMIN_ENV, Date.now())
+  return { cookie: `${ADMIN_SESSION_COOKIE}=${made!.value}` }
+}
 
 function get(path = 'http://x/api/cases/x/plan', headers: Record<string, string> = {}) {
   return new Request(path, { headers })
@@ -193,9 +205,13 @@ describe('속도 제한 — §1.3', () => {
 
   it('관리자 경로는 제한하지 않는다', async () => {
     // 계정이 하나뿐이고 조사 중에 걸리면 곤란합니다 → §1.3
+    const admin = createContainer(ADMIN_ENV)
     const path = 'http://x/api/admin/cases/x/trace'
+
     for (let i = 0; i < RATE_RULES.read.limit + 5; i += 1) {
-      const res = await handleRoute(get(path), async () => ({ body: {} }), { container })
+      const res = await handleRoute(get(path, adminCookie()), async () => ({ body: {} }), {
+        container: admin,
+      })
       expect(res.status).toBe(200)
     }
   })
@@ -208,6 +224,67 @@ describe('속도 제한 — §1.3', () => {
       })
       expect(res.status).toBe(200)
     }
+  })
+})
+
+describe('관리자 경로의 두 번째 관문 — §5.1', () => {
+  it('인증 없이 오면 401 이다', async () => {
+    // 문지기(proxy.ts)가 이미 막았어야 하는 자리입니다. 그래도 한 번 더 봅니다 —
+    // matcher 를 고치거나 경로를 옮기면 문지기가 조용히 안 걸립니다
+    const admin = createContainer(ADMIN_ENV)
+
+    const res = await handleRoute(
+      get('http://x/api/admin/cases/x/trace'),
+      async () => ({ body: { secret: '보이면 안 됩니다' } }),
+      { container: admin },
+    )
+
+    expect(res.status).toBe(401)
+    expect(JSON.stringify(await res.json())).not.toContain('보이면 안 됩니다')
+  })
+
+  it('관리자 계정이 설정 안 된 서버는 닫혀 있다', async () => {
+    // 열린 쪽으로 실패하지 않습니다
+    const res = await handleRoute(
+      get('http://x/api/admin/cases/x/trace', adminCookie()),
+      async () => ({ body: {} }),
+      { container },
+    )
+
+    expect(res.status).toBe(401)
+  })
+
+  it('일반 경로는 쿠키가 없어도 그대로 돈다', async () => {
+    const res = await handleRoute(get(), async () => ({ body: {} }), { container })
+
+    expect(res.status).toBe(200)
+  })
+
+  it('401 에도 계측 헤더 넷이 붙는다', async () => {
+    const admin = createContainer(ADMIN_ENV)
+
+    const res = await handleRoute(
+      get('http://x/api/admin/cases/x/trace'),
+      async () => ({ body: {} }),
+      { container: admin },
+    )
+
+    for (const name of TELEMETRY_HEADER_NAMES) {
+      expect(res.headers.has(name), name).toBe(true)
+    }
+  })
+
+  it('401 에는 Retry-After 가 안 붙는다', async () => {
+    // 기다린다고 인증이 생기지 않습니다 → 08-16-errors.md §3.1 「4xx 전부」
+    const admin = createContainer(ADMIN_ENV)
+
+    const res = await handleRoute(
+      get('http://x/api/admin/cases/x/trace'),
+      async () => ({ body: {} }),
+      { container: admin },
+    )
+
+    expect(res.headers.get('Retry-After')).toBeNull()
   })
 })
 
