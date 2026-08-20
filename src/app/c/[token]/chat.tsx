@@ -26,9 +26,9 @@ const CHOICES = [
 
 /** 서버(poll-checker)가 내준 값 그대로. **화면이 추측하지 않습니다** */
 const PENDING_STEPS = [
-  "진술을 확인했습니다 — 간편송금 경로",
+  "진술을 확인했습니다 (간편송금 경로)",
   "맞는 절차를 대조하고 있습니다",
-  "근거를 검증합니다 — 출처 없는 문장은 나가지 않습니다",
+  "근거를 검증합니다. 출처 없는 문장은 나가지 않습니다",
 ] as const;
 
 const step = (i: number) => ({ animationDelay: `${60 + i * 70}ms` });
@@ -60,7 +60,7 @@ export default function ChatView({
             <Bubble who="ai" i={3}>
               접수 문자 잘 받았습니다. 다음은{" "}
               <b className="font-[620] text-ink-1">국민은행에 지급정지 요청</b>입니다. 전화로 하실
-              수 있게 <b className="font-[620] text-ink-1">대본을 오른쪽에 준비했습니다</b> — 끊기
+              수 있게 <b className="font-[620] text-ink-1">대본을 오른쪽에 준비했습니다.</b> 끊기
               전에 접수번호만 받아적으시면 됩니다.
             </Bubble>
             <Bubble who="me" i={4}>
@@ -74,9 +74,9 @@ export default function ChatView({
         ) : (
           <>
             <Bubble who="ai" i={3}>
-              바로 이어서 여쭐게요 —{" "}
+              바로 이어서 여쭐게요.{" "}
               <b className="font-[640] text-ink-1">돈이 어떻게 나갔나요?</b>
-              <span className="mt-1.5 block text-[13px] text-icon">한 번에 하나만 여쭤봅니다</span>
+              <span className="mt-1.5 block text-[13px] text-ink-3">한 번에 하나만 여쭤봅니다</span>
             </Bubble>
 
             {/* 선택지 — 전부 버튼. 기본 선택 없음 */}
@@ -164,7 +164,7 @@ export function PendingBubble({ currentIndex }: { currentIndex: number }) {
   return (
     <div className="max-w-[78%] rounded-[15px] rounded-bl-[5px] border border-hairline bg-surface px-[15px] py-[11px]">
       <div className="flex items-center gap-2 text-[14.5px] text-ink-2">
-        답변을 준비하고 있습니다 — 검증이 끝나면 한 번에 보여드립니다
+        답변을 준비하고 있습니다. 검증이 끝나면 한 번에 보여드립니다
         <span
           aria-hidden
           className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
@@ -189,8 +189,8 @@ export function PendingBubble({ currentIndex }: { currentIndex: number }) {
           );
         })}
       </ul>
-      <p className="mt-2.5 text-[12.5px] text-icon">
-        상태는 서버(poll-checker)가 내준 값 그대로입니다 — 화면이 추측하지 않습니다
+      <p className="mt-2.5 text-[12.5px] text-ink-3">
+        이 단계는 서버가 알려준 그대로입니다. 화면이 추측하지 않습니다
       </p>
     </div>
   );
@@ -206,10 +206,10 @@ export function PendingBubble({ currentIndex }: { currentIndex: number }) {
 export function MiniChat() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-2.5 text-[12.5px] tracking-[0.12em] text-icon">대응 비서</div>
+      <div className="mb-2.5 text-[12.5px] tracking-[0.12em] text-ink-4">대응 비서</div>
       <div className="grid flex-1 content-start gap-2">
         <p className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5 text-[13px] leading-[1.55] text-ink-2">
-          다음은 <b className="font-[640] text-ink-1">피해구제 신청</b>입니다 —{" "}
+          다음은 <b className="font-[640] text-ink-1">피해구제 신청</b>입니다.{" "}
           <b className="font-[640] text-deadline-urgent">8월 20일</b>까지요.
         </p>
         <p className="ml-auto rounded-[13px] rounded-br-[4px] bg-[oklch(1_0_0/11%)] px-3 py-2.5 text-[13px] text-ink-1">

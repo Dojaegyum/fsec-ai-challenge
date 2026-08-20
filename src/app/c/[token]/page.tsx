@@ -280,7 +280,7 @@ export default function CaseScreen() {
         >
           {atWork ? (
             <>
-              <div className="mb-3 text-[12.5px] tracking-[0.12em] text-icon">워크스페이스</div>
+              <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">워크스페이스</div>
               <CallPanel
                 title="국민은행에 전화"
                 status={{ tone: "pii", label: "⏱ 04:17" }}
@@ -296,10 +296,10 @@ export default function CaseScreen() {
                 }
               />
               {chatIsMain ? (
-                <p className="mt-3 text-[12.5px] leading-[1.6] text-icon">
-                  패널은 챗이 가리킨 단계를 따라 바뀝니다. 언급이 없으면{" "}
-                  <b className="font-[620] text-ink-2">닫지 않고 그대로</b> — 적던 접수번호를 잃지
-                  않습니다.
+                <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
+                  챗이 다른 단계를 가리키면 이 패널이 바뀝니다. 언급이 없으면{" "}
+                  <b className="font-[620] text-ink-2">그대로 둡니다.</b> 적던 접수번호가
+                  사라지지 않습니다.
                 </p>
               ) : (
                 <div
@@ -317,8 +317,8 @@ export default function CaseScreen() {
             </>
           ) : (
             <>
-              <div className="mb-3 text-[12.5px] tracking-[0.12em] text-icon">
-                사건 파일 — 실시간
+              <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">
+                사건 파일
               </div>
               <div className="rounded-[14px] border border-[oklch(0.305_0.013_267.1/60%)] bg-stage p-[14px_15px]">
                 <div className="flex items-center gap-2 text-[13.5px] font-[620] text-ink-1">
@@ -336,25 +336,26 @@ export default function CaseScreen() {
                         kind === "asking" ? "bg-[oklch(0.77_0.117_70.9/6%)]" : ""
                       } ${kind === "future" ? "opacity-55" : ""}`}
                     >
-                      <dt className="shrink-0 text-icon">{label}</dt>
+                      <dt className="shrink-0 text-ink-3">{label}</dt>
                       <dd className="min-w-0 text-right">
                         {kind === "filled" ? (
                           <span className="font-[580] text-ink-1">{value}</span>
                         ) : (
-                          <span className="text-[13px] text-icon">{value}</span>
+                          <span className="text-[13px] text-ink-3">{value}</span>
                         )}
                       </dd>
                     </div>
                   ))}
                 </dl>
-                <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-icon">
+                <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
                   채워지는 만큼 절차가 정확해집니다.{" "}
-                  <b className="font-[620] text-ink-2">모름도 답입니다</b> — 빈 칸이어도 진행됩니다.
+                  <b className="font-[620] text-ink-2">모름도 답입니다.</b> 빈 칸이어도
+                  진행됩니다.
                 </p>
               </div>
-              <p className="mt-3 text-[12.5px] leading-[1.6] text-icon">
+              <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
                 답변이 끝나면 이 자리가 <b className="font-[620] text-ink-2">할 일 패널</b>로
-                바뀝니다 — 챗과 플랜은 같은 주소입니다.
+                바뀝니다. 챗과 플랜은 같은 주소입니다.
               </p>
             </>
           )}

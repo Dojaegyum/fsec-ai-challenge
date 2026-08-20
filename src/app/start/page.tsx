@@ -156,7 +156,7 @@ export default function Start() {
             </span>
           </div>
           {issued ? (
-            <span className="inline-flex items-center gap-2 text-[13px] text-icon">
+            <span className="inline-flex items-center gap-2 text-[13px] text-ink-3">
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
               사건 7fK2p
             </span>
@@ -172,13 +172,13 @@ export default function Start() {
       <div className="grid flex-1 md:grid-cols-[300px_1fr]">
         {/* ── 단계 레일 ─────────────────────────────────── */}
         <aside className="border-b border-hairline bg-[oklch(1_0_0/1.5%)] p-[26px_26px_28px] md:border-b-0 md:border-r">
-          <div className="mb-4 text-[13px] tracking-[0.12em] text-icon">시작하기</div>
+          <div className="mb-4 text-[13px] tracking-[0.12em] text-ink-4">시작하기</div>
           <div className="grid grid-cols-[16px_1fr] gap-[11px]">
             <RailDot state={agreed ? "done" : "now"} tail />
             <div className="pb-4">
               <div className="text-[14px] font-[580] text-ink-1">동의</div>
               {agreed ? (
-                <div className="text-[13px] text-icon">완료 · 180일 파기 · 주민번호 미수집</div>
+                <div className="text-[13px] text-ink-3">완료 · 180일 파기 · 주민번호 미수집</div>
               ) : (
                 <div className="text-[13px] text-deadline-urgent">전문 확인이 필요합니다</div>
               )}
@@ -188,7 +188,7 @@ export default function Start() {
               <div className={`text-[14px] font-[580] ${issued || agreed ? "text-ink-1" : "text-ink-2"}`}>
                 무슨 일이 있었는지
               </div>
-              <div className="text-[13px] text-icon">
+              <div className="text-[13px] text-ink-3">
                 {issued ? (Q1[q1]?.[0] ?? "고르지 않음") : "하나만 고르면 됩니다"}
               </div>
             </div>
@@ -200,11 +200,11 @@ export default function Start() {
               {issued ? (
                 <div className="text-[13px] text-deadline-urgent">주소를 보관하세요</div>
               ) : (
-                <div className="text-[13px] text-icon">회원가입 없음</div>
+                <div className="text-[13px] text-ink-3">회원가입 없음</div>
               )}
             </div>
           </div>
-          <div className="mt-[26px] rounded-[12px] border border-dashed border-hairline p-[13px_15px] text-[13px] leading-[1.6] text-icon">
+          <div className="mt-[26px] rounded-[12px] border border-dashed border-hairline p-[13px_15px] text-[13px] leading-[1.6] text-ink-3">
             {issued ? (
               <>
                 이 화면을 지나면 <b className="font-[620] text-ink-2">주소가 유일한 열쇠</b>가
@@ -266,7 +266,7 @@ export default function Start() {
               >
                 무슨 일이 있으셨나요?
               </h1>
-              <p className="mb-4 mt-[7px] text-[14px] text-icon">하나만 골라 주세요.</p>
+              <p className="mb-4 mt-[7px] text-[14px] text-ink-3">하나만 골라 주세요.</p>
               <div style={step(2)} className="rise grid gap-[9px]" role="radiogroup">
                 {Q1.map(([label, dim], i) => {
                   const sel = q1 === i;
@@ -301,7 +301,7 @@ export default function Start() {
                   <span className="text-[14px] text-ink-2">
                     이런 자료가 있으면 올려 주세요 <span className="text-ink-3">(선택)</span>
                   </span>
-                  <span className="text-[13px] text-icon">
+                  <span className="text-[13px] text-ink-3">
                     종류를 눌러 올리면 저희가 바로 알아봅니다
                   </span>
                 </div>
@@ -317,12 +317,12 @@ export default function Start() {
                       </span>
                       <span>
                         <span className="block text-[14px] font-[580] text-ink-1">{name}</span>
-                        <span className="block text-[13px] text-icon">{hint}</span>
+                        <span className="block text-[13px] text-ink-3">{hint}</span>
                       </span>
                     </button>
                   ))}
                 </div>
-                <div className="mt-2.5 flex flex-wrap gap-x-[18px] gap-y-1.5 text-[13px] text-icon">
+                <div className="mt-2.5 flex flex-wrap gap-x-[18px] gap-y-1.5 text-[13px] text-ink-3">
                   <span>없어도 괜찮습니다 — 진술만으로 시작할 수 있습니다</span>
                   <span>
                     <b className="font-[620] text-deadline-urgent">
@@ -342,7 +342,7 @@ export default function Start() {
                   <button
                     type="button"
                     onClick={() => setModalOpen(true)}
-                    className="inline-flex min-h-[50px] flex-1 items-center justify-center gap-2.5 rounded-[12px] bg-[oklch(1_0_0/10%)] text-[15.5px] font-[660] text-icon"
+                    className="inline-flex min-h-[50px] flex-1 items-center justify-center gap-2.5 rounded-[12px] bg-[oklch(1_0_0/10%)] text-[15.5px] font-[660] text-ink-3"
                   >
                     다음
                     <span className="text-[13px] font-[560]">동의가 필요합니다</span>
@@ -410,7 +410,7 @@ export default function Start() {
                     placeholder="name@example.com"
                     className="mt-2 min-h-[48px] w-full rounded-[10px] border border-hairline bg-[oklch(0_0_0/34%)] px-[13px] text-[14px] text-ink-1 placeholder:text-ink-4 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-pii"
                   />
-                  <p className="mt-2 text-[13px] leading-[1.6] text-icon">
+                  <p className="mt-2 text-[13px] leading-[1.6] text-ink-3">
                     기한이 다가오면 알려드립니다. 확인 메일은 보내지 않습니다.
                   </p>
                 </div>
@@ -453,7 +453,7 @@ export default function Start() {
                 <div className="text-[16.5px] font-[660] tracking-[-0.015em] text-ink-1">
                   개인정보 수집·이용 동의 (필수)
                 </div>
-                <div className="mt-0.5 text-[13px] text-icon">
+                <div className="mt-0.5 text-[13px] text-ink-3">
                   시행 2026. 8. — · 버전 초안 (법무 검토 전)
                 </div>
               </div>
@@ -543,7 +543,7 @@ export default function Start() {
                 <button
                   type="button"
                   disabled
-                  className="inline-flex min-h-[50px] flex-1 cursor-not-allowed items-center justify-center gap-2.5 rounded-[12px] bg-[oklch(1_0_0/10%)] text-[15px] font-[660] text-icon"
+                  className="inline-flex min-h-[50px] flex-1 cursor-not-allowed items-center justify-center gap-2.5 rounded-[12px] bg-[oklch(1_0_0/10%)] text-[15px] font-[660] text-ink-3"
                 >
                   동의하고 계속하기
                   <span data-numeric className="text-[13px] font-[560]">

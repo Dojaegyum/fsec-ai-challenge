@@ -35,7 +35,7 @@ const FILES = [
   { id: "a", name: "0812_수신전화.m4a", status: "done", note: "통화 녹음 · 전사 완료" },
   { id: "b", name: "0813_재통화.m4a", status: "processing", note: "가리는 중 74%" },
   { id: "c", name: "지급정지_접수문자.png", status: "done", note: "캡처 · ◆ 단계 증빙" },
-  { id: "d", name: "신분증_사진.jpg", status: "failed", note: "제외 — 주민번호를 못 가렸습니다" },
+  { id: "d", name: "신분증_사진.jpg", status: "failed", note: "주민번호를 못 가려 제외됨" },
   { id: "e", name: "이체내역_0812.png", status: "pending", note: "대기 중" },
 ] as const satisfies readonly { id: string; name: string; status: Status; note: string }[];
 
@@ -88,7 +88,7 @@ export default function EvidenceView() {
       {/* ── 자료 레일 ──────────────────────────────────── */}
       <aside style={step(0)} className="rise min-w-0">
         <div className="flex items-baseline justify-between px-1.5">
-          <h3 className="text-[12.5px] tracking-[0.12em] text-icon">자료 {FILES.length}</h3>
+          <h3 className="text-[12.5px] tracking-[0.12em] text-ink-4">자료 {FILES.length}</h3>
           <button
             type="button"
             className="inline-flex min-h-[var(--size-touch)] items-center text-[13px] text-pii"
@@ -126,7 +126,7 @@ export default function EvidenceView() {
                     </span>
                     <span
                       className={`block truncate text-[12.5px] ${
-                        f.status === "failed" ? "text-deadline-urgent" : "text-icon"
+                        f.status === "failed" ? "text-deadline-urgent" : "text-ink-3"
                       }`}
                     >
                       {f.note}
@@ -138,7 +138,7 @@ export default function EvidenceView() {
           })}
         </ul>
 
-        <p className="mt-3 rounded-[10px] border border-dashed border-hairline p-3 text-[12.5px] leading-[1.6] text-icon">
+        <p className="mt-3 rounded-[10px] border border-dashed border-hairline p-3 text-[12.5px] leading-[1.6] text-ink-3">
           증거가 없어도 사건은 진행됩니다.{" "}
           <b className="font-[620] text-ink-2">신분증은 올리지 마세요.</b>
         </p>
@@ -159,13 +159,13 @@ export default function EvidenceView() {
             </span>
             <div className="min-w-0">
               <p className="truncate text-[14.5px] font-[640] text-ink-1">{file.name}</p>
-              <p data-numeric className="text-[12.5px] text-icon">
+              <p data-numeric className="text-[12.5px] text-ink-3">
                 8월 12일 14:22 · 6분 41초
               </p>
             </div>
           </div>
           {/* 가려서 보낸 것이 무엇인지 — 값이 아니라 **개수**입니다 */}
-          <p className="shrink-0 text-[12.5px] text-icon">
+          <p className="shrink-0 text-[12.5px] text-ink-3">
             서버로는 <b className="font-[620] text-pii">이름 1 · 계좌 1</b>을 가려서 보냈습니다
           </p>
         </header>
@@ -177,9 +177,9 @@ export default function EvidenceView() {
                 aria-hidden
                 className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
               />
-              가리는 중입니다 — 끝나면 전사가 여기 뜹니다
+              가리는 중입니다. 끝나면 전사가 여기 뜹니다
             </p>
-            <p className="text-[12.5px] text-icon">
+            <p className="text-[12.5px] text-ink-3">
               원본은 아직 이 브라우저 안에 있습니다.
             </p>
           </div>
@@ -188,7 +188,7 @@ export default function EvidenceView() {
           <div className="grid gap-3 p-[18px_16px]">
             <p className="text-[14px] leading-[1.65] text-ink-2">
               이 파일은 <b className="font-[620] text-deadline-urgent">주민등록번호를 못 가려서</b>{" "}
-              올리지 않았습니다. <b className="font-[620] text-ink-1">사건은 그대로 진행됩니다</b> —
+              올리지 않았습니다. <b className="font-[620] text-ink-1">사건은 그대로 진행됩니다.</b>{" "}
               이 파일 하나만 빠집니다.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -219,11 +219,11 @@ export default function EvidenceView() {
                   style={step(i + 3)}
                   className="rise grid grid-cols-[42px_1fr] gap-3"
                 >
-                  <span data-numeric className="mt-0.5 font-mono text-[12.5px] text-icon">
+                  <span data-numeric className="mt-0.5 font-mono text-[12.5px] text-ink-3">
                     {line.at}
                   </span>
                   <div className="min-w-0">
-                    <p className="mb-1 text-[12.5px] text-icon">
+                    <p className="mb-1 text-[12.5px] text-ink-3">
                       {line.who}
                       {line.suspect && (
                         <>
@@ -258,9 +258,9 @@ export default function EvidenceView() {
             </div>
 
             {/* ⚠️ 시안의 「서버가 받은 것은 이 화면 그대로입니다」는 ADR-034 이후 거짓입니다 */}
-            <footer className="border-t border-hairline p-[11px_16px] text-[12.5px] leading-[1.6] text-icon">
-              <b className="font-[620] text-ink-2">이 화면은 원문입니다</b> — 밖으로 나간 것은
-              가려진 형태였습니다. 복원은 이 브라우저 안에서만 일어납니다 ·{" "}
+            <footer className="border-t border-hairline p-[11px_16px] text-[12.5px] leading-[1.6] text-ink-3">
+              <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 밖으로 나간 것은
+              가려진 형태였습니다. 복원은 이 브라우저 안에서만 일어납니다.{" "}
               <b className="font-[620] text-ink-2">미확인</b> 구간은 서류에 자동으로 들어가지
               않습니다.
             </footer>

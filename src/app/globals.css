@@ -224,6 +224,10 @@
   /* 제목은 줄 길이를 고르게 */
   h1, h2, h3 { text-wrap: balance; }
 
+  /* 본문은 마지막 줄에 한 마디만 남는 것(고아)을 줄입니다.
+     `balance` 는 짧은 제목용이고, 문단에 쓰면 줄 수가 흔들립니다 */
+  p { text-wrap: pretty; }
+
   /* 기한·금액 숫자. 자릿수가 흔들리면 오독하고, 여기서 오독은 곧 권리 상실입니다 */
   [data-numeric] { font-variant-numeric: tabular-nums; }
 

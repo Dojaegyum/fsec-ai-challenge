@@ -92,7 +92,7 @@ function Shell({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {/* 눈썹은 한글만 — WS-* 코드를 화면에 노출하지 않습니다 */}
-          <div className={`${EYEBROW} ${active ? "text-pii" : "text-icon"}`}>{eyebrow}</div>
+          <div className={`${EYEBROW} ${active ? "text-pii" : "text-ink-4"}`}>{eyebrow}</div>
           <h3 className={TITLE}>{title}</h3>
         </div>
         {status}
@@ -127,8 +127,8 @@ export function CallPanel({ title, status, script, artifactLabel, placeholder }:
       status={status && <Chip tone={status.tone}>{status.label}</Chip>}
     >
       <div className={INNER}>{script}</div>
-      <p className="mt-2 text-[12.5px] text-icon">
-        계좌번호는 <b className="font-[620] text-ink-2">그대로 적혀 있습니다</b> — 보고 읽으시면 됩니다
+      <p className="mt-2 text-[12.5px] text-ink-3">
+        계좌번호는 <b className="font-[620] text-ink-2">그대로 적혀 있습니다.</b> 보고 읽으시면 됩니다
       </p>
 
       <div className="mt-3.5 text-[13.5px] font-[620] text-ink-1">{artifactLabel}</div>
@@ -164,7 +164,7 @@ export function VisitPanel({ title, status, bring, why, exitLabel, note }: Panel
       status={status && <Chip tone={status.tone}>{status.label}</Chip>}
     >
       <div className={INNER}>
-        <div className="text-[12.5px] text-icon">돌아오실 때 이걸 들고 오세요</div>
+        <div className="text-[12.5px] text-ink-3">돌아오실 때 이걸 들고 오세요</div>
         <div className="mt-1.5 text-[14px] font-[620] text-ink-1">◆ {bring}</div>
         <p className="mt-1.5 text-[12.5px] text-ink-3">{why}</p>
       </div>
@@ -174,7 +174,7 @@ export function VisitPanel({ title, status, bring, why, exitLabel, note }: Panel
       <button type="button" className={LATER}>
         나중에 할게요
       </button>
-      {note && <p className="mt-2 text-[12.5px] leading-[1.6] text-icon">{note}</p>}
+      {note && <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">{note}</p>}
     </Shell>
   );
 }
@@ -194,8 +194,8 @@ export function WritePanel({ title, placeholder, why }: PanelProps & {
       <button type="button" className={LATER}>
         기억이 안 나요
       </button>
-      <p className="mt-2 text-[12.5px] leading-[1.6] text-icon">
-        형식이 달라도 저장됩니다 —{" "}
+      <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">
+        형식이 달라도 저장됩니다.{" "}
         <b className="font-[620] text-deadline-urgent">확인 필요</b>로 표시만 합니다
       </p>
     </Shell>
@@ -210,7 +210,7 @@ export function UploadPanel({ title }: PanelProps) {
         끌어다 놓거나 눌러서 선택
       </div>
       <div className={`${INNER} mt-3`}>
-        <div className="text-[12.5px] text-icon">올리면 먼저 하는 일</div>
+        <div className="text-[12.5px] text-ink-3">올리면 먼저 하는 일</div>
         <p className="mt-1.5 text-[13.5px] leading-[1.65] text-ink-2">
           이름·계좌·전화번호를{" "}
           <b className="font-[620] text-pii">브라우저에서 가린 뒤</b> 전송합니다
@@ -238,15 +238,15 @@ export function DownloadPanel({ title, status, fields, fileLabel }: PanelProps &
       <div className={INNER}>
         {fields.map((f) => (
           <div key={f.label} className="flex justify-between gap-3 py-[3px]">
-            <span className="text-[12.5px] text-icon">{f.label}</span>
+            <span className="text-[12.5px] text-ink-3">{f.label}</span>
             {/* 원문입니다 — 이 패널에서만 */}
             <span className="text-[13.5px] font-[580] text-ink-1">{f.value}</span>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[12.5px] leading-[1.6] text-icon">
-        <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 복원은 브라우저에서만
-        일어나고, 서버는 원문을 보지 못합니다 (ADR-034).
+      <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">
+        <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 복원은 이 브라우저
+        안에서만 일어나고, 서버는 원문을 보지 못합니다.
       </p>
       <button type="button" className={`${PRIMARY} mt-3 w-full`}>
         {fileLabel}
@@ -269,14 +269,14 @@ export function WaitPanel({ title, body, from, to, footer }: PanelProps & {
     <Shell active={false} eyebrow="기다리기" title={title}>
       <p className={BODY}>{body}</p>
       {/* 진행 구간 — 앰버를 쓰지 않습니다. 기관 대기는 사용자 기한이 아닙니다 */}
-      <div className="mt-3 flex items-center gap-2 text-[12.5px] text-icon" data-numeric>
+      <div className="mt-3 flex items-center gap-2 text-[12.5px] text-ink-3" data-numeric>
         <span>{from}</span>
         <span aria-hidden className="h-1.5 flex-1 rounded-full bg-[oklch(0.305_0.013_267.1/40%)]">
           <span className="block h-full w-[38%] rounded-full bg-[oklch(0.697_0.16_258.2/55%)]" />
         </span>
         <span>{to}</span>
       </div>
-      <p className="mt-3 text-[12.5px] leading-[1.6] text-icon">{footer}</p>
+      <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">{footer}</p>
     </Shell>
   );
 }
@@ -289,7 +289,7 @@ export function ReadPanel({ title, body, source }: PanelProps & {
   return (
     <Shell active={false} eyebrow="읽기" title={title}>
       <p className={BODY}>{body}</p>
-      <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-icon">
+      <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
         근거 · {source}
       </p>
     </Shell>

@@ -21,7 +21,7 @@ import { useState } from "react";
 
 /** 어떤 경우에도 틀리지 않는 절차 넷. KB 가 아니라 상수인 유일한 절차입니다 */
 const T0 = [
-  ["112", "신고", "사건접수번호를 받아 두세요 — 다음 서류에 들어갑니다"],
+  ["112", "신고", "사건접수번호를 받아 두세요. 다음 서류에 들어갑니다"],
   ["1332", "금융 상담", "금융감독원"],
   ["", "추가로 절대 송금하지 마세요", "「해결해 준다」는 연락도 같은 조직입니다"],
   ["", "앱을 설치했다면 비행기모드", "악성앱이 통화를 가로챌 수 있습니다"],
@@ -54,20 +54,29 @@ export default function T0Rail() {
 
         {/* 넓은 폭에서는 `md:grid` 가 상태와 무관하게 펼칩니다 — 접기는 좁은 폭 전용입니다 */}
         <ul className={`mt-3 gap-3.5 border-t border-[oklch(0.697_0.16_258.2/22%)] pt-3 ${open ? "grid" : "hidden md:grid"}`}>
-          {/* 번호는 네 자리(1332)까지 옵니다 — 왼쪽에 칸을 따로 주고 오른쪽 정렬해 줄을 맞춥니다 */}
+          {/* 들여쓰기를 두지 않습니다. 번호 칸을 따로 주면 번호 없는 절차가
+              빈 칸만큼 밀려나고, 레일이 좁아 설명이 더 접힙니다.
+              번호는 이름과 한 줄에 두고 **전부 왼쪽 끝에서** 시작합니다 */}
           {T0.map(([num, name, why]) => (
-            <li key={name} className="grid grid-cols-[42px_1fr] items-baseline gap-x-2.5">
-              <span
-                data-numeric
-                className="text-right text-[15px] font-[680] leading-[1.45] text-pii"
-              >
-                {num || <span aria-hidden className="text-icon">·</span>}
-              </span>
-              <span className="min-w-0 text-[14px] font-[600] leading-[1.45] text-ink-1">
-                {name}
-              </span>
-              {/* 설명은 **두 칸을 다 씁니다** — 레일이 좁아 번호 옆에 두면 네 줄로 접힙니다 */}
-              <span className="col-span-2 mt-1 text-[13px] leading-[1.55] text-icon">{why}</span>
+            <li key={name}>
+              <p className="text-[14px] font-[600] leading-[1.45] text-ink-1">
+                {num ? (
+                  <>
+                    <b data-numeric className="font-[680] text-pii">
+                      {num}
+                    </b>{" "}
+                    {name}
+                  </>
+                ) : (
+                  <>
+                    <span aria-hidden className="mr-1.5 text-icon">
+                      ·
+                    </span>
+                    {name}
+                  </>
+                )}
+              </p>
+              <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">{why}</p>
             </li>
           ))}
         </ul>
