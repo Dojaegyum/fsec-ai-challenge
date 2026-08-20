@@ -21,6 +21,8 @@
 | [`planner/`](planner/) | KB 를 인용해 플랜 단계를 확정, 재생성 시 병합 (층 3) |
 | [`date-checker/`](date-checker/) | 법정 기한을 규칙으로 계산, 잔여일 추적 (층 3) |
 | [`completion-checker/`](completion-checker/) | 부산물로 완료 판정 L1·L2·L3 (층 3) |
+| [`reminder-sender/`](reminder-sender/) | 다가온 기한·미확인 단계를 이메일로 알릴지 판정 (층 4) |
+| [`case-purger/`](case-purger/) | `purge_after` 도달 시 세 층을 함께 지우고 확인 (층 4) |
 | [`retry-checker/`](retry-checker/) | 예외의 `retryable` 로 재시도 판단 (층 없음) |
 | [`audit-logger/`](audit-logger/) | 해시 사슬로 기록, 사후 조작 검출 (층 없음) |
 
