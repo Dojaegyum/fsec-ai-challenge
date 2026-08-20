@@ -27,7 +27,7 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
 | --- | --- | --- | --- |
 | `OrbitRing` | 랜딩 히어로의 심볼 둘레 링·글로우. **뜻이 없습니다** | [tokens](08-16-tokens.md) `--horizon`·「장식 keyframes」 | `app/page.tsx` |
 | `ScreenPreviewCard` | 화면 하나의 역할을 미니 목업 + **한 줄**로 | [screens S-04](../08-14-screens.md) 「스크롤 네 마디」③ | `app/page.tsx` |
-| `StepRail` | 국면 진행 레일 (동의 → 무슨 일 → 링크 발급) | [screens S-05](../08-14-screens.md) | `app/start/page.tsx` |
+| `StepRail` | `/start` 단계 레일 (동의 → 무슨 일 → 링크 발급) | [screens S-05](../08-14-screens.md) | `app/start/page.tsx` |
 | `ConsentModal` | 동의 전문. **요약 카드 넷 + 조항별 확인** | [screens S-05](../08-14-screens.md) · [ADR-016](../../../decisions/016-retention-and-datastore.md)·[ADR-026](../../../decisions/026-raw-upload-retention.md) | `app/start/page.tsx` |
 | `EvidenceSlot` | **종류별** 업로드 슬롯. 종류가 곧 안내이자 분류 | [screens S-05](../08-14-screens.md) 「자료」 | `app/start/page.tsx` |
 | `IssuedLink` | 발급된 사건 주소 + 복사. **전부 보이게 줄바꿈** | [ADR-021](../../../decisions/021-reentry-and-identity.md) | `app/start/page.tsx` |

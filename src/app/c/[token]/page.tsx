@@ -3,23 +3,28 @@
 import Image from "next/image";
 import { useState } from "react";
 import { CallPanel, Token } from "@/modules/work-handler";
+import type { Side } from "./state";
 
 /**
- * S-06 사건 · 챗 국면 — `/c/{token}` (시안 1c 확정본)
+ * S-06 사건 · 챗 — `/c/{token}` (시안 1c 확정본)
  *
  * 계약: spec/frontend/08-14-screens.md §S-06 · spec/frontend/08-17-workspace-panels.md
  * 시안: assets/artifacts/handoff/08-19-s06-chat/ 「Chat S-06 Options」 1c
  *
- * 두 국면이 한 주소입니다
- *  · 국면 1 — 진술을 받습니다. 우측은 「사건 파일」이 실시간으로 채워집니다
- *  · 국면 2 — 챗이 단계를 가리키면 **같은 자리**가 WS 패널로 바뀝니다
+ * 화면 상태는 두 축입니다 — 본문(`focus`)과 오른쪽 열(`side`), ADR-035 · `./state.ts`.
+ * 이 파일은 `focus: "chat"` 일 때의 화면이고, 여기서 움직이는 것은 `side` 하나입니다.
+ *  · `side: "casefile"` — 진술을 받습니다. 우측은 「사건 파일」이 실시간으로 채워집니다
+ *  · `side: "work"` — 챗이 단계를 가리키면 **같은 자리**가 WS 패널로 바뀝니다
+ *
+ * ⚠️ 둘은 순서가 아닙니다. 「국면」이라 부르지 마세요 — 그건 사건의 일생(0~5)입니다
  *
  * 지켜야 할 것
  *  · **스트리밍하지 않습니다** (ADR-022). 근거 검증이 끝난 뒤 한 번에 나갑니다 —
  *    그 대가로 기다리는 동안 **무엇을 하는지 문장으로** 보여줍니다. 점 3개·타자기 금지
  *  · 질문은 한 번에 하나 · 전부 버튼 · 「기억이 안 나요」 상시 (F-05b).
  *    같은 크기·같은 자리에 두고 글자색만 ink-3
- *  · **파란 토큰 = 서버로 안 갔다**는 뜻입니다. 흐리지 마세요 (ADR-013)
+ *  · **파란 토큰 = 서버로 안 갔다**는 뜻입니다. 흐리지 마세요.
+ *    다만 화면이 보여주는 값 자체는 **원문**입니다 (ADR-034)
  *  · T0 안전 절차는 **슬롯과 무관하게 상시** 붙어 있습니다
  *  · 패널은 **언급이 없으면 닫지 않습니다** — 적던 접수번호를 잃습니다
  *
@@ -66,10 +71,13 @@ const step = (i: number) => ({ animationDelay: `${60 + i * 70}ms` });
 
 export default function CaseChat() {
   const [t0Open, setT0Open] = useState(true);
-  const [phase, setPhase] = useState<"intake" | "working">("intake");
+  // 화면 상태는 두 축입니다 — 본문(`focus`)과 오른쪽 열(`side`) (ADR-035).
+  // 순차가 아닙니다: 며칠 뒤 재진입하면 곧장 focus:"plan" 으로 열립니다.
+  // 이 파일은 S-06 이라 focus 는 "chat" 고정이고, 여기서는 side 만 움직입니다.
+  const [side, setSide] = useState<Side>("casefile");
   const [copied, setCopied] = useState(false);
 
-  const working = phase === "working";
+  const atWork = side === "work";
 
   const copyUrl = async () => {
     try {
@@ -107,7 +115,7 @@ export default function CaseChat() {
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
               사건 {CASE_TOKEN}
             </span>
-            {working && (
+            {atWork && (
               <span className="inline-flex items-center rounded-full border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/10%)] px-3 py-[5px] text-[13px] font-[620] text-deadline-urgent">
                 피해구제 신청 D-2
               </span>
@@ -178,7 +186,7 @@ export default function CaseChat() {
                 <Token>금액·1</Token>을 보내셨군요. 개인정보는 이렇게 가려진 채로만 처리됩니다.
               </Bubble>
 
-              {working ? (
+              {atWork ? (
                 <>
                   <Bubble who="ai" i={3}>
                     접수 문자 잘 받았습니다. 다음은{" "}
@@ -218,7 +226,7 @@ export default function CaseChat() {
                         type="button"
                         role="radio"
                         aria-checked={false}
-                        onClick={() => setPhase("working")}
+                        onClick={() => setSide("work")}
                         className={`flex min-h-[48px] items-center gap-2.5 rounded-[12px] border border-hairline bg-chip px-[14px] py-[11px] text-left text-[14.5px] transition-colors duration-200 hover:border-[oklch(1_0_0/25%)] ${
                           dim ? "text-ink-3" : "text-ink-2"
                         }`}
@@ -238,7 +246,7 @@ export default function CaseChat() {
             <div className="mt-5 flex items-center gap-2 rounded-[14px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-[14px] shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
               <input
                 aria-label="진술 입력"
-                placeholder={working ? "무엇이든 물어보세요" : "직접 적으셔도 됩니다"}
+                placeholder={atWork ? "무엇이든 물어보세요" : "직접 적으셔도 됩니다"}
                 className="min-h-[52px] flex-1 bg-transparent text-[14.5px] text-ink-1 placeholder:text-ink-4 focus:outline-none"
               />
               <button
@@ -255,7 +263,7 @@ export default function CaseChat() {
         {/* ── 오른쪽 · 사건 파일 → WS 패널 ────────────────
             같은 자리입니다. 챗이 단계를 가리키면 여기가 바뀝니다 */}
         <aside className="border-t border-hairline bg-[oklch(1_0_0/1.5%)] p-[clamp(16px,3vw,20px)] md:border-l md:border-t-0">
-          {working ? (
+          {atWork ? (
             <>
               <div className="mb-3 text-[12.5px] tracking-[0.12em] text-icon">워크스페이스</div>
               <CallPanel
