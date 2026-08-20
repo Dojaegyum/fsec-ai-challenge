@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script>window.OM_SCENES = '[{"name":"챗 국면","dur":2.5,"desc":"챗이 화면 전체 — 진술을 주고받습니다"},{"name":"패널 등장","dur":2.5,"desc":"오른쪽에서 워크스페이스 패널이 스르륵 들어옵니다"},{"name":"보드 전환","dur":3,"desc":"챗이 우하단으로 빨려들며 보드가 주인이 됩니다"},{"name":"보드 국면","dur":2.5,"desc":"첫 줄이 지금 할 일 — D-2가 보입니다"},{"name":"증거함 전환","dur":3,"desc":"보드가 증거함(전사·PII 토큰)으로 교차 전환 — 챗·패널은 그대로"},{"name":"챗 복귀","dur":3,"desc":"챗이 우하단에서 확장되어 돌아오고 패널이 빠집니다"}]';</script>
+<script>window.OM_PLAYBACK = '{"mode":"loop"}';</script>
+<script>window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "motionEditor": true,
+  "showCaptions": false
+}/*EDITMODE-END*/;</script>
+<style>
+body{margin:0;background:#0c0c0e;font-family:"Pretendard Variable",Pretendard,system-ui,sans-serif}
+a{color:oklch(0.697 0.16 258.2)}a:hover{color:oklch(0.78 0.14 258.2)}
+</style>
+</helmet>
+<x-import component-from-global-scope="PhasePiece" from="./animations-v3.jsx ./tweaks-panel.jsx ./phase-transitions.jsx" hint-size="100%,100%"></x-import>
+
+</x-dc>
+</body>
+</html>

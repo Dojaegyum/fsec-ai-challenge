@@ -37,6 +37,13 @@ for _stream in (sys.stdout, sys.stderr):
 #   archived/  읽되 갱신하지 않고 이름도 바꾸지 않습니다 (RFC-001 「assets/」)
 SKIP_DIRS = {".git", "node_modules", ".next", "src", "archived"}
 
+# 검사하지 않는 파일.
+#   assets/artifacts/handoff/*/PR.md
+#     넘겨받은 원문 그대로 두는 스냅샷이라 **고칠 수 없습니다** (RFC-003 규칙 2).
+#     시안 설명에 「[서류 초안 열기](고스트)」 같은 괄호가 흔한데, 마크다운 링크로
+#     읽히면 없는 파일을 가리키게 됩니다. 우리가 쓴 README.md 는 그대로 검사합니다.
+SKIP_HANDOFF_PR = ("assets", "artifacts", "handoff")
+
 # 파일명 규약 (RFC-001 「파일명 규약」).
 NNN_RE = re.compile(r"^\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
 MMDD_RE = re.compile(r"^\d{2}-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
@@ -152,6 +159,8 @@ def md_files(root: Path) -> list[Path]:
     for p in sorted(root.rglob("*.md")):
         parts = p.relative_to(root).parts
         if any(part in SKIP_DIRS for part in parts):
+            continue
+        if parts[: len(SKIP_HANDOFF_PR)] == SKIP_HANDOFF_PR and p.name == "PR.md":
             continue
         found.append(p)
     return found

@@ -165,7 +165,7 @@ export default function Landing() {
           >
             지금 시작하기
           </Link>
-          <span className="text-[13px] text-icon">
+          <span className="text-[13px] text-ink-3">
             진술 한 줄이면 됩니다 · 회원가입 없음
           </span>
         </div>
@@ -202,10 +202,10 @@ export default function Landing() {
       <section className="relative z-[2] mt-4 border-t border-[oklch(0.305_0.013_267.1/40%)]">
         <div className="mx-auto w-full max-w-shell px-[clamp(20px,4.2vw,72px)] pt-13 pb-12">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-            <h2 className="text-[13px] font-[620] tracking-[0.14em] text-icon">
+            <h2 className="text-[13px] font-[620] tracking-[0.14em] text-ink-4">
               링크 하나로 이어지는 화면들
             </h2>
-            <span className="text-[13px] text-icon">
+            <span className="text-[13px] text-ink-3">
               회원가입 없이, 발급된 링크가 곧 사건 열쇠입니다
             </span>
           </div>
