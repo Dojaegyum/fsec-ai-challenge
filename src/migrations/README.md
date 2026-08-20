@@ -22,10 +22,26 @@ NNNN_{slug}.sql
 
 ## 쓰는 법
 
+**`DIRECT_URL` 을 넣으세요.** `DATABASE_URL` 이 아닙니다 — 아래 「접속 문자열이 둘인 이유」.
+
 ```bash
-DATABASE_URL='postgresql://...' ./src/migrations/apply.sh --dry-run   # 무엇이 적용될지
-DATABASE_URL='postgresql://...' ./src/migrations/apply.sh             # 실제로 적용
+cd src
+set -a && . ./.env.local && set +a
+DATABASE_URL="$DIRECT_URL" ./migrations/apply.sh --dry-run   # 무엇이 적용될지
+DATABASE_URL="$DIRECT_URL" ./migrations/apply.sh             # 실제로 적용
 ```
+
+### 접속 문자열이 둘인 이유
+
+| | 어디에 | 왜 |
+| --- | --- | --- |
+| `DATABASE_URL` | 앱 | 트랜잭션 풀러(6543). 서버리스는 연결이 짧게 많이 생겨 모아 써야 합니다 |
+| `DIRECT_URL` | **마이그레이션** | **세션 풀러(5432).** DDL 은 한 연결에 머물러야 해서 트랜잭션 풀러로 못 보냅니다 |
+
+> ⚠️ **`DIRECT_URL` 은 「직접 연결」이 아니라 세션 풀러입니다.**
+> Supabase 의 직접 연결(`db.{ref}.supabase.co:5432`)은 **IPv6 전용**이라
+> IPv4 만 되는 환경에서 `Network is unreachable` 로 실패합니다 (2026-08-20 실측).
+> 세션 풀러는 같은 호스트를 IPv4 로 열어 주고 DDL 도 통과합니다.
 
 적용된 것은 `schema_migrations` 표에 남아, 다시 돌려도 건너뜁니다.
 
@@ -50,5 +66,6 @@ DATABASE_URL='postgresql://...' ./src/migrations/apply.sh             # 실제�
 - ⬜ **되돌리기(rollback)가 없습니다.** 앞으로만 갑니다. 대회 기간에는 스키마를 되돌릴 일보다
   앞으로 고칠 일이 많고, 되돌리기를 쓰려면 각 변경의 역방향을 손으로 적어야 합니다.
   실서비스 전에 필요해지면 그때 넣습니다.
-- ⬜ **아직 실제 데이터베이스에 적용해 보지 않았습니다.** Supabase 프로젝트와 접속 정보가
-  아직 없습니다 → [ARCHITECTURE.md](../../ARCHITECTURE.md) §10.
+- ~~아직 실제 데이터베이스에 적용해 보지 않았습니다~~ → **2026-08-20 적용 완료.**
+  Supabase Postgres 17.6 · `ap-northeast-2`(서울). 표 14개 + `schema_migrations`,
+  인덱스 37개, 트리거 4개가 올라갔고 삽입·연쇄 삭제까지 확인했습니다.

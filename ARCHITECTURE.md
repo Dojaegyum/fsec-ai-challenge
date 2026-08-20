@@ -433,7 +433,13 @@ sequenceDiagram
 - **평문 비밀번호는 환경변수에도 넣지 않습니다**
 - **타임존은 `Asia/Seoul` 고정** → [기한 계산 규칙](spec/common/08-16-deadline-rules.md).
   DB는 `TIMESTAMPTZ`로 UTC 저장하고 세션 타임존으로 렌더합니다
-- `.env.example` 파일: **미작성** → §10
+- `.env.example` 파일: **2026-08-20 작성** → `src/.env.example`
+- **접속 문자열이 둘입니다** — 앱은 트랜잭션 풀러(`DATABASE_URL`, 6543),
+  마이그레이션은 **세션 풀러**(`DIRECT_URL`, 5432). DDL 은 트랜잭션 풀러로 못 갑니다.
+  ⚠️ Supabase 의 직접 연결(`db.{ref}.supabase.co`)은 **IPv6 전용**이라
+  IPv4 환경에서 안 붙습니다 (2026-08-20 실측)
+- **Supabase 가 키 이름을 바꿨습니다** — `anon` → Publishable, `service_role` → Secret.
+  값은 새 이름(`sb_secret_…`)이고 변수 이름은 정본(`SUPABASE_SERVICE_ROLE_KEY`)을 씁니다
 
 ## 8. 배포
 
@@ -475,7 +481,7 @@ sequenceDiagram
 
 - NER 모델·서비스 선택 (경계 그 자체라 우선순위가 높습니다)
 - Grok 모델명과 단가
-- `.env.example` · 환경 분리 · 시드 데이터 · 애플리케이션 로그
-  (마이그레이션 방식은 2026-08-18 확정 → §3)
+- 환경 분리 · 시드 데이터 · 애플리케이션 로그
+  (마이그레이션 방식은 2026-08-18 확정 → §3, `.env.example` 과 스키마 적용은 2026-08-20 완료 → §7)
 
 여기서 새로 생긴 미결은 각 절에 남기고, 결정되면 그 자리를 채우면서 근거를 `decisions/`에 ADR로 남깁니다.
