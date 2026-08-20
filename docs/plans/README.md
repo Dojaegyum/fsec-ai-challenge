@@ -6,6 +6,7 @@
 | --- | --- |
 | [08-16-backend-handoff.md](08-16-backend-handoff.md) | DDL·모듈 정의 전에 답이 필요한 선행 결정 넷. **일시 문서** — 답이 반영되면 지웁니다 |
 | [08-18-backend-baseline.md](08-18-backend-baseline.md) | 백엔드 착수 기준선 — 무엇이 서 있고 무엇이 막혀 있나. 순서와 의존. **일시 문서** |
+| [08-20-api-routes.md](08-20-api-routes.md) | API 라우트 설계도와 남은 것. 만드는 순서 14단계, 안 풀린 blocker 셋, 정본에 없어 채워야 할 것 열. **일시 문서** |
 
 ## 여기가 아닌 것
 
