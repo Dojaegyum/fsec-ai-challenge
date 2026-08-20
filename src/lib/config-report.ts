@@ -62,6 +62,11 @@ export function configReport(container: Container): readonly PortStatus[] {
     row('문진 문구', questionsConfigured(container.questions),
       ['(정본 미결 — 핸드오프 ⑤)'],
       '질문이 안 나갑니다. **사건 생성·플랜은 그대로 돕니다**'),
+    // 세기는 셉니다. 다만 프로세스 하나 안에서만이라, 인스턴스가 여럿이면
+    // 실효 상한이 그 수만큼 늘어납니다 → rate-limit.ts
+    row('속도 제한 저장소', container.rateLimiter.storeKind === 'shared',
+      ['(정본 §1.3 TODO — 저장 위치 미정)'],
+      '프로세스 안에서만 셉니다. 인스턴스가 여럿이면 실효 상한이 그만큼 늘어납니다'),
   ]
 }
 

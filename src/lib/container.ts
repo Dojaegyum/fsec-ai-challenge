@@ -13,9 +13,15 @@
  * → [not-configured.ts](./not-configured.ts). 조용히 빈 배열을 돌려주면
  * 사건이 「플랜 0단계」로 생기고 며칠 뒤에야 누가 알아챕니다.
  *
- * **예외가 하나 있습니다 — 문진 문구.** 그 자리는 던지면 사건 생성이 막혀
- * 불변 규칙 5를 깹니다. 모듈이 정의한 「물을 수 없음」 경로를 씁니다
- * → [questions.ts](./questions.ts).
+ * **예외가 둘 있습니다.**
+ *
+ * | 무엇 | 왜 던지지 않나 |
+ * | --- | --- |
+ * | 문진 문구 | 던지면 사건 생성이 막혀 불변 규칙 5를 깹니다 → [questions.ts](./questions.ts) |
+ * | 속도 제한 | 모든 요청이 지나는 길목이라 던지면 서비스 전체가 500 이 됩니다 → [rate-limit.ts](./rate-limit.ts) |
+ *
+ * 둘 다 **못 하는 일을 숨기지는 않습니다** — 설정 현황에 한 줄씩 나옵니다
+ * → [config-report.ts](./config-report.ts).
  */
 
 import 'server-only'
@@ -26,6 +32,12 @@ import { readEnv, type Env } from './env'
 import { ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createQuestionSource } from './questions'
+import {
+  createMemoryRateCounter,
+  createRateLimiter,
+  type RateCounterStore,
+  type RateLimiter,
+} from './rate-limit'
 
 import { createAuditLogger } from '@/modules/audit-logger'
 import type { AuditStore } from '@/modules/audit-logger'
@@ -137,6 +149,8 @@ export interface Container {
   readonly ports: Ports
   /** 문진 문구를 내주는 자리. 설정 현황이 이것을 봅니다 */
   readonly questions: QuestionSource
+  /** 속도 제한 → 08-14-api.md §1.3. 세는 곳이 어디인지도 함께 들고 있습니다 */
+  readonly rateLimiter: RateLimiter
   readonly caseIntake: ReturnType<typeof createCaseIntake>
   readonly kbFinder: ReturnType<typeof createKbFinder>
   readonly planner: ReturnType<typeof createPlanner>
@@ -159,6 +173,12 @@ export interface Container {
 export function createContainer(
   env: Env = readEnv(),
   ports: Ports = unconfiguredPorts(env),
+  /**
+   * 속도 제한을 어디에 세나. ⬜ 저장 위치가 정본에 미정이라 기본은
+   * 프로세스 메모리입니다 → [rate-limit.ts](./rate-limit.ts).
+   * 공유 저장소가 정해지면 여기 하나만 갈아 끼웁니다.
+   */
+  rateCounter: RateCounterStore = createMemoryRateCounter(),
 ): Container {
   const clock = serverClock
 
@@ -176,6 +196,7 @@ export function createContainer(
     env,
     ports,
     questions,
+    rateLimiter: createRateLimiter({ counter: rateCounter, clock }),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,
