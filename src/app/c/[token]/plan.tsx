@@ -106,7 +106,7 @@ export default function PlanView() {
             type="button"
             className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] border border-hairline bg-chip px-5 text-[14px] font-[560] text-ink-2 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)]"
           >
-            서류 초안 열기
+            무엇을 적는지 보기
           </button>
         </div>
       </section>

@@ -38,7 +38,8 @@
 | **화면이 어떻게 생겼나** | Claude Design 캔버스 + `assets/artifacts/handoff/` | **디자인 정본.** 받은 그대로의 스냅샷과 캔버스 URL. 절차는 [RFC-003](rfc/003-design-handoff.md) |
 | 화면 목업(옛 그림) | `assets/artifacts/plans/08-17-screen-mockups.html` | **동결됨** — 화면 01(S-04)까지만 갱신. 레이아웃은 더 이상 정본이 아니고 **설계 노트만 유효**합니다 ([ADR-030](decisions/030-design-handoff.md)) |
 | 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
-| **제도·경쟁·법적 경계의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브에 있지만 **제도·법적 경계 사실은 아직 여기가 최신**입니다(공고문 원문 확보 후 재조사한 최종본). 사실이 spec으로 옮겨가기 전까지 근거로 인용 |
+| **자동화를 어디까지 하나** | [spec/common/08-20-automation-boundary.md](spec/common/08-20-automation-boundary.md) | **계약.** 넘으면 인허가가 필요한 선. 새 기능을 볼 때 여기서 대조 |
+| **제도·경쟁의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브. **법적 경계는 위 문서로 올라왔습니다** — 나머지 제도·경쟁 사실은 아직 여기가 최신입니다(공고문 원문 확보 후 재조사한 최종본) |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
 | 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. [착수 기준선](docs/plans/08-18-backend-baseline.md)이 순서와 의존, [핸드오프](docs/plans/08-16-backend-handoff.md)가 남은 선행 결정 |
 | 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
