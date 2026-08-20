@@ -12,6 +12,7 @@
 | [`pii-restorer/`](pii-restorer/) | 복원해도 되는지 심사하고 되돌린다 (층 C) |
 | [`work-handler/`](work-handler/) | 어느 작업 패널을 열지 정하고 그 패널을 맡는다 (층 C) — **판정만, 렌더는 아직** |
 | [`case-intake/`](case-intake/) | 사건 생성, 파일 접수 자리 발급 (층 1) |
+| [`chat-receiver/`](chat-receiver/) | 층 2의 순서를 부르고 모델을 1회 호출 (층 2) |
 | [`kb-finder/`](kb-finder/) | KB 를 적용·참고 두 묶음으로 조회, 우선순위 병합 (층 2) |
 | [`citation-checker/`](citation-checker/) | 인용 셋 확인, 갈래 셋 판정 (층 2) |
 | [`prompt-builder/`](prompt-builder/) | 블록 조립·참조 번호 발급·격리 태그 (층 2) |
