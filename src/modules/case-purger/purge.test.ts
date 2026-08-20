@@ -78,6 +78,7 @@ describe('세 층을 순서대로 지운다', () => {
     expect(run.failed).toEqual([])
     expect(audit.record).toHaveBeenCalledWith({
       eventType: 'case.purged',
+      actorType: 'system',
       caseId: 'CASE01',
       detail: { purge_after: '2026-08-19' },
     })

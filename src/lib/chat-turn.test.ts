@@ -6,10 +6,13 @@
  *
  * 정본 흐름: spec/backend/08-16-chat-context.md §1 · ARCHITECTURE.md §4 층 2
  *
- *   pii-masker → prompt-builder → [ 모델 ] → citation-checker
- *     → chat-publisher → pii-restorer
+ *   pii-masker → [ chat-receiver: pii-tokenizer → kb-finder → prompt-builder
+ *                   → 모델 1회 → citation-checker ] → chat-publisher → pii-restorer
  *
- * 아직 없는 자리(pii-tokenizer · kb-finder · chat-receiver)는 이 시험에서 건너뛴다.
+ * 사건의 생애(접수 → 플랜 → 기한 → 완료 → 리마인더 → 파기)는
+ * [case-lifecycle.test.ts](./case-lifecycle.test.ts)가 따로 본다.
+ *
+ * `pii-tokenizer` 와 모델 어댑터는 아직 없어 인터페이스 자리에 대역을 넣는다.
  */
 
 import { describe, expect, it } from 'vitest'
@@ -17,7 +20,11 @@ import { describe, expect, it } from 'vitest'
 import { createAuditLogger } from '@/modules/audit-logger'
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
 import { createChatPublisher } from '@/modules/chat-publisher'
+import { createChatReceiver } from '@/modules/chat-receiver'
+import type { KbEntry } from '@/modules/chat-receiver'
 import { createCitationChecker } from '@/modules/citation-checker'
+import { createKbFinder } from '@/modules/kb-finder'
+import type { KbFinder, KbQuery, KbRow } from '@/modules/kb-finder'
 import { maskText } from '@/modules/pii-masker'
 import { restore } from '@/modules/pii-restorer'
 import { createPromptBuilder } from '@/modules/prompt-builder'
@@ -242,5 +249,181 @@ describe('감사 로그가 각 자리에서 남는다', () => {
       }),
     ).rejects.toThrow()
     expect(rows).toHaveLength(0)
+  })
+})
+
+/**
+ * **이음매: kb-finder 의 행을 프롬프트가 받는 모양으로 옮긴다.**
+ *
+ * 표는 `title` 과 JSONB 를 갖고, 프롬프트는 `label` 과 문자열을 받는다.
+ * **누가 옮기는지 정본에 없어** 지금은 부르는 쪽이 한다.
+ */
+async function asPromptEntries(
+  kbFinder: KbFinder,
+  query: KbQuery,
+): Promise<{ applied: KbEntry[]; reference: KbEntry[] }> {
+  const groups = await kbFinder.find(query)
+  const toEntry = (row: KbRow): KbEntry => ({
+    kbEntryId: row.kbEntryId,
+    kbVersion: row.kbVersion,
+    label: row.title,
+    body: String((row.body as { summary?: string }).summary ?? ''),
+    ...(row.channelId ? { channelId: row.channelId } : {}),
+  })
+  return {
+    applied: groups.applied.map(toEntry),
+    reference: groups.reference.map(toEntry),
+  }
+}
+
+describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
+  /** 매뉴얼 한 행. kb-finder 가 표에서 읽어 오는 모양 그대로 */
+  const KB_ROW: KbRow = {
+    kbEntryId: 'relief-application',
+    kbVersion: '2026.08.1',
+    stepKey: 'relief-apply',
+    stepSeq: 30,
+    channelId: 'CH-bank',
+    orgId: null,
+    track: 'victim',
+    title: '피해구제 신청서 제출',
+    body: { summary: '지급정지 뒤 3영업일 안에 신청서를 낸다.' },
+    legalBasis: '통신사기피해환급법 시행령 제3조',
+    sourceUrl: 'https://www.law.go.kr/...',
+    effectiveFrom: '2026-07-01',
+    effectiveUntil: null,
+    verifiedAt: '2026-08-16',
+  }
+
+  it('토큰화 → 조회 → 조립 → 모델 → 검증 → 송출', async () => {
+    const kbFinder = createKbFinder({
+      store: {
+        findApplied: async () => [KB_ROW],
+        findReference: async () => [],
+      },
+    })
+
+    const builder = createPromptBuilder()
+    const citationChecker = createCitationChecker()
+
+    const chat = createChatReceiver({
+      // 아직 없는 자리. 1차 마스킹이 이미 지난 텍스트가 들어온다
+      tokenizer: { tokenize: async (text) => ({ masked: text }) },
+      kb: { find: (query) => asPromptEntries(kbFinder, query) },
+      prompts: builder,
+      // 모델 대역 — 발급받은 ref 만 쓴다
+      llm: {
+        complete: async () => ({
+          insufficient: false,
+          citations: [{ ref: 'kb-1', why: '다음 단계를 안내하는 데 썼습니다' }],
+          reply: '다음은 피해구제 신청서 제출입니다.',
+        }),
+      },
+      citations: citationChecker,
+      retry: { decide: () => ({ retry: false }) },
+      clock: {
+        today: () => '2026-08-20',
+        todayLabel: () => '2026년 8월 20일',
+        nowMs: () => 0,
+      },
+    })
+
+    // 1. 브라우저에서 1차 마스킹을 마친 발화가 들어온다
+    const masked = maskText('110-234-567890 으로 보냈어요. 이제 뭘 하죠')
+
+    const turn = await chat.receive({
+      caseContext: {
+        caseId: '01J8XKQZ',
+        track: 'victim',
+        channelId: 'CH-bank',
+        orgId: null,
+        caseTalk: [],
+        caseState: [{ label: '피해구제 신청 기한', value: '2026년 8월 25일' }],
+        history: [],
+      },
+      utterance: masked.masked,
+      kbVersion: '2026.08.1',
+    })
+
+    // 원문은 프롬프트 어디에도 없다
+    expect(turn.promptMasked).toContain('[계좌-1]')
+    expect(turn.promptMasked).not.toContain('110-234-567890')
+    // 실제 citation-checker 가 통과시켰다
+    expect(turn.outcome.kind).toBe('pass')
+    // 저장할 재료가 함께 왔다 — 본문 없이 식별자만
+    expect(turn.kbContextRefs).toEqual([
+      { kbEntryId: 'relief-application', kbVersion: '2026.08.1', group: 'applied' },
+    ])
+
+    // 2. **이음매: chat-receiver 의 판정이 chat-publisher 의 kind 가 된다**
+    //    citation-checker 의 'pass' 는 응답에서 'answer' 다
+    const publisher = createChatPublisher({ residualPii: { scan: () => ({}) } })
+    if (turn.outcome.kind !== 'pass') throw new Error('통과했어야 합니다')
+
+    const body = publisher.publish({
+      kind: 'answer',
+      messageId: '01J8XKRE',
+      reply: turn.reply.reply ?? '',
+      // **이음매: 서버가 issued 로 인용의 나머지를 채운다**
+      citations: turn.reply.citations.map((one) => {
+        const source = turn.issued.find((issued) => issued.ref === one.ref)
+        return {
+          ref: one.ref,
+          why: one.why,
+          label: source?.label,
+          kb_entry_id: source?.kbEntryId,
+          kb_version: source?.kbVersion,
+        }
+      }),
+    })
+
+    expect(body.citations[0].kb_entry_id).toBe('relief-application')
+    expect(body.citations[0].label).toBe('피해구제 신청서 제출')
+
+    // 3. 브라우저에서 복원
+    const shown = restore(`${body.reply} [계좌-1]`, masked.mappings, {
+      site: 'chat-answer',
+    })
+    expect(shown).toContain('7890')
+    expect(shown).not.toContain('110-234-567890')
+  })
+
+  it('조회가 0건이면 절차를 말하지 않고 1332 안내로 간다', async () => {
+    const kbFinder = createKbFinder({
+      store: { findApplied: async () => [], findReference: async () => [] },
+    })
+
+    const chat = createChatReceiver({
+      tokenizer: { tokenize: async (text) => ({ masked: text }) },
+      kb: { find: (query) => asPromptEntries(kbFinder, query) },
+      prompts: createPromptBuilder(),
+      llm: {
+        complete: async () => ({ insufficient: true, citations: [] }),
+      },
+      citations: createCitationChecker(),
+      retry: { decide: () => ({ retry: false }) },
+      clock: {
+        today: () => '2026-08-20',
+        todayLabel: () => '2026년 8월 20일',
+        nowMs: () => 0,
+      },
+    })
+
+    const turn = await chat.receive({
+      caseContext: {
+        caseId: '01J8XKQZ',
+        track: 'victim',
+        channelId: null,
+        orgId: null,
+        caseTalk: [],
+        caseState: [],
+        history: [],
+      },
+      utterance: '뭘 해야 하죠',
+      kbVersion: '2026.08.1',
+    })
+
+    // 되물어도 안 나온다 — 에러가 아니라 안내다
+    expect(turn.outcome.kind).toBe('guide_1332')
   })
 })

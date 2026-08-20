@@ -62,6 +62,8 @@ export interface CaseStore {
 export interface AuditSink {
   record(event: {
     eventType: 'case.purged'
+    /** 사용자 요청 없이 도는 모듈이라 언제나 `system` 입니다 */
+    actorType: 'system'
     caseId: string
     detail: Record<string, unknown>
   }): Promise<void>

@@ -119,6 +119,8 @@ async function purgeOne(
   // 4. 여기까지 와야 파기입니다. 감사 로그는 사건이 사라져도 남습니다
   await audit.record({
     eventType: 'case.purged',
+    // 사용자 요청 없이 도는 모듈입니다 → 09-data-model.md §10
+    actorType: 'system',
     caseId,
     detail: { purge_after: target.purgeAfter },
   })
