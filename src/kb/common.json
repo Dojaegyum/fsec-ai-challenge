@@ -1,0 +1,194 @@
+{
+  "_note": [
+    "전 유형 공통 매뉴얼 — 조회 3순위(channel_id IS NULL). 어느 유형인지 몰라도 나갑니다.",
+    "작성 규약: rfc/002-kb-authoring.md · 필드 구조: spec/backend/08-16-data-model.md §11.4",
+    "",
+    "⚠️ 이 파일은 아직 적재할 수 없습니다. effective_from(조문 시행일)이 전부 비어 있고,",
+    "§11.4.5 의 적재 검증이 거부합니다. 그게 맞는 동작입니다 — 시행일을 지어내면",
+    "「언제부터 유효한 절차인가」가 통째로 틀립니다.",
+    "",
+    "시행일은 국가법령정보 DRF API 의 <조문시행일자> 로 채웁니다. OC 키 승인 대기 중.",
+    "_note 와 _todo 는 적재기가 무시합니다."
+  ],
+
+  "channel_id": null,
+  "track": "victim",
+
+  "entries": [
+    {
+      "kb_entry_id": "common-report-112",
+      "step_key": "report-112",
+      "step_seq": 10,
+      "org_id": null,
+      "title": "112에 신고합니다",
+      "legal_basis": "법정 절차가 아닙니다. 수사 개시와 「수사기관의 피해신고확인서」 확보를 위한 단계이고, 금융회사가 그 자료를 요청할 수 있습니다(시행령 제3조).",
+      "source_url": "https://www.counterscam112.go.kr/report/reportGuide.do",
+      "effective_from": "TODO(근거 필요)",
+      "effective_until": null,
+      "verified_at": "2026-08-18",
+      "body": {
+        "requires_slots": [],
+        "after": [],
+        "conditional": null,
+        "summary": "112는 24시간 받습니다. 경찰청이 악성앱 차단과 지급정지 연계까지 한 번에 상담한다고 안내하고 있습니다.",
+        "steps": [
+          {
+            "text": "112로 전화해 보이스피싱 피해를 신고합니다. 365일 24시간 받습니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "끊기 전에 사건접수번호를 받아 적으세요. 이후 절차에서 계속 쓰입니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": { "kind": "receipt_no", "label": "사건접수번호" },
+        "caveat": null
+      },
+      "_todo": [
+        "effective_from — 112 신고 자체는 상시이나, 우리가 확인한 것은 2026-02-01 부터의 통합대응단 체계입니다. 무엇을 시행일로 볼지 사람이 정해야 합니다."
+      ]
+    },
+
+    {
+      "kb_entry_id": "common-freeze-request",
+      "step_key": "freeze-request",
+      "step_seq": 20,
+      "org_id": null,
+      "title": "돈이 빠져나간 금융회사에 지급정지를 요청합니다",
+      "legal_basis": "통신사기피해환급법 제3조제1항(피해구제 신청) · 제4조제1항제1호(신청·요청이 있으면 금융회사는 즉시 지급정지)",
+      "source_url": "https://casenote.kr/법령/전기통신금융사기_피해_방지_및_피해금_환급에_관한_특별법/제4조",
+      "effective_from": "TODO(근거 필요)",
+      "effective_until": null,
+      "verified_at": "2026-08-20",
+      "body": {
+        "requires_slots": [],
+        "after": [],
+        "conditional": null,
+        "summary": "지급정지는 요청이 있으면 금융회사가 즉시 해야 하는 조치입니다. 전화 한 통이 시작입니다.",
+        "steps": [
+          {
+            "text": "돈이 빠져나간 계좌의 금융회사 사고신고 창구에 전화해 지급정지를 요청합니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": "org.contact.report_tel",
+            "url": null
+          },
+          {
+            "text": "끊기 전에 접수번호를 받아 적으세요.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": { "kind": "receipt_no", "label": "지급정지 접수번호" },
+        "caveat": null
+      },
+      "_todo": [
+        "effective_from — 제4조의 조문 시행일.",
+        "계좌가 없는 유형(CH-giftcard 등)은 이 step_key 를 유형 파일에서 「해당 없음」으로 덮습니다 → §11.2 우선순위 병합."
+      ]
+    },
+
+    {
+      "kb_entry_id": "common-relief-apply",
+      "step_key": "relief-apply",
+      "step_seq": 30,
+      "org_id": null,
+      "title": "같은 통화에서 피해구제를 신청합니다",
+      "legal_basis": "통신사기피해환급법 제3조제1항 · 시행령 제3조제1항 단서(긴급하거나 부득이한 사유가 있으면 전화 또는 구술로 신청할 수 있다)",
+      "source_url": "https://casenote.kr/법령/전기통신금융사기_피해_방지_및_피해금_환급에_관한_특별법/제3조",
+      "effective_from": "TODO(근거 필요)",
+      "effective_until": null,
+      "verified_at": "2026-08-20",
+      "body": {
+        "requires_slots": [],
+        "after": ["freeze-request"],
+        "conditional": null,
+        "summary": "지급정지와 피해구제 신청은 법적으로 다른 절차입니다. 지급정지만 걸어 두면 신청은 아직 시작되지 않은 것입니다. 같은 통화에서 함께 말하세요.",
+        "steps": [
+          {
+            "text": "「피해구제도 함께 신청합니다」라고 분명히 말합니다. 전화·구술 신청이 인정됩니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": "org.contact.report_tel",
+            "url": null
+          },
+          {
+            "text": "신청한 날짜를 적어 두세요. 서류 제출 기한이 이 날부터 셉니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": { "kind": "receipt_no", "label": "피해구제 접수번호" },
+        "caveat": null
+      },
+      "_todo": [
+        "effective_from — 시행령 제3조제1항의 시행일.",
+        "법 제3조제1항은 제2조제2호 「가목 또는 나목」 피해자에게만 신청권을 줍니다. 다목(대면 교부)·라목(출금)은 피해자 신청권이 없어 다른 절차입니다 — CH-facetoface 파일에서 갈립니다."
+      ]
+    },
+
+    {
+      "kb_entry_id": "common-relief-documents",
+      "step_key": "relief-documents",
+      "step_seq": 40,
+      "org_id": null,
+      "title": "신청서류를 금융회사에 제출합니다",
+      "legal_basis": "시행령 제3조 — 별지 제1호서식 피해구제신청서 + 피해자의 신분증 사본. 제출 기한과 추가기간은 아래 _todo 참조",
+      "source_url": "https://easylaw.go.kr/CSP/CnpClsMainBtr.laf?ccfNo=3&cciNo=1&cnpClsNo=1&csmSeq=1592&popMenu=ov",
+      "effective_from": "TODO(근거 필요)",
+      "effective_until": null,
+      "verified_at": "2026-08-20",
+      "body": {
+        "requires_slots": ["relief_applied_at"],
+        "after": ["relief-apply"],
+        "conditional": null,
+        "summary": "전화로 신청했으면 서류를 따로 내야 신청이 유지됩니다. 내지 않으면 신청이 없었던 것으로 봅니다.",
+        "steps": [
+          {
+            "text": "별지 제1호서식 피해구제신청서를 작성합니다. 어느 칸에 무엇을 적는지는 기재 안내에서 값과 함께 봅니다.",
+            "action": "download",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "신분증 사본 1부를 챙깁니다. 법령이 요구하는 첨부서류는 이것뿐입니다. 수수료는 없습니다.",
+            "action": "read",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "지급정지를 신청한 금융회사에 제출합니다. 제출 창구는 금융회사마다 다릅니다.",
+            "action": "visit",
+            "channel": ["visit"],
+            "contact_ref": "org.contact.submit_place",
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": { "kind": "receipt_doc", "label": "접수증" },
+        "caveat": "거짓으로 신청하면 법 제16조제1호에 따라 처벌될 수 있습니다. 사실대로 적으셨다면 해당하지 않습니다."
+      },
+      "_todo": [
+        "⛔ deadline 을 비워 뒀습니다. 「3일」인지 「3영업일」인지 출처 둘이 어긋납니다 → docs/research/05-미확인-목록.md U-30.",
+        "이 서비스에서 가장 중요한 숫자입니다. 틀리면 지급정지가 무효가 됩니다. 조문 원문으로 확정하기 전에는 넣지 않습니다.",
+        "추가기간 14일(시행령 제3조제3항)도 같은 이유로 대기합니다.",
+        "source_url 을 찾기쉬운 생활법령으로 둔 것은 임시입니다 — 조문 직접 링크로 바꿔야 합니다."
+      ]
+    }
+  ]
+}

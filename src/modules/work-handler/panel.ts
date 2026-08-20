@@ -21,10 +21,18 @@ const ACTION_TO_PANEL: Record<StepAction, PanelId> = {
 };
 
 /**
- * 일곱 밖의 값이면 `null`입니다.
+ * 표 밖의 값이면 `null`입니다.
  *
  * **`WS-read`로 떨어뜨리지 않습니다.** 모르는 것을 「읽기만 하면 되는 것」으로
  * 바꾸면, 사용자가 해야 할 일을 안 해도 되는 것처럼 보게 됩니다.
+ *
+ * ⬜ **`confirm`(전사 검수)이 위 표에 없습니다.** 2026-08-20 에 계약상 여덟째 값으로
+ * 정해졌지만(ADR-038) **패널 화면이 아직 없습니다** — `transcriber` 가 서고 실제
+ * 오독률을 재기 전에는 만들지 않기로 했습니다.
+ *
+ * 그래서 지금 `panelFor("confirm")` 은 `null` 이고, **그 단계는 화면에 아무것도
+ * 그리지 않습니다.** KB 에 `action: "confirm"` 항목이 아직 없어 터지지는 않지만,
+ * **넣는 순간 조용히 사라집니다.** 화면을 만들 때 이 표에 한 줄을 더하세요.
  */
 export function panelFor(action: string | undefined | null): PanelId | null {
   if (!action) return null;

@@ -11,6 +11,7 @@ import ChatView, { MiniChat } from "./chat";
 import T0Rail from "./safety";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
+import DocGuide from "./doc";
 
 /**
  * 사건 화면 — `/c/{token}`. **세 화면이 아니라 한 화면의 두 축**입니다 (ADR-035).
@@ -18,7 +19,7 @@ import EvidenceView from "./evidence";
  * 계약: spec/frontend/08-14-screens.md 「화면 상태는 두 축입니다」 · §S-06 §S-07 §S-08
  * 시안: assets/artifacts/handoff/08-19-s06-chat/ · 08-19-s07-board-motion/ · 08-19-s08-evidence/
  *
- *   focus: 'chat' | 'plan' | 'evidence'   본문
+ *   focus: 'chat' | 'plan' | 'evidence' | 'doc'   본문
  *   side:  'casefile' | 'work'             오른쪽 350px
  *
  * ⚠️ **순차가 아닙니다.** 「다음 단계로 넘긴다」는 코드를 쓰지 마세요 —
@@ -57,6 +58,7 @@ const DEV_VIEWS: readonly [Focus, string][] = [
   ["chat", "챗"],
   ["plan", "플랜"],
   ["evidence", "증거함"],
+  ["doc", "기재 안내"],
 ];
 
 export default function CaseScreen() {
@@ -64,7 +66,8 @@ export default function CaseScreen() {
   // 효과에서 setState 하면 한 번 그린 뒤 다시 그리게 되므로 **처음부터 초기값**으로 씁니다.
   // 서버 시그널이 붙으면 이 세 줄은 통째로 지웁니다.
   const wanted = useSearchParams().get("view");
-  const devFocus: Focus = wanted === "plan" || wanted === "evidence" ? wanted : "chat";
+  const devFocus: Focus =
+    wanted === "plan" || wanted === "evidence" || wanted === "doc" ? wanted : "chat";
 
   const [focus, setFocus] = useState<Focus>(devFocus);
   const [side, setSide] = useState<Side>(devFocus === "chat" ? "casefile" : "work");
@@ -268,6 +271,7 @@ export default function CaseScreen() {
           )}
           {focus === "plan" && <PlanView />}
           {focus === "evidence" && <EvidenceView />}
+          {focus === "doc" && <DocGuide caseId={CASE_TOKEN} />}
         </section>
 
         {/* ── 오른쪽 열 — 자리는 하나, 내용이 바뀝니다 ──────
@@ -421,6 +425,7 @@ export default function CaseScreen() {
               )}
               {ghost.from === "plan" && <PlanView />}
               {ghost.from === "evidence" && <EvidenceView />}
+              {ghost.from === "doc" && <DocGuide caseId={CASE_TOKEN} />}
             </div>
           </div>
         </div>

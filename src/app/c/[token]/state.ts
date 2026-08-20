@@ -12,8 +12,8 @@
  * 정의는 spec/common/08-17-service-concept.md 「여정 — 여섯 국면」에 있습니다.
  */
 
-/** 본문이 무엇을 보여주나 — 화면 ID 로는 S-06 · S-07 · S-08 */
-export type Focus = "chat" | "plan" | "evidence";
+/** 본문이 무엇을 보여주나 — 화면 ID 로는 S-06 · S-07 · S-08 · S-10 */
+export type Focus = "chat" | "plan" | "evidence" | "doc";
 
 /** 오른쪽 350px 열이 무엇을 보여주나 */
 export type Side = "casefile" | "work";

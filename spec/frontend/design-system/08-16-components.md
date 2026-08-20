@@ -37,11 +37,13 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
 | `T0Rail` | 셸 왼쪽 288px 고정 레일. **본문 밖**이라 국면이 바뀌어도 남습니다. 넓은 폭에서 접히지 않습니다 | [screens](../08-14-screens.md) 「셸은 세 열입니다」 · [ADR-036](../../../decisions/036-t0-rail.md) | `app/c/[token]/safety.tsx` |
 | `MiniChat` | 본문이 챗이 아닐 때 오른쪽 열 **아래**의 대응 비서. **흡수의 착지점** — 축소 사본이 아니라 제 크기의 진짜 폼 | [screens S-07](../08-14-screens.md) | `app/c/[token]/chat.tsx` |
 | `HeroStrip` | S-07 맨 위 「지금 하실 일은 하나」 + D-day. 앰버 6% / 45% | [screens S-07](../08-14-screens.md) | `app/c/[token]/plan.tsx` |
-| `StepList` | 단계 여섯 상태(`done`·`now`·`todo`·`anytime`·`na`). **기호·라벨·색 셋이 함께** | [screens S-07](../08-14-screens.md) | `app/c/[token]/plan.tsx` |
+| `StepList` | 단계 여섯 상태(`done`·`now`·`todo`·`anytime`·`na`). **기호·라벨·색 셋이 함께.** 배지 한 칸이 **순번(숫자) 또는 점(•)** 을 겸합니다 — 세로 목록이 순서로 읽히는 것을 막습니다 | [screens S-07](../08-14-screens.md) | `app/c/[token]/plan.tsx` |
 | `WaitingCard` | 공고 2개월 대기. **앰버를 쓰지 않습니다** — 사용자 기한이 아닙니다 | [screens S-07](../08-14-screens.md) | `app/c/[token]/plan.tsx` |
 | `FileRail` | S-08 자료 레일. 7px 상태 점 + **아래 한 줄이 말로 같은 것을 말함** | [screens S-08](../08-14-screens.md) | `app/c/[token]/evidence.tsx` |
 | `TranscriptLine` | 전사 발화 행. 사칭 정황 = 앰버 보더, 미확인 = 대시 언더라인 + 배지 | [screens S-08](../08-14-screens.md) · [ADR-034](../../../decisions/034-browser-shows-plaintext.md) | `app/c/[token]/evidence.tsx` |
 | `GhostView` | 전환 중 **나가는 본문**. `fixed` + `pointer-events:none` 이라 레이아웃을 밀지 않음 | [tokens](08-16-tokens.md) 「전환」 | `app/c/[token]/page.tsx` |
+| `FormSection` | S-10 서식 구획 접기. 헤더에 **「n칸 · 저희가 채운 값 m」**. 서식 구획을 그대로 따라 접습니다 — 실물과 1:1 대조가 목적 | [screens S-10](../08-14-screens.md) | `app/c/[token]/doc.tsx` |
+| `CopyField` | 값 한 칸 + 복사. **보이는 것은 끊고 복사되는 것은 끊지 않습니다.** 상태 넷(`confirmed`·`unread`·`unknown`·`staff`) | [screens S-10](../08-14-screens.md) · [ADR-037](../../../decisions/037-doc-guidance-not-generation.md) | `app/c/[token]/doc.tsx` |
 | **`WS-*` 패널 일곱** | 유형별 작업 패널. **모듈로 뽑았습니다** | [워크스페이스 패널](../08-17-workspace-panels.md) · [ADR-033](../../../decisions/033-ws-panel-placement.md) | **`modules/work-handler/panels.tsx`** |
 
 **`WS-*` 패널만 모듈로 갔습니다.** 나머지는 화면 파일 안에 있습니다 — 「금지가 붙어 있는가」가
@@ -53,6 +55,20 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
 컴포넌트로 뽑을 때 이 화면의 형태를 기준으로 삼습니다.
 
 「초안」은 [진입 플로우 목업](#출처)에서 실제로 만들어 본 것이라는 뜻입니다. 코드가 아니라 형태의 참조입니다.
+
+### 복사는 실패할 수 있습니다 — 조용히 넘어가지 않습니다
+
+**`navigator.clipboard` 는 문서에 포커스가 없거나 비보안 컨텍스트면 거부합니다.**
+값을 옮기는 것이 전부인 화면에서 눌렀는데 아무 일도 안 일어나면, 사용자는 이유를 모릅니다.
+
+```
+① navigator.clipboard.writeText      실패하면
+② textarea + document.execCommand    그것도 실패하면
+③ 값을 selection 으로 골라 주고 「이 브라우저가 복사를 막았습니다」
+```
+
+**③이 핵심입니다.** 실패를 알리는 것으로 끝내지 않고 **다음 행동을 할 수 있는 상태**로
+만들어 둡니다 — 아래 「에러 — 다음 행동을 반드시 함께」와 같은 원칙입니다.
 
 ## 공통 재질 — 칩
 
