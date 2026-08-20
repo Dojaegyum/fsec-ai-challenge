@@ -33,8 +33,11 @@ const INNER =
   "rounded-[10px] border border-hairline bg-chip p-[11px_12px] text-[13.5px] leading-[1.7] text-ink-2";
 
 /** 주 행동은 하나뿐입니다 */
+/** ⚠️ 폭 유틸리티(`w-*`)를 여기 넣지 마세요. 쓰는 쪽에서 `w-auto` 로 덮으려 해도
+ *  Tailwind 는 클래스 **문자열 순서가 아니라 생성된 CSS 순서**로 이겨서, 나란히 놓은
+ *  입력칸이 0px 로 찌그러집니다. 폭은 항상 쓰는 쪽이 정합니다 */
 const PRIMARY =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-[11px] bg-ink-1 " +
+  "inline-flex min-h-[44px] items-center justify-center rounded-[11px] bg-ink-1 " +
   "text-[14.5px] font-[660] text-ground transition-[transform,opacity] duration-200 " +
   "hover:-translate-y-px hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pii";
 /** 「나중에」 — 어느 패널에서도 상시. 막지 않습니다 */
@@ -43,7 +46,7 @@ const LATER =
   "text-[13.5px] text-ink-3 transition-colors duration-200 hover:text-ink-1";
 
 const FIELD =
-  "min-h-[44px] w-full rounded-[10px] border border-hairline bg-[oklch(0_0_0/34%)] px-[12px] " +
+  "min-h-[44px] min-w-0 rounded-[10px] border border-hairline bg-[oklch(0_0_0/34%)] px-[12px] " +
   "text-[14px] text-ink-1 placeholder:text-ink-4 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-pii";
 
 /** 가려진 값. 원문은 `WS-download` 에서만 펼쳐집니다 → pii-boundary */
@@ -125,18 +128,18 @@ export function CallPanel({ title, status, script, artifactLabel, placeholder }:
     >
       <div className={INNER}>{script}</div>
       <p className="mt-2 text-[12.5px] text-icon">
-        가려진 값은 <b className="font-[620] text-ink-2">이 화면에서만</b> 펼쳐집니다
+        계좌번호는 <b className="font-[620] text-ink-2">그대로 적혀 있습니다</b> — 보고 읽으시면 됩니다
       </p>
 
       <div className="mt-3.5 text-[13.5px] font-[620] text-ink-1">{artifactLabel}</div>
       <div className="mt-2 flex gap-2">
-        <input className={FIELD} placeholder={placeholder} data-numeric />
-        <button type="button" className={`${PRIMARY} w-auto shrink-0 px-4`}>
+        <input className={`${FIELD} flex-1`} placeholder={placeholder} data-numeric />
+        <button type="button" className={`${PRIMARY} shrink-0 px-4`}>
           입력
         </button>
       </div>
 
-      <button type="button" className={`${PRIMARY} mt-3`}>
+      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
         접수 문자 캡처 올리기
       </button>
       <button type="button" className={LATER}>
@@ -165,7 +168,7 @@ export function VisitPanel({ title, status, bring, why, exitLabel, note }: Panel
         <div className="mt-1.5 text-[14px] font-[620] text-ink-1">◆ {bring}</div>
         <p className="mt-1.5 text-[12.5px] text-ink-3">{why}</p>
       </div>
-      <button type="button" className={`${PRIMARY} mt-3`}>
+      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
         {exitLabel} ↗
       </button>
       <button type="button" className={LATER}>
@@ -183,9 +186,9 @@ export function WritePanel({ title, placeholder, why }: PanelProps & {
 }) {
   return (
     <Shell active eyebrow="받아적기" title={title}>
-      <input className={FIELD} placeholder={placeholder} data-numeric />
+      <input className={`${FIELD} w-full`} placeholder={placeholder} data-numeric />
       <p className={`mt-2 ${BODY}`}>{why}</p>
-      <button type="button" className={`${PRIMARY} mt-3`}>
+      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
         저장
       </button>
       <button type="button" className={LATER}>
@@ -242,10 +245,10 @@ export function DownloadPanel({ title, status, fields, fileLabel }: PanelProps &
         ))}
       </div>
       <p className="mt-2 text-[12.5px] leading-[1.6] text-icon">
-        <b className="font-[620] text-ink-2">이 화면에서만</b> 원래 값이 펼쳐집니다. 복원은
-        브라우저에서 일어나고 서버는 원문을 보지 못합니다.
+        <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 복원은 브라우저에서만
+        일어나고, 서버는 원문을 보지 못합니다 (ADR-034).
       </p>
-      <button type="button" className={`${PRIMARY} mt-3`}>
+      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
         {fileLabel}
       </button>
       <button type="button" className={LATER}>

@@ -162,6 +162,12 @@
   --pii-bg: oklch(0.231 0.047 259.1);
   --deadline-urgent: oklch(0.77 0.117 70.9);  /* 기한 임박. 최악 배경 7.16:1 — AAA. 빨강을 쓰지 않습니다 */
   --horizon: oklch(0.811 0.14 66.9);          /* 장식 전용 — 의미를 싣지 마세요 */
+
+  /* 전환 — 핸드오프 「Phase Transition Motion」 v2 의 확정값.
+     이징은 이 하나만 씁니다. 다른 곡선을 새로 만들지 마세요 */
+  --motion-ease: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-panel-in: 0.9s;   /* 오른쪽 열이 밖에서 들어오는 데 걸리는 시간 */
+  --motion-absorb: 1500ms;   /* 챗이 우하단 슬롯으로 빨려드는 총 길이 (축별 오프셋은 absorb.ts) */
 }
 
 .dark {
@@ -256,10 +262,58 @@
   /* 글로우 호흡 — 오렌지 가우시안 */
   @keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
 
-  /* 사건 파일의 행이 채워질 때 한 번 훑고 사라집니다 — 챗 국면 전용 */
+  /* 사건 파일의 행이 채워질 때 한 번 훑고 사라집니다 — 본문이 챗일 때 전용 */
   @keyframes row-flash {
     from { background-color: oklch(0.697 0.16 258.2 / 12%); }
     to   { background-color: transparent; }
+  }
+
+  /* ── 본문·오른쪽 열 전환 → ADR-035 의 두 축.
+     핸드오프 「Phase Transition Motion」 v2 의 값을 그대로 옮긴 것입니다
+     (assets/artifacts/handoff/08-19-s08-evidence/).
+
+     ⚠️ 「흡수」(챗이 우하단 슬롯으로 빨려드는 것)는 여기 없습니다 —
+     끝점이 레이아웃에 따라 달라져 CSS 로 못 적습니다. `absorb.ts` 가
+     같은 곡선을 표본으로 떠서 Web Animations API 로 돌리고,
+     감속 모드는 **JS 안에서 따로** 확인합니다 (아래 미디어 쿼리가 WAAPI 는 못 막습니다) */
+
+  /* 본문이 바뀔 때 — 겹쳐서 지나갑니다. 빈 화면을 만들지 않습니다 */
+  @keyframes view-in  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  @keyframes view-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(22px); } }
+
+  .view-in  { animation: view-in  0.8s var(--motion-ease) 0.5s both; }
+  .view-out { animation: view-out 0.7s var(--motion-ease) 0.3s both; }
+
+  /* 오른쪽 열이 밖에서 들어옵니다 — +8px 드리프트가 붙어 있습니다.
+     ⚠️ **넓은 폭 전용입니다.** 좁은 폭에서는 이 열이 옆이 아니라 **위아래로 쌓이므로**
+     옆에서 밀고 들어올 자리가 없고, 도는 동안 308px 이 화면 밖으로 나가
+     가로 스크롤이 생깁니다 */
+  @keyframes side-in  { from { opacity: 0; transform: translateX(308px); } to { opacity: 1; transform: none; } }
+  @media (min-width: 48rem) {
+    .side-in { animation: side-in var(--motion-panel-in) var(--motion-ease) 0.15s both; }
+  }
+
+  /* 흡수 중인 유령 챗이 카드가 되는 순간 — 축소가 시작된 뒤에 켭니다.
+     첫 프레임부터 켜면 평평하던 화면 위로 카드가 툭 튀어나옵니다.
+     퍼센트는 `--motion-absorb`(1.5s) 기준이고 `absorb.ts` 의 스케일 구간(0.35s~)과 맞춰져 있습니다 */
+  @keyframes ghost-card {
+    0%, 22% {
+      background-color: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+    32%, 100% {
+      background-color: var(--stage);
+      border-color: var(--hairline);
+      box-shadow: 0 30px 60px -30px #000;
+    }
+  }
+
+  /* 미니 챗이 유령 챗을 이어받는 구간 — absorb.ts 의 CROSSFADE.in 과 같은 값입니다.
+     축소된 사본을 남기지 않고, 제 크기의 진짜 폼이 그 자리에서 켜집니다 */
+  @keyframes mini-take {
+    0%, 68% { opacity: 0; }
+    100%    { opacity: 1; }
   }
 
   /* 전정 장애가 있는 사용자에게 회전하는 테두리는 증상을 유발합니다. 선택이 아닙니다 */
