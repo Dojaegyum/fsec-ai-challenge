@@ -50,6 +50,7 @@ spec/backend/08-14-channel-matrix.md
 | [08-16-module-names.md](common/08-16-module-names.md) | 모듈 명칭 — 동작 단위의 이름. 서버 네 층 + **브라우저 층 C** |
 | [08-14-api.md](common/08-14-api.md) | API 계약 — 엔드포인트 10개 + 관리자 2개, 요청·응답, 계측 헤더 |
 | [08-17-service-concept.md](common/08-17-service-concept.md) | **서비스 골자** — 무엇이고 무엇이 아닌가, 누가 어디서 들어와 어떻게 돌아오는가. 기획서 §0을 대체 |
+| [08-20-automation-boundary.md](common/08-20-automation-boundary.md) | **자동화의 경계** — 어디까지 대신해 주고 어디서 멈추는가. 넘으면 인허가가 필요한 것들 |
 
 ### `backend/` — 서버
 

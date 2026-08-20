@@ -154,7 +154,7 @@
 | `planner` | KB를 인용해 `plan_step`을 확정한다 | `F-05` [03](../backend/08-14-channel-matrix.md) |
 | `date-checker` | 법정 기한을 **규칙으로** 계산하고 잔여일을 추적한다 | `F-06` [09](../backend/08-16-data-model.md) §8 |
 | `completion-checker` | `artifact`로 완료를 판정한다 (L1·L2·L3) | `F-06b` [05](../backend/08-14-completion-hook.md) |
-| `doc-builder` | 신청서 초안을 만든다 | `F-08` (P1) |
+| `doc-builder` | **기재 항목과 값을 짝지어 낸다.** 문서를 조판하지 않는다 | `F-08` [ADR-037](../../decisions/037-doc-guidance-not-generation.md) |
 
 **`date-checker`에 LLM을 쓰지 않습니다.** 3영업일·14일 유예·2개월 공고·5영업일은 전부 코드의 규칙입니다 → `CLAUDE.md` 불변 규칙 7.
 
@@ -303,7 +303,7 @@ ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지�
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
 | `work-handler` | 어느 단계를 할 차례인지 판정하고, 그 유형의 패널을 렌더한다 | 브라우저 | [워크스페이스 패널](../frontend/08-17-workspace-panels.md) |
-| `doc-filler` | 서류 초안을 받아 **브라우저에서** 원문을 채워 완성한다 | 브라우저 | `F-08` (P1) [04](08-14-pii-boundary.md) |
+| `doc-filler` | 기재 안내에 뜨는 값을 **브라우저에서** 원문으로 복원한다 | 브라우저 | `F-08` [04](08-14-pii-boundary.md) · [ADR-037](../../decisions/037-doc-guidance-not-generation.md) |
 
 **`work-handler`는 판정과 렌더를 함께 맡습니다.** 나누는 안을 검토하고 합쳤습니다
 → [ADR-023](../../decisions/023-frontend-module-names.md). **대신 모듈 안에서 판정을 렌더와 섞지 않습니다** —

@@ -103,7 +103,7 @@ function Shell({
 }
 
 /** 각 패널이 받는 것. **서버 계약이 아직 없는 자리라 화면이 채워 넣습니다** —
- *  `WS-download` 초안 엔드포인트는 spec 에 TODO 로 남아 있습니다 */
+ *  `WS-download` 의 기재 항목 엔드포인트는 spec 에 TODO 로 남아 있습니다 (ADR-037) */
 export interface PanelProps {
   title: string;
   /** 통화 타이머·D-day 처럼 상태 칩에 들어갈 것 */
