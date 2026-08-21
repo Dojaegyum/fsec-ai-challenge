@@ -1308,6 +1308,25 @@ CREATE INDEX idx_source_change_dedupe ON source_change (dedupe_key);
 
 **확신도가 낮은 판정을 자동으로 버리지 않습니다.** `impact.confidence`가 낮으면 `pending`으로 사람에게 갑니다.
 
+**`deferred`는 「아직 판단하지 않았다」입니다** → [ADR-039](../../decisions/039-review-deferral.md).
+시행일이 안 정해진 발표처럼 **지금은 판단할 수 없는 것**에 씁니다. `review_note`에 왜 미뤘는지를 남깁니다.
+
+| 지금 상태 | 다시 판단 |
+| --- | --- |
+| `pending` · `deferred` | ✅ |
+| `approved` · `rejected` | ❌ — 승인 기록을 덮으면 원칙 4를 지켰는지 확인할 수 없습니다 |
+
+**미룬 것은 큐에 안 나옵니다.** 큐는 위 문장대로 `pending`인 행이고, 미룬 것까지 담으면 「아직 안 본 것」이 묻힙니다. 따로 찾아 엽니다.
+
+### 지금 채우지 않는 칸 둘
+
+**둘 다 `NULL`로 쌓이고 있습니다.** 스키마에 자리는 있지만 넣는 곳이 없습니다.
+
+| 칼럼 | 지금 | 그래서 |
+| --- | --- | --- |
+| `snapshot_before` | 늘 `NULL` | **검수 화면이 그때 조회합니다** — 같은 `source_key`의 직전 `fetched_at`을 `idx_source_snapshot_time`으로 찾습니다. 대신 **이 행만 봐서는 「최초 수집」과 「개정」이 구분되지 않습니다** |
+| `dedupe_key` | 늘 `NULL` | 수집기는 원문만 봐서 계산할 수 없고(본문이 다릅니다), 누가 채우는지 정해지지 않았습니다. **묶기가 안 돌아 같은 발표가 여러 줄로 뜹니다** — 놓치는 쪽보다 낫다고 보고 그대로 둡니다 |
+
 ### 12.3 `source_registry` — 감시 소스와 생존 확인
 
 ```sql

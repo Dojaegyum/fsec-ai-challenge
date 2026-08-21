@@ -141,9 +141,8 @@ export function createKbCollector(deps: {
     return snapshots.append({
       snapshot,
       change: {
-        // ⬜ 앞 스냅샷을 가리키려면 저장소가 그것을 찾아 줘야 합니다.
-        // 지금 포트에 그 자리가 없어 비워 둡니다 — 「최초 수집이면 NULL」과
-        // 같은 값이라 구분이 안 됩니다. 계약이 필요한 자리입니다
+        // **비워 둡니다.** 직전 원문은 검수 화면이 그때 조회합니다 → §12.2.
+        // 화면이 어차피 원문 둘을 다 읽어야 해서 여기서 한 번 더 찾을 이유가 없습니다
         snapshotBefore: null,
         detectedAt: now,
       },

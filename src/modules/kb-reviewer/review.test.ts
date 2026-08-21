@@ -281,12 +281,15 @@ describe('검수 이력을 덮어쓰지 않는다', () => {
     expect(decisions).toHaveLength(0)
   })
 
-  it('미룬 것도 다시 판단하지 않는다', async () => {
-    const { reviewer } = storeOf([change({ reviewStatus: 'deferred' })])
+  it('승인된 것도 다시 판단하지 않는다', async () => {
+    const { reviewer, decisions } = storeOf([
+      change({ reviewStatus: 'approved', reviewedBy: '김태현' }),
+    ])
 
     await expect(
-      reviewer.review({ changeId: 'c1', status: 'approved', reviewedBy: '김태현' }),
+      reviewer.review({ changeId: 'c1', status: 'rejected', reviewedBy: '다른사람' }),
     ).rejects.toThrow(KbError)
+    expect(decisions).toHaveLength(0)
   })
 
   it('없는 변경은 거절한다', async () => {
@@ -370,6 +373,79 @@ describe('검수 이력을 덮어쓰지 않는다', () => {
     await reviewer.review({ changeId: 'c1', status: 'approved', reviewedBy: '김태현' })
 
     expect(await reviewer.queue()).toHaveLength(0)
+  })
+})
+
+describe('미룬 것만 되돌아온다 — ADR-039', () => {
+  it('미룬 것은 다시 판단할 수 있다', async () => {
+    // 시행일이 안 정해진 발표를 미뤄 뒀다가, 확정된 뒤 승인하는 자리입니다.
+    // 잠그면 그 개정이 어느 경로로도 승인 기록을 못 받습니다
+    const { reviewer, decisions, rows } = storeOf([change()])
+
+    await reviewer.review({
+      changeId: 'c1',
+      status: 'deferred',
+      reviewedBy: '김태현',
+      note: '시행일 확인 후 다시',
+    })
+    await reviewer.review({ changeId: 'c1', status: 'approved', reviewedBy: '김태현' })
+
+    expect(decisions.map((d) => d.status)).toEqual(['deferred', 'approved'])
+    expect(rows[0].reviewStatus).toBe('approved')
+  })
+
+  it('미뤘다 승인한 것은 반영 기록까지 받는다', async () => {
+    const { reviewer, released } = storeOf([change()])
+
+    await reviewer.review({ changeId: 'c1', status: 'deferred', reviewedBy: '김태현' })
+    await reviewer.review({ changeId: 'c1', status: 'approved', reviewedBy: '김태현' })
+    await reviewer.markReleased('c1', 'kb-2026-09-04')
+
+    expect(released).toEqual([{ changeId: 'c1', kbVersion: 'kb-2026-09-04' }])
+  })
+
+  it('미룬 것은 큐에 안 나온다', async () => {
+    // 큐는 pending 인 행입니다 → §12.2.
+    // 미룬 것까지 담으면 「아직 안 본 것」이 묻힙니다
+    const { reviewer } = storeOf([change()])
+
+    await reviewer.review({ changeId: 'c1', status: 'deferred', reviewedBy: '김태현' })
+
+    expect(await reviewer.queue()).toHaveLength(0)
+  })
+
+  it('미룬 뒤에도 반영 기록은 못 받는다', async () => {
+    // 미룸은 승인이 아닙니다
+    const { reviewer, released } = storeOf([change()])
+
+    await reviewer.review({ changeId: 'c1', status: 'deferred', reviewedBy: '김태현' })
+
+    await expect(reviewer.markReleased('c1', 'kb-1')).rejects.toBeInstanceOf(KbError)
+    expect(released).toHaveLength(0)
+  })
+
+  it('미룬 것을 다시 미룰 수도 있다', async () => {
+    // 시행일이 또 안 정해졌을 수 있습니다
+    const { reviewer, rows } = storeOf([change()])
+
+    await reviewer.review({ changeId: 'c1', status: 'deferred', reviewedBy: '김태현' })
+    await reviewer.review({
+      changeId: 'c1',
+      status: 'deferred',
+      reviewedBy: '김태현',
+      note: '아직도 미정',
+    })
+
+    expect(rows[0].reviewNote).toBe('아직도 미정')
+  })
+
+  it('거절한 것은 다시 못 만진다', async () => {
+    // 거절을 승인으로 바꾸는 문을 열지 않습니다
+    const { reviewer } = storeOf([change({ reviewStatus: 'rejected' })])
+
+    await expect(
+      reviewer.review({ changeId: 'c1', status: 'approved', reviewedBy: '김태현' }),
+    ).rejects.toBeInstanceOf(KbError)
   })
 })
 

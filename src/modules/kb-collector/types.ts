@@ -103,7 +103,12 @@ export interface PendingChange {
   /**
    * 직전 스냅샷. **최초 수집이면 `null`** → §12.2.
    *
-   * ⬜ 지금은 늘 `null` 입니다 — 아래 `append` 참고.
+   * **늘 `null` 입니다.** 직전 원문은 **검수 화면이 그때 조회합니다** — 같은
+   * `source_key` 의 직전 `fetched_at` 을 `idx_source_snapshot_time` 으로 찾습니다.
+   * 수집기가 미리 채우려면 저장소에 「직전 것을 달라」는 자리가 필요한데, 화면이
+   * 어차피 원문 둘을 다 읽어야 해서 여기서 한 번 더 찾을 이유가 없습니다.
+   *
+   * 대신 **이 행만 봐서는 「최초 수집」과 「개정」이 구분되지 않습니다** → §12.2.
    */
   readonly snapshotBefore: string | null
   /** ISO 8601 */
