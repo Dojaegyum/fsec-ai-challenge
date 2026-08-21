@@ -262,6 +262,7 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | `channel` | T1 | 송금 수단 (8유형) | `enum` |
 | `org_name` | T2 | 기관명 | `string` |
 | `amount` | T2 | 금액 | `decimal` |
+| **`amount_hint`** | T2 | **금액 구간. `amount`를 「모름」으로 답했을 때만 묻습니다** | `string` |
 | `occurred_at` | T2 | 시각 | `datetime` |
 | `elapsed_hint` | T2 | 경과 시간 (사용자 진술) | `string` |
 | `contact_method` | T2 | 상대 연락 수단 | `string` |
@@ -273,6 +274,17 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | `objection_submitted_at` | T2 | 이의제기 제출 시각 (통장묶기) | `datetime` |
 
 **T0에는 슬롯이 없습니다.** 진입 자체로 충분합니다 → [02-slot-tiering.md](08-14-slot-tiering.md).
+
+**정확한 값과 대략의 값을 한 슬롯에 겹쳐 담지 않습니다.** `uk_case_slot`이 사건 하나에
+이름당 한 행만 허용하는데, 정확한 값과 어림값은 `value_type`이 서로 다릅니다.
+그래서 짝을 이루는 슬롯을 따로 둡니다 — `occurred_at`(`datetime`)과
+`elapsed_hint`(`string`), `amount`(`decimal`)와 `amount_hint`(`string`)입니다.
+
+**어림값 쪽은 정확한 값을 못 얻었을 때만 채웁니다.** `amount_hint`는 사용자가
+`amount`를 「모름」으로 답한 경우에만 묻습니다 — 이체내역에서 금액을 뽑았거나
+사용자가 숫자를 적었으면 묻지 않습니다. 아는 것을 두 번 묻지 않기 위한 것이고,
+판정은 [02-slot-tiering.md](08-14-slot-tiering.md)의 최소 질문 원칙에 따라
+`slot-checker`가 합니다.
 
 ### 5.2 슬롯 상태
 

@@ -91,8 +91,15 @@ const CHANNEL_HINT: Readonly<Record<(typeof CHANNEL_IDS)[number], string>> = {
   'CH-carrier': '휴대폰 소액결제',
 }
 
-/** 뽑을 수 있는 이름과 그 뜻. 목록 밖 이름은 적재가 거부됩니다 */
-const SLOT_HINT: Readonly<Record<SlotKey, string>> = {
+/**
+ * 뽑을 수 있는 이름과 그 뜻. 목록 밖 이름은 적재가 거부됩니다.
+ *
+ * **§5.1 의 슬롯 전부는 아닙니다.** `amount_hint` 는 정해진 구간 라벨 넷 중
+ * 하나여야 하는 값이라 버튼으로만 받습니다 — 여기 넣으면 모델이 「300만원쯤」
+ * 같은 표현을 내놓고, 그것이 적재돼 나중에 구간으로 셀 수 없게 됩니다.
+ * 여기 없는 이름은 `isSlotKey` 가 걸러 냅니다.
+ */
+const SLOT_HINT: Readonly<Partial<Record<SlotKey, string>>> = {
   transferred: '돈을 보냈는가 (true 또는 false)',
   channel: `무엇으로 보냈는가. 아래 코드 중 하나만 — ${CHANNEL_IDS.map(
     (id) => `${id}(${CHANNEL_HINT[id]})`,

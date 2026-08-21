@@ -261,6 +261,25 @@ describe('목록 밖 이름은 나가지 않는다', () => {
     expect(dropped).toBe(1)
   })
 
+  it('금액 구간은 뽑지 않는다 — 버튼으로만 받는 값이다', async () => {
+    // `amount_hint` 는 정해진 구간 라벨 넷 중 하나여야 합니다.
+    // 모델이 「300만원쯤」 같은 표현을 넣으면 그 넷에 없는 값이 적재돼,
+    // 나중에 구간으로 셀 수 없게 됩니다 → 08-16-data-model.md §5.1
+    const extractor = createSlotExtractor({
+      llm: llmSaying(
+        replyWith([
+          { slot_key: 'amount_hint', value: '300만원쯤', confidence: 0.8 },
+          { slot_key: 'amount', value: '3000000', confidence: 0.9 },
+        ]),
+      ),
+    })
+
+    const { slots, dropped } = await extractor.extract({ maskedText: '…' })
+
+    expect(slots.map((one) => one.slotKey)).toEqual(['amount'])
+    expect(dropped).toBe(1)
+  })
+
   it('값이 비었으면 버린다', async () => {
     const extractor = createSlotExtractor({
       llm: llmSaying(
@@ -419,7 +438,7 @@ describe('지시문에 절차 지식을 담지 않는다', () => {
 })
 
 describe('슬롯 이름이 판정 모듈과 어긋나지 않는다', () => {
-  it('두 모듈이 같은 열세 개를 본다', async () => {
+  it('두 모듈이 같은 열네 개를 본다', async () => {
     // 이름 목록이 두 곳에 있습니다 — 층 1(뽑기)과 층 3(판정)이 서로를
     // import 하면 층 경계가 흐려져 각자 선언했습니다.
     // 대신 어긋나면 여기서 걸립니다. 어긋난 채로 두면 뽑은 슬롯을
@@ -428,10 +447,10 @@ describe('슬롯 이름이 판정 모듈과 어긋나지 않는다', () => {
     const checker = await import('@/modules/slot-checker')
 
     // slot-checker 의 SlotKey 는 타입이라 값 목록이 없습니다.
-    // 09-data-model.md §5.1 의 열세 개를 여기서 다시 못 박습니다
+    // 09-data-model.md §5.1 의 열네 개를 여기서 다시 못 박습니다
     const CANON = [
-      'transferred', 'channel', 'org_name', 'amount', 'occurred_at',
-      'elapsed_hint', 'contact_method', 'counterpart_account',
+      'transferred', 'channel', 'org_name', 'amount', 'amount_hint',
+      'occurred_at', 'elapsed_hint', 'contact_method', 'counterpart_account',
       'impersonated_org', 'freeze_requested_at', 'relief_applied_at',
       'report_filed_at', 'objection_submitted_at',
     ]

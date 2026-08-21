@@ -21,6 +21,8 @@ export type SlotKey =
   | 'channel'
   | 'org_name'
   | 'amount'
+  /** 금액 구간. **뽑지 않습니다** — 버튼으로만 받는 값입니다 (SLOT_HINT 참고) */
+  | 'amount_hint'
   | 'occurred_at'
   | 'elapsed_hint'
   | 'contact_method'
@@ -45,6 +47,7 @@ export const SLOT_VALUE_TYPE: Readonly<Record<SlotKey, SlotValueType>> = {
   channel: 'enum',
   org_name: 'string',
   amount: 'decimal',
+  amount_hint: 'string',
   occurred_at: 'datetime',
   elapsed_hint: 'string',
   contact_method: 'string',
