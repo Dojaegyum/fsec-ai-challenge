@@ -37,6 +37,7 @@ assets/           산출물·자산 원본 — 빌드에 안 들어가는 것
   artifacts/        HTML 아티팩트 (브라우저로 여는 완성 문서)
     plans/            우리가 정한 설계
     context/          확인한 바깥 사실
+    research/         우리 실측을 사람이 보게 정리한 것 (docs/research/ 의 HTML 짝)
     handoff/          화면 디자인 핸드오프 스냅샷 (받은 그대로 · 안 고침)
     archived/         역할이 끝난 것 (이름도 내용도 안 건드림)
   datasets/         우리가 잰 측정 원본 (JSON) — 해석은 docs/ 문서가 함
@@ -67,6 +68,9 @@ src/              코드
    - 역할이 끝났다 → `archived/`
    - 우리가 정한 설계 → `plans/`
    - 확인한 바깥 사실 → `context/`
+   - **우리 실측을 사람이 보게 정리한 것** → `research/`
+     — **정본은 `docs/research/` 의 Markdown 입니다.** 여기 HTML 은 사본이고,
+     머리에 어느 문서에서 왔는지 적습니다. 숫자가 바뀌면 Markdown 을 먼저 고칩니다.
    - **화면 디자인을 밖에서 받아온 것** → `handoff/{MM-dd-화면ID-slug}/` (→ [RFC-003](003-design-handoff.md))
 5. **우리가 잰 측정 원본인가?** (평가셋·결과 JSON) → `assets/datasets/{MM-dd-slug}/`
    - **해석은 `docs/`에 씁니다.** 데이터만 두면 다음 사람이 숫자를 뒤집어 읽습니다 —
@@ -125,7 +129,7 @@ rfc/001-repo-structure.md      →   # RFC-001. 저장소 구조 규약 …
 - 템플릿은 `000-template.md`.
 - 각 폴더 `README.md`의 목록에 반드시 등록합니다.
 
-### `MM-dd-{slug}` — `spec/` · `docs/` · `assets/artifacts/{plans,context,handoff}` · `assets/datasets/`
+### `MM-dd-{slug}` — `spec/` · `docs/` · `assets/artifacts/{plans,context,research,handoff}` · `assets/datasets/`
 
 순서를 약속하지 않는 이름입니다(→ [ADR-003](../decisions/003-spec-layout.md)).
 
@@ -200,6 +204,9 @@ docs/research/06-경로별-실측조사.md
 - **`artifacts/handoff/`만 폴더 단위**입니다 — 밖에서 받은 화면 디자인을 **받은 그대로** 담습니다.
   `archived/`와 같이 **나중에 고치지 않습니다**. 절차는 [RFC-003](003-design-handoff.md).
 - 외부에서 받은 자산은 **출처와 라이선스를 함께 적습니다** — 대회 제출물에 들어가므로 출처 불명은 위험합니다.
+- **`artifacts/research/` 는 `docs/research/` 의 HTML 짝**입니다. 발표·공유용 완성본이고,
+  **숫자의 정본은 Markdown 쪽**입니다 — 두 벌이 되면 안 고친 쪽이 조용히 틀린 문서가 됩니다.
+  파일 머리에 어느 문서에서 뽑았는지 적습니다.
 - `artifacts/archived/`는 **읽되 갱신하지 않고, 이름도 바꾸지 않습니다.**
 - **`datasets/`는 우리가 잰 측정 원본**(JSON)입니다. **해석은 여기 쓰지 않습니다** —
   폴더의 `README.md`가 `docs/`의 해석 문서를 가리키고, 숫자의 뜻은 그 문서가 집니다.
@@ -377,3 +384,4 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-19 | `assets/artifacts/handoff/` 신설 — 밖에서 받은 화면 디자인의 자리. 구조 게이트가 이 폴더 안쪽을 보지 않게 함 | [RFC-003](003-design-handoff.md) · [ADR-030](../decisions/030-design-handoff.md) |
 | 2026-08-17 | `src/modules/`가 서버 전용이 아님을 명시. 브라우저 도메인 모듈(층 C)도 여기 들어가고, 모듈과 UI 컴포넌트를 「금지가 붙어 있는가」로 가름 | [ADR-023](../decisions/023-frontend-module-names.md) |
 | 2026-08-21 | `assets/datasets/` 신설 — **우리가 잰 측정 원본**의 자리. `docs/research/`가 「바깥 사실」만 받던 것을 「우리 실측의 해석」까지로 넓힘 | 커밋 메시지 |
+| 2026-08-21 | `assets/artifacts/research/` 신설 — `docs/research/` 의 HTML 짝. 「성격은 양쪽에서 같은 이름으로 반복된다」던 자리에 research 만 비어 있었습니다 | 커밋 메시지 |
