@@ -33,11 +33,22 @@ import DocGuide from "./doc";
  *
  * TODO(연결) — 지금은 UI 상태만 돕니다. 아래 「국면 고르기」는 **개발용 스위치**이고,
  * 실제로는 서버 시그널이 축을 정합니다
- *  · POST …/messages §3.9 · GET …/slots §3.4 · GET …/plan §3.6 · GET …/deadlines §3.7
+ *  · **첫 로드는 `GET /api/cases/{case_token}` 하나입니다** (§3.10) — 슬롯·플랜·기한 합본.
+ *    셋을 따로 부르면 첫 화면까지 왕복이 넷이고, 그동안 빈 화면입니다
+ *  · 이후 갱신 — POST …/messages §3.9 · PATCH …/slots §3.5 · POST …/artifacts §3.8
  *  · `referenced_steps` → `side: "work"` (work-handler)
- *  · 플랜 생성·재방문 → `focus: "plan"`
- *  · ⬜ TODO(계약 필요): `focus: "evidence"` 로 보내는 시그널이 API 에 없습니다
- *  · CASE_TOKEN 을 실제 경로 파라미터로
+ *
+ * **어느 화면으로 열지는 서버가 지목하지 않습니다** (§3.10 · 2026-08-21 확정).
+ * 응답의 사실로 `case-opener` 가 고릅니다
+ *
+ *     focus  plan.steps 가 비어 있지 않으면 → 'plan',  그 밖 → 'chat'
+ *     side   지금 할 단계가 있으면          → 'work',  그 밖 → 'casefile'
+ *
+ * **`focus: "evidence"` 로는 열지 않습니다** — 증거함은 눌러서 가는 곳이지
+ * 재진입의 도착지가 아닙니다. 시그널이 없는 것이 맞습니다
+ *
+ *  · ⬜ CASE_TOKEN 을 실제 경로 파라미터로. **`{case_id}` 와 URL 의 `{token}` 이 같은
+ *    값인지가 아직 미정입니다** → ADR-021 「남은 것」 · §3.10 경고
  */
 
 const CASE_TOKEN = "7fK2p"; // TODO: params.token 으로 교체

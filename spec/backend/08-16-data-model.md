@@ -88,7 +88,8 @@ erDiagram
 
 ```sql
 CREATE TABLE "case" (
-  case_id        CHAR(26)      NOT NULL,   -- 정렬 가능한 식별자(ULID)
+  case_id        CHAR(26)      NOT NULL,   -- 내부 식별자(ULID). **URL 에 쓰지 않습니다** → ADR-039
+  link_token     CHAR(26)      NOT NULL,   -- 링크 토큰. 128비트 CSPRNG · Crockford Base32
   track          TEXT          NOT NULL DEFAULT 'victim'
                  CHECK (track IN ('victim','frozen_account')),
                                            -- 피해자 / 통장묶기 → 03-channel-matrix.md
@@ -103,6 +104,7 @@ CREATE TABLE "case" (
   PRIMARY KEY (case_id)
 );
 
+CREATE UNIQUE INDEX idx_case_link_token ON "case" (link_token);
 CREATE INDEX idx_case_status_purge ON "case" (status, purge_after);
 
 CREATE TRIGGER trg_case_touch BEFORE UPDATE ON "case"
@@ -111,11 +113,31 @@ CREATE TRIGGER trg_case_touch BEFORE UPDATE ON "case"
 
 | 칼럼 | 규칙 |
 | --- | --- |
+| `link_token` | **`case_id` 에서 파생하지 않습니다.** 따로 뽑은 128비트 난수입니다 — 아래 |
 | `session_key_id` | **키 식별자만** 저장합니다. 키 자체나 키에서 파생된 값을 저장하지 않습니다. 세션키가 DB에 있으면 DB 유출 시 볼트가 함께 뚫려 저장소를 분리한 의미가 없어집니다 |
 | `purge_after` | 사건 생성 시점에 채우고, **활동이 있을 때마다 다시 밉니다**(마지막 활동일 + `CASE_PURGE_DAYS`). 파기 시점이 정해지지 않은 데이터가 생기는 것을 막습니다 |
 | `track` | 통장묶기는 절차가 완전히 다릅니다 → [03-channel-matrix.md](08-14-channel-matrix.md) 통장묶기 절 |
 
 **`purge_after`는 마지막 활동일부터 180일입니다** (`CASE_PURGE_DAYS`) → [ADR-016](../../decisions/016-retention-and-datastore.md)
+
+#### `link_token` — URL 에 오는 것은 이것뿐입니다
+
+> 2026-08-21 신설 → [ADR-039](../../decisions/039-link-token.md).
+
+계정이 없어 **주소를 아는 사람이 곧 주인**입니다([ADR-021](../../decisions/021-reentry-and-identity.md)).
+그래서 이 값이 사실상 비밀번호입니다.
+
+| | |
+| --- | --- |
+| 생성 | **CSPRNG 128비트** |
+| 표기 | **Crockford Base32** — `0-9A-Z` 에서 `I`·`L`·`O`·`U` 를 뺀 32글자 · 26자 |
+| 저장 | **평문 + 고유 인덱스.** 해시하지 않습니다 → [ADR-039](../../decisions/039-link-token.md) ③ |
+
+> ⛔ **`case_id` 를 URL 에 쓰지 마세요.** ULID 는 **앞자리가 생성 시각**이라
+> 하나를 알면 비슷한 시각의 사건을 좁혀서 찔러볼 수 있습니다.
+> **해시를 씌워도 원본이 시간순이면 탐색 공간이 그대로 좁습니다.**
+>
+> ⚠️ 둘 다 26자라 **겉으로 구분되지 않습니다.** 코드에서 섞지 마세요.
 
 > 2026-08-16 ADR-010의 **90일 · 생성일 기준**에서 바뀌었습니다. 경로 10종을 실측하니 표준 트랙만
 > **D+100**이고(공고 2개월 D+86 + 환급금 결정 14일), 명의인이 이의를 제기하면 D+160입니다 →
