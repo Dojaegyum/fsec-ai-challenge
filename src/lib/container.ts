@@ -55,6 +55,8 @@ import type { Mailer, ReminderSource, SentLog } from '@/modules/reminder-sender'
 import { createRetryChecker } from '@/modules/retry-checker'
 import { createSlotChecker } from '@/modules/slot-checker'
 import type { QuestionSource } from '@/modules/slot-checker'
+import { createTranscriber } from '@/modules/transcriber'
+import type { MediaReader, OcrEngine, SttEngine } from '@/modules/transcriber'
 
 /**
  * 밖에서 와야 하는 자원들.
@@ -77,6 +79,14 @@ export interface Ports {
   readonly sentLog: SentLog
   /** 객체 저장소 — 업로드 자리 발급 */
   readonly uploads: UploadSlotSource
+  /**
+   * 객체 저장소 — **읽기용** 임시 주소 발급.
+   *
+   * `uploads` 와 같은 저장소인데 자리가 둘인 이유는 방향이 다르기 때문입니다 —
+   * 쓰기는 브라우저가, 읽기는 추론 서비스가 씁니다. **둘 다 파일이 서버 함수를
+   * 통과하지 않습니다** → 08-14-api.md §3.2 · ARCHITECTURE §2.
+   */
+  readonly mediaReader: MediaReader
   /** 객체 저장소 — 파기 */
   readonly objects: ObjectStore
   /** 볼트 — 파기. ⬜ 제품 미결 */
@@ -87,6 +97,18 @@ export interface Ports {
   readonly tokenizer: PiiTokenizer
   /** 송출 직전 잔여 개인정보 검사 */
   readonly residualPii: ResidualPiiScanner
+  /**
+   * 녹음을 글로 옮기는 도구. ⬜ 제품 미선정.
+   *
+   * **없어도 되는 자리로 두지 않았습니다.** 비면 음성 증거가 아무것도 안 됩니다 —
+   * 그래서 부르면 즉시 터지는 대역을 끼웁니다.
+   *
+   * ⚠️ **이 자리는 개인정보 격리 경계 「이전」입니다** → ARCHITECTURE §6.
+   * 무엇을 끼우느냐가 **원문이 조직 밖으로 나가는지를 가릅니다** → ADR-043.
+   */
+  readonly stt: SttEngine
+  /** 이미지에서 글자를 읽는 도구. ⬜ 제품 미선정. `stt` 와 같은 경계에 있습니다 */
+  readonly ocr: OcrEngine
   /** 언어모델 */
   readonly llm: LlmClient
   /** 메일 발송 */
@@ -114,6 +136,7 @@ export function unconfiguredPorts(env: Env): Ports {
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
     uploads: unconfigured('UploadSlotSource', storage),
+    mediaReader: unconfigured('MediaReader', storage),
     objects: unconfigured('ObjectStore', storage),
     // ⬜ 볼트 제품 미결 → ADR-016 「남은 것」
     vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
@@ -122,6 +145,10 @@ export function unconfiguredPorts(env: Env): Ports {
     // ⬜ 판별 모델 미선정 → ARCHITECTURE.md §10
     tokenizer: unconfigured('PiiTokenizer', ['(모델 미선정)']),
     residualPii: unconfigured('ResidualPiiScanner', ['(모델 미선정)']),
+    // ⬜ 제품 미선정 → ARCHITECTURE.md §6. **경계 이전이라 선택이 곧 정책입니다** —
+    // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다 → ADR-043
+    stt: unconfigured('SttEngine', ['(제품 미선정 — ARCHITECTURE §6)']),
+    ocr: unconfigured('OcrEngine', ['(제품 미선정 — ARCHITECTURE §6)']),
     llm: unconfigured('LlmClient', ['XAI_API_KEY']),
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
@@ -138,6 +165,8 @@ export interface Container {
   /** 문진 문구를 내주는 자리. 설정 현황이 이것을 봅니다 */
   readonly questions: QuestionSource
   readonly caseIntake: ReturnType<typeof createCaseIntake>
+  /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
+  readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
   readonly planner: ReturnType<typeof createPlanner>
   readonly dateChecker: ReturnType<typeof createDateChecker>
@@ -185,6 +214,14 @@ export function createContainer(
       store: ports.caseStore,
       uploads: ports.uploads,
       purgeDays: env.casePurgeDays,
+    }),
+
+    // 읽는 도구는 밖에서 받습니다 — 제품이 미정이어도 모듈은 섭니다 (ADR-028).
+    // ⬜ 말풍선 좌·우를 가르는 임계값은 정본에 없어 모듈 기본값을 씁니다
+    transcriber: createTranscriber({
+      media: ports.mediaReader,
+      stt: ports.stt,
+      ocr: ports.ocr,
     }),
 
     kbFinder,
