@@ -29,6 +29,7 @@ import 'server-only'
 import { serverClock } from './clock'
 import type { Container } from './container'
 import { isAdminPath } from './gated-paths'
+import { AppError } from './errors'
 import { BadRequestError, UnauthorizedError, fail, ok } from './http'
 import { isUlid } from './ids'
 import type { CaseRateBucket, UpfrontRateBucket } from './rate-limit'
@@ -197,8 +198,45 @@ export async function handleRoute(
       telemetry: telemetry.snapshot(),
     })
   } catch (error) {
+    logServerFailure(request, error)
     return fail(error, { telemetry: telemetry.snapshot() })
   }
+}
+
+/**
+ * 서버 쪽 실패를 **운영자가 볼 수 있는 곳에** 남긴다.
+ *
+ * 이게 없으면 안 붙은 자원을 불러 500 이 나가도 **아무 데도 이유가 안 남습니다.**
+ * `not-configured.ts` 가 「무엇이 · 어느 환경변수 때문에」를 담아 던지는데,
+ * 그 말을 아무도 못 듣는 상태였습니다. `detail` 은 감사 로그로 가지만
+ * 그 저장소도 아직 안 붙어 있습니다.
+ *
+ * ## 5xx 만 남깁니다
+ *
+ * 400·401·429 는 **정상적으로 오가는 요청**입니다. 그걸 남기면 로그가 그것으로
+ * 덮여 진짜 문제가 묻히고, 밖에서 일부러 틀린 요청을 반복해 로그를 채울 수 있습니다.
+ *
+ * ## 응답과 로그는 경계가 다릅니다
+ *
+ * 응답에는 우리 예외가 아닌 것의 메시지를 **절대** 싣지 않습니다 — 접속 문자열이
+ * 섞여 나갑니다. 로그는 운영자만 보는 자리라 원인을 그대로 남깁니다.
+ * 남기지 않으면 무엇이 터졌는지 알아낼 방법이 없습니다.
+ *
+ * **개인정보는 어느 쪽에도 안 남습니다.** `AppError.detail` 은 계약상 값이 아니라
+ * 이름과 건수만 담습니다 → 09-data-model.md §10.1.
+ */
+function logServerFailure(request: Request, error: unknown): void {
+  const app = error instanceof AppError ? error : null
+  if (app && app.httpStatus < 500) return
+
+  const where = `${request.method} ${new URL(request.url).pathname}`
+
+  if (app) {
+    console.error(`[${where}] ${app.code}: ${app.message}`, app.detail)
+    return
+  }
+
+  console.error(`[${where}] 알 수 없는 실패`, error)
 }
 
 /** 조회는 적지 않아도 걸립니다. 나머지는 라우트가 밝힙니다 */

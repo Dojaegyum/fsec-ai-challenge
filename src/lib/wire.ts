@@ -38,11 +38,12 @@ import { readEnv, type Env } from './env'
  *
  * | 자리 | 무엇을 기다리나 |
  * | --- | --- |
- * | `caseStore`·`kbStore`·`auditStore`·`purgeCaseStore`·`reminderSource` | ⬜ DB 드라이버 미선정 — `package.json` 에 하나도 없습니다 |
+ * | `caseStore`·`kbStore`·`auditStore`·`purgeCaseStore`·`reminderSource`·`casePlan` | ⬜ DB 드라이버 미선정 — `package.json` 에 하나도 없습니다 |
+ * | `kbVersion` | ⬜ 「현재 릴리스」를 어디서 얻는지가 정본에 없습니다 |
  * | `uploads`·`objects` | Supabase Storage (`evidence` 버킷). 접속값은 이미 있습니다 |
  * | `vault` | ⬜ 볼트 제품 미결 → ADR-016 |
  * | `holidays` | ⬜ 정본의 환경변수 표에 공휴일 API 키 이름이 없습니다 |
- * | `tokenizer`·`residualPii` | ⬜ 판별 모델 미선정 → ARCHITECTURE §10 |
+ * | `ner` | ⬜ 2차 탐지 모델 미선정 → ARCHITECTURE §10. **없어도 1차 정규식으로 경계가 섭니다** |
  * | `llm` | Grok(xAI). 키는 이미 있습니다 |
  * | `mailer` | ⬜ 발송 수단 미정 → ADR-021 |
  * | `receiptFormat` | ⬜ 기관별 접수번호 포맷의 근거가 없습니다 |

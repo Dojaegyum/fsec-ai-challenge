@@ -50,10 +50,11 @@ import type {
   VaultStore,
 } from '@/modules/case-purger'
 import { createChatPublisher } from '@/modules/chat-publisher'
-import type { ResidualPiiScanner } from '@/modules/chat-publisher'
 import { createChatReceiver } from '@/modules/chat-receiver'
-import type { LlmClient, PiiTokenizer } from '@/modules/chat-receiver'
+import type { LlmClient } from '@/modules/chat-receiver'
 import { createCitationChecker } from '@/modules/citation-checker'
+import { createPiiTokenizer } from '@/modules/pii-tokenizer'
+import type { NerModel } from '@/modules/pii-tokenizer'
 import { createCompletionChecker } from '@/modules/completion-checker'
 import type { ReceiptNumberFormat } from '@/modules/completion-checker'
 import { createDateChecker } from '@/modules/date-checker'
@@ -67,6 +68,8 @@ import type { Mailer, ReminderSource, SentLog } from '@/modules/reminder-sender'
 import { createRetryChecker } from '@/modules/retry-checker'
 import { createSlotChecker } from '@/modules/slot-checker'
 import type { QuestionSource } from '@/modules/slot-checker'
+
+import type { CasePlanStore, KbVersionSource } from '@/flows/regenerate-plan'
 
 /**
  * 밖에서 와야 하는 자원들.
@@ -85,6 +88,10 @@ export interface Ports {
   readonly purgeCaseStore: PurgeCaseStore
   /** 관계형 DB — 리마인더 거리 조회 */
   readonly reminderSource: ReminderSource
+  /** 관계형 DB — 플랜을 만들 때 읽고 쓰는 자리 → flows/regenerate-plan.ts */
+  readonly casePlan: CasePlanStore
+  /** 관계형 DB — 지금 어느 KB 릴리스인가. ⬜ 정본에 방법이 없습니다 */
+  readonly kbVersion: KbVersionSource
   /** 발송 이력. ⬜ 저장할 칸이 스키마에 없습니다 */
   readonly sentLog: SentLog
   /** 객체 저장소 — 업로드 자리 발급 */
@@ -95,11 +102,32 @@ export interface Ports {
   readonly vault: VaultStore
   /** 공휴일 — 한국천문연구원 특일 정보 */
   readonly holidays: HolidayCalendar
-  /** 개인정보 토큰화 — **격리 경계** */
-  readonly tokenizer: PiiTokenizer
-  /** 송출 직전 잔여 개인정보 검사 */
-  readonly residualPii: ResidualPiiScanner
-  /** 언어모델 */
+  /**
+   * 2차 개인정보 탐지 모델. ⬜ 미선정 → ARCHITECTURE §10.
+   *
+   * **없어도 경계는 섭니다** — 1차 정규식이 계좌·주민번호·카드·전화를 잡습니다.
+   * 붙기 전에는 이름이 안 걸리고, 그 사실이 설정 현황에 나옵니다
+   * → 착수 기준선 「③ 에서 NER 을 기다리지 않습니다」.
+   */
+  readonly ner: NerModel | null
+  /**
+   * 언어모델 — **챗이 쓰는 모양**입니다.
+   *
+   * ⬜ **층 1 두 모듈은 이 자리를 그대로 못 씁니다.** 모양이 다릅니다.
+   *
+   * | 쓰는 곳 | 받는 것 |
+   * | --- | --- |
+   * | `chat-receiver` | 파싱이 끝난 `ModelReply` — 모듈 밖이 형식을 풉니다 |
+   * | `case-reader` · `slot-extractor` | **글자 그대로** (`{ text }`) — 모듈이 스스로 풉니다 |
+   *
+   * 자원은 하나(Grok)인데 요구하는 모양이 둘입니다. 셋 중 하나로 정해야 합니다 —
+   * ① 이 포트를 글자 그대로로 바꾸고 챗 쪽에 어댑터를 두거나,
+   * ② 포트를 둘로 나누거나, ③ 층 1 모듈이 `ModelReply` 를 받게 바꾸거나.
+   *
+   * **여기서 즉흥으로 정하지 않았습니다.** ①은 챗 응답 형식을 푸는 코드를
+   * 어디에 둘지가 정해져야 하고(그 자리가 아직 없습니다), ③은 층 1 이
+   * 챗 전용 형식에 묶입니다.
+   */
   readonly llm: LlmClient
   /** 메일 발송 */
   readonly mailer: Mailer
@@ -123,6 +151,9 @@ export function unconfiguredPorts(env: Env): Ports {
     auditStore: unconfigured('AuditStore', db),
     purgeCaseStore: unconfigured('PurgeCaseStore', db),
     reminderSource: unconfigured('ReminderSource', db),
+    casePlan: unconfigured('CasePlanStore', db),
+    // ⬜ 「현재 릴리스」를 어디서 얻는지가 정본에 없습니다 → flows/regenerate-plan.ts
+    kbVersion: unconfigured('KbVersionSource', ['(정본에 「현재 릴리스」 규칙 없음)']),
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
     uploads: unconfigured('UploadSlotSource', storage),
@@ -131,9 +162,10 @@ export function unconfiguredPorts(env: Env): Ports {
     vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
     // ⬜ 정본의 환경변수 표에 공휴일 API 키가 없습니다
     holidays: unconfigured('HolidayCalendar', ['(정본에 키 이름 없음)']),
-    // ⬜ 판별 모델 미선정 → ARCHITECTURE.md §10
-    tokenizer: unconfigured('PiiTokenizer', ['(모델 미선정)']),
-    residualPii: unconfigured('ResidualPiiScanner', ['(모델 미선정)']),
+    // ⬜ 판별 모델 미선정 → ARCHITECTURE.md §10.
+    // **부르면 터지는 대역으로 두지 않습니다** — 1차 정규식만으로 경계가 서고,
+    // 여기서 던지면 붙어 있는 1차까지 못 씁니다
+    ner: null,
     llm: unconfigured('LlmClient', ['XAI_API_KEY']),
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
@@ -151,6 +183,8 @@ export interface Container {
   readonly questions: QuestionSource
   /** 속도 제한 → 08-14-api.md §1.3. 세는 곳이 어디인지도 함께 들고 있습니다 */
   readonly rateLimiter: RateLimiter
+  /** 격리 경계. 이것을 거치지 않은 텍스트는 외부로 나갈 수 없습니다 */
+  readonly piiTokenizer: ReturnType<typeof createPiiTokenizer>
   readonly caseIntake: ReturnType<typeof createCaseIntake>
   readonly kbFinder: ReturnType<typeof createKbFinder>
   readonly planner: ReturnType<typeof createPlanner>
@@ -189,6 +223,8 @@ export function createContainer(
     newId: () => ulidSource.next(),
   })
   const kbFinder = createKbFinder({ store: ports.kbStore })
+  // 격리 경계. 2차 모델이 없어도 1차 정규식으로 섭니다
+  const piiTokenizer = createPiiTokenizer(ports.ner ? { ner: ports.ner } : {})
   const retryChecker = createRetryChecker()
   const questions = createQuestionSource()
 
@@ -197,6 +233,7 @@ export function createContainer(
     ports,
     questions,
     rateLimiter: createRateLimiter({ counter: rateCounter, clock }),
+    piiTokenizer,
 
     caseIntake: createCaseIntake({
       ids: ulidSource,
@@ -218,7 +255,7 @@ export function createContainer(
     }),
 
     chatReceiver: createChatReceiver({
-      tokenizer: ports.tokenizer,
+      tokenizer: piiTokenizer,
       // 표의 행을 프롬프트 항목으로 옮깁니다 → adapters.ts
       kb: asKbSource(kbFinder),
       prompts: createPromptBuilder(),
@@ -228,7 +265,9 @@ export function createContainer(
       retry: asRetryJudge(retryChecker),
       clock,
     }),
-    chatPublisher: createChatPublisher({ residualPii: ports.residualPii }),
+    // 토큰화할 때 한 번, 나갈 때 한 번 — **같은 규칙으로** 봅니다.
+    // 다르면 한쪽이 조용히 새는 쪽이 됩니다
+    chatPublisher: createChatPublisher({ residualPii: piiTokenizer }),
 
     auditLogger,
 

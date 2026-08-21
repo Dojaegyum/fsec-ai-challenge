@@ -10,11 +10,12 @@
  * 4. 예외가 밖으로 새지 않는다 (§3)
  */
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createContainer, type Container } from './container'
 import { readEnv } from './env'
 import { KbUnavailableError } from './errors'
+import { BadRequestError } from './http'
 import { RATE_RULES } from './rate-limit'
 import { caseIdOf, clientIpOf, handleRoute, sessionIdOf, ulidParamOf } from './request'
 import { ADMIN_SESSION_COOKIE, issueAdminSession } from './session-cookie'
@@ -317,6 +318,46 @@ describe('예외를 밖으로 내보내지 않는다 — §3', () => {
 
     expect(res.status).toBe(500)
     expect(res.headers.get('Retry-After')).toBeNull()
+  })
+})
+
+describe('서버 쪽 실패는 운영자가 볼 수 있게 남는다', () => {
+  it('5xx 는 남긴다 — 안 남기면 왜 터졌는지 알 방법이 없다', async () => {
+    const seen: unknown[][] = []
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      seen.push(args)
+    })
+
+    await handleRoute(
+      get(),
+      async (ctx) => ({
+        body: await ctx.container.ports.caseStore.evidenceTotals(CASE_ID),
+      }),
+      { container },
+    )
+    spy.mockRestore()
+
+    // not-configured 가 담아 던진 「무엇이·왜」가 그대로 보여야 합니다
+    expect(JSON.stringify(seen)).toContain('CaseStore')
+  })
+
+  it('4xx 는 안 남긴다 — 정상적으로 오가는 요청이다', async () => {
+    const seen: unknown[][] = []
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      seen.push(args)
+    })
+
+    await handleRoute(
+      get(),
+      async () => {
+        throw new BadRequestError('요청이 잘못됐습니다')
+      },
+      { container },
+    )
+    spy.mockRestore()
+
+    // 밖에서 일부러 틀린 요청을 반복해 로그를 채울 수 있습니다
+    expect(seen).toHaveLength(0)
   })
 })
 

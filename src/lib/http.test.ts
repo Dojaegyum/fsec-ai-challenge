@@ -14,7 +14,7 @@ import {
   RateLimitedError,
   SlotNotConfirmedError,
 } from './errors'
-import { BadRequestError, fail, ok, readJson } from './http'
+import { BadRequestError, fail, ok, readJson, readJsonObject } from './http'
 import { TELEMETRY_HEADER_NAMES } from './telemetry'
 
 describe('계측 헤더 — 08-14-api.md §1.1', () => {
@@ -185,6 +185,38 @@ describe('요청 본문 읽기', () => {
     await expect(readJson<{ track: string }>(req)).resolves.toEqual({
       track: 'victim',
     })
+  })
+
+  it('JSON 으로 유효해도 객체가 아니면 400 이다', async () => {
+    // `null` 은 파싱을 통과합니다. 그걸 객체로 알고 칸을 읽으면 터지고,
+    // 잘못된 요청인데 500 이 나가 서버 잘못으로 보입니다
+    for (const body of ['null', '7', '"victim"', '[]', 'true']) {
+      const req = new Request('http://x/', { method: 'POST', body })
+
+      await expect(readJsonObject(req), body).rejects.toBeInstanceOf(BadRequestError)
+    }
+  })
+
+  it('객체는 그대로 읽는다', async () => {
+    const req = new Request('http://x/', { method: 'POST', body: '{"track":"victim"}' })
+
+    await expect(readJsonObject<{ track: string }>(req)).resolves.toEqual({
+      track: 'victim',
+    })
+  })
+
+  it('받은 값을 detail 에 담지 않는다', async () => {
+    // 감사 로그로 흘러가는 자리입니다 → 09-data-model.md §10.1
+    const req = new Request('http://x/', { method: 'POST', body: '"110-234-567890"' })
+
+    let detail: Record<string, unknown> = {}
+    try {
+      await readJsonObject(req)
+    } catch (error) {
+      detail = (error as BadRequestError).detail
+    }
+
+    expect(JSON.stringify(detail)).not.toContain('110-234')
   })
 
   it('깨진 본문은 400 이다 — 500 이 아니다', async () => {

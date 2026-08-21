@@ -54,16 +54,20 @@ export function configReport(container: Container): readonly PortStatus[] {
       '크론 경로가 전부 401 입니다 — 사건 파기·기한 알림이 한 번도 안 돕니다'),
     row('공휴일', !isUnconfigured(ports.holidays), ['(정본에 키 이름 없음)'],
       '영업일 계산이 멈춥니다'),
-    row('개인정보 토큰화', !isUnconfigured(ports.tokenizer), ['(모델 미선정)'],
-      '외부 모델로 가는 경로가 막힙니다 — 막히는 것이 맞습니다'),
+    // 1차 정규식은 붙어 있습니다. 이 줄은 2차(이름 탐지)만 봅니다 —
+    // 착수 기준선이 「NER 을 기다리지 않는다」로 정했고, 대신 안 붙은 것을 드러냅니다
+    row('개인정보 2차 탐지', container.ports.ner !== null, ['(모델 미선정)'],
+      '1차 정규식은 돕니다. **이름이 안 걸립니다** — 그 전에는 외부 모델에 실데이터를 보내지 않습니다'),
     row('메일 발송', !isUnconfigured(ports.mailer), ['(발송 수단 미정)'],
       '기한 알림이 안 나갑니다'),
     row('접수번호 형식', !isUnconfigured(ports.receiptFormat), ['(형식 근거 없음)'],
       '접수번호 자동 검증(L1)이 멈춥니다'),
     row('발송 이력', !isUnconfigured(ports.sentLog), ['(스키마에 칸 없음)'],
       '같은 알림이 두 번 나갈 수 있습니다'),
+    // 정본은 2026-08-20 에 코드 상수로 정해졌습니다(핸드오프 ⑤). 그래서 이 줄이
+    // 비어 있다면 이유는 「미결」이 아니라 **표가 비었다** 하나뿐입니다
     row('문진 문구', questionsConfigured(container.questions),
-      ['(정본 미결 — 핸드오프 ⑤)'],
+      ['(lib/questions.ts 의 문구 표가 비었습니다)'],
       '질문이 안 나갑니다. **사건 생성·플랜은 그대로 돕니다**'),
     // 세기는 셉니다. 다만 프로세스 하나 안에서만이라, 인스턴스가 여럿이면
     // 실효 상한이 그 수만큼 늘어납니다 → rate-limit.ts

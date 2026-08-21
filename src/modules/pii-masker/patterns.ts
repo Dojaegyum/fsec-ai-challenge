@@ -12,6 +12,58 @@
 
 import type { Hit, PiiKind } from "./types";
 
+/**
+ * ── 길이를 지키는 정규화 ──────────────────────────────────────────
+ *
+ * **정규식이 `\d` 와 `-` 를 보는데, 같은 숫자를 다른 글자로 쓸 수 있습니다.**
+ * 전각 숫자(`１１０`), 하이픈처럼 보이는 문자 여럿(‐ ‑ – — －), 눈에 안 보이는
+ * 문자(제로폭 공백)로 쓰면 패턴 넷이 **전부** 비껴갑니다. 실측으로 확인했습니다 —
+ * `110-234-567890` 은 잡히는데 `110–234–567890`(en dash)은 그대로 나갑니다.
+ *
+ * OCR 결과에 전각 숫자와 en dash 가 흔히 섞이고, **그 경로는 브라우저 1차를
+ * 거치지 않습니다.** 그대로 두면 계좌번호가 토큰화 없이 외부 모델로 나갑니다.
+ *
+ * **길이를 바꾸지 않는 것이 핵심입니다.** 표준 정규화(NFKC)는 글자 수가 달라져
+ * 찾은 자리가 원문과 어긋나고, 그러면 엉뚱한 대목을 지웁니다. 그래서 한 글자를
+ * 한 글자로만 바꾸는 표를 씁니다 — 자리는 원문과 정확히 같습니다.
+ *
+ * **눈에 안 보이는 문자를 `-` 로 바꿉니다.** 지우면 길이가 달라지고, 공백으로
+ * 두면 숫자 사이를 끊어 놓은 자리가 안 이어집니다. `-` 로 두면 `110<ZWSP>234`
+ * 가 `110-234` 로 읽혀 원래 의도대로 걸립니다.
+ */
+const FOLD = new Map<string, string>([
+  // 전각 숫자
+  ...["０", "１", "２", "３", "４", "５", "６", "７", "８", "９"].map(
+    (ch, i) => [ch, String(i)] as [string, string],
+  ),
+  // 하이픈처럼 보이는 것들
+  ...[
+    "\u2010", "\u2011", "\u2012", "\u2013", "\u2014", "\u2015",
+    "\u2043", "\u2212", "\uFE63", "\uFF0D", "\u30FC",
+  ].map((ch) => [ch, "-"] as [string, string]),
+  // 눈에 안 보이는 것들
+  ...["\u200B", "\u200C", "\u200D", "\u2060", "\uFEFF", "\u00AD"].map(
+    (ch) => [ch, "-"] as [string, string],
+  ),
+  // 전각 공백·마침표
+  ["\u3000", " "],
+  ["\uFF0E", "."],
+]);
+
+/**
+ * 한 글자를 한 글자로. **길이가 절대 안 바뀝니다.**
+ *
+ * 찾는 것은 이 결과로 하고, **매핑에 담는 원문은 언제나 원래 글자**입니다 —
+ * 복원할 때 되살아나야 하는 것은 사용자가 실제로 쓴 글자입니다.
+ */
+export function foldForDetection(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    out += FOLD.get(ch) ?? ch;
+  }
+  return out;
+}
+
 /** 앞뒤가 숫자면 더 긴 수의 일부이므로 매칭으로 치지 않습니다 */
 function hasDigitNeighbor(text: string, start: number, end: number): boolean {
   const before = start > 0 ? text[start - 1] : "";
@@ -108,22 +160,29 @@ const PATTERNS: PatternSpec[] = [
 /**
  * 텍스트에서 마스킹할 자리를 찾습니다. 겹치면 **먼저 잡은 쪽**이 이깁니다.
  * 반환은 위치 오름차순입니다.
+ *
+ * **찾는 것은 정규화한 글자로 하고, 돌려주는 값은 원문 그대로입니다** —
+ * 위 `foldForDetection` 참고. 길이가 같아서 자리는 양쪽이 정확히 일치합니다.
  */
 export function findHits(text: string): Hit[] {
+  const folded = foldForDetection(text);
   const claimed: Hit[] = [];
 
   for (const { kind, re, accept } of PATTERNS) {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(text)) !== null) {
+    while ((m = re.exec(folded)) !== null) {
       const start = m.index;
       const end = start + m[0].length;
 
-      if (hasDigitNeighbor(text, start, end)) continue;
-      if (accept && !accept(m[0], text, start, end)) continue;
+      if (hasDigitNeighbor(folded, start, end)) continue;
+      // 걸러내는 판단(Luhn·자릿수·금액)은 정규화한 글자로 합니다 —
+      // 전각 숫자를 `\D` 로 세면 0 이 나옵니다
+      if (accept && !accept(m[0], folded, start, end)) continue;
       if (claimed.some((h) => start < h.end && h.start < end)) continue;
 
-      claimed.push({ kind, start, end, value: m[0] });
+      // **원문 그대로**를 담습니다. 복원할 때 되살아나야 하는 것은 사용자가 쓴 글자입니다
+      claimed.push({ kind, start, end, value: text.slice(start, end) });
     }
   }
 

@@ -26,7 +26,7 @@ export default defineConfig({
     // `proxy.ts` 는 Next 규약상 app/ 과 같은 층에 있어야 해서 lib/ 로 못 옮깁니다
     // → node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md.
     // Next 빌드 산출물(.next)은 제외됩니다
-    include: ["{lib,modules}/**/*.test.ts", "*.test.ts"],
+    include: ["{lib,modules,flows,app}/**/*.test.ts", "*.test.ts"],
     environment: "node",
   },
 });

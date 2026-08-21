@@ -157,6 +157,35 @@ export async function readJson<T>(request: Request): Promise<T> {
 }
 
 /**
+ * 요청 본문을 **객체로** 읽는다.
+ *
+ * `readJson` 은 `as T` 로 타입을 덮어씌울 뿐이라, JSON 으로 유효한
+ * `null`·`7`·`"victim"`·`[]` 이 그대로 통과합니다. 그걸 객체로 알고 칸을 읽으면
+ * **`null` 에서 터집니다** — 잘못된 요청인데 500 이 나가고, 사용자에게는
+ * 「처리 중 문제가 발생했습니다」가 나가 서버 잘못으로 보입니다.
+ *
+ * 더 나쁜 것은 그 500 이 서버 로그에 쌓인다는 점입니다. 5xx 만 남기기로 한
+ * 이유가 *"밖에서 일부러 틀린 요청을 반복해 로그를 채울 수 있습니다"* 인데,
+ * 본문 한 글자로 그 방어가 뚫립니다 → [request.ts](./request.ts).
+ *
+ * **본문이 객체인 라우트는 이것을 씁니다.** 라우트마다 따로 막으면 열두 곳 중
+ * 한 곳을 빠뜨립니다.
+ */
+export async function readJsonObject<T extends object>(request: Request): Promise<T> {
+  const body = await readJson<unknown>(request)
+
+  // 배열도 막습니다 — 칸을 읽으면 undefined 가 나와 조용히 다른 실패가 됩니다
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw new BadRequestError('요청 본문이 객체가 아닙니다', {
+      // 받은 값을 넣지 않습니다. 무엇이 왔는지는 종류만
+      got: body === null ? 'null' : Array.isArray(body) ? 'array' : typeof body,
+    })
+  }
+
+  return body as T
+}
+
+/**
  * 요청 자체가 잘못됐다.
  *
  * ⬜ **정본의 코드 표에 `BAD_REQUEST` 가 없습니다** → 08-16-errors.md §3.
