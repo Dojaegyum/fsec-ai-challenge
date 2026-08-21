@@ -32,7 +32,13 @@ export type Actor =
   | 'issuer'
 
 /** 09-data-model.md §5.2 */
-export type SlotState = 'empty' | 'extracted' | 'confirmed' | 'unknown'
+export type SlotState =
+  | 'empty'
+  | 'extracted'
+  /** 개인정보 후보로 가려졌고 확인 전. **절차 선택에 쓰지 않습니다** → ADR-041 */
+  | 'pii_pending'
+  | 'confirmed'
+  | 'unknown'
 
 /**
  * KB 항목 본문 중 이 모듈이 보는 것 → 09-data-model.md §11.4.

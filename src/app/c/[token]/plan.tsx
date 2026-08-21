@@ -14,7 +14,9 @@
  *  · **빨강을 쓰지 않습니다.** 기한 임박은 앰버 — 패닉을 더 밀어붙이지 않습니다
  *  · **화면이 날짜를 세지 않습니다.** D-day·기한 문자열은 서버가 계산한 값 그대로
  *    (spec/common/08-16-deadline-rules.md · 불변 규칙 7)
- *  · **「서면 신청」이라 쓰지 않습니다** — 낡은 표현입니다
+ *  · **제출처를 화면이 단정하지 않습니다** — 「앱에서」도 「서면으로」도 쓰지 마세요.
+ *    은행마다 다르고, 그 값은 `org.contact.submit` 이 갖고 있습니다 (ADR-042).
+ *    KB·NH 는 공식 안내가 **영업점 서면**이고 나머지 다섯은 **확인 실패**입니다
  *  · **보드를 비우지 않습니다.** 할 일이 없는 구간에도 보여줄 것이 있습니다
  *  · 완료를 사용자 체크로 판정하지 않습니다 — 부산물(◆)이 판정합니다
  *
@@ -94,7 +96,7 @@ export default function PlanView() {
               지금 하실 일은 하나입니다 · <span data-numeric>8월 20일</span>까지
             </p>
             <h2 className="mt-1 text-[21px] font-[660] leading-[1.4] tracking-[-0.01em] text-ink-1">
-              피해구제 신청서를 국민은행 앱에서 제출하세요
+              피해구제 신청서를 국민은행에 제출하세요
             </h2>
             <p className="mt-1.5 text-[13.5px] leading-[1.6] text-ink-3">
               넘기더라도 <b className="font-[620] text-ink-2">9월 3일까지 유예</b>가 남습니다.
@@ -122,6 +124,12 @@ export default function PlanView() {
           >
             무엇을 적는지 보기
           </button>
+          {/* 제출처는 히어로가 말하지 않습니다 (ADR-042) — 대신 어디서 보는지를 알립니다.
+              기재 안내 화면의 첫 카드가 `org.contact.submit` 을 순서 그대로 그립니다 */}
+          <p className="w-full text-[12.5px] leading-[1.6] text-ink-3">
+            내는 곳은 은행마다 다릅니다 —{" "}
+            <b className="font-[620] text-ink-2">「무엇을 적는지 보기」</b>의 첫 줄에 있습니다.
+          </p>
         </div>
       </section>
 

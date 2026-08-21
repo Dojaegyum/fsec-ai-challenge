@@ -256,7 +256,7 @@ CREATE TABLE case_slot (
   value_type   TEXT          NOT NULL
                CHECK (value_type IN ('datetime','decimal','string','enum','bool')),
   state        TEXT          NOT NULL DEFAULT 'empty'
-               CHECK (state IN ('empty','extracted','confirmed','unknown')),
+               CHECK (state IN ('empty','extracted','pii_pending','confirmed','unknown')),
   source       TEXT          NULL CHECK (source IN ('auto','user','system')),
   source_ref   CHAR(26)      NULL,       -- 어느 evidence 에서 나왔는가
   confidence   NUMERIC(3,2)  NULL,
@@ -304,8 +304,12 @@ stateDiagram-v2
     empty --> extracted : 증거에서 자동 추출
     empty --> confirmed : 사용자가 직접 답변
     empty --> unknown : 사용자가 "모름" 선택
+    empty --> pii_pending : 개인정보 후보로 가려짐
+    extracted --> pii_pending : 개인정보 후보로 가려짐
     extracted --> confirmed : 사용자가 확인
     extracted --> confirmed : 사용자가 정정
+    pii_pending --> confirmed : 사용자가 "개인정보 아님" 확인
+    pii_pending --> confirmed : 가린 채로 확인
     unknown --> confirmed : 나중에 채움
 ```
 
@@ -313,12 +317,33 @@ stateDiagram-v2
 | --- | --- | :---: |
 | `empty` | 아직 없음 | ✗ |
 | `extracted` | LLM이 뽑았고 확인 전 | ✗ |
+| **`pii_pending`** | **개인정보 후보로 가려졌고, 사용자 확인 전** | ✗ |
 | `confirmed` | 사용자가 확인·입력함 | **✓** |
 | `unknown` | 사용자가 "모름" 선택 | ✗ |
 
 **`unknown`은 실패가 아니라 정상 상태입니다** → [02-slot-tiering.md](08-14-slot-tiering.md). 슈퍼셋 플랜으로 진행합니다.
 
 **기한 계산은 `confirmed` 상태만 씁니다.** LLM이 잘못 읽은 값으로 법정 기한을 계산하면 사용자가 실제로 권리를 잃습니다 → `CLAUDE.md` 불변 규칙 7.
+
+#### `pii_pending` — `extracted` 와 무엇이 다른가
+
+> 2026-08-21 신설 → [ADR-041](../../decisions/041-pii-confirm-with-user.md).
+
+**둘 다 「확인 전」이지만 묻는 것이 다릅니다.**
+
+| | 묻는 것 |
+| --- | --- |
+| `extracted` | **이 값이 맞나요?** — 기계가 잘못 읽었을 수 있습니다 |
+| **`pii_pending`** | **이건 개인정보인가요?** — 가렸는데 아닐 수 있습니다 |
+
+**두 축은 독립입니다.** 실측에서 `3333-01-2345678` 이 「3333년 1월 23일」로 전사됐는데,
+**자연스러운 날짜라 신뢰도가 낮게 나올 이유가 없습니다** — `extracted` 로는 안 잡힙니다.
+
+**`pii_pending` 인 값은 절차 선택에 쓰이지 않습니다.** `confirmed` 가 아니므로
+기한 계산에도, 슬롯 충족 판정에도 안 들어갑니다 — **확인 전에는 없는 값과 같습니다.**
+
+> **그래도 플랜은 나갑니다.** T0 와 유형 기본은 슬롯과 무관합니다
+> → [ADR-041](../../decisions/041-pii-confirm-with-user.md) ②.
 
 ---
 
@@ -821,7 +846,9 @@ CREATE INDEX idx_org_channel ON org (channel_id);
   "contact": {
     "report_tel": "1588-9999",
     "report_hours": "24시간",
-    "submit_place": "가까운 영업점에 서면 제출",
+    "submit": [
+      { "how": "branch", "text": "가까운 영업점에 서면 제출", "url": "TODO(근거 필요)" }
+    ],
     "caution": "앱의 「고객센터 → 사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다"
   },
   "source_url": "https://omoney.kbstar.com/...",
@@ -832,13 +859,14 @@ CREATE INDEX idx_org_channel ON org (channel_id);
 #### `org.contact` 키 — 다섯이고 전부 선택입니다
 
 > 2026-08-20 확정. 이전에는 예시만 있고 키가 정의되지 않았습니다.
+> **2026-08-21 에 `submit_place` 가 `submit` 배열이 됐습니다** → [ADR-042](../../decisions/042-submit-paths.md).
 
 | 키 | 무엇 | 예 |
 | --- | --- | --- |
 | `report_tel` | **사고신고·지급정지 창구** 번호 하나 | `"1588-9999"` |
 | `report_steps` | 연결 뒤 눌러야 하는 것 | `"연결되면 # 누른 뒤 1번"` |
 | `report_hours` | 그 창구의 운영시간. **문자열 그대로** | `"24시간"` · `"평일 09:00~17:45"` |
-| `submit_place` | **피해구제 신청서를 어디에 내나** | `"가까운 영업점에 서면 제출"` |
+| **`submit`** | **신청서를 내는 길. 하나가 아닙니다** — 아래 ④ | 위 예시 |
 | `caution` | 그 기관에서 헷갈리기 쉬운 것 | 위 예시 |
 
 **① 확인 못 한 것은 키를 아예 넣지 않습니다.**
@@ -860,9 +888,33 @@ CREATE INDEX idx_org_channel ON org (channel_id);
 **패닉 상태에서 번호 셋을 주면 고르게 만듭니다.** 나머지는 `research/04`에 둡니다.
 대신 `report_steps` 를 빠뜨리면 **엉뚱한 상담 대기열로 갑니다.** 번호만큼 중요합니다.
 
-**④ `app_path` 를 두지 않습니다.** 사용자가 알고 싶은 것은 「앱 경로」가 아니라
-**「어디에 내나」**입니다. 앱으로 되면 `submit_place` 가 「앱 → 고객센터 → 피해구제 신청」이 되고,
-안 되면 「영업점에 서면 제출」이 됩니다. **키 하나면 됩니다.**
+**④ `submit` 은 배열입니다 — 길이 하나라는 전제가 틀렸습니다.**
+
+> **2026-08-20 에는 반대로 정했습니다.** 「앱으로 되면 `submit_place` 가 「앱 → …」이 되고
+> 안 되면 「영업점 …」이 된다, 키 하나면 된다」였는데 **둘 중 하나만 참이라는 전제가
+> 틀렸습니다** → [ADR-042](../../decisions/042-submit-paths.md).
+
+```jsonc
+"submit": [
+  { "how": "branch", "text": "가까운 영업점에 서면 제출", "url": "…지점 찾기…" },
+  { "how": "app",    "text": "앱 → 고객센터 → 피해구제 신청", "url": "…" }
+]
+```
+
+| 필드 | 무엇 |
+| --- | --- |
+| `how` | **`"branch"` 또는 `"app"`** 둘뿐입니다. 화면이 아이콘·문구를 이걸로 고릅니다 |
+| `text` | 사용자에게 보이는 **한 줄**. 기관이 쓰는 말 그대로 |
+| `url` | 그 경로로 가는 **공식 주소**. 선택 — 없으면 링크 없이 글자만 |
+
+- **배열 순서가 곧 권장 순서입니다. 화면이 정렬하지 않습니다.** 「앱이 먼저」를 코드에
+  박으면 KB·NH 사용자가 앱을 뒤지다 3영업일을 씁니다 — 그 둘은 공식 안내가 **영업점**입니다.
+- **확인 못 한 경로는 배열에 없습니다** (위 ①과 같은 규칙). 지금 데이터로는
+  **KB·NH 가 `branch` 하나, 나머지 다섯은 빈 배열**입니다.
+- **빈 배열이면 제출처 카드를 아예 그리지 않습니다.** 「모른다」를 「없다」로 그리지 마세요.
+- **`how: "branch"` 의 `url` 은 은행 공식 지점 찾기입니다.** 그 페이지가 이미 지도이고,
+  영업시간·업무 취급 여부까지 압니다 — **우리 화면에 지도를 임베드하지 않습니다.**
+  「가까운」을 우리가 정하려면 **사용자 위치**가 필요하고, 그건 지금 안 받는 개인정보입니다.
 
 #### 한 행은 한 번에 확인합니다
 
@@ -982,7 +1034,7 @@ report-112              | report-112          | NULL    |  3   |  ✓
     { "text": "지급정지를 신청한 금융회사에 신청서류를 제출합니다.",
       "action": "visit",                          // 무슨 행동인가 — §11.4.6
       "channel": ["visit"],                       // 어느 창구로
-      "contact_ref": "org.contact.submit_place",  // 기관별 값은 가리킨다
+      "contact_ref": "org.contact.submit",        // 기관별 값은 가리킨다 (배열)
       "url": null },                              // 기관 무관 고정 주소일 때만
     { "text": "신분증 사본 1부를 함께 냅니다. 법령이 요구하는 첨부는 이것뿐입니다.",
       "action": "read",
@@ -1220,10 +1272,10 @@ report-112              | report-112          | NULL    |  3   |  ✓
 
 ```jsonc
 // 나쁨 — 기관별 주소가 유형 기본 절차에 박힘
-{ "text": "국민은행 앱에서 신청합니다", "url": "https://kbstar.com/..." }
+{ "text": "국민은행 영업점에 제출합니다", "url": "https://omoney.kbstar.com/..." }
 
 // 좋음 — 기관 정보를 가리킴
-{ "text": "송금하신 은행 앱에서 신청합니다", "contact_ref": "org.contact.app_path" }
+{ "text": "송금하신 금융회사에 신청서류를 제출합니다", "contact_ref": "org.contact.submit" }
 
 // 좋음 — 기관과 무관한 고정 주소
 { "text": "어카운트인포에서 본인 명의 계좌를 한 번에 조회합니다",
@@ -1238,7 +1290,7 @@ report-112              | report-112          | NULL    |  3   |  ✓
 > 확인 전까지 **경찰서 방문**으로 안내합니다.
 **기관별 주소를 `url`에 쓰면 은행 수만큼 절차 항목을 복사하게 됩니다** — §11.4.1과 같은 이유입니다.
 
-`org.contact` 의 키는 [§11.1](#111-org--기관-마스터) 이 정합니다 — `report_tel`·`report_steps`·`report_hours`·`submit_place`·`caution` 다섯입니다.
+`org.contact` 의 키는 [§11.1](#111-org--기관-마스터) 이 정합니다 — `report_tel`·`report_steps`·`report_hours`·`submit`·`caution` 다섯입니다.
 > [기관정보 조사](../../docs/research/04-기관정보.md)가 **연락처를 전부 비워 둔 상태**라 값과 함께 정합니다.
 
 ## 12. 수집 파이프라인 — `source_snapshot` · `source_change` · `source_registry`

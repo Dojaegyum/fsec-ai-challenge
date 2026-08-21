@@ -70,6 +70,51 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
 **③이 핵심입니다.** 실패를 알리는 것으로 끝내지 않고 **다음 행동을 할 수 있는 상태**로
 만들어 둡니다 — 아래 「에러 — 다음 행동을 반드시 함께」와 같은 원칙입니다.
 
+### 기기에 남기는 것은 `useSyncExternalStore` 로 읽습니다
+
+`localStorage` 를 effect 안에서 읽어 `setState` 로 심지 마세요.
+서버가 그린 빈 값과 어긋나고, `react-hooks/set-state-in-effect` 가 그 패턴을 막습니다.
+
+```
+useSyncExternalStore(subscribe, () => read(key), () => "빈 값")
+                                                    ↑ 서버 스냅샷
+```
+
+- **메모리 사본을 한 겹 둡니다.** `getSnapshot` 이 매번 새 객체를 돌려주면 무한 렌더가 되고,
+  저장이 막힌 기기(사파리 프라이빗)에서도 **이번 화면에서는 표시돼야** 합니다.
+- `storage` 이벤트를 함께 구독하면 **다른 탭에서 한 일이 따라옵니다.** 사건 하나를
+  여러 탭에 열어 두는 것이 이 서비스에서는 흔합니다 — 은행 창을 옆에 띄우니까요.
+- 첫 사례는 S-10 의 「어디까지 옮겼는지」입니다 (`app/c/[token]/doc.tsx`).
+- ⬜ **`case-purger` 밖입니다.** 기기에 남는 넷째 자리이고, 파기 대상에 안 들어 있습니다
+  → [ADR-016](../../../decisions/016-retention-and-datastore.md).
+
+## 공통 재질 — 아이콘
+
+`src/components/ui/Icon.tsx` · 스프라이트 `src/public/icons.svg` (`<symbol id="i-{name}">` 34개).
+시안은 [08-21-icons 핸드오프](../../../assets/artifacts/handoff/08-21-icons/).
+
+```tsx
+<Icon name="copy" size={16} />        // 16 칩 · 18 행(기본) · 20 버튼 · 24 패널 머리
+<Icon name="working" spin />          // working 전용 · icon-spin 1.4초
+<Icon name="dots" pulse />            // dots 전용 · pulse-dot 1.6초
+```
+
+- **아이콘은 사물과 행동만 맡습니다.** 상태 마크(`✓`·`◆`·`○`·`!`)는 지금 규칙 그대로입니다 —
+  아래 `StepList` 가 기호·라벨·색 셋을 함께 쓰도록 정해 뒀고, 그 자리를 아이콘으로 바꾸면
+  **색만으로 구분하지 않는다**는 규칙이 흔들립니다.
+- **아이콘 단독으로 쓰지 않습니다.** 항상 글자 옆이고, 그래서 `aria-hidden="true"` 가 기본값입니다.
+  아이콘만 있는 버튼을 만들어야 하면 그건 아이콘 문제가 아니라 **라벨이 빠진 것**입니다.
+- **색을 직접 주지 않습니다.** 전부 `currentColor` — 감싸는 글자의 토큰이 정합니다
+  (→ [tokens](08-16-tokens.md)). 기본 `ink-3` · 가려짐·보호 `--pii` · 기한·재시도 `--deadline-urgent` ·
+  버튼 위 `ink-1`.
+- **`spark`·`thinking`·`working`·`verify`·`maskwork`·`dots`·`retry`·`stop` 여덟은 AI 인터랙션용인데,
+  스켈레톤·타자기의 대체가 아닙니다.** 「무엇을 하고 있는지」는 여전히 **문장**이 말하고
+  (아래 「로딩」), 아이콘은 그 문장 옆의 보조입니다 →
+  [ADR-022](../../../decisions/022-chat-turn-boundaries.md).
+- 이름 34종은 핸드오프 [`PR.md`](../../../assets/artifacts/handoff/08-21-icons/PR.md) 에 뜻과 함께 있습니다.
+- `src/app/dev/icons/page.tsx` 가 **개발 전용 확인 화면**입니다. 제품 경로가 아닙니다 —
+  외부 스프라이트 `<use>` 는 경로가 틀리면 **조용히 빈칸**이 되므로 눈으로 볼 자리를 둡니다.
+
 ## 공통 재질 — 칩
 
 배지·선택 버튼·입력 필드가 **같은 재질**을 씁니다. 알약 모양에 반투명 흰색과 inset 하이라이트.
@@ -99,8 +144,10 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
   관문은 여전히 동의 하나이고, 체크는 그걸 통과하는 절차입니다.
 - **`DeadlineTracker`는 날짜를 계산하지 않습니다.** 계산은 서버의 규칙이 하고, 화면은 받은 값을 씁니다.
 - **`PiiToken`의 원문은 서버로 가지 않습니다.** 복원 매핑을 props로 서버 컴포넌트에 넘기지 마세요.
-- **`CaseTimeline`에 "서면 신청"이라고 쓰지 마세요.** 2026년 7월부터 은행 앱 비대면 신청입니다
-  → [channel-matrix](../../backend/08-14-channel-matrix.md)
+- **`CaseTimeline`·`StepList`·히어로가 제출처를 단정하지 않습니다.** "서면 신청"도
+  "앱에서 신청"도 쓰지 마세요 — **기관마다 다르고**, 값은 `org.contact.submit` 배열에 있습니다.
+  **배열 순서가 곧 권장 순서라 화면이 정렬하지 않습니다** ([ADR-042](../../../decisions/042-submit-paths.md)).
+  비어 있으면 **그 카드를 아예 그리지 않습니다** — 「모른다」를 「없다」로 그리지 않기 위해서입니다.
 
 ## 외부 컴포넌트
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * S-10 서류 기재 안내 — `/c/{token}` 의 `focus: "doc"` 일 때의 본문.
@@ -14,9 +14,9 @@ import { useEffect, useRef, useState } from "react";
  *
  * 절대 하지 않는 것
  *  · **문서를 조판하지 않습니다.** `.docx`·PDF 버튼을 두지 마세요 (ADR-037 · PII 경계 규칙 6)
- *  · **「앱에서 신청하세요」라고 쓰지 않습니다** — 제출처는 서버가 준 값만 표시합니다.
- *    KB·NH 는 공식 안내가 **영업점 서면**이고 나머지는 확인 실패입니다
- *    (docs/research/04-기관정보.md §0.1)
+ *  · **제출처를 화면이 단정하지 않습니다** — 서버가 준 `submit` 배열을 **순서 그대로** 그립니다.
+ *    「앱이 먼저」를 코드에 박지 마세요. KB·NH 는 공식 안내가 **영업점 서면**이고
+ *    나머지 다섯은 확인 실패입니다 (ADR-042 · docs/research/04-기관정보.md §0.1)
  *  · **모름을 실패로 그리지 않습니다.** 빈 칸이 몇이든 신청은 진행됩니다
  *  · 빨강 없음 · 화면이 날짜를 세지 않음
  *
@@ -26,9 +26,9 @@ import { useEffect, useRef, useState } from "react";
  *
  * TODO(연결) — 지금은 UI 상태만 돕니다
  *  · SECTIONS → `GET …/doc-guide` (⬜ 계약 없음). **필드 상태 판정은 서버**입니다
- *  · submitTarget → **`org.contact.submit_place`** · Note → `report_hours`·`caution` (§11.1)
- *    ⚠️ 값이 **없으면 이 카드를 아예 그리지 마세요.** 확인 못 한 것과 「앱으로 안 된다」는
- *    다릅니다 — 키가 없는 것이 「모른다」입니다
+ *  · submit → **`org.contact.submit`** (배열) · submitNote → `report_hours`·`caution` (§11.1)
+ *    ⚠️ **비어 있으면 이 카드를 아예 그리지 않습니다.** 확인 못 한 것과 「앱으로 안 된다」는
+ *    다릅니다 — 배열에 없는 것이 「모른다」입니다 (ADR-042 ③)
  *  · restored → PII 로컬 복원 성공 여부. 실패는 **에러가 아닙니다**(다른 기기)
  *  · 층 C: doc-filler · key-handler
  */
@@ -50,6 +50,14 @@ type Field = {
 };
 
 type Section = { id: string; name: string; fields: Field[] };
+
+/**
+ * 신청서를 내는 길. **하나가 아닙니다** → ADR-042 · 데이터 모델 §11.1 ④
+ *
+ * ⚠️ **배열 순서가 곧 권장 순서입니다. 여기서 정렬하지 마세요** —
+ * 기관마다 무엇이 먼저인지가 다르고 그건 KB 가 압니다.
+ */
+type SubmitPath = { how: "branch" | "app"; text: string; url?: string };
 
 /**
  * 서식 구획 그대로입니다 — 사용자가 실물과 1:1 로 대조할 수 있어야 합니다.
@@ -138,36 +146,99 @@ const copyTargets = SECTIONS.flatMap((s) =>
   s.fields.filter((f) => f.state === "confirmed" || f.state === "unread"),
 );
 
+/* ── 「어디까지 옮겼는지」 ───────────────────────────────────
+ *
+ * 은행 앱에 갔다 돌아와도 남아야 하므로 **이 기기의 localStorage** 가 정본입니다.
+ * ⚠️ 값이 아니라 **어느 칸을 옮겼는지**만 남깁니다 — 원문은 저장하지 않습니다.
+ *
+ * effect 안에서 `setState` 로 씨앗을 심으면 서버가 그린 빈 값과 어긋나고,
+ * React 의 `set-state-in-effect` 가 그 패턴을 막습니다. `useSyncExternalStore` 는
+ * **서버 스냅샷을 따로 받아** 그 문제를 없앱니다.
+ *
+ * 메모리 사본을 한 겹 두는 이유는 둘입니다.
+ *  · `getSnapshot` 은 값이 안 바뀌면 **같은 값**을 돌려줘야 합니다 (무한 렌더 방지)
+ *  · 사파리 프라이빗처럼 저장이 막힌 기기에서도 **이번 화면에서는 표시돼야** 합니다
+ *
+ * ⬜ 이 자리는 `case-purger` 밖입니다 → 핸드오프 08-20-s10-doc-guide 「미결」
+ */
+const copiedMem = new Map<string, string>();
+const copiedSubs = new Set<() => void>();
+
+function readCopied(key: string): string {
+  const cached = copiedMem.get(key);
+  if (cached !== undefined) return cached;
+  let raw = "[]";
+  try {
+    raw = localStorage.getItem(key) ?? "[]";
+  } catch {
+    /* 저장소가 막힌 기기 */
+  }
+  copiedMem.set(key, raw);
+  return raw;
+}
+
+function writeCopied(key: string, ids: string[]) {
+  const raw = JSON.stringify(ids);
+  copiedMem.set(key, raw);
+  try {
+    localStorage.setItem(key, raw);
+  } catch {
+    /* 저장 실패해도 이번 화면에서는 표시됩니다 */
+  }
+  copiedSubs.forEach((fn) => fn());
+}
+
+function subscribeCopied(onChange: () => void) {
+  copiedSubs.add(onChange);
+  /** 다른 탭에서 바뀌면 사본을 버리고 다시 읽습니다 */
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === null) copiedMem.clear();
+    else copiedMem.delete(e.key);
+    onChange();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    copiedSubs.delete(onChange);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
 export default function DocGuide({
   caseId = "7fK2p",
   restored = true,
-  submitTarget = "국민은행 — 가까운 영업점에 서면 제출",
-  submitTargetNote = "은행 확인값입니다 (2026-08-20 확인) · 긴급 지급정지 전화와는 다른 단계입니다",
+  orgName = "국민은행",
+  // KB국민은 공식 안내가 **영업점 서면**입니다. 앱 경로는 「확인 실패」가 아니라
+  // 「아니오」라 배열에 넣지 않습니다 (ADR-042 ③ · research/04 §0.1).
+  // ⬜ 지점 찾기 URL 은 아직 어느 은행도 확인 못 했습니다 → research/05 U-31
+  submit = [{ how: "branch", text: "가까운 영업점에 서면 제출" }],
+  submitNote = "은행 확인값입니다 (2026-08-20 확인) · 긴급 지급정지 전화와는 다른 단계입니다",
 }: {
   caseId?: string;
   restored?: boolean;
-  submitTarget?: string;
-  submitTargetNote?: string;
+  orgName?: string;
+  submit?: SubmitPath[];
+  submitNote?: string;
 }) {
   /** 슬러그는 `fin-ally` 입니다 — `finally` 는 JS 예약어라 쓰지 않습니다 (CLAUDE.md) */
   const storageKey = `fin-ally:doc-copied:${caseId}`;
-  const [copied, setCopied] = useState<Set<string>>(new Set());
+  const copiedRaw = useSyncExternalStore(
+    subscribeCopied,
+    () => readCopied(storageKey),
+    () => "[]", // 서버에는 이 기기의 기록이 없습니다
+  );
+  const copied = useMemo(() => {
+    try {
+      const v: unknown = JSON.parse(copiedRaw);
+      return new Set(Array.isArray(v) ? (v as string[]) : []);
+    } catch {
+      return new Set<string>(); // 첫 방문이거나 값이 깨졌습니다
+    }
+  }, [copiedRaw]);
   const [flash, setFlash] = useState<string | null>(null);
   /** 복사가 거부됐을 때 — 값을 골라 주고 그 사실을 알립니다 */
   const [failed, setFailed] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set(["victim", "out"]));
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  // 은행 앱에 갔다 돌아와도 「어디까지 옮겼는지」가 남아야 합니다.
-  // ⚠️ 값이 아니라 **어느 칸을 옮겼는지**만 남깁니다 — 원문은 저장하지 않습니다.
-  useEffect(() => {
-    try {
-      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
-      if (Array.isArray(saved)) setCopied(new Set(saved as string[]));
-    } catch {
-      /* 첫 방문 */
-    }
-  }, [storageKey]);
 
   useEffect(() => () => clearTimeout(flashTimer.current), []);
 
@@ -222,13 +293,7 @@ export default function DocGuide({
     }
 
     setFailed(null);
-    const next = new Set(copied).add(f.id);
-    setCopied(next);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify([...next]));
-    } catch {
-      /* 저장 실패해도 이번 화면에서는 표시됩니다 */
-    }
+    writeCopied(storageKey, [...new Set(copied).add(f.id)]);
     setFlash(f.id);
     flashTimer.current = setTimeout(() => setFlash(null), 1600);
   };
@@ -271,24 +336,57 @@ export default function DocGuide({
         </span>
       </header>
 
-      {/* ── 제출처 — 서버 값 슬롯. **화면이 단정하지 않습니다** ── */}
-      <div
-        style={step(1)}
-        className="rise mt-3.5 flex items-start gap-3 rounded-[12px] border border-hairline bg-surface px-[15px] py-3"
-      >
-        <span
-          aria-hidden
-          className="grid size-[21px] shrink-0 place-items-center rounded-full border border-[oklch(0.697_0.16_258.2/45%)] bg-[oklch(0.697_0.16_258.2/22%)] text-[11px] font-bold text-pii"
+      {/* ── 제출처 — 서버 값 슬롯. **화면이 단정하지 않습니다** ──
+          비어 있으면 **카드를 아예 그리지 않습니다.** 「모른다」를 「없다」로
+          그리지 않기 위해서입니다 → ADR-042 ③ */}
+      {submit.length > 0 && (
+        <div
+          style={step(1)}
+          className="rise mt-3.5 flex items-start gap-3 rounded-[12px] border border-hairline bg-surface px-[15px] py-3"
         >
-          ◆
-        </span>
-        <div>
-          <div className="text-[14px] font-[620] text-ink-1">
-            어디에 내나요 — <span className="text-pii">{submitTarget}</span>
+          <span
+            aria-hidden
+            className="grid size-[21px] shrink-0 place-items-center rounded-full border border-[oklch(0.697_0.16_258.2/45%)] bg-[oklch(0.697_0.16_258.2/22%)] text-[11px] font-bold text-pii"
+          >
+            ◆
+          </span>
+          <div className="min-w-0">
+            <div className="text-[14px] font-[620] text-ink-1">
+              어디에 내나요 — <span className="text-pii">{orgName}</span>
+            </div>
+
+            {/* 길이 여럿일 때만 「먼저 / 안 되면」이 붙습니다 —
+                하나뿐인데 「먼저」라고 쓰면 다른 길이 있는 것처럼 읽힙니다 */}
+            <ul className="mt-2 grid gap-1">
+              {submit.map((path, i) => (
+                <li
+                  key={path.how}
+                  className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13.5px] leading-[1.6] text-ink-2"
+                >
+                  {submit.length > 1 && (
+                    <span className="inline-flex shrink-0 items-center rounded-full border border-hairline bg-chip px-2 py-px text-[12.5px] text-ink-3">
+                      {i === 0 ? "먼저" : "안 되면"}
+                    </span>
+                  )}
+                  <span className="min-w-0">{path.text}</span>
+                  {path.url && (
+                    <a
+                      href={path.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-[var(--size-touch)] items-center text-[13px] text-pii"
+                    >
+                      {path.how === "branch" ? "지점 찾기 ↗" : "안내 열기 ↗"}
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-1.5 text-[12.5px] leading-[1.55] text-ink-3">{submitNote}</div>
           </div>
-          <div className="mt-0.5 text-[12.5px] leading-[1.55] text-ink-3">{submitTargetNote}</div>
         </div>
-      </div>
+      )}
 
       {/* ── 다른 기기 — **고장이 아닙니다** (S-11 과 같은 어휘) ── */}
       {!restored && (
