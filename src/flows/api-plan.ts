@@ -10,55 +10,54 @@
  * **손으로 적습니다.** 자동 변환을 쓰면 저장소 내부 값이 같이 실려 나갑니다 —
  * [lib/adapters.ts](../lib/adapters.ts) 와 같은 이유입니다.
  *
- * ## §3.1 과 §3.6 의 단계 모양이 다릅니다
+ * ## 단계 모양은 한 벌뿐입니다
  *
- * ⬜ **어느 쪽이 맞는지 사람이 정해야 합니다.**
+ * §3.1(사건 생성)과 §3.6(플랜 조회)이 같은 모양을 씁니다 → ADR-042.
  *
- * | | §3.1 (사건 생성) | §3.6 (플랜 조회) |
- * | --- | --- | --- |
- * | `step_id`·`seq`·`title`·`state`·`actor` | 있음 | 있음 |
- * | `citation` | `kb_entry_id`·`kb_version`·`source_url`·`effective_from` | **`legal_basis` 도** |
- * | `body`·`artifacts`·`required_artifact` | **없음** | 있음 |
+ * 전에는 §3.1 이 `body`·`artifacts`·`required_artifact` 없이 얇았습니다. 그러면
+ * **화면이 사건을 만든 직후에 작업 패널을 못 그립니다** — ADR-024 가
+ * *"클라이언트가 `actor`·`channel`·`required_artifact` 로 유형을 추론하지 않습니다 —
+ * 서버가 준 `action` 을 그대로 씁니다"* 라고 정했는데 그 `action` 이 `body` 안에
+ * 있기 때문입니다. 화면이 곧바로 플랜 조회를 한 번 더 불러야 했습니다.
  *
- * **§3.1 을 글자 그대로 따랐습니다.** 두 가지 이유입니다.
- *
- * 하나, `body.contact` 는 *"`contact_ref` 를 서버가 푼 값"* 이라(§3.6) 기관 표를
- * 한 번 더 읽어야 나옵니다. 그 푸는 규칙을 여기서 지어내면 플랜 조회를 만들 때
- * 두 곳이 서로 다르게 풀 수 있습니다.
- *
- * 둘, `plan_step` 표에 `legal_basis` 칼럼이 **없습니다**(§6). §3.6 이 그것을
- * 요구하므로 플랜 조회는 `kb_entry` 를 함께 읽어야 하는데, §3.1 은 그 값을
- * 요구하지 않아 읽을 이유가 없습니다.
- *
- * **다만 이대로면 화면이 사건을 만든 직후에 작업 패널을 못 그립니다** —
- * ADR-024 가 *"클라이언트가 `actor`·`channel`·`required_artifact` 로 유형을
- * 추론하지 않습니다 — 서버가 준 `action` 을 그대로 씁니다"* 라고 정했는데,
- * 그 `action` 이 `body` 안에 있기 때문입니다. 화면은 곧바로 플랜 조회를 한 번
- * 더 불러야 합니다.
+ * **모양이 둘이면 옮기는 코드도 둘입니다.** 한쪽만 고치면 조용히 갈라집니다.
  */
 
 import 'server-only'
 
 import type { PlanSnapshot, StoredStep } from './regenerate-plan'
 
-/** §3.1 의 `plan.steps[]` 한 칸 */
+/** 계약의 `steps[]` 한 칸 → §3.1 · §3.6 (같은 모양입니다) */
 export interface ApiPlanStep {
   readonly step_id: string
   readonly seq: number
   readonly title: string
   readonly state: string
   readonly actor: string
-  /** 슈퍼셋 플랜의 조건 라벨. 없으면 `null` → §3.6 */
+  /** 슈퍼셋 플랜의 조건 라벨. 없으면 `null` */
   readonly conditional: string | null
+  /** `action` 이 화면의 작업 패널을 정합니다 → ADR-024 */
+  readonly body: Readonly<Record<string, unknown>>
   readonly citation: {
     readonly kb_entry_id: string
     readonly kb_version: string
+    readonly legal_basis: string
     readonly source_url: string
     readonly effective_from: string
   }
+  readonly artifacts: readonly {
+    readonly artifact_id: string
+    readonly kind: string
+    readonly verify_level: string
+    readonly verify_result: string
+  }[]
+  readonly required_artifact: {
+    readonly kind: string
+    readonly label: string
+  } | null
 }
 
-/** §3.1 의 `plan` */
+/** 계약의 `plan` */
 export interface ApiPlan {
   readonly is_superset: boolean
   readonly steps: readonly ApiPlanStep[]
@@ -69,7 +68,7 @@ export interface ApiPlan {
  *
  * **`citation` 이 없는 단계를 만들지 않습니다** → CLAUDE.md 불변 규칙 1.
  * 네 칸은 `plan_step` 이 `NOT NULL` 로 잡고 있고(§6), 빈 값이면 애초에
- * 저장이 거부됩니다.
+ * 저장이 거부됩니다. `legal_basis` 는 `kb_entry` 쪽 `NOT NULL` 입니다(§11.3).
  */
 export function toApiStep(step: StoredStep): ApiPlanStep {
   return {
@@ -80,12 +79,24 @@ export function toApiStep(step: StoredStep): ApiPlanStep {
     state: step.state,
     actor: step.actor,
     conditional: step.conditional,
+    // 손대지 않고 옮깁니다 — 안에 무엇이 있는지는 KB 가 정합니다
+    body: step.body,
     citation: {
       kb_entry_id: step.kbEntryId,
       kb_version: step.kbVersion,
+      legal_basis: step.legalBasis,
       source_url: step.sourceUrl,
       effective_from: step.effectiveFrom,
     },
+    artifacts: step.artifacts.map((one) => ({
+      artifact_id: one.artifactId,
+      kind: one.kind,
+      verify_level: one.verifyLevel,
+      verify_result: one.verifyResult,
+    })),
+    required_artifact: step.requiredArtifact
+      ? { kind: step.requiredArtifact.kind, label: step.requiredArtifact.label }
+      : null,
   }
 }
 

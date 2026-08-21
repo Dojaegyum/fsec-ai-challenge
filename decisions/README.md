@@ -115,6 +115,9 @@
 | [037](037-doc-guidance-not-generation.md) | 서류를 만들어 주지 않는다 — 무엇을 어떻게 적는지 안내한다 | 채택 |
 | [038](038-transcript-confirm.md) | 기계가 읽은 값을 사용자가 확인하는 자리를 둔다 — `confirm` · `WS-confirm` | 채택 |
 | [039](039-review-deferral.md) | 검수에서 「미룸」만 되돌아온다 — `deferred`의 뜻을 정한다 | 채택 |
+| [040](040-kb-release-pin.md) | 지금 쓰는 KB 릴리스는 배포 설정이 정한다 — `KB_VERSION` | 채택 |
+| [041](041-case-and-plan-together.md) | 사건과 플랜은 함께 저장된다 — 빈 사건을 만들지 않는다 | 채택 |
+| [042](042-one-step-shape.md) | 절차 단계의 응답 모양을 하나로 한다 | 채택 |
 
 ## 아직 안 쓴 것
 

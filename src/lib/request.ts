@@ -107,12 +107,11 @@ export function sessionIdOf(request: Request): string | null {
 /**
  * 이 제한을 무엇으로 셀 것인가.
  *
- * ⬜ **`X-Session-Id` 가 없을 때 무엇을 할지는 정본에 없습니다.** §1 이 헤더의
- * 존재만 정하고 빠졌을 때를 안 정했습니다.
+ * **`X-Session-Id` 가 없으면 IP 로 셉니다** → 08-14-api.md §1.3 (2026-08-21 확정).
  *
- * **400 으로 막지 않았습니다.** 헤더 하나가 없다고 조회를 거절하면 §1.3 의
- * *"제한이 정상 사용을 막으면 안 됩니다"* 를 정면으로 어깁니다. 대신 IP 로
- * 떨어집니다 — 정본이 사건 생성에서 이미 쓰는 기준이라 새로 지어낸 것이 아닙니다.
+ * 400 으로 막지 않습니다. 헤더 하나가 없다고 조회를 거절하면 §1.3 의
+ * *"제한이 정상 사용을 막으면 안 됩니다"* 를 정면으로 어깁니다. IP 는 정본이
+ * 사건 생성에서 이미 쓰는 기준이라 새로 지어낸 것이 아닙니다.
  *
  * ## 접두사로 이름 공간을 가릅니다
  *
@@ -251,9 +250,9 @@ function defaultRateFor(method: string): UpfrontRateBucket | 'none' {
  * 가 나오는데, 그러면 형식 검사도 통과 못 해 400 이 나갑니다 — 조용히 새지는
  * 않지만 원인이 안 보입니다.
  *
- * ⬜ **잘못된 식별자를 어느 코드로 낼지 정본에 없습니다** → 08-16-errors.md §3.
- * 표에 `BAD_REQUEST` 도 `CASE_NOT_FOUND` 도 없습니다. 지금은 `BadRequestError`
- * (400) 로 냅니다 → [http.ts](./http.ts).
+ * 잘못된 식별자는 `BAD_REQUEST`(400)입니다 → 08-16-errors.md §3.
+ * **`CASE_NOT_FOUND`(404)와 다릅니다** — 이쪽은 「식별자 모양이 틀렸다」이고
+ * 저쪽은 「그 모양은 맞는데 그런 사건이 없다」입니다.
  */
 export async function caseIdOf(route: {
   params: Promise<{ case_id: string }>

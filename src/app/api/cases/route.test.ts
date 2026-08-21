@@ -32,7 +32,8 @@ const KB_ROW: KbRow = {
   orgId: null,
   track: 'victim',
   title: '112에 신고하기',
-  body: { actor: 'victim', summary: '112로 신고합니다' },
+  // action 이 화면의 작업 패널을 정합니다 → ADR-024
+  body: { actor: 'victim', summary: '112로 신고합니다', action: 'call' },
   legalBasis: '통신사기피해환급법 제3조',
   sourceUrl: 'https://www.law.go.kr/report',
   effectiveFrom: '2020-01-01',
@@ -68,7 +69,14 @@ function caseStoreOf() {
   return { store, rows }
 }
 
+/** 사건과 플랜이 함께 저장됐는지 보려고 들여다봅니다 → ADR-041 */
+const opened: { caseId: string; steps: number }[] = []
+
 const casePlan: CasePlanStore = {
+  async openCase(row, result) {
+    opened.push({ caseId: row.caseId, steps: result.upsert.length })
+    return casePlan.applyPlan(row.caseId, result)
+  },
   async readCase() {
     return { track: 'victim' as const }
   },
@@ -92,10 +100,23 @@ const casePlan: CasePlanStore = {
         actor: one.actor,
         conditional: one.conditional,
         state: one.state,
+        body: one.body,
         kbEntryId: one.kbEntryId,
         kbVersion: one.kbVersion,
+        // kb_entry 를 함께 읽어야 나오는 값입니다 → ADR-042
+        legalBasis: `${one.kbEntryId} 근거 조항`,
         sourceUrl: one.sourceUrl,
         effectiveFrom: one.effectiveFrom,
+        // 이미 낸 접수 문자가 붙어 있는 상태 → 09-data-model.md §7
+        artifacts: [
+          {
+            artifactId: '01J8ART0000000000000000AA',
+            kind: 'sms_capture',
+            verifyLevel: 'L2',
+            verifyResult: 'passed',
+          },
+        ],
+        requiredArtifact: { kind: 'sms_capture', label: '은행 접수 문자 캡처' },
       }),
     )
   },
@@ -162,8 +183,9 @@ describe('사건을 만든다 — §3.1', () => {
 
   it('단계와 근거의 칸도 계약 그대로다', async () => {
     // 최상위만 못 박으면 알맹이(steps[])가 달라져도 초록으로 남습니다.
-    // §3.6 전용 칸(body·artifacts·required_artifact)이 섞여 들어가는 것도
-    // 여기서 걸려야 합니다
+    // **모양이 §3.6 과 같아야 합니다** → ADR-042. 하나라도 빠지면 화면이 사건을
+    // 만든 직후에 작업 패널을 못 그립니다 — 그 패널을 정하는 action 이 body 안에
+    // 있기 때문입니다(ADR-024)
     const res = await POST(ask({ track: 'victim' }))
     const body = (await res.json()) as {
       plan: Record<string, unknown> & {
@@ -175,12 +197,114 @@ describe('사건을 만든다 — §3.1', () => {
 
     for (const step of body.plan.steps) {
       expect(Object.keys(step).sort()).toEqual(
-        ['actor', 'citation', 'conditional', 'seq', 'state', 'step_id', 'title'].sort(),
+        [
+          'actor',
+          'artifacts',
+          'body',
+          'citation',
+          'conditional',
+          'required_artifact',
+          'seq',
+          'state',
+          'step_id',
+          'title',
+        ].sort(),
       )
       expect(Object.keys(step.citation).sort()).toEqual(
-        ['effective_from', 'kb_entry_id', 'kb_version', 'source_url'].sort(),
+        [
+          'effective_from',
+          'kb_entry_id',
+          'kb_version',
+          'legal_basis',
+          'source_url',
+        ].sort(),
       )
     }
+  })
+
+  it('부산물과 필요 서류가 그대로 실려 나간다 — ADR-042', async () => {
+    // 칸 이름만 보면 빈 배열로 고정해도 안 걸립니다.
+    // 화면이 「무엇을 이미 냈고 무엇이 더 필요한가」를 여기서 읽습니다
+    const res = await POST(ask({ track: 'victim' }))
+    const body = (await res.json()) as {
+      plan: {
+        steps: {
+          artifacts: Record<string, string>[]
+          required_artifact: Record<string, string> | null
+        }[]
+      }
+    }
+
+    expect(body.plan.steps[0].artifacts).toEqual([
+      {
+        artifact_id: '01J8ART0000000000000000AA',
+        kind: 'sms_capture',
+        verify_level: 'L2',
+        verify_result: 'passed',
+      },
+    ])
+    expect(body.plan.steps[0].required_artifact).toEqual({
+      kind: 'sms_capture',
+      label: '은행 접수 문자 캡처',
+    })
+  })
+
+  it('작업 패널을 정하는 값이 응답 안에 있다 — ADR-024 · ADR-042', async () => {
+    // 화면이 사건을 만든 직후에 곧장 작업 패널을 띄울 수 있어야 합니다.
+    // 없으면 플랜 조회를 한 번 더 불러야 하고, 그만큼 늦습니다
+    const res = await POST(ask({ track: 'victim' }))
+    const body = (await res.json()) as {
+      plan: { steps: { body: Record<string, unknown> }[] }
+    }
+
+    expect(body.plan.steps[0].body).toMatchObject({ action: 'call' })
+  })
+
+  it('사건 행을 따로 쓰는 경로가 없다 — ADR-041', async () => {
+    // openCase 말고 다른 자리에서 사건을 저장하면 원자성이 깨집니다.
+    // caseIntake.open() 으로 되돌아가는 회귀가 여기서 걸립니다
+    const cases = caseStoreOf()
+    holder.container = createContainer(readEnv({}), {
+      ...wiredPorts(),
+      caseStore: cases.store,
+    } as Ports)
+
+    await POST(ask({ track: 'victim' }))
+
+    expect(cases.rows).toHaveLength(0)
+  })
+
+  it('사건과 플랜을 한 번에 저장한다 — ADR-041', async () => {
+    // 사건을 먼저 저장하면 플랜 실패 시 되돌아갈 수 없는 빈 사건이 남습니다.
+    // 에러 봉투에 case_id 를 담을 칸이 없어 사용자가 자기 사건을 찾을 수 없습니다
+    opened.length = 0
+
+    const res = await POST(ask({ track: 'victim' }))
+    const body = (await res.json()) as { case_id: string }
+
+    expect(opened).toHaveLength(1)
+    expect(opened[0].caseId).toBe(body.case_id)
+    expect(opened[0].steps).toBeGreaterThan(0)
+  })
+
+  it('플랜이 실패하면 사건도 안 남는다 — ADR-041', async () => {
+    // 플랜 저장이 실패하는 순간까지 사건 행은 만들어지지 않아야 합니다
+    opened.length = 0
+    const broken = {
+      ...casePlan,
+      async openCase() {
+        throw new Error('저장 실패')
+      },
+    }
+    holder.container = createContainer(readEnv({}), {
+      ...wiredPorts(),
+      casePlan: broken,
+    } as Ports)
+
+    const res = await POST(ask({ track: 'victim' }))
+
+    expect(res.status).toBe(500)
+    expect(opened).toHaveLength(0)
   })
 
   it('사건을 만드는 즉시 T0 가 붙는다', async () => {

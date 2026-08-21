@@ -18,6 +18,7 @@ import { readEnv } from '@/lib/env'
 import { NotConfiguredError } from '@/lib/not-configured'
 
 import type { KbQuery, KbRow, KbStore } from '@/modules/kb-finder'
+import type { OpenedCase } from '@/modules/case-intake'
 import type { PlanResult } from '@/modules/planner'
 
 import {
@@ -72,7 +73,12 @@ function planStoreOf(
   existingSteps: readonly StoredStep[] = [],
 ) {
   const applied: PlanResult[] = []
+  const openedRows: OpenedCase[] = []
   const store: CasePlanStore = {
+    async openCase(row, result) {
+      openedRows.push(row)
+      return store.applyPlan(row.caseId, result)
+    },
     async readCase() {
       return { track: 'victim' as const }
     },
@@ -111,10 +117,15 @@ function planStoreOf(
           actor: one.actor,
           conditional: one.conditional,
           state: one.state,
+          body: one.body,
           kbEntryId: one.kbEntryId,
           kbVersion: one.kbVersion,
+          // kb_entry 를 함께 읽어야 나오는 값입니다 → ADR-042
+          legalBasis: `${one.kbEntryId} 근거 조항`,
           sourceUrl: one.sourceUrl,
           effectiveFrom: one.effectiveFrom,
+          artifacts: [],
+          requiredArtifact: null,
         }),
       )
 
@@ -127,7 +138,7 @@ function planStoreOf(
     },
     ...over,
   }
-  return { store, applied }
+  return { store, applied, openedRows }
 }
 
 const kbVersion: KbVersionSource = { current: async () => '2026.08.1' }
@@ -248,7 +259,11 @@ describe('삭제 후 삽입이 아니다 — §6.1', () => {
     actor: 'victim',
     conditional: null,
     state: 'done_verified',
+    body: { text: '112로 전화합니다', action: 'call' },
     kbEntryId: 'report-112',
+    legalBasis: '통신사기피해환급법 제3조',
+    artifacts: [],
+    requiredArtifact: null,
     kbVersion: '2026.08.1',
     sourceUrl: 'https://www.law.go.kr/...',
     effectiveFrom: '2020-01-01',

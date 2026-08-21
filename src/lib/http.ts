@@ -80,13 +80,10 @@ export function fail(
     // 던진 쪽(rate-limit.ts)이 `detail` 에 실어 보내므로 그것도 봅니다 —
     // 라우트가 예외를 풀어 보고 다시 넣지 않아도 헤더가 빠지지 않게
     const seconds = init.retryAfterSeconds ?? retryAfterFromDetail(app)
-    // ⬜ **창이 없는 429 에 무엇을 넣을지는 정본에 없습니다.**
-    // §3.1 은 429 의 값을 「남은 창 시간을 그대로」로만 정했는데, 증거 업로드
-    // 상한(사건당 30개·300MB)은 창이 아니라 사건이 사는 동안의 누적이라
-    // **남은 창이라는 개념 자체가 없습니다** — 기다려도 풀리지 않습니다.
-    // 아무 숫자나 넣으면 사용자가 그 초마다 헛되이 다시 누릅니다. 지어내지
-    // 않고 **헤더를 빼는 쪽**을 골랐습니다. §3.1 이 429 에 붙이라고 한 것과
-    // 어긋나므로 사람에게 물어야 하는 자리입니다
+    // **창이 없는 429 에는 안 붙입니다** → 08-16-errors.md §3.1 (2026-08-21 확정).
+    // 증거 업로드 상한(사건당 30개·300MB)은 창이 아니라 사건이 사는 동안의
+    // 누적이라 남은 창이라는 개념 자체가 없습니다 — 기다려도 풀리지 않습니다.
+    // 아무 숫자나 넣으면 사용자가 그 초마다 헛되이 다시 누릅니다
     if (seconds !== undefined) headers['Retry-After'] = String(seconds)
   } else if (status === 503) {
     headers['Retry-After'] = String(RETRY_AFTER_503_SECONDS)
@@ -188,10 +185,7 @@ export async function readJsonObject<T extends object>(request: Request): Promis
 /**
  * 요청 자체가 잘못됐다.
  *
- * ⬜ **정본의 코드 표에 `BAD_REQUEST` 가 없습니다** → 08-16-errors.md §3.
- * 표는 도메인 실패만 담고 있어 「본문이 JSON 이 아니다」 같은 것을 넣을 자리가
- * 없습니다. 사용자 문구는 `INTERNAL` 과 같은 것으로 떨어지므로 당장 새는 것은
- * 없지만, **표에 한 줄이 필요한 자리입니다.**
+ * 08-16-errors.md §3 — 400. *"요청 형식이 올바르지 않습니다."*
  */
 export class BadRequestError extends AppError {
   readonly code: string = 'BAD_REQUEST'
@@ -203,14 +197,11 @@ export class BadRequestError extends AppError {
  *
  * *"`/api/admin/` 아래 모든 경로에 인증을 겁니다. 인증 없이 접근하면 `401` 입니다."*
  *
- * ⬜ **정본의 코드 표에 401 이 없습니다** → 08-16-errors.md §3. `BAD_REQUEST` 와
- * 같은 자리입니다 — 표는 도메인 실패만 담고 있어 「인증이 없다」를 넣을 칸이
- * 없습니다. 사용자 문구는 `INTERNAL` 것으로 떨어집니다.
+ * 08-16-errors.md §3 — 401.
  *
- * **왜 그래도 괜찮은가:** 이 경로의 상대는 피해자가 아니라 운영자입니다. 문구가
- * 「처리 중 문제가 발생했습니다」로 나가도 피해자를 혼란시키지 않습니다.
- * **그리고 무엇이 틀렸는지 자세히 알려주지 않는 편이 낫습니다** — 아이디가 틀렸는지
- * 쿠키가 지났는지를 구분해 주면 그게 곧 힌트입니다.
+ * **문구가 일부러 아무것도 알려주지 않습니다.** 아이디가 틀렸는지 쿠키가 지났는지를
+ * 구분해 주면 그게 곧 힌트가 됩니다. 이 경로의 상대는 피해자가 아니라 운영자라
+ * 뭉뚱그린 문구가 피해자를 혼란시키지 않습니다.
  */
 export class UnauthorizedError extends AppError {
   readonly code: string = 'UNAUTHORIZED'

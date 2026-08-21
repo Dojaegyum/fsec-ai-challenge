@@ -164,6 +164,21 @@ export interface Ports {
  * 각 줄이 「무엇이 · 어느 환경변수 때문에」 안 붙었는지를 담고 있어,
  * 부르는 순간 그대로 말하며 멈춥니다.
  */
+/**
+ * 지금 쓰는 KB 릴리스 → ADR-040 · 09-data-model.md §11.2.
+ *
+ * **「가장 최근 적재분」을 쓰지 않습니다.** 적재기는 검수 중인 다음 버전을 미리
+ * 올릴 수 있고, 최신 것을 무조건 고르면 **아직 사람이 안 본 절차가 피해자에게
+ * 나갑니다** — 07-kb-operations.md 원칙 4 가 막으려던 일입니다.
+ *
+ * 비어 있으면 부를 때 던집니다. 근거 없는 안내보다 멈추는 편이 낫습니다.
+ */
+function pinnedKbVersion(env: Env): KbVersionSource {
+  const pinned = env.values.KB_VERSION
+  if (!pinned) return unconfigured('KbVersionSource', ['KB_VERSION'])
+  return { current: async () => pinned }
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -175,8 +190,8 @@ export function unconfiguredPorts(env: Env): Ports {
     purgeCaseStore: unconfigured('PurgeCaseStore', db),
     reminderSource: unconfigured('ReminderSource', db),
     casePlan: unconfigured('CasePlanStore', db),
-    // ⬜ 「현재 릴리스」를 어디서 얻는지가 정본에 없습니다 → flows/regenerate-plan.ts
-    kbVersion: unconfigured('KbVersionSource', ['(정본에 「현재 릴리스」 규칙 없음)']),
+    // 배포 설정이 정합니다 → ADR-040. 비어 있으면 부를 때 그대로 말하며 멈춥니다
+    kbVersion: pinnedKbVersion(env),
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
     uploads: unconfigured('UploadSlotSource', storage),

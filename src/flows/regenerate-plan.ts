@@ -44,7 +44,7 @@ import { serverClock } from '@/lib/clock'
 import type { Container } from '@/lib/container'
 import { AppError } from '@/lib/errors'
 
-import type { Track } from '@/modules/case-intake'
+import type { OpenedCase, Track } from '@/modules/case-intake'
 import type { Actor, PlanResult, StepState } from '@/modules/planner'
 import type { NextQuestion, SlotKey, SlotState, SlotTier, TierStatus } from '@/modules/slot-checker'
 
@@ -61,6 +61,26 @@ export interface StoredSlot {
  * **칼럼 이름은 `plan_step_id` 인데 계약의 이름은 `step_id` 입니다** → §3.6.
  * 옮기는 자리를 아래 `toApiStep` 하나로 모읍니다.
  */
+/** 단계에 딸린 부산물 하나 → 09-data-model.md §7 */
+export interface StoredArtifact {
+  readonly artifactId: string
+  readonly kind: string
+  readonly verifyLevel: string
+  readonly verifyResult: string
+}
+
+/** 이 단계를 끝내려면 무엇이 필요한가 → §11.4 */
+export interface RequiredArtifact {
+  readonly kind: string
+  readonly label: string
+}
+
+/**
+ * 저장된 단계 하나.
+ *
+ * **모양이 §3.1 과 §3.6 에서 같습니다** → ADR-042. 얇은 쪽이면 화면이 사건을 만든
+ * 직후에 작업 패널을 못 그립니다 — 그 패널을 정하는 `action` 이 `body` 안에 있습니다.
+ */
 export interface StoredStep {
   readonly planStepId: string
   readonly stepKey: string
@@ -69,11 +89,24 @@ export interface StoredStep {
   readonly actor: Actor
   readonly conditional: string | null
   readonly state: StepState
+  /** `plan_step.body` 그대로. `action`·`contact` 가 여기 있습니다 → §11.4 */
+  readonly body: Readonly<Record<string, unknown>>
   readonly kbEntryId: string
   readonly kbVersion: string
+  /**
+   * 법령 근거.
+   *
+   * **`plan_step` 에 없는 칼럼입니다**(§6). `kb_entry` 를
+   * `(kb_entry_id, kb_version)` 으로 함께 읽어야 나옵니다 → §11.3.
+   */
+  readonly legalBasis: string
   readonly sourceUrl: string
   /** `YYYY-MM-DD` */
   readonly effectiveFrom: string
+  /** 이 단계에 붙은 부산물. 없으면 빈 배열 */
+  readonly artifacts: readonly StoredArtifact[]
+  /** 없으면 `null` */
+  readonly requiredArtifact: RequiredArtifact | null
 }
 
 /**
@@ -92,7 +125,12 @@ export interface CasePlanStore {
   readChannel(
     caseId: string,
   ): Promise<{ readonly channelId: string; readonly orgId: string | null } | null>
-  /** 이미 저장된 단계. 처음이면 빈 배열 */
+  /**
+   * 이미 저장된 단계. 처음이면 빈 배열.
+   *
+   * **`kb_entry` 와 `artifact` 를 함께 읽어야 합니다** → ADR-042.
+   * `legalBasis` 는 `plan_step` 에 없는 칼럼이고, 부산물은 `idx_artifact_step` 으로 옵니다.
+   */
   readSteps(caseId: string): Promise<readonly StoredStep[]>
   /**
    * 병합 결과를 반영하고 **반영 뒤의 플랜 전부**를 `seq` 순으로 돌려준다.
@@ -104,19 +142,28 @@ export interface CasePlanStore {
    * 고를 이유가 없습니다.
    */
   applyPlan(caseId: string, result: PlanResult): Promise<readonly StoredStep[]>
+  /**
+   * **사건과 플랜을 한 번에 만든다** → ADR-041.
+   *
+   * 사건을 먼저 저장하면 플랜이 실패했을 때 **되돌아갈 수 없는 빈 사건**이
+   * 남습니다 — 에러 봉투에 `case_id` 를 담을 칸이 없기 때문입니다(10-errors.md §3).
+   * 사용자는 진입할 때마다 빈 사건을 하나씩 쌓고, 사건 생성 상한까지 소진합니다.
+   *
+   * **한 트랜잭션이어야 합니다.** 둘로 갈라 부르는 자리를 만들지 마세요 —
+   * 포트를 나눈 순간 어떤 구현도 이것을 보장할 수 없습니다.
+   */
+  openCase(row: OpenedCase, result: PlanResult): Promise<readonly StoredStep[]>
 }
 
 /**
  * 이 흐름이 밖에 요구하는 것 — **지금 어느 KB 릴리스인가.**
  *
- * ⬜ **정본에 방법이 없습니다.** 09-data-model.md §11.2 가 조회 조건으로
- * *"`kb_version` — 현재 릴리스"* 라고만 적었고, **어디서 그 값을 얻는지는
- * 어디에도 없습니다.** 스키마에 `kb_release` 같은 표도 없고 `kb_entry` 에는
- * 행마다 `released_at` 만 있습니다.
+ * **`KB_VERSION` 환경변수가 현재 릴리스입니다** → ADR-040 · §11.2.
  *
- * **여기서 정하지 않았습니다.** 최신 버전을 고르는 것과 「현재 릴리스」는 다를 수
- * 있습니다 — 검수 중인 다음 버전이 먼저 적재될 수 있기 때문입니다. 잘못 고르면
- * **아직 사람이 안 본 절차가 피해자에게 나갑니다.**
+ * 「가장 최근 적재분」을 쓰지 않습니다. 적재기는 검수 중인 다음 버전을 미리 올릴 수
+ * 있고, 최신 것을 무조건 고르면 **아직 사람이 안 본 절차가 피해자에게 나갑니다.**
+ *
+ * 값이 비어 있으면 던집니다 — 근거 없는 안내보다 멈추는 편이 낫습니다.
  */
 export interface KbVersionSource {
   /**
@@ -230,12 +277,90 @@ export async function regeneratePlan(
 /**
  * 그 사건이 없다.
  *
- * ⬜ **정본의 코드 표에 없습니다** → 08-16-errors.md §3. 표는 도메인 실패만
- * 담고 있어 「그런 사건이 없다」를 넣을 칸이 없습니다. `KB_ENTRY_NOT_FOUND` 는
- * KB 항목 전용이라 쓸 수 없습니다.
+ * 08-16-errors.md §3 — 404. *"해당 사건을 찾지 못했습니다."*
+ *
+ * **`KB_ENTRY_NOT_FOUND` 와 다릅니다** — 저쪽은 절차 항목이 없는 것이고
+ * 이쪽은 사건이 없는 것이라, 사용자에게 보일 말이 완전히 다릅니다.
  */
 export class CaseNotFoundError extends AppError {
   readonly code: string = 'CASE_NOT_FOUND'
   readonly httpStatus: number = 404
   readonly retryable: boolean = false
+}
+
+/**
+ * 사건을 열고 **T0 공통 안전 절차를 함께 저장한다** → §3.1 · ADR-041.
+ *
+ * 슬롯이 하나도 없어도 절차가 붙습니다 → 08-14-slot-tiering.md *"진입 자체로 충분"*.
+ *
+ * ## 왜 사건을 먼저 저장하지 않나
+ *
+ * 사건 행이 커밋된 뒤 플랜이 실패하면 에러 응답이 나가는데, **에러 봉투에는
+ * `case_id` 를 담을 칸이 없습니다**(10-errors.md §3). 사용자는 방금 만들어진
+ * 자기 사건으로 돌아갈 수 없고, 다시 시도할 때마다 빈 사건이 하나씩 쌓입니다.
+ *
+ * 그래서 **둘 다 만들어진 뒤에 한 번에 저장합니다.** 중간에 실패하면 아무것도
+ * 안 남고, 사용자는 같은 자리에서 다시 시도하면 됩니다.
+ *
+ * @throws IngestError 갈래가 목록 밖일 때
+ * @throws KbUnavailableError KB 조회가 실패했을 때 — 멈춥니다
+ * @throws KbError 근거 네 칸이 빈 KB 항목이 왔을 때 — 버리지 않고 멈춥니다
+ */
+export async function openCaseWithPlan(
+  input: { track: Track },
+  deps: RegeneratePlanDeps,
+): Promise<{ readonly opened: OpenedCase; readonly plan: PlanSnapshot }> {
+  const { container, store, kbVersion } = deps
+  const { caseIntake, kbFinder, planner, slotChecker, auditLogger } = container
+
+  // 값만 만듭니다. 아직 저장하지 않습니다
+  const opened = caseIntake.draft(input)
+  const version = await kbVersion.current()
+
+  // 새 사건이라 슬롯도 경유 서비스도 기존 단계도 없습니다.
+  // **읽으러 가지 않습니다** — 아직 저장된 것이 없으므로 물어볼 곳이 없습니다
+  const check = slotChecker.check({ slots: [] })
+
+  const groups = await kbFinder.find({
+    kbVersion: version,
+    track: opened.track,
+    // 비어 있어 조회가 전 유형 공통(T0)만 집어 옵니다
+    channelId: null,
+    orgId: null,
+    asOf: serverClock.today(),
+  })
+
+  const result = planner.build({
+    caseId: opened.caseId,
+    applied: groups.applied.map(kbRowToPlanStep),
+    reference: groups.reference.map(kbRowToPlanStep),
+    slots: [],
+    existing: [],
+    superset: check.needsSupersetPlan,
+  })
+
+  // **여기서 처음 저장합니다.** 사건과 플랜이 한 트랜잭션으로 들어갑니다
+  const steps = await store.openCase(opened, result)
+
+  const record = await auditLogger.record({
+    eventType: 'case.opened',
+    actorType: 'user',
+    caseId: opened.caseId,
+    // 09-data-model.md §10.2 — 건수와 버전만. 원문도 토큰도 안 넣습니다
+    detail: { track: opened.track, kb_version: version, steps: steps.length },
+  })
+
+  return {
+    opened,
+    plan: {
+      caseId: opened.caseId,
+      isSuperset: check.needsSupersetPlan,
+      kbVersion: version,
+      steps,
+      nextQuestion: check.nextQuestion,
+      t1: check.t1,
+      t2: check.t2,
+      auditId: record.auditId,
+    },
+  }
 }

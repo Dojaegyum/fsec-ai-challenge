@@ -128,6 +128,42 @@ describe('안 붙은 자원은 조용히 넘어가지 않는다', () => {
   })
 })
 
+describe('지금 쓰는 KB 릴리스는 배포 설정이 정한다 — ADR-040', () => {
+  it('설정된 값을 그대로 쓴다', async () => {
+    const c = createContainer(readEnv({ KB_VERSION: '2026.08.1' }))
+
+    await expect(c.ports.kbVersion.current()).resolves.toBe('2026.08.1')
+  })
+
+  it('가장 최근 적재분을 찾아가지 않는다', async () => {
+    // 적재기는 검수 중인 다음 버전을 미리 올릴 수 있습니다.
+    // 최신 것을 고르면 아직 사람이 안 본 절차가 피해자에게 나갑니다
+    const c = createContainer(readEnv({ KB_VERSION: '2026.07.9', DATABASE_URL: 'postgres://x' }))
+
+    await expect(c.ports.kbVersion.current()).resolves.toBe('2026.07.9')
+  })
+
+  it('비어 있으면 던진다 — 근거 없는 안내보다 멈춥니다', () => {
+    const c = createContainer(EMPTY)
+
+    expect(() => c.ports.kbVersion.current()).toThrow(NotConfiguredError)
+  })
+
+  it('무엇이 없는지 말한다', () => {
+    const c = createContainer(EMPTY)
+
+    try {
+      c.ports.kbVersion.current()
+      throw new Error('던졌어야 합니다')
+    } catch (error) {
+      expect(error).toBeInstanceOf(NotConfiguredError)
+      expect((error as NotConfiguredError).detail).toMatchObject({
+        missingEnv: ['KB_VERSION'],
+      })
+    }
+  })
+})
+
 describe('문진 문구가 붙어도 사건 생성 경로는 막히지 않는다', () => {
   it('슬롯 판정이 던지지 않는다', () => {
     // slot-checker 는 값이 빈 슬롯마다 문구를 부릅니다.

@@ -139,10 +139,23 @@ export interface CaseStore {
 
 export interface CaseIntake {
   /**
-   * 사건을 연다.
+   * 사건 한 행을 **만들기만** 한다. 저장하지 않는다.
+   *
+   * 사건 생성 경로는 플랜까지 만든 뒤 **둘을 한 번에** 저장합니다 → ADR-041.
+   * 먼저 저장하면 플랜이 실패했을 때 **되돌아갈 수 없는 빈 사건**이 남습니다 —
+   * 에러 봉투에 `case_id` 를 담을 칸이 없기 때문입니다(10-errors.md §3).
+   *
+   * @throws IngestError 갈래가 목록 밖일 때
+   */
+  draft(input: { track: Track }): OpenedCase
+
+  /**
+   * 사건을 열고 **바로 저장한다.**
    *
    * **플랜은 붙이지 않습니다.** T0 공통 안전 절차는 KB 인용이 필요하고,
    * 인용을 붙이는 것은 `planner` 의 일입니다 → 12-module-names.md 층 3.
+   *
+   * 사건 생성 경로는 이것을 쓰지 않습니다 — `draft` 를 보세요.
    */
   open(input: { track: Track }): Promise<OpenedCase>
 
