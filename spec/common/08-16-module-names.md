@@ -75,7 +75,7 @@
 
 【층 4】 하루 1회 — 사용자 요청 없이 돈다 (Vercel Cron)
 
-   kb-collector → kb-reviewer → 버전 릴리스
+   kb-collector → kb-reviewer → (여기서 멈춥니다 — 반영·릴리스는 사람과 적재기)
    reminder-sender ─ 다가온 기한·미확인 단계를 이메일로
    case-purger     ─ purge_after 도달 시 세 층을 함께 지우고 확인
 
@@ -170,11 +170,30 @@
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
 | `kb-collector` | 감시 소스에서 원문을 가져와 스냅샷으로 보관한다 | 서버 | `F-11` [07](../backend/08-14-kb-operations.md) |
-| `kb-reviewer` | 변경분을 사람이 검수·승인하고 버전을 릴리스한다 | 서버 | `F-11` [09](../backend/08-16-data-model.md) §12 |
+| `kb-reviewer` | 변경분을 사람이 볼 수 있게 묶어 내고 그 판단을 기록한다 | 서버 | `F-11` [09](../backend/08-16-data-model.md) §12 |
 | `reminder-sender` | 다가온 기한과 `미확인` 단계를 찾아 이메일로 알린다 | 서버 | `F-06b` [ADR-021](../../decisions/021-reentry-and-identity.md) |
 | `case-purger` | `purge_after`가 지난 사건의 **세 층을 함께 지우고 실제로 지워졌는지 확인한다** | 서버 | [ADR-016](../../decisions/016-retention-and-datastore.md) |
 
 **`kb-reviewer`의 승인은 사람이 합니다.** LLM은 영향 분석까지이고 릴리스 판단은 사람의 몫입니다 → [07](../backend/08-14-kb-operations.md).
+
+#### 승인이 곧 반영이 아닙니다
+
+**`kb-reviewer`는 `kb_entry`를 쓰지 않습니다.** [RFC-002](../../rfc/002-kb-authoring.md)가 파이프라인을 네 구간으로 갈랐고,
+자동으로 도는 것은 앞의 둘까지입니다.
+
+```
+1. 수집   source_snapshot   자동 · 하루 1회      ← kb-collector
+2. 검수   source_change     사람 — 무엇이 바뀌었나  ← kb-reviewer
+3. 반영   src/kb/*.json     사람 — 승인된 변경을 파일에 옮긴다
+   릴리스 kb_entry          적재기 — kb_version을 찍는다
+```
+
+승인은 **「사람이 봤고 반영해도 된다」는 표시**일 뿐입니다. *"승인이 곧 반영이 되면 무엇이 어떻게
+바뀌었는지가 어디에도 남지 않고, 「사람 검수 생략 불가」가 승인 버튼 한 번으로 축소됩니다.
+**검수의 산출물은 diff입니다.**"* → [RFC-002](../../rfc/002-kb-authoring.md).
+
+릴리스가 실제로 끝나면 그 버전을 `kb-reviewer`가 **기록합니다**(`source_change.released_version`) —
+하는 것이 아니라 적는 것입니다.
 
 ### `reminder-sender` — 보낼 수 없는 사건이 있습니다
 
