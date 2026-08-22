@@ -27,6 +27,7 @@ import { ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
 import { createQuestionSource } from './questions'
+import { createMediaReader } from './storage'
 
 import { createAuditLogger } from '@/modules/audit-logger'
 import type { AuditStore } from '@/modules/audit-logger'
@@ -157,7 +158,10 @@ export function unconfiguredPorts(env: Env): Ports {
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
     uploads: unconfigured('UploadSlotSource', storage),
-    mediaReader: unconfigured('MediaReader', storage),
+    // 접속 정보가 있으면 실제로 주소를 냅니다 → storage.ts.
+    // 없으면 부르는 순간 터집니다 — 조용히 빈 주소를 내면 추론 서비스가
+    // 엉뚱한 것을 내려받으려다 실패하고, 원인이 두 단계 뒤에서 드러납니다
+    mediaReader: createMediaReader(env) ?? unconfigured('MediaReader', storage),
     objects: unconfigured('ObjectStore', storage),
     // ⬜ 볼트 제품 미결 → ADR-016 「남은 것」
     vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
