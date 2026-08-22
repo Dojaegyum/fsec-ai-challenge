@@ -15,9 +15,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createContainer, type Container } from './container'
 import { readEnv } from './env'
 import { KbUnavailableError } from './errors'
-import { BadRequestError } from './http'
+import { BadRequestError, CaseNotFoundError } from './http'
 import { RATE_RULES } from './rate-limit'
-import { caseIdOf, clientIpOf, handleRoute, sessionIdOf, ulidParamOf } from './request'
+import {
+  caseIdOf,
+  caseTokenOf,
+  clientIpOf,
+  handleRoute,
+  sessionIdOf,
+  ulidParamOf,
+} from './request'
 import { ADMIN_SESSION_COOKIE, issueAdminSession } from './session-cookie'
 import { TELEMETRY_HEADER_NAMES } from './telemetry'
 
@@ -379,16 +386,19 @@ describe('요청에서 읽는 것들 — §1', () => {
 })
 
 describe('경로 파라미터 — Next 16 은 Promise 다', () => {
-  it('ULID 를 꺼낸다', async () => {
-    await expect(caseIdOf({ params: Promise.resolve({ case_id: CASE_ID }) })).resolves.toBe(
-      CASE_ID,
-    )
+  /** 주소에 오는 것은 링크 토큰뿐입니다 → ADR-039 */
+  const route = (case_token: string) => ({ params: Promise.resolve({ case_token }) })
+  /** 조회가 신분 확인입니다 — 형식으로는 못 가릅니다 */
+  const resolves = (caseId: string | null) => ({ toCaseId: async () => caseId })
+
+  it('모양이 맞으면 토큰을 꺼낸다', async () => {
+    await expect(caseTokenOf(route(CASE_ID))).resolves.toBe(CASE_ID)
   })
 
-  it('형식이 아니면 400 이다', async () => {
+  it('모양이 아니면 400 이다', async () => {
     const res = await handleRoute(
       get(),
-      async () => ({ body: await caseIdOf({ params: Promise.resolve({ case_id: '../etc' }) }) }),
+      async () => ({ body: await caseTokenOf(route('../etc')) }),
       { container },
     )
 
@@ -396,15 +406,44 @@ describe('경로 파라미터 — Next 16 은 Promise 다', () => {
   })
 
   it('값을 detail 에 담지 않는다', async () => {
-    // 감사 로그로 흘러가는 자리입니다 → 09-data-model.md §10.1
+    // 링크 토큰은 사실상 비밀번호이고, 이 detail 은 감사 기록으로 갑니다
+    // → ADR-039 · 09-data-model.md §10.1
     let detail: Record<string, unknown> = {}
     try {
-      await caseIdOf({ params: Promise.resolve({ case_id: '110-234-567890' }) })
+      await caseTokenOf(route('110-234-567890'))
     } catch (error) {
       detail = (error as { detail: Record<string, unknown> }).detail
     }
 
     expect(JSON.stringify(detail)).not.toContain('110-234')
+  })
+
+  it('**토큰을 그대로 내부 식별자로 흘리지 않는다** — ADR-039', async () => {
+    // 그대로 흘리면 속도 제한이 사건 단위가 아니라 토큰 단위가 되고,
+    // 기본키 조회는 언제나 빕니다. ADR-039 가 명시적으로 기각한 모양입니다
+    // `O` 는 Crockford Base32 에 없습니다 — 0 과 헷갈려서 뺀 넷(I·L·O·U) 중 하나
+    const token = 'TKN00000000000000000000ABC'.slice(0, 26)
+    const caseId = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
+    await expect(caseIdOf(route(token), resolves(caseId))).resolves.toBe(caseId)
+  })
+
+  it('그 주소로 열리는 사건이 없으면 404 다', async () => {
+    const res = await handleRoute(
+      get(),
+      async () => ({ body: await caseIdOf(route(CASE_ID), resolves(null)) }),
+      { container },
+    )
+
+    // 400 이 아닙니다 — 모양은 맞고 사건이 없는 것입니다
+    expect(res.status).toBe(404)
+  })
+
+  it('없는 사건과 남의 사건을 구분해 답하지 않는다', async () => {
+    // 구분하면 「이 주소는 실재한다」가 새어 나갑니다 — 찍어 보는 쪽에 힌트입니다
+    const failed = await caseIdOf(route(CASE_ID), resolves(null)).catch(
+      (error: Error) => error,
+    )
+    expect(String(failed)).not.toContain(CASE_ID)
   })
 
   it('다른 식별자도 같은 검사를 받는다', async () => {
@@ -414,5 +453,70 @@ describe('경로 파라미터 — Next 16 은 Promise 다', () => {
     await expect(
       ulidParamOf({ params: Promise.resolve({ step_id: 'nope' }) }, 'step_id'),
     ).rejects.toThrow()
+  })
+})
+
+describe('열거 방어 — 404 를 IP 로 센다 — ADR-039 ④', () => {
+  /** 링크 토큰이 사실상 비밀번호라, 없는 사건을 계속 찔러 보는 것이 유일한 공격 경로다 */
+  const notFound = async (ip: string) =>
+    handleRoute(
+      get('http://x/api/cases/x', { 'x-forwarded-for': ip }),
+      async () => {
+        throw new CaseNotFoundError('그 주소로 열리는 사건이 없습니다')
+      },
+      { container },
+    )
+
+  it('한도 안에서는 404 가 그대로 나간다', async () => {
+    // **막는 것이 아니라 세는 것입니다.** 링크를 한 번 잘못 눌렀다고
+    // 곧바로 막히면 안 됩니다
+    for (let i = 0; i < 10; i += 1) {
+      expect((await notFound('203.0.113.1')).status).toBe(404)
+    }
+  })
+
+  it('한도를 넘으면 429 로 바뀐다', async () => {
+    for (let i = 0; i < 10; i += 1) await notFound('203.0.113.2')
+
+    const res = await notFound('203.0.113.2')
+    // 이 지점부터는 **사건이 있는지 없는지도 알려주지 않습니다**
+    expect(res.status).toBe(429)
+  })
+
+  it('IP 가 다르면 따로 센다', async () => {
+    for (let i = 0; i < 11; i += 1) await notFound('203.0.113.3')
+    expect((await notFound('203.0.113.3')).status).toBe(429)
+
+    // 다른 사용자가 같이 막히면 안 됩니다
+    expect((await notFound('203.0.113.4')).status).toBe(404)
+  })
+
+  it('**사건당이 아니라 IP 당이다** — 매번 다른 사건을 부르는 공격 때문', async () => {
+    // 나머지 카운터는 전부 사건당인데, 없는 사건을 찌르는 공격에는 무의미합니다.
+    // 경로가 매번 달라도 같은 통에 들어가야 합니다
+    for (let i = 0; i < 11; i += 1) {
+      await handleRoute(
+        get(`http://x/api/cases/DIFFERENT${i}`, { 'x-forwarded-for': '203.0.113.5' }),
+        async () => {
+          throw new CaseNotFoundError('그 주소로 열리는 사건이 없습니다')
+        },
+        { container },
+      )
+    }
+    expect((await notFound('203.0.113.5')).status).toBe(429)
+  })
+
+  it('다른 오류는 세지 않는다', async () => {
+    // 400 은 정상적으로 오가는 요청입니다. 이걸 세면 오타 몇 번에 막힙니다
+    for (let i = 0; i < 20; i += 1) {
+      await handleRoute(
+        get('http://x/api/cases/x', { 'x-forwarded-for': '203.0.113.6' }),
+        async () => ({
+          body: await caseTokenOf({ params: Promise.resolve({ case_token: '../etc' }) }),
+        }),
+        { container },
+      )
+    }
+    expect((await notFound('203.0.113.6')).status).toBe(404)
   })
 })

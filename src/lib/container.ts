@@ -37,9 +37,11 @@ import { createQuestionSource } from './questions'
 import {
   createAuditStore,
   createCaseStore,
+  createCaseTokenResolver,
   createKbStore,
   createSql,
 } from './db'
+import type { CaseTokenResolver } from './db'
 import {
   createMediaReader,
   createObjectStore,
@@ -214,6 +216,18 @@ function pinnedKbVersion(env: Env): KbVersionSource {
   return { current: async () => pinned }
 }
 
+/**
+ * 링크 토큰을 사건으로 바꾸는 자리 → ADR-039.
+ *
+ * 포트가 아니라 조립부가 직접 만듭니다 — 모듈이 요구한 것이 아니라
+ * **라우트가 신분을 확인하려고 쓰는 것**이라서, 모듈 인터페이스에 없습니다.
+ */
+function caseTokenResolver(env: Env): CaseTokenResolver {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('CaseTokenResolver', ['DATABASE_URL'])
+  return createCaseTokenResolver(sql)
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -272,6 +286,14 @@ export interface Container {
   /** 격리 경계. 이것을 거치지 않은 텍스트는 외부로 나갈 수 없습니다 */
   readonly piiTokenizer: ReturnType<typeof createPiiTokenizer>
   readonly caseIntake: ReturnType<typeof createCaseIntake>
+  /**
+   * 주소의 링크 토큰 → 내부 사건 식별자.
+   *
+   * **이 조회가 신분 확인입니다** → ADR-039. 형식으로는 둘을 못 가릅니다.
+   * 접속 정보가 없으면 부를 때 터집니다 — 조용히 통과시키면 남의 사건이
+   * 열립니다.
+   */
+  readonly caseTokens: CaseTokenResolver
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -322,6 +344,8 @@ export function createContainer(
     questions,
     rateLimiter: createRateLimiter({ counter: rateCounter, clock }),
     piiTokenizer,
+
+    caseTokens: caseTokenResolver(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,

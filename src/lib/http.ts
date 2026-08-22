@@ -193,6 +193,25 @@ export class BadRequestError extends AppError {
 }
 
 /**
+ * 그 주소로 열리는 사건이 없다.
+ *
+ * 08-16-errors.md §3 — 404.
+ *
+ * **모양이 틀린 것(400)과 다릅니다.** 이쪽은 「26자 규격은 맞는데 그런 사건이
+ * 없다」이고, 저쪽은 「26자가 아니거나 허용 문자가 아니다」입니다.
+ *
+ * ⚠️ **왜 「없다」와 「남의 것이다」를 구분하지 않나** — 링크 토큰이 사실상
+ * 비밀번호라(ADR-021 · ADR-039), 둘을 구분해 답하면 **존재 여부가 새어
+ * 나갑니다.** 찍어 보는 쪽에 「이 주소는 실재한다」를 알려 주는 셈입니다.
+ *
+ * ⚠️ **detail 에 토큰을 담지 않습니다.** 이 오류는 감사 기록으로 갑니다.
+ */
+export class CaseNotFoundError extends AppError {
+  readonly code: string = 'CASE_NOT_FOUND'
+  readonly httpStatus: number = 404
+}
+
+/**
  * 인증 없이 관리자·크론 경로에 왔다 → 08-14-api.md §5.1.
  *
  * *"`/api/admin/` 아래 모든 경로에 인증을 겁니다. 인증 없이 접근하면 `401` 입니다."*

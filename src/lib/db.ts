@@ -42,11 +42,26 @@ export type Sql = ReturnType<typeof postgres>
  *
  * 자원 하나가 없다고 서버가 안 뜨면 붙어 있는 것도 못 씁니다 → `container.ts`.
  */
+/**
+ * 이미 만든 연결을 접속 문자열마다 하나씩 들고 있습니다.
+ *
+ * **부르는 자리가 여럿이라 필요합니다** — 포트 셋과 링크 토큰 조회가 각각
+ * 부르는데, 그때마다 새로 만들면 요청 하나가 연결을 넷 쥡니다. 연결 모으는
+ * 곳이 먼저 막히는 것이 그런 식입니다.
+ *
+ * 모듈 범위에 두는 것이 서버 함수에서 맞습니다 — 같은 인스턴스가 다음 요청을
+ * 받으면 연결을 다시 안 엽니다.
+ */
+const pool = new Map<string, Sql>()
+
 export function createSql(env: Env): Sql | null {
   const url = env.values.DATABASE_URL
   if (!url) return null
 
-  return postgres(url, {
+  const existing = pool.get(url)
+  if (existing) return existing
+
+  const made = postgres(url, {
     // pooler 가 준비된 구문(prepared statement)을 지원하지 않습니다
     prepare: false,
     // 함수 하나가 연결을 여럿 쥐면 동시 요청이 늘 때 pooler 가 먼저 막힙니다
@@ -56,6 +71,9 @@ export function createSql(env: Env): Sql | null {
     // ⚠️ **쿼리 내용을 로그로 내보내지 않습니다.** 사건 데이터가 지나갑니다
     onnotice: () => {},
   })
+
+  pool.set(url, made)
+  return made
 }
 
 /**

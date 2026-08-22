@@ -1,5 +1,5 @@
 /**
- * 속도 제한 — 정본 §1.3 의 다섯 줄을 코드로.
+ * 속도 제한 — 정본 §1.3 의 일곱 줄을 코드로.
  *
  * 정본: spec/common/08-14-api.md §1.3 · spec/backend/08-16-errors.md §3.1
  *
@@ -48,8 +48,8 @@ import { RateLimitedError } from './errors'
 /** 무엇을 기준으로 세는가 */
 export type RateScope = 'case' | 'session' | 'ip'
 
-/** 정본 §1.3 표의 다섯 줄 중 **창(window)으로 세는 넷** */
-export type RateBucket = 'chat' | 'slot' | 'caseCreate' | 'read'
+/** 정본 §1.3 표의 일곱 줄 중 **창(window)으로 세는 다섯** */
+export type RateBucket = 'chat' | 'slot' | 'vault' | 'caseCreate' | 'read' | 'notFound'
 
 export interface RateRule {
   readonly bucket: RateBucket
@@ -67,7 +67,7 @@ const HOUR = 60 * MINUTE
 /**
  * 정본 §1.3 의 표. **여기 값을 코드 다른 곳에 다시 적지 않습니다.**
  *
- * 다섯째 줄(증거 업로드)은 창이 아니라 누적 총량이라 아래 따로 있습니다.
+ * 증거 업로드는 창이 아니라 누적 총량이라 아래 따로 있습니다.
  */
 export const RATE_RULES = {
   // 사람이 읽고 답하는 속도의 몇 배입니다. LLM 호출이라 가장 비쌉니다
@@ -82,8 +82,26 @@ export const RATE_RULES = {
     windowMs: HOUR,
     what: '사건 생성',
   },
+  // 값을 쓰기 직전마다 도니 슬롯과 같은 급입니다
+  vault: { bucket: 'vault', scope: 'case', limit: 60, windowMs: MINUTE, what: '매핑 맡기기' },
   // 폴링(§3.3)이 여기 포함됩니다
   read: { bucket: 'read', scope: 'session', limit: 300, windowMs: MINUTE, what: '그 외 조회' },
+  /**
+   * **열거 방어** → ADR-039 ④.
+   *
+   * 링크 토큰이 사실상 비밀번호라(ADR-021), 없는 사건을 계속 찔러 보는 것이
+   * 유일한 공격 경로입니다. **IP 로 세는 이유**는 나머지 카운터가 전부
+   * 사건당인데, 매번 다른 사건을 부르는 공격에는 그게 무의미하기 때문입니다.
+   *
+   * 정상 사용자는 404 를 거의 만들지 않습니다 — 자기 링크를 쓰니까요.
+   */
+  notFound: {
+    bucket: 'notFound',
+    scope: 'ip',
+    limit: 10,
+    windowMs: MINUTE,
+    what: '사건 조회 실패',
+  },
 } as const satisfies Record<RateBucket, RateRule>
 
 /**

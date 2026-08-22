@@ -172,9 +172,18 @@ describe('사건을 만든다 — §3.1', () => {
     const body = (await res.json()) as Record<string, unknown>
 
     expect(Object.keys(body).sort()).toEqual(
-      ['case_id', 'opened_at', 'plan', 'status', 'track'].sort(),
+      ['case_id', 'link_token', 'opened_at', 'plan', 'status', 'track'].sort(),
     )
     expect(body.track).toBe('victim')
+
+    // **주소에 실리는 값이 응답에 있어야 합니다** → ADR-039.
+    // 없으면 클라이언트가 §3.2 부터를 못 부릅니다 — 경로가 `{case_token}` 인데
+    // 그 값을 받을 자리가 여기뿐입니다
+    expect(typeof body.link_token).toBe('string')
+    expect(String(body.link_token)).toHaveLength(26)
+    // **`case_id` 와 달라야 합니다.** 같으면 ADR-039 가 막으려던 것이 그대로입니다 —
+    // ULID 는 앞 10자가 생성 시각이라 이웃 사건을 좁혀 찔러볼 수 있습니다
+    expect(body.link_token).not.toBe(body.case_id)
     // 09-data-model.md §2 — 사건은 접수 상태로 시작합니다
     expect(body.status).toBe('intake')
     // 시간대를 포함합니다 → §1. 기한이 날짜 경계에 걸리면 하루가 어긋납니다

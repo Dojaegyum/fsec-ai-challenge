@@ -86,6 +86,10 @@ export async function POST(request: Request) {
         status: 201,
         body: {
           case_id: opened.caseId,
+          // **주소에 실리는 값입니다** → ADR-039 · §3.1.
+          // 이게 없으면 클라이언트가 다음 요청을 못 보냅니다 — §3.2 부터
+          // 경로가 `{case_token}` 인데 그 값을 받을 자리가 여기뿐입니다
+          link_token: opened.linkToken,
           track: opened.track,
           status: opened.status,
           opened_at: opened.openedAt,
