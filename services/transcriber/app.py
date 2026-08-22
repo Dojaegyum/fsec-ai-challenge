@@ -49,6 +49,9 @@ _lock = threading.Lock()
 _stt = None
 _ocr = None
 
+# 미리 올리기가 끝났나. 배포에서 「받을 준비가 됐나」를 이걸로 봅니다
+_ready = False
+
 
 def stt():
     global _stt
@@ -64,6 +67,35 @@ def ocr():
         if _ocr is None:
             _ocr = build_ocr(cfg)
         return _ocr
+
+
+def _warm() -> None:
+    """모델을 미리 올려 둡니다.
+
+    **첫 요청이 20초 더 걸리는 것을 없애려는 것뿐입니다.** 게으르게 올려도
+    동작은 같습니다. 배포판에서 켜는 이유는 첫 사용자가 그 20초를 안 맞게
+    하려는 것입니다 → `FINALLY_WARMUP`.
+    """
+    global _ready
+    try:
+        if not cfg.is_echo:
+            stt()
+            ocr()
+        _ready = True
+        log.info("모델 적재 완료")
+    except Exception:
+        # ⚠️ **여기서 죽이지 않습니다.** 미리 올리기가 실패해도 요청이 오면
+        # 다시 시도합니다. 시작을 못 하게 만들 이유가 없습니다
+        log.exception("미리 올리기 실패 — 요청이 오면 다시 시도합니다")
+
+
+@app.on_event("startup")
+def _on_startup() -> None:
+    if os.environ.get("FINALLY_WARMUP") == "1":
+        threading.Thread(target=_warm, name="warmup", daemon=True).start()
+    else:
+        global _ready
+        _ready = True
 
 
 class JobRequest(BaseModel):
@@ -160,6 +192,8 @@ def health() -> dict[str, Any]:
         "compute_type": cfg.compute_type,
         "echo": cfg.is_echo,
         "authenticated": cfg.token is not None,
+        # 미리 올리기를 켰으면 끝나야 True. 배포 상태검사가 이걸 기다립니다
+        "ready": _ready,
     }
 
 

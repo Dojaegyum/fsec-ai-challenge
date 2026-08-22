@@ -1,0 +1,12 @@
+# 이미지에 안 들어가는 것. **넣으면 빌드가 몇 분 느려집니다** —
+# .venv 하나가 2GB 라 복사와 권한 변경에서 시간이 다 갑니다
+.venv/
+__pycache__/
+**/__pycache__/
+.work/
+.env
+Dockerfile
+compose.yaml
+Caddyfile
+bootstrap.sh
+README.md
