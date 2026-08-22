@@ -1,0 +1,6 @@
+# 실측이 고른 조합 → docs/research/09 R-5 · docs/research/11 R-2
+faster-whisper>=1.1
+easyocr>=1.7
+
+# ⬜ 화자 분리는 아직 후보가 없습니다. 두 실측 어디에도 없습니다
+# ⬜ 개인정보 탐지(gemma3:4b)는 Ollama 로 따로 돕니다 — 여기 의존성이 아닙니다
