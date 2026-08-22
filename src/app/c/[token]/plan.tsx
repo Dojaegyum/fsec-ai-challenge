@@ -185,11 +185,15 @@ export default function PlanView() {
                 } ${tone === "na" ? "opacity-50" : ""}`}
               >
                 {/* 순번이 있으면 숫자, 없으면 상태 글리프. **한 칸만 씁니다** —
-                    두 칸으로 나누면 어느 쪽이 순서인지가 더 헷갈립니다 */}
+                    두 칸으로 나누면 어느 쪽이 순서인지가 더 헷갈립니다.
+
+                    ⚠️ 순번일 때는 **읽히는 글자**입니다 — `aria-hidden` 으로 덮어
+                    12.5px 하한을 피하지 마세요. 21px/11px 이던 것을 24px/12.5px 로
+                    올렸습니다 (ADR-032) */}
                 <span
                   {...(order === null ? { "aria-hidden": true } : {})}
                   data-numeric={order === null ? undefined : true}
-                  className={`grid size-[21px] shrink-0 place-items-center rounded-full border text-[11px] font-[700] ${mark.cls}`}
+                  className={`grid size-[24px] shrink-0 place-items-center rounded-full border text-[12.5px] font-[700] ${mark.cls}`}
                 >
                   {order === null ? mark.glyph : order}
                 </span>

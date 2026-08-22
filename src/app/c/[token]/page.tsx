@@ -378,7 +378,12 @@ export default function CaseScreen() {
       </div>
 
       {/* 개발용 축 스위치 — 제품이 아닙니다. 서버 시그널이 붙으면 통째로 지웁니다.
-          화면 흐름을 가리지 않도록 오른쪽 아래에 떠 있게 두고, `?view=` 로도 받습니다 */}
+          화면 흐름을 가리지 않도록 오른쪽 아래에 떠 있게 두고, `?view=` 로도 받습니다.
+
+          ⚠️ **프로덕션 빌드에서는 렌더하지 않습니다.** 「제품이 아니다」라고 주석만
+          달아 두고 조건 없이 그리고 있어서, **심사위원 화면에 그대로 떴습니다.**
+          `?view=` 는 남겨 둡니다 — 화면이 없어질 뿐 시연·스크린샷 경로는 필요합니다 */}
+      {process.env.NODE_ENV !== "production" && (
       <div className="pointer-events-auto fixed bottom-3 right-3 z-50 flex items-center gap-1 rounded-full border border-hairline bg-stage/90 px-1.5 py-1 text-[12.5px] backdrop-blur">
         <span className="px-1.5 text-icon">dev</span>
         {DEV_VIEWS.map(([id, label]) => (
@@ -406,6 +411,7 @@ export default function CaseScreen() {
           {atWork ? "사건파일" : "WS"}
         </button>
       </div>
+      )}
 
       {/* 나가는 본문의 유령 — 새 본문과 **겹쳐** 지나갑니다.
           바깥 겹은 반드시 있어야 합니다: 유령이 기울고 늘어나며 화면 밖으로 나가는데,

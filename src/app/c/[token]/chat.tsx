@@ -115,12 +115,15 @@ export default function ChatView({
           placeholder={atWork ? "무엇이든 물어보세요" : "직접 적으셔도 됩니다"}
           className="min-h-[52px] flex-1 bg-transparent text-[14.5px] text-ink-1 placeholder:text-ink-4 focus:outline-none"
         />
+        {/* 원은 30px 그대로 두고 **히트 영역만** 44px 로 넓힙니다 — 크기를 키우면
+            컴포저 밀도가 무너집니다 → design-system/08-16-components.md 「칩과 터치 목표」 */}
         <button
           type="button"
+          data-hit
           aria-label="보내기"
           className="grid size-[30px] shrink-0 place-items-center rounded-full bg-ink-1 text-[14px] font-bold text-ground"
         >
-          ↑
+          <span aria-hidden>↑</span>
         </button>
       </div>
     </div>
@@ -217,17 +220,20 @@ export function MiniChat() {
         </p>
       </div>
       <div className="mt-2.5 flex items-center gap-2 rounded-[12px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-3 shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
+        {/* 입력칸은 히트 영역이 아니라 **실제 높이**가 44px 여야 합니다 —
+            눌러서 끝이 아니라 그 안에 커서를 두고 타이핑하는 자리입니다 */}
         <input
           aria-label="대응 비서에게 묻기"
           placeholder="무엇이든 물어보세요"
-          className="min-h-[42px] min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none"
+          className="min-h-[var(--size-touch)] min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none"
         />
         <button
           type="button"
+          data-hit
           aria-label="보내기"
           className="grid size-[26px] shrink-0 place-items-center rounded-full bg-ink-1 text-[12px] font-bold text-ground"
         >
-          ↑
+          <span aria-hidden>↑</span>
         </button>
       </div>
     </div>
