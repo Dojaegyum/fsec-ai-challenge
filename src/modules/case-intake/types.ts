@@ -22,7 +22,19 @@ export type IngestStatus = 'pending' | 'processing' | 'done' | 'failed'
 
 /** 08-14-api.md §3.1 의 응답. 플랜은 여기 없습니다 — 붙이는 것은 부른 쪽입니다 */
 export interface OpenedCase {
+  /** 내부 식별자(ULID). **URL 에 쓰지 않습니다** → ADR-039 */
   readonly caseId: string
+  /**
+   * 주소에 실리는 값 → ADR-039.
+   *
+   * **`caseId` 에서 파생하지 않습니다.** ULID 는 앞 10자가 생성 시각이라,
+   * 그대로 주소에 쓰면 하나를 아는 사람이 이웃 사건을 좁혀서 찔러볼 수
+   * 있습니다. 계정이 없어 주소를 아는 사람이 곧 주인입니다(ADR-021).
+   *
+   * ⚠️ **`caseId` 와 규격이 같습니다**(26자 Crockford Base32). 형식으로는
+   * 못 가르니 코드에서 섞지 마세요 — 어느 사건인지는 조회로 답합니다.
+   */
+  readonly linkToken: string
   readonly track: Track
   readonly status: CaseStatus
   /** ISO 8601 · Asia/Seoul */
@@ -89,6 +101,18 @@ export interface IntakeLimits {
  */
 export interface IdSource {
   /** `CHAR(26)` ULID */
+  next(): string
+}
+
+/**
+ * 링크 토큰 발급기 → ADR-039.
+ *
+ * `IdSource` 와 따로 두는 이유는 **둘의 요구가 다르기 때문**입니다.
+ * `case_id` 는 정렬돼야 하고, 링크 토큰은 **추측이 안 돼야** 합니다.
+ * 하나로 묶으면 어느 쪽 성질이 필요한지가 부르는 자리에서 안 보입니다.
+ */
+export interface LinkTokenSource {
+  /** `CHAR(26)` Crockford Base32 · CSPRNG 128비트 */
   next(): string
 }
 

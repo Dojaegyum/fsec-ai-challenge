@@ -56,5 +56,49 @@ export function isUlid(value: string): boolean {
   return true
 }
 
+/**
+ * 링크 토큰의 길이. **ULID 와 같은 26자입니다** → ADR-039 ②.
+ *
+ * 같은 이유로 `isUlid` 가 링크 토큰도 통과시킵니다. 형식으로는 둘을 못 가릅니다.
+ */
+export const LINK_TOKEN_LENGTH = 26
+
+/**
+ * 사건을 여는 주소에 들어가는 값 → ADR-039.
+ *
+ * **`case_id` 에서 파생하지 않습니다.** ULID 는 앞 10자가 생성 시각이라, 그대로
+ * 주소에 쓰면 하나를 아는 사람이 비슷한 시각의 사건을 좁혀서 찔러볼 수 있습니다.
+ * 계정이 없어 주소를 아는 사람이 곧 주인이므로(ADR-021) 이 값이 사실상
+ * 비밀번호입니다 — 따로 뽑은 난수여야 합니다.
+ *
+ * 규격: **CSPRNG 128비트 · Crockford Base32 · 26자** (09-data-model.md §4).
+ * 글자마다 32값을 고르게 쓰므로 26자에 130비트가 실립니다 — 요구치를 넘습니다.
+ * (`byte % 32` 에 치우침이 없는 이유는 256 이 32 로 나누어떨어지기 때문입니다.)
+ */
+export function newLinkToken(): string {
+  const bytes = randomBytes(LINK_TOKEN_LENGTH)
+  let out = ''
+  for (const byte of bytes) out += ALPHABET[byte % 32]
+  return out
+}
+
+/**
+ * 26자이고 허용 문자만 있는가.
+ *
+ * ⚠️ **이것으로 링크 토큰과 `case_id` 를 가를 수 없습니다.** 규격이 같아서
+ * `isUlid` 와 결과가 언제나 같습니다. 이 함수는 **저장소를 두드리기 전에
+ * 명백한 쓰레기를 걸러내는 용도**일 뿐이고, 「이 값이 어느 사건인가」는
+ * 반드시 조회로 답해야 합니다 → `CaseTokenResolver`.
+ *
+ * 이름을 따로 둔 이유는 부르는 쪽의 의도를 드러내려는 것입니다 — ADR-039 가
+ * *"이름이 함정이면 이름을 고칩니다"* 로 기각한 것이 그 반대 경우입니다.
+ */
+export function isTokenShaped(value: string): boolean {
+  return isUlid(value)
+}
+
 /** `case-intake` 의 `IdSource` · `audit-logger` 의 `newId` 자리에 그대로 들어갑니다 */
 export const ulidSource = { next: () => newUlid() }
+
+/** `case-intake` 의 `LinkTokenSource` 자리에 그대로 들어갑니다 */
+export const linkTokenSource = { next: () => newLinkToken() }

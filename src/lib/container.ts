@@ -29,10 +29,16 @@ import 'server-only'
 import { asAuditSink, asKbSource, asRetryJudge } from './adapters'
 import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
-import { ulidSource } from './ids'
+import { linkTokenSource, ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
 import { createQuestionSource } from './questions'
+import {
+  createAuditStore,
+  createCaseStore,
+  createKbStore,
+  createSql,
+} from './db'
 import { createMediaReader } from './storage'
 import {
   createMemoryRateCounter,
@@ -207,10 +213,15 @@ export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
 
+  // 접속 정보가 있으면 실제 저장소에 붙습니다 → db.ts.
+  // **연결을 여기서 한 번만 만듭니다** — 포트마다 만들면 요청 하나가
+  // 연결을 여럿 쥐고, 연결 모으는 곳이 먼저 막힙니다
+  const sql = createSql(env)
+
   return {
-    caseStore: unconfigured('CaseStore', db),
-    kbStore: unconfigured('KbStore', db),
-    auditStore: unconfigured('AuditStore', db),
+    caseStore: sql ? createCaseStore(sql) : unconfigured('CaseStore', db),
+    kbStore: sql ? createKbStore(sql) : unconfigured('KbStore', db),
+    auditStore: sql ? createAuditStore(sql) : unconfigured('AuditStore', db),
     purgeCaseStore: unconfigured('PurgeCaseStore', db),
     reminderSource: unconfigured('ReminderSource', db),
     casePlan: unconfigured('CasePlanStore', db),
@@ -309,6 +320,9 @@ export function createContainer(
 
     caseIntake: createCaseIntake({
       ids: ulidSource,
+      // **`ids` 와 따로입니다.** ULID 는 앞 10자가 생성 시각이라 주소에 쓰면
+      // 이웃 사건을 좁혀 찔러볼 수 있습니다 → ADR-039
+      linkTokens: linkTokenSource,
       clock,
       // date-checker 의 addDays — 보관 기한은 법정 기한이 아닙니다
       dates: dateChecker,

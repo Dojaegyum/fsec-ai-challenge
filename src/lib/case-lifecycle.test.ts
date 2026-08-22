@@ -122,6 +122,7 @@ describe('사건 하나가 접수부터 파기까지 이어진다', () => {
     // ── 1. 접수 ─────────────────────────────────────────────
     const intake = createCaseIntake({
       ids: { next: () => 'CASE01' },
+      linkTokens: { next: () => 'TOKEN01' },
       clock: { now: () => NOW, today: () => TODAY },
       dates: createDateChecker({
         holidays: { isPublicHoliday: () => false },

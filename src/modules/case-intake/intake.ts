@@ -18,6 +18,7 @@ import type {
   EvidenceKind,
   EvidenceRequest,
   IdSource,
+  LinkTokenSource,
   IngestStatus,
   IntakeLimits,
   OpenedCase,
@@ -52,6 +53,13 @@ export const DEFAULT_PURGE_DAYS = 180
 
 export function createCaseIntake(deps: {
   ids: IdSource
+  /**
+   * 링크 토큰 발급기 → ADR-039.
+   *
+   * **`ids` 로 대신하지 마세요.** ULID 는 앞 10자가 생성 시각이라 주소에
+   * 쓰면 이웃 사건을 좁혀 찔러볼 수 있습니다.
+   */
+  linkTokens: LinkTokenSource
   clock: Clock
   dates: DateShifter
   store: CaseStore
@@ -59,7 +67,7 @@ export function createCaseIntake(deps: {
   limits?: IntakeLimits
   purgeDays?: number
 }): CaseIntake {
-  const { ids, clock, dates, store, uploads } = deps
+  const { ids, linkTokens, clock, dates, store, uploads } = deps
   const limits = deps.limits ?? DEFAULT_LIMITS
   const purgeDays = deps.purgeDays ?? DEFAULT_PURGE_DAYS
 
@@ -73,6 +81,7 @@ export function createCaseIntake(deps: {
 
     return {
       caseId: ids.next(),
+      linkToken: linkTokens.next(),
       track: input.track,
       // 09-data-model.md §2 의 기본값. 사건은 접수 상태로 시작합니다
       status: 'intake',

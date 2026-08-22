@@ -20,6 +20,7 @@ export type {
   EvidenceRow,
   EvidenceTotals,
   IdSource,
+  LinkTokenSource,
   IngestStatus,
   IntakeLimits,
   OpenedCase,
