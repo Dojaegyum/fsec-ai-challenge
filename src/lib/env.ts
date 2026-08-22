@@ -28,6 +28,8 @@ export const ENV_KEYS = [
   'KB_FETCH_CRON',
   'TRANSCRIBER_URL',
   'TRANSCRIBER_TOKEN',
+  // 지금 쓰는 KB 릴리스 → ADR-045. 비면 안내를 만들지 않습니다
+  'KB_VERSION',
 ] as const
 
 export type EnvKey = (typeof ENV_KEYS)[number]

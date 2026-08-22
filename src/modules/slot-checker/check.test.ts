@@ -28,6 +28,8 @@ const questions: QuestionSource = {
         return { input: 'text', text: '어느 기관인가요?' }
       case 'amount':
         return { input: 'amount', text: '얼마를 보내셨나요?' }
+      case 'amount_hint':
+        return { input: 'buttons', text: '대략 어느 정도였나요?', options: ['100만원 미만'] }
       case 'occurred_at':
         return { input: 'date', text: '언제 보내셨나요?' }
       default:
@@ -122,6 +124,44 @@ describe('질문은 한 번에 하나, T1 부터', () => {
     ).toBe('occurred_at')
   })
 
+  it('금액 구간은 정확한 액수를 「모름」으로 답했을 때만 묻는다', () => {
+    // 짝을 이루는 슬롯입니다 → 08-16-data-model.md §5.1.
+    // **아는 것을 두 번 묻지 않습니다** — 숫자를 받았거나 이체내역에서 뽑았으면
+    // 구간은 물을 이유가 없습니다
+    const base = [
+      slot('transferred', 'confirmed'),
+      slot('channel', 'confirmed'),
+      slot('org_name', 'confirmed', 'T2'),
+    ]
+
+    expect(
+      checker.check({ slots: [...base, slot('amount', 'unknown', 'T2')] })
+        .nextQuestion?.slotKey,
+    ).toBe('amount_hint')
+
+    expect(
+      checker.check({ slots: [...base, slot('amount', 'confirmed', 'T2')] })
+        .nextQuestion?.slotKey,
+    ).toBe('occurred_at')
+
+    expect(
+      checker.check({ slots: [...base, slot('amount', 'extracted', 'T2')] })
+        .nextQuestion?.slotKey,
+    ).toBe('occurred_at')
+  })
+
+  it('정확한 액수를 아직 묻지도 않았으면 구간이 먼저 나오지 않는다', () => {
+    const result = checker.check({
+      slots: [
+        slot('transferred', 'confirmed'),
+        slot('channel', 'confirmed'),
+        slot('org_name', 'confirmed', 'T2'),
+      ],
+    })
+
+    expect(result.nextQuestion?.slotKey).toBe('amount')
+  })
+
   it('「모름」으로 답한 슬롯은 다시 묻지 않는다', () => {
     const result = checker.check({
       slots: [slot('transferred', 'unknown'), slot('channel', 'confirmed')],
@@ -161,6 +201,9 @@ describe('질문은 한 번에 하나, T1 부터', () => {
         slot('channel', 'unknown'),
         slot('org_name', 'unknown', 'T2'),
         slot('amount', 'unknown', 'T2'),
+        // 금액을 「모름」으로 답하면 구간이 대신 나오므로, 그것까지 「모름」이어야
+        // 비로소 물을 것이 없습니다 → 08-16-data-model.md §5.1
+        slot('amount_hint', 'unknown', 'T2'),
         slot('occurred_at', 'unknown', 'T2'),
       ],
     })

@@ -6,7 +6,7 @@
  */
 
 export { maskText, assertNoLeak } from "./mask";
-export { findHits, passesLuhn } from "./patterns";
+export { findHits, foldForDetection, passesLuhn } from "./patterns";
 export type {
   Hit,
   MaskContext,

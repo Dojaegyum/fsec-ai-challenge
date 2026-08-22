@@ -18,6 +18,8 @@ export type SlotKey =
   | 'channel'
   | 'org_name'
   | 'amount'
+  /** 금액 구간. `amount` 를 「모름」으로 답했을 때만 묻습니다 → 08-16-data-model.md §5.1 */
+  | 'amount_hint'
   | 'occurred_at'
   | 'elapsed_hint'
   | 'contact_method'

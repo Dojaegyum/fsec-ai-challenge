@@ -14,7 +14,8 @@ import {
   RateLimitedError,
   SlotNotConfirmedError,
 } from './errors'
-import { BadRequestError, fail, ok, readJson } from './http'
+import { BadRequestError, fail, ok, readJson, readJsonObject } from './http'
+import { TELEMETRY_HEADER_NAMES } from './telemetry'
 
 describe('계측 헤더 — 08-14-api.md §1.1', () => {
   it('토큰 건수를 유형별로 적는다', async () => {
@@ -40,6 +41,48 @@ describe('계측 헤더 — 08-14-api.md §1.1', () => {
     const res = ok({}, { telemetry: { piiTokenCounts: { account: 1 } } })
 
     expect(res.headers.get('X-Pii-Token-Count')).not.toContain('110-234')
+  })
+
+  it('넷은 성공이든 실패든 함께 나간다', async () => {
+    for (const res of [ok({}), fail(new EgressBlockedError('잔여'))]) {
+      for (const name of TELEMETRY_HEADER_NAMES) {
+        expect(res.headers.has(name), name).toBe(true)
+      }
+    }
+  })
+})
+
+describe('송출을 막은 응답은 잔여를 0 이라 말하지 않는다 — §6 (1)', () => {
+  it('detail 의 건수를 헤더로 옮긴다', async () => {
+    // 정본 예시가 이 응답에 X-Pii-Egress-Residual: 1 을 못 박았습니다.
+    // 던지는 자리(chat-publisher)는 건수를 detail.counts 에만 싣습니다
+    const res = fail(new EgressBlockedError('잔여 발견', { counts: { resident_id: 1 } }))
+
+    expect(res.status).toBe(422)
+    expect(res.headers.get('X-Pii-Egress-Residual')).toBe('1')
+  })
+
+  it('유형이 여럿이면 합계를 낸다', async () => {
+    const res = fail(
+      new EgressBlockedError('잔여 발견', { counts: { account: 2, name: 1 } }),
+    )
+
+    expect(res.headers.get('X-Pii-Egress-Residual')).toBe('3')
+  })
+
+  it('유형 이름을 헤더에 담지 않는다', async () => {
+    // 이 헤더는 건수만 담습니다 → §1.1
+    const res = fail(
+      new EgressBlockedError('잔여 발견', { counts: { resident_id: 1 } }),
+    )
+
+    expect(res.headers.get('X-Pii-Egress-Residual')).not.toContain('resident_id')
+  })
+
+  it('다른 예외의 detail 은 건드리지 않는다', async () => {
+    const res = fail(new KbUnavailableError('조회 실패', { counts: { x: 9 } }))
+
+    expect(res.headers.get('X-Pii-Egress-Residual')).toBe('0')
   })
 })
 
@@ -110,6 +153,29 @@ describe('Retry-After — 08-16-errors.md §3.1', () => {
     expect(res.status).toBe(409)
     expect(res.headers.get('Retry-After')).toBeNull()
   })
+
+  it('던진 쪽이 detail 에 실어 보내면 그것도 쓴다', async () => {
+    // 라우트가 예외를 풀어 보고 다시 넣지 않아도 헤더가 빠지지 않아야 합니다
+    const res = fail(new RateLimitedError('상한 초과', { retryAfterSeconds: 17 }))
+
+    expect(res.headers.get('Retry-After')).toBe('17')
+  })
+
+  it('창이 없는 429 에는 숫자를 지어내지 않는다', async () => {
+    // 증거 업로드 상한(사건당 30개·300MB)은 사건이 사는 동안의 누적이라
+    // 남은 창이라는 개념이 없습니다 — 기다려도 풀리지 않습니다.
+    // ⬜ 정본 §3.1 은 429 에 붙이라고만 하고 이 경우의 값을 안 정했습니다
+    const res = fail(
+      new RateLimitedError('사건당 파일 수 상한을 넘었습니다: 30개', {
+        caseId: '01J8XKQZ',
+        limit: 30,
+        current: 30,
+      }),
+    )
+
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBeNull()
+  })
 })
 
 describe('요청 본문 읽기', () => {
@@ -119,6 +185,38 @@ describe('요청 본문 읽기', () => {
     await expect(readJson<{ track: string }>(req)).resolves.toEqual({
       track: 'victim',
     })
+  })
+
+  it('JSON 으로 유효해도 객체가 아니면 400 이다', async () => {
+    // `null` 은 파싱을 통과합니다. 그걸 객체로 알고 칸을 읽으면 터지고,
+    // 잘못된 요청인데 500 이 나가 서버 잘못으로 보입니다
+    for (const body of ['null', '7', '"victim"', '[]', 'true']) {
+      const req = new Request('http://x/', { method: 'POST', body })
+
+      await expect(readJsonObject(req), body).rejects.toBeInstanceOf(BadRequestError)
+    }
+  })
+
+  it('객체는 그대로 읽는다', async () => {
+    const req = new Request('http://x/', { method: 'POST', body: '{"track":"victim"}' })
+
+    await expect(readJsonObject<{ track: string }>(req)).resolves.toEqual({
+      track: 'victim',
+    })
+  })
+
+  it('받은 값을 detail 에 담지 않는다', async () => {
+    // 감사 로그로 흘러가는 자리입니다 → 09-data-model.md §10.1
+    const req = new Request('http://x/', { method: 'POST', body: '"110-234-567890"' })
+
+    let detail: Record<string, unknown> = {}
+    try {
+      await readJsonObject(req)
+    } catch (error) {
+      detail = (error as BadRequestError).detail
+    }
+
+    expect(JSON.stringify(detail)).not.toContain('110-234')
   })
 
   it('깨진 본문은 400 이다 — 500 이 아니다', async () => {

@@ -10,48 +10,16 @@
 
 import 'server-only'
 
-import { AppError, userMessageFor } from './errors'
+import { AppError, EgressBlockedError, userMessageFor } from './errors'
+import { telemetryHeaders, type Telemetry } from './telemetry'
 
 /**
- * 계측 헤더 → 08-14-api.md §1.1.
+ * 계측 헤더의 정의와 표기는 [telemetry.ts](./telemetry.ts) 로 옮겼습니다.
  *
- * **모든 응답에 붙습니다.** 개인정보 보호가 작동한다는 것을 응답 자체가 증명합니다
- * → 04-pii-boundary.md *"작동할 뿐 아니라 보여야 합니다"*.
- *
- * **건수만 담습니다. 값을 담지 않습니다.**
+ * **한 곳에서만 찍습니다.** 08-14-api.md §1.1 이 *"모든 응답에 붙습니다"* 인데,
+ * 붙이는 자리가 둘이면 한쪽만 고쳐져 조건부로 되돌아갑니다.
  */
-export interface Telemetry {
-  /** 유형별 토큰화 건수. `{ account: 1, name: 2 }` → `account=1;name=2` */
-  readonly piiTokenCounts?: Readonly<Record<string, number>>
-  /** 송출 직전 잔여 건수. 정상은 `0` */
-  readonly piiEgressResidual?: number
-  /** 이 응답이 인용한 KB 버전 */
-  readonly kbVersion?: string
-  /** 감사 로그 식별자 */
-  readonly auditId?: string
-}
-
-/** `{ account: 1, name: 2 }` → `account=1;name=2`. 비면 `0` 이 아니라 빈 문자열입니다 */
-function formatCounts(counts: Readonly<Record<string, number>>): string {
-  return Object.entries(counts)
-    .map(([kind, n]) => `${kind}=${n}`)
-    .join(';')
-}
-
-function telemetryHeaders(telemetry: Telemetry): Record<string, string> {
-  const headers: Record<string, string> = {}
-
-  if (telemetry.piiTokenCounts) {
-    headers['X-Pii-Token-Count'] = formatCounts(telemetry.piiTokenCounts)
-  }
-  if (telemetry.piiEgressResidual !== undefined) {
-    headers['X-Pii-Egress-Residual'] = String(telemetry.piiEgressResidual)
-  }
-  if (telemetry.kbVersion) headers['X-Kb-Version'] = telemetry.kbVersion
-  if (telemetry.auditId) headers['X-Audit-Id'] = telemetry.auditId
-
-  return headers
-}
+export type { Telemetry } from './telemetry'
 
 /** 성공 응답 하나 */
 export function ok(
@@ -93,13 +61,30 @@ export function fail(
   const code = app?.code ?? 'INTERNAL'
   const status = app?.httpStatus ?? 500
 
+  // 08-16-errors.md §5 — *"모든 에러 응답에 `audit_id` 가 붙습니다"*.
+  // 부른 쪽이 따로 주지 않았으면 이 요청이 모아 둔 계측값에서 찾습니다.
+  // 감사 기록이 아직 하나도 안 남은 요청이면 없는 채로 나갑니다
+  const auditId = init.auditId ?? init.telemetry?.auditId
+
   const headers: Record<string, string> = {
-    ...telemetryHeaders({ ...init.telemetry, auditId: init.auditId }),
+    ...telemetryHeaders({
+      ...init.telemetry,
+      auditId,
+      // 송출을 막은 응답은 잔여가 **0 이 아닙니다** → 아래
+      piiEgressResidual: init.telemetry?.piiEgressResidual ?? residualOf(app),
+    }),
   }
 
-  if (status === 429 && init.retryAfterSeconds !== undefined) {
-    // 남은 창 시간을 그대로 넣습니다 → 08-14-api.md §1.3
-    headers['Retry-After'] = String(init.retryAfterSeconds)
+  if (status === 429) {
+    // 남은 창 시간을 그대로 넣습니다 → 08-14-api.md §1.3.
+    // 던진 쪽(rate-limit.ts)이 `detail` 에 실어 보내므로 그것도 봅니다 —
+    // 라우트가 예외를 풀어 보고 다시 넣지 않아도 헤더가 빠지지 않게
+    const seconds = init.retryAfterSeconds ?? retryAfterFromDetail(app)
+    // **창이 없는 429 에는 안 붙입니다** → 08-16-errors.md §3.1 (2026-08-21 확정).
+    // 증거 업로드 상한(사건당 30개·300MB)은 창이 아니라 사건이 사는 동안의
+    // 누적이라 남은 창이라는 개념 자체가 없습니다 — 기다려도 풀리지 않습니다.
+    // 아무 숫자나 넣으면 사용자가 그 초마다 헛되이 다시 누릅니다
+    if (seconds !== undefined) headers['Retry-After'] = String(seconds)
   } else if (status === 503) {
     headers['Retry-After'] = String(RETRY_AFTER_503_SECONDS)
   }
@@ -110,11 +95,47 @@ export function fail(
         code,
         // 사용자를 탓하지 않고, 할 수 있는 다음 행동을 함께 줍니다 → §3.2
         message: userMessageFor(code),
-        ...(init.auditId ? { audit_id: init.auditId } : {}),
+        ...(auditId ? { audit_id: auditId } : {}),
       },
     },
     { status, headers },
   )
+}
+
+/** 429 를 던진 쪽이 `detail` 에 남긴 남은 창 시간 */
+function retryAfterFromDetail(app: AppError | null): number | undefined {
+  const value = app?.detail?.retryAfterSeconds
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.ceil(value)
+    : undefined
+}
+
+/**
+ * 송출을 막은 응답의 잔여 건수 → 08-16-errors.md §6 (1).
+ *
+ * 정본의 예시가 `EGRESS_BLOCKED` 422 응답에 **`X-Pii-Egress-Residual: 1`** 을
+ * 못 박았고, 같은 예시의 감사 기록이 `detail.counts = {"resident_id": 1}` 입니다.
+ * 던지는 자리(`chat-publisher`)도 건수를 `detail.counts` 에만 싣습니다.
+ *
+ * **여기서 옮기지 않으면 헤더가 거짓을 말합니다.** 잔여가 있어서 막은 응답이
+ * 「잔여 0건」으로 나가는데, §1.1 이 이 헤더를 둔 이유가 *"PII 보호가 작동한다는
+ * 것을 응답 자체가 증명"* 하는 것입니다.
+ *
+ * **유형 이름은 안 옮기고 합계만 옮깁니다** — 헤더가 건수만 담는 규칙 그대로입니다.
+ */
+function residualOf(app: AppError | null): number | undefined {
+  if (!(app instanceof EgressBlockedError)) return undefined
+
+  const counts = app.detail?.counts
+  if (counts === null || typeof counts !== 'object') return undefined
+
+  let total = 0
+  for (const value of Object.values(counts as Record<string, unknown>)) {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      total += value
+    }
+  }
+  return total > 0 ? total : undefined
 }
 
 /**
@@ -133,14 +154,56 @@ export async function readJson<T>(request: Request): Promise<T> {
 }
 
 /**
+ * 요청 본문을 **객체로** 읽는다.
+ *
+ * `readJson` 은 `as T` 로 타입을 덮어씌울 뿐이라, JSON 으로 유효한
+ * `null`·`7`·`"victim"`·`[]` 이 그대로 통과합니다. 그걸 객체로 알고 칸을 읽으면
+ * **`null` 에서 터집니다** — 잘못된 요청인데 500 이 나가고, 사용자에게는
+ * 「처리 중 문제가 발생했습니다」가 나가 서버 잘못으로 보입니다.
+ *
+ * 더 나쁜 것은 그 500 이 서버 로그에 쌓인다는 점입니다. 5xx 만 남기기로 한
+ * 이유가 *"밖에서 일부러 틀린 요청을 반복해 로그를 채울 수 있습니다"* 인데,
+ * 본문 한 글자로 그 방어가 뚫립니다 → [request.ts](./request.ts).
+ *
+ * **본문이 객체인 라우트는 이것을 씁니다.** 라우트마다 따로 막으면 열두 곳 중
+ * 한 곳을 빠뜨립니다.
+ */
+export async function readJsonObject<T extends object>(request: Request): Promise<T> {
+  const body = await readJson<unknown>(request)
+
+  // 배열도 막습니다 — 칸을 읽으면 undefined 가 나와 조용히 다른 실패가 됩니다
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw new BadRequestError('요청 본문이 객체가 아닙니다', {
+      // 받은 값을 넣지 않습니다. 무엇이 왔는지는 종류만
+      got: body === null ? 'null' : Array.isArray(body) ? 'array' : typeof body,
+    })
+  }
+
+  return body as T
+}
+
+/**
  * 요청 자체가 잘못됐다.
  *
- * ⬜ **정본의 코드 표에 `BAD_REQUEST` 가 없습니다** → 08-16-errors.md §3.
- * 표는 도메인 실패만 담고 있어 「본문이 JSON 이 아니다」 같은 것을 넣을 자리가
- * 없습니다. 사용자 문구는 `INTERNAL` 과 같은 것으로 떨어지므로 당장 새는 것은
- * 없지만, **표에 한 줄이 필요한 자리입니다.**
+ * 08-16-errors.md §3 — 400. *"요청 형식이 올바르지 않습니다."*
  */
 export class BadRequestError extends AppError {
   readonly code: string = 'BAD_REQUEST'
   readonly httpStatus: number = 400
+}
+
+/**
+ * 인증 없이 관리자·크론 경로에 왔다 → 08-14-api.md §5.1.
+ *
+ * *"`/api/admin/` 아래 모든 경로에 인증을 겁니다. 인증 없이 접근하면 `401` 입니다."*
+ *
+ * 08-16-errors.md §3 — 401.
+ *
+ * **문구가 일부러 아무것도 알려주지 않습니다.** 아이디가 틀렸는지 쿠키가 지났는지를
+ * 구분해 주면 그게 곧 힌트가 됩니다. 이 경로의 상대는 피해자가 아니라 운영자라
+ * 뭉뚱그린 문구가 피해자를 혼란시키지 않습니다.
+ */
+export class UnauthorizedError extends AppError {
+  readonly code: string = 'UNAUTHORIZED'
+  readonly httpStatus: number = 401
 }

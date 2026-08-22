@@ -284,6 +284,7 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | `channel` | T1 | 송금 수단 (8유형) | `enum` |
 | `org_name` | T2 | 기관명 | `string` |
 | `amount` | T2 | 금액 | `decimal` |
+| **`amount_hint`** | T2 | **금액 구간. `amount`를 「모름」으로 답했을 때만 묻습니다** | `string` |
 | `occurred_at` | T2 | 시각 | `datetime` |
 | `elapsed_hint` | T2 | 경과 시간 (사용자 진술) | `string` |
 | `contact_method` | T2 | 상대 연락 수단 | `string` |
@@ -295,6 +296,17 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | `objection_submitted_at` | T2 | 이의제기 제출 시각 (통장묶기) | `datetime` |
 
 **T0에는 슬롯이 없습니다.** 진입 자체로 충분합니다 → [02-slot-tiering.md](08-14-slot-tiering.md).
+
+**정확한 값과 대략의 값을 한 슬롯에 겹쳐 담지 않습니다.** `uk_case_slot`이 사건 하나에
+이름당 한 행만 허용하는데, 정확한 값과 어림값은 `value_type`이 서로 다릅니다.
+그래서 짝을 이루는 슬롯을 따로 둡니다 — `occurred_at`(`datetime`)과
+`elapsed_hint`(`string`), `amount`(`decimal`)와 `amount_hint`(`string`)입니다.
+
+**어림값 쪽은 정확한 값을 못 얻었을 때만 채웁니다.** `amount_hint`는 사용자가
+`amount`를 「모름」으로 답한 경우에만 묻습니다 — 이체내역에서 금액을 뽑았거나
+사용자가 숫자를 적었으면 묻지 않습니다. 아는 것을 두 번 묻지 않기 위한 것이고,
+판정은 [02-slot-tiering.md](08-14-slot-tiering.md)의 최소 질문 원칙에 따라
+`slot-checker`가 합니다.
 
 ### 5.2 슬롯 상태
 
@@ -946,9 +958,20 @@ CREATE INDEX idx_org_channel ON org (channel_id);
 | `channel_id` | `case_channel.channel_id` |
 | `org_id` | `case_channel.org_id` |
 | **조회 기준일** | **서버 시각 (오늘)** |
-| **`kb_version`** | **현재 릴리스** |
+| **`kb_version`** | **`KB_VERSION` 환경변수** → [ADR-045](../../decisions/045-kb-release-pin.md) |
 
 **서버가 이미 아는 것만으로 조회가 완결됩니다.** 그래서 모델에게 조건을 물어볼 이유가 없습니다.
+
+**현재 릴리스는 배포 설정이 정합니다.**
+
+> 2026-08-21 확정.
+
+「가장 최근 적재분」을 쓰지 않습니다. 적재기는 검수 중인 다음 버전을 미리 올릴 수 있고
+(RFC-002가 반영과 릴리스를 가른 이유입니다), 최신 것을 무조건 고르면 **아직 사람이 안 본 절차가
+피해자에게 나갑니다** — [07-kb-operations.md](08-14-kb-operations.md) 원칙 4가 막으려던 일입니다.
+
+**`KB_VERSION` 이 비어 있으면 안내를 만들지 않고 멈춥니다**(`KB_UNAVAILABLE`).
+근거 없는 안내보다 멈추는 편이 낫습니다.
 
 **모델이 이 필터를 우회할 방법이 없습니다.** 프롬프트에 들어간 것 외에는 볼 수 없고, 프롬프트에 없는 항목을 인용하면 §9.1의 검증에서 거부됩니다.
 
@@ -1369,6 +1392,25 @@ CREATE INDEX idx_source_change_dedupe ON source_change (dedupe_key);
 **`dedupe_key`로 같은 제도 변경을 묶습니다.** 금융위는 게시판을 넷 운영해서 같은 발표가 보도자료·보도설명자료·공지사항에 함께 올라올 수 있습니다. 본문이 달라 해시로는 안 걸립니다. **묶되 원문 스냅샷은 셋 다 남깁니다** — 근거가 여럿인 편이 낫습니다.
 
 **확신도가 낮은 판정을 자동으로 버리지 않습니다.** `impact.confidence`가 낮으면 `pending`으로 사람에게 갑니다.
+
+**`deferred`는 「아직 판단하지 않았다」입니다** → [ADR-044](../../decisions/044-review-deferral.md).
+시행일이 안 정해진 발표처럼 **지금은 판단할 수 없는 것**에 씁니다. `review_note`에 왜 미뤘는지를 남깁니다.
+
+| 지금 상태 | 다시 판단 |
+| --- | --- |
+| `pending` · `deferred` | ✅ |
+| `approved` · `rejected` | ❌ — 승인 기록을 덮으면 원칙 4를 지켰는지 확인할 수 없습니다 |
+
+**미룬 것은 큐에 안 나옵니다.** 큐는 위 문장대로 `pending`인 행이고, 미룬 것까지 담으면 「아직 안 본 것」이 묻힙니다. 따로 찾아 엽니다.
+
+### 지금 채우지 않는 칸 둘
+
+**둘 다 `NULL`로 쌓이고 있습니다.** 스키마에 자리는 있지만 넣는 곳이 없습니다.
+
+| 칼럼 | 지금 | 그래서 |
+| --- | --- | --- |
+| `snapshot_before` | 늘 `NULL` | **검수 화면이 그때 조회합니다** — 같은 `source_key`의 직전 `fetched_at`을 `idx_source_snapshot_time`으로 찾습니다. 대신 **이 행만 봐서는 「최초 수집」과 「개정」이 구분되지 않습니다** |
+| `dedupe_key` | 늘 `NULL` | 수집기는 원문만 봐서 계산할 수 없고(본문이 다릅니다), 누가 채우는지 정해지지 않았습니다. **묶기가 안 돌아 같은 발표가 여러 줄로 뜹니다** — 놓치는 쪽보다 낫다고 보고 그대로 둡니다 |
 
 ### 12.3 `source_registry` — 감시 소스와 생존 확인
 

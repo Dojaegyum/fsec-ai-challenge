@@ -63,23 +63,29 @@ export function createCaseIntake(deps: {
   const limits = deps.limits ?? DEFAULT_LIMITS
   const purgeDays = deps.purgeDays ?? DEFAULT_PURGE_DAYS
 
-  return {
-    async open(input): Promise<OpenedCase> {
-      if (!TRACKS.includes(input.track)) {
-        throw new IngestError(`track 값이 목록 밖입니다: ${input.track}`, {
-          track: input.track,
-        })
-      }
-
-      const opened: OpenedCase = {
-        caseId: ids.next(),
+  /** 값만 만듭니다. **저장하지 않습니다** → ADR-046 */
+  function draft(input: { track: Track }): OpenedCase {
+    if (!TRACKS.includes(input.track)) {
+      throw new IngestError(`track 값이 목록 밖입니다: ${input.track}`, {
         track: input.track,
-        // 09-data-model.md §2 의 기본값. 사건은 접수 상태로 시작합니다
-        status: 'intake',
-        openedAt: clock.now(),
-        purgeAfter: dates.addDays(clock.today(), purgeDays),
-      }
+      })
+    }
 
+    return {
+      caseId: ids.next(),
+      track: input.track,
+      // 09-data-model.md §2 의 기본값. 사건은 접수 상태로 시작합니다
+      status: 'intake',
+      openedAt: clock.now(),
+      purgeAfter: dates.addDays(clock.today(), purgeDays),
+    }
+  }
+
+  return {
+    draft,
+
+    async open(input): Promise<OpenedCase> {
+      const opened = draft(input)
       await store.createCase(opened)
       return opened
     },

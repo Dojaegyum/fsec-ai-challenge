@@ -14,7 +14,7 @@
  * 6. 조각 단위 신뢰도와 자리를 낸다 — 없으면 없다고 밝힌다 (ADR-038)
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { IngestError, StoreError } from '@/lib/errors'
 
