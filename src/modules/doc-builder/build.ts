@@ -55,6 +55,11 @@ function stateOf(slot: CaseSlotValue | undefined): FieldState {
   if (!slot) return 'unknown'
   // 「모름」은 값이 아닙니다. 다시 묻지도 않지만 채워진 것도 아닙니다
   if (slot.state === 'empty' || slot.state === 'unknown') return 'unknown'
+  // **개인정보인지 확인 전이면 없는 값과 같습니다** → ADR-041 · 09-data-model.md §5.2.
+  // 여기서 안 걸러내면 마지막 줄이 `'unread'` 로 떨어뜨리고 `valueMasked` 까지
+  // 실려 나갑니다 — 확인받지 않은 계좌번호가 「읽어 둔 값」으로 서류에 옮겨집니다.
+  // `slot-checker` 도 같은 이유로 이 상태를 채움에서 뺍니다(check.ts `tierStatus`)
+  if (slot.state === 'pii_pending') return 'unknown'
   // **공백만 있는 것은 값이 아닙니다.** 그냥 두면 화면이 그 칸을 「확인된 값」으로
   // 그리고, 「통장 표지에 있습니다」 같은 보조문까지 떼어 버립니다 —
   // 사용자는 이미 채워진 줄 알고 비운 채 냅니다. 필수 기재사항 누락은 반려이고

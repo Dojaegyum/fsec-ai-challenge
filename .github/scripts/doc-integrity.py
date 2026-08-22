@@ -35,7 +35,9 @@ for _stream in (sys.stdout, sys.stderr):
 # 검사하지 않는 폴더.
 #   src/       create-next-app 이 생성하고 next dev 가 다시 씁니다 (RFC-001 「src/」)
 #   archived/  읽되 갱신하지 않고 이름도 바꾸지 않습니다 (RFC-001 「assets/」)
-SKIP_DIRS = {".git", "node_modules", ".next", "src", "archived"}
+#   .venv/     services/ 의 파이썬 의존성. node_modules 와 같은 이유입니다 —
+#              남의 패키지 문서를 우리 규약으로 검사할 수 없습니다 (RFC-001 「services/」)
+SKIP_DIRS = {".git", "node_modules", ".next", "src", "archived", ".venv", "__pycache__"}
 
 # 검사하지 않는 파일.
 #   assets/artifacts/handoff/*/PR.md

@@ -253,8 +253,19 @@ export interface MediaReader {
   readUrl(objectKey: string): Promise<string>
 }
 
-/** 몇 퍼센트까지 됐나 → 08-14-api.md §3.3 `progress.percent` */
-export type ProgressSink = (percent: number) => void
+/**
+ * 읽는 도구에 물어본 결과.
+ *
+ * **기다리지 않고 물어보는 모양인 이유** — 전사는 몇 분 걸리는데 앱은 Vercel
+ * 함수 위에서 돌고 그렇게 오래 못 삽니다. 그리고 계약이 이미 폴링입니다:
+ * 업로드 완료에 `202 처리 중` 을 돌려주고 화면이 다시 물어봅니다
+ * → 08-14-api.md §3.2 3단계 · §3.3.
+ */
+export type EngineProgress =
+  | { readonly status: 'running'; readonly percent: number }
+  | { readonly status: 'done'; readonly output: EngineOutput }
+  /** **짧은 표시값입니다.** 예외 문구를 담지 않습니다 — 파일 내용이 섞여 올 수 있습니다 */
+  | { readonly status: 'failed'; readonly reason: string }
 
 /** 엔진이 낸 조각 하나. **믿지 않고 검사합니다** — 아래 `EngineLine` 참고 */
 export interface EnginePiece {
@@ -312,23 +323,30 @@ export interface SttRequest {
    * 이 모듈은 안 바뀝니다.
    */
   readonly vocabulary?: readonly string[]
-  readonly onProgress?: ProgressSink
 }
 
 export interface OcrRequest {
   readonly url: string
   readonly mimeType: string
-  readonly onProgress?: ProgressSink
 }
 
-/** 이 모듈이 밖에 요구하는 것 — 음성을 글로 옮기는 도구 */
+/**
+ * 이 모듈이 밖에 요구하는 것 — 음성을 글로 옮기는 도구.
+ *
+ * **두 걸음입니다.** 맡기고(`submit`), 나중에 물어봅니다(`poll`).
+ * 한 번에 끝나는 모양이면 앱의 함수가 전사가 끝날 때까지 살아 있어야 하는데,
+ * 그럴 수 없습니다.
+ */
 export interface SttEngine {
-  transcribe(request: SttRequest): Promise<EngineOutput>
+  /** 맡긴다. 돌려주는 것은 나중에 물어볼 때 쓸 번호뿐입니다 */
+  submit(request: SttRequest): Promise<string>
+  poll(jobId: string): Promise<EngineProgress>
 }
 
-/** 이 모듈이 밖에 요구하는 것 — 이미지에서 글자를 읽는 도구 */
+/** 이 모듈이 밖에 요구하는 것 — 이미지에서 글자를 읽는 도구. `stt` 와 같은 모양입니다 */
 export interface OcrEngine {
-  read(request: OcrRequest): Promise<EngineOutput>
+  submit(request: OcrRequest): Promise<string>
+  poll(jobId: string): Promise<EngineProgress>
 }
 
 /**
@@ -375,22 +393,54 @@ export interface TranscribeInput {
   readonly media: MediaRef
   /** 전사 모델에 미리 알려 줄 낱말들 → `SttRequest.vocabulary` */
   readonly vocabulary?: readonly string[]
-  readonly onProgress?: ProgressSink
 }
+
+/**
+ * 맡겨 둔 일 하나.
+ *
+ * **부르는 쪽이 이걸 들고 있어야 합니다.** `evidence` 한 줄에 붙여 두었다가
+ * 화면이 물어볼 때 다시 넘깁니다.
+ *
+ * ⬜ **이 값을 담을 칸이 스키마에 없습니다** → 09-data-model.md §3.
+ * `ingest_status` 는 있는데 「어느 작업인가」는 없습니다.
+ */
+export interface TranscriptionJob {
+  readonly jobId: string
+  readonly phase: IngestPhase
+  readonly kind: EvidenceKind
+}
+
+/** 맡긴 결과. **옮길 것이 없으면 맡기지 않고 바로 답합니다** */
+export type StartResult =
+  | { readonly started: true; readonly job: TranscriptionJob }
+  | { readonly started: false; readonly result: TranscribeResult }
+
+/** 물어본 결과 */
+export type CollectResult =
+  | { readonly status: 'running'; readonly phase: IngestPhase; readonly percent: number }
+  | { readonly status: 'done'; readonly result: TranscribeResult }
+  /** **에러로 올리지 않습니다** — 부르는 쪽이 `ingest_status` 를 `failed` 로 적으면 됩니다 */
+  | { readonly status: 'failed'; readonly reason: string }
 
 export interface Transcriber {
   /**
-   * 파일을 읽어 구조화된 전사를 낸다.
+   * 읽어 달라고 맡긴다. **결과를 기다리지 않습니다.**
+   *
+   * @throws IngestError 맡기는 것 자체가 실패했을 때 → 08-16-errors.md §2
+   *         (`INGEST_FAILED` · 422 · 재시도 1회 · 대기 2s).
+   * @throws AppError 도구나 저장소가 **아직 안 붙었을 때** 그대로 올립니다 —
+   *         미설정을 전사 실패로 덮지 않습니다. 아래 `TranscriberDeps.stt`.
+   */
+  start(input: TranscribeInput): Promise<StartResult>
+
+  /**
+   * 맡긴 일이 어떻게 됐는지 물어본다. 끝났으면 정리해서 낸다.
    *
    * **덜 읽힌 것으로 던지지 않습니다.** 한 줄도 못 읽어도, 화자를 못 갈라도,
    * 신뢰도를 못 받아도 결과가 나가고 `shortfalls` 에 그 사실이 실립니다
    * → CLAUDE.md 불변 규칙 5.
    *
-   * @throws IngestError 읽는 도구의 **호출 자체가 실패**했을 때. 그건 읽기 실패가
-   *         아니라 시스템 실패라 재시도 판단으로 넘어갑니다
-   *         → 08-16-errors.md §2 (`INGEST_FAILED` · 422 · 재시도 1회 · 대기 2s).
-   * @throws AppError 도구나 저장소가 **아직 안 붙었을 때** 그 예외를 그대로 올립니다.
-   *         미설정을 전사 실패로 덮지 않습니다 — 아래 `TranscriberDeps.stt`.
+   * @throws AppError 도구가 아직 안 붙었을 때. 위와 같습니다.
    */
-  transcribe(input: TranscribeInput): Promise<TranscribeResult>
+  collect(job: TranscriptionJob): Promise<CollectResult>
 }

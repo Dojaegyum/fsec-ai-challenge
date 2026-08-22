@@ -13,7 +13,10 @@
 
 BEGIN;
 
-ALTER TABLE "case" ADD COLUMN link_token CHAR(26);
+-- IF NOT EXISTS 인 이유: 이 파일이 자기를 기록하지 않던 때가 있었습니다.
+-- 그때 한 번 돌린 DB 는 칸이 이미 있는데 이력에는 없어서, 기록을 더하는
+-- 것만으로는 여전히 여기서 터집니다. 두 번째 실행이 무해해야 합니다.
+ALTER TABLE "case" ADD COLUMN IF NOT EXISTS link_token CHAR(26);
 
 -- ⚠️ 기존 행이 있으면 여기서 채운 뒤에 NOT NULL 로 올려야 합니다.
 --    대회 시점에는 실사용 사건이 없어 비어 있습니다. 행이 있는 채로 아래를
@@ -21,6 +24,11 @@ ALTER TABLE "case" ADD COLUMN link_token CHAR(26);
 --    남고 그 사건은 영영 열 수 없습니다.
 ALTER TABLE "case" ALTER COLUMN link_token SET NOT NULL;
 
-CREATE UNIQUE INDEX idx_case_link_token ON "case" (link_token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_case_link_token ON "case" (link_token);
+
+-- **자기를 기록합니다.** apply.sh 는 이 표를 읽어 건너뛸 것을 고를 뿐,
+-- 기록하지 않습니다. 이 줄이 없으면 다음 실행에서 또 적용됩니다
+INSERT INTO schema_migrations (version) VALUES ('0002_case_link_token')
+  ON CONFLICT (version) DO NOTHING;
 
 COMMIT;

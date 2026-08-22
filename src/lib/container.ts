@@ -31,7 +31,9 @@ import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
 import { ulidSource } from './ids'
 import { unconfigured } from './not-configured'
+import { createInferenceEngines } from './inference'
 import { createQuestionSource } from './questions'
+import { createMediaReader } from './storage'
 import {
   createMemoryRateCounter,
   createRateLimiter,
@@ -116,19 +118,21 @@ export interface Ports {
    * 2차 개인정보 탐지 모델. ⬜ 미선정 → ARCHITECTURE §10.
    *
    * **없어도 경계는 섭니다** — 1차 정규식이 계좌·주민번호·카드·전화를 잡습니다.
-   * 붙기 전에는 이름이 안 걸리고, 그 사실이 설정 현황에 나옵니다
-   * → 착수 기준선 「③ 에서 NER 을 기다리지 않습니다」.
+   * 그래서 부르면 터지는 대역으로 두지 않고 `null` 입니다. 붙기 전에는 이름이
+   * 안 걸리고, 그 사실이 설정 현황에 나옵니다.
+   *
+   * **완성된 토큰화기를 주입받지 않고 여기서 만듭니다** — 모듈이 있으므로
+   * 조립부가 자원(이 모델)만 받아 조립하는 편이 ADR-028 의 모양입니다.
    */
   readonly ner: NerModel | null
   /**
    * 녹음을 글로 옮기는 도구. ⬜ 제품 미선정.
    *
-   * **`ner` 처럼 `null` 로 두지 않았습니다.** 판별 모델은 없어도 1차 정규식으로
-   * 경계가 서지만, 이 자리는 **대신할 것이 없습니다** — 비면 음성 증거가
-   * 아무것도 안 됩니다. 그래서 부르면 즉시 터지는 대역을 끼웁니다.
+   * **없어도 되는 자리로 두지 않았습니다.** 비면 음성 증거가 아무것도 안 됩니다 —
+   * 그래서 부르면 즉시 터지는 대역을 끼웁니다.
    *
    * ⚠️ **이 자리는 개인정보 격리 경계 「이전」입니다** → ARCHITECTURE §6.
-   * 무엇을 끼우느냐가 **원문이 조직 밖으로 나가는지를 가릅니다.**
+   * 무엇을 끼우느냐가 **원문이 조직 밖으로 나가는지를 가릅니다** → ADR-043.
    */
   readonly stt: SttEngine
   /** 이미지에서 글자를 읽는 도구. ⬜ 제품 미선정. `stt` 와 같은 경계에 있습니다 */
@@ -165,6 +169,26 @@ export interface Ports {
  * 부르는 순간 그대로 말하며 멈춥니다.
  */
 /**
+ * 읽는 도구 둘을 만든다 — **주소가 있을 때만.**
+ *
+ * 앱은 그 서비스가 무엇인지 모릅니다. 이 컴퓨터에서 띄운 것이든 국내 GPU 서버든
+ * **주소만 바뀝니다** → [inference.ts](./inference.ts) · `services/transcriber/`.
+ *
+ * 주소가 없으면 부르는 순간 터지는 대역을 끼웁니다. 조용히 빈 결과를 내면
+ * 사건이 「전사 0줄」로 지나가고 며칠 뒤에야 누가 알아챕니다.
+ */
+function readingEngines(env: Env): Pick<Ports, 'stt' | 'ocr'> {
+  const baseUrl = env.values.TRANSCRIBER_URL
+  if (!baseUrl) {
+    return {
+      stt: unconfigured('SttEngine', ['TRANSCRIBER_URL']),
+      ocr: unconfigured('OcrEngine', ['TRANSCRIBER_URL']),
+    }
+  }
+  return createInferenceEngines({ baseUrl, token: env.values.TRANSCRIBER_TOKEN })
+}
+
+/**
  * 지금 쓰는 KB 릴리스 → ADR-045 · 09-data-model.md §11.2.
  *
  * **「가장 최근 적재분」을 쓰지 않습니다.** 적재기는 검수 중인 다음 버전을 미리
@@ -195,7 +219,10 @@ export function unconfiguredPorts(env: Env): Ports {
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
     uploads: unconfigured('UploadSlotSource', storage),
-    mediaReader: unconfigured('MediaReader', storage),
+    // 접속 정보가 있으면 실제로 주소를 냅니다 → storage.ts.
+    // 없으면 부르는 순간 터집니다 — 조용히 빈 주소를 내면 추론 서비스가
+    // 엉뚱한 것을 내려받으려다 실패하고, 원인이 두 단계 뒤에서 드러납니다
+    mediaReader: createMediaReader(env) ?? unconfigured('MediaReader', storage),
     objects: unconfigured('ObjectStore', storage),
     // ⬜ 볼트 제품 미결 → ADR-016 「남은 것」
     vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
@@ -205,11 +232,10 @@ export function unconfiguredPorts(env: Env): Ports {
     // **부르면 터지는 대역으로 두지 않습니다** — 1차 정규식만으로 경계가 서고,
     // 여기서 던지면 붙어 있는 1차까지 못 씁니다
     ner: null,
-    // ⬜ 제품 미선정 → ARCHITECTURE.md §6. **경계 이전이라 선택이 곧 정책입니다** —
-    // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다.
-    // 착수 기준선의 「그 전에는 외부 모델에 실데이터를 보내지 않습니다」가 여기 걸립니다
-    stt: unconfigured('SttEngine', ['(제품 미선정 — ARCHITECTURE §6)']),
-    ocr: unconfigured('OcrEngine', ['(제품 미선정 — ARCHITECTURE §6)']),
+    // 주소가 있으면 그 서비스를 부르고, 없으면 부르는 순간 터집니다.
+    // **경계 이전이라 「어디를 부르나」가 곧 정책입니다** → ARCHITECTURE §6.
+    // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
+    ...readingEngines(env),
     llm: unconfigured('LlmClient', ['XAI_API_KEY']),
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),

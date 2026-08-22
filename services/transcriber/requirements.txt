@@ -1,0 +1,7 @@
+# 서비스 뼈대만 — 모델 없이 echo 로 돕니다
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+
+# 모델을 실제로 붙일 때 (FINALLY_ENGINE=local)
+#   pip install -r requirements-models.txt

@@ -1,0 +1,16 @@
+# 인증서를 저절로 받아 옵니다 — 사람이 갱신할 것이 없습니다.
+{$TRANSCRIBER_DOMAIN} {
+	reverse_proxy transcriber:8917
+
+	# 전사가 몇 분 걸립니다. 다만 우리 구조는 「맡기고 나중에 물어보는」
+	# 방식이라 요청 하나하나는 짧습니다 — 넉넉히만 잡습니다
+	request_body {
+		max_size 1MB
+	}
+
+	log {
+		# ⚠️ **본문을 남기지 않습니다.** 응답에 전사 원문이 들어 있습니다
+		output stdout
+		format console
+	}
+}

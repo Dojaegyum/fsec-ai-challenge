@@ -26,6 +26,8 @@ export const ENV_KEYS = [
   'CRON_SECRET',
   'CASE_PURGE_DAYS',
   'KB_FETCH_CRON',
+  'TRANSCRIBER_URL',
+  'TRANSCRIBER_TOKEN',
   // 지금 쓰는 KB 릴리스 → ADR-045. 비면 안내를 만들지 않습니다
   'KB_VERSION',
 ] as const
