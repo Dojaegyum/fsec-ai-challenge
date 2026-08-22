@@ -32,6 +32,7 @@ import { readEnv, type Env } from './env'
 import { linkTokenSource, ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
+import { createLlmClient } from './llm'
 import { createQuestionSource } from './questions'
 import {
   createAuditStore,
@@ -39,7 +40,11 @@ import {
   createKbStore,
   createSql,
 } from './db'
-import { createMediaReader } from './storage'
+import {
+  createMediaReader,
+  createObjectStore,
+  createUploadSlotSource,
+} from './storage'
 import {
   createMemoryRateCounter,
   createRateLimiter,
@@ -229,12 +234,12 @@ export function unconfiguredPorts(env: Env): Ports {
     kbVersion: pinnedKbVersion(env),
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
-    uploads: unconfigured('UploadSlotSource', storage),
+    uploads: createUploadSlotSource(env) ?? unconfigured('UploadSlotSource', storage),
     // 접속 정보가 있으면 실제로 주소를 냅니다 → storage.ts.
     // 없으면 부르는 순간 터집니다 — 조용히 빈 주소를 내면 추론 서비스가
     // 엉뚱한 것을 내려받으려다 실패하고, 원인이 두 단계 뒤에서 드러납니다
     mediaReader: createMediaReader(env) ?? unconfigured('MediaReader', storage),
-    objects: unconfigured('ObjectStore', storage),
+    objects: createObjectStore(env) ?? unconfigured('ObjectStore', storage),
     // ⬜ 볼트 제품 미결 → ADR-016 「남은 것」
     vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
     // ⬜ 정본의 환경변수 표에 공휴일 API 키가 없습니다
@@ -247,7 +252,7 @@ export function unconfiguredPorts(env: Env): Ports {
     // **경계 이전이라 「어디를 부르나」가 곧 정책입니다** → ARCHITECTURE §6.
     // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
     ...readingEngines(env),
-    llm: unconfigured('LlmClient', ['XAI_API_KEY']),
+    llm: createLlmClient(env) ?? unconfigured('LlmClient', ['XAI_API_KEY']),
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
     // ⬜ 접수번호 형식의 근거가 없습니다

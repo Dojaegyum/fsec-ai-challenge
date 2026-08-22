@@ -23,6 +23,8 @@ import 'server-only'
 
 import type { Env } from './env'
 
+import type { UploadSlotSource } from '@/modules/case-intake'
+import type { ObjectStore } from '@/modules/case-purger'
 import type { MediaReader } from '@/modules/transcriber'
 
 /**
@@ -44,6 +46,14 @@ export const EVIDENCE_BUCKET = 'evidence'
  * 받자마자 내려받으므로 실제로 필요한 것은 처음 몇 초뿐입니다.
  */
 const EXPIRES_SECONDS = 15 * 60
+
+/**
+ * 업로드 주소가 살아 있는 시간.
+ *
+ * 계약 §3.2 의 예시가 5분입니다(`expires_at`). 읽기(15분)보다 짧게 두는 이유는,
+ * 이 주소를 가진 쪽은 **그 경로에 파일을 쓸 수 있기** 때문입니다.
+ */
+const UPLOAD_EXPIRES_SECONDS = 5 * 60
 
 /**
  * 읽기용 임시 주소를 내는 것을 만든다.
@@ -93,6 +103,119 @@ export function createMediaReader(env: Env): MediaReader | null {
       return signed.startsWith('http')
         ? signed
         : `${base.replace(/\/$/, '')}/storage/v1${signed}`
+    },
+  }
+}
+
+/**
+ * 업로드 자리를 낸다 → `case-intake` 의 `UploadSlotSource` · 계약 §3.2.
+ *
+ * **파일이 우리 함수를 통과하지 않습니다.** 녹음이 수십 MB 라 서버 함수의
+ * 본문 한계에 걸리기 때문입니다 — 브라우저가 저장소로 직행합니다.
+ *
+ * 돌려주는 주소는 **한 번 쓰고 마는 것**입니다. 저장소가 경로와 토큰을 묶어
+ * 발급하므로, 이 주소로는 그 경로에만 올릴 수 있습니다.
+ */
+export function createUploadSlotSource(env: Env): UploadSlotSource | null {
+  const base = env.values.SUPABASE_URL
+  const key = env.values.SUPABASE_SERVICE_ROLE_KEY
+  if (!base || !key) return null
+  const root = base.replace(/\/$/, '')
+
+  return {
+    async issue(req): Promise<{ objectKey: string; url: string; expiresAt: string }> {
+      // 사건별로 접어 둡니다 — 파기할 때 앞자리로 한꺼번에 지웁니다
+      const objectKey = `${req.caseId}/${req.evidenceId}`
+      const path = objectKey.split('/').map(encodeURIComponent).join('/')
+
+      let res: Response
+      try {
+        res = await fetch(
+          `${root}/storage/v1/object/upload/sign/${EVIDENCE_BUCKET}/${path}`,
+          {
+            method: 'POST',
+            headers: {
+              authorization: `Bearer ${key}`,
+              apikey: key,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ expiresIn: UPLOAD_EXPIRES_SECONDS }),
+            cache: 'no-store',
+          },
+        )
+      } catch {
+        // ⚠️ **접속 정보를 메시지에 담지 않습니다** — 이 값은 감사 기록으로 갑니다
+        throw new Error('저장소에 닿지 못했습니다')
+      }
+
+      if (!res.ok) throw new Error(`저장소가 업로드 자리를 안 냈습니다 (${res.status})`)
+
+      const body: unknown = await res.json().catch(() => null)
+      const signed = (body as { url?: unknown } | null)?.url
+      if (typeof signed !== 'string' || signed.length === 0) {
+        throw new Error('저장소가 업로드 자리를 안 냈습니다')
+      }
+
+      return {
+        objectKey,
+        url: signed.startsWith('http') ? signed : `${root}/storage/v1${signed}`,
+        expiresAt: new Date(Date.now() + UPLOAD_EXPIRES_SECONDS * 1000).toISOString(),
+      }
+    },
+  }
+}
+
+/**
+ * 사건이 올린 파일을 통째로 지운다 → `case-purger` 의 `ObjectStore`.
+ *
+ * **지운 뒤 남았는지 되묻습니다.** 파기는 「지웠다」가 아니라 「없다」로
+ * 판정해야 합니다 — 삭제 요청이 200 을 내고도 남는 경우가 있습니다.
+ */
+export function createObjectStore(env: Env): ObjectStore | null {
+  const base = env.values.SUPABASE_URL
+  const key = env.values.SUPABASE_SERVICE_ROLE_KEY
+  if (!base || !key) return null
+  const root = base.replace(/\/$/, '')
+
+  const headers = {
+    authorization: `Bearer ${key}`,
+    apikey: key,
+    'content-type': 'application/json',
+  }
+
+  async function listOf(caseId: string): Promise<string[]> {
+    const res = await fetch(`${root}/storage/v1/object/list/${EVIDENCE_BUCKET}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prefix: `${caseId}/`, limit: 1000 }),
+      cache: 'no-store',
+    })
+    if (!res.ok) throw new Error(`저장소 목록을 못 읽었습니다 (${res.status})`)
+    const body: unknown = await res.json().catch(() => null)
+    if (!Array.isArray(body)) return []
+    return body
+      .map((one) => (one as { name?: unknown }).name)
+      .filter((one): one is string => typeof one === 'string')
+      .map((name) => `${caseId}/${name}`)
+  }
+
+  return {
+    async deleteAll(caseId: string): Promise<void> {
+      const names = await listOf(caseId)
+      // 한 건도 없으면 부르지 않습니다 — 빈 목록으로 부르면 저장소가 400 을 냅니다
+      if (names.length === 0) return
+
+      const res = await fetch(`${root}/storage/v1/object/${EVIDENCE_BUCKET}`, {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ prefixes: names }),
+        cache: 'no-store',
+      })
+      if (!res.ok) throw new Error(`파일을 못 지웠습니다 (${res.status})`)
+    },
+
+    async remains(caseId: string): Promise<boolean> {
+      return (await listOf(caseId)).length > 0
     },
   }
 }
