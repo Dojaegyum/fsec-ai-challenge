@@ -59,7 +59,25 @@ DATABASE_URL="$DIRECT_URL" ./migrations/apply.sh             # 실제로 적용
 1. **[09-data-model.md](../../spec/backend/08-16-data-model.md)를 먼저 고칩니다.** 정본이 그쪽입니다.
 2. 바뀐 만큼만 새 파일(`0002_...sql`)을 더합니다. **기존 파일을 고치지 않습니다** —
    이미 적용된 데이터베이스에는 그 변경이 닿지 않습니다.
-3. `module-sync` 검사가 DDL 변경과 마이그레이션이 함께 왔는지 봅니다.
+3. **파일 끝에서 자기를 기록합니다.** `COMMIT;` 바로 앞에 이 줄을 넣으세요:
+
+   ```sql
+   INSERT INTO schema_migrations (version) VALUES ('0004_your_change')
+     ON CONFLICT (version) DO NOTHING;
+   ```
+
+   `apply.sh` 는 이 표를 읽어 **건너뛸 것을 고를 뿐** 기록하지 않습니다. 이 줄이
+   없으면 **첫 실행은 멀쩡히 성공하고 두 번째 실행에서 같은 파일이 다시 돌아
+   깨집니다.** 0002·0003 이 실제로 그랬습니다(2026-08-22 고침).
+
+   빠뜨리면 `apply.sh` 가 그 실행에서 바로 멈추고 넣을 줄을 찍어 줍니다.
+
+4. **다시 돌려도 안전하게 씁니다.** `ADD COLUMN IF NOT EXISTS` ·
+   `CREATE INDEX IF NOT EXISTS` · `DROP CONSTRAINT IF EXISTS` 를 씁니다.
+   기록이 빠진 채 한 번 적용된 데이터베이스가 있을 수 있고, 그런 곳에서는
+   기록을 더하는 것만으로 안 풀립니다.
+
+5. `module-sync` 검사가 DDL 변경과 마이그레이션이 함께 왔는지 봅니다.
 
 ## 아직 아닌 것
 

@@ -345,6 +345,74 @@ describe('공백만 있는 값은 값이 아니다', () => {
   })
 })
 
+describe('개인정보 확인 전에는 없는 값과 같다 — ADR-041', () => {
+  // 이 상태가 이 모듈에만 빠져 있었습니다. planner·slot-checker 는 알고 있었고
+  // doc-builder 만 자기 유니온을 따로 적어 둬서, `stateOf` 의 마지막 줄이
+  // `pii_pending` 을 `'unread'` 로 떨어뜨렸습니다. 터지지 않고 조용히 틀리는
+  // 자리라 시험으로 박습니다.
+  //
+  // ⚠️ **슬롯 이름은 위 `formOf` 가 실제로 짝지은 것만 씁니다.** 없는 이름을
+  // 쓰면 애초에 짝이 안 지어져 시험이 통과해 버립니다 — 아무것도 안 지킵니다.
+
+  const account = (guide: ReturnType<typeof builder.build>) =>
+    guide.sections[1].fields.find((one) => one.label === '계좌번호')
+
+  it('확인 전 값은 「직접 적으셔야 합니다」로 나간다', () => {
+    const guide = builder.build({
+      form: formOf(),
+      // 자연스러운 날짜로 잘못 전사된 주민번호가 이 상태로 들어옵니다 —
+      // 신뢰도가 낮을 이유가 없어 `extracted` 로는 안 잡히는 값입니다
+      slots: [slot('counterpart_account', 'pii_pending', '110-***-******')],
+    })
+
+    expect(account(guide)?.state).toBe('unknown')
+    // 값이 없는 칸으로 취급되니 보조문이 다시 붙어야 합니다
+    expect(account(guide)?.hint).toBe('통장 표지에 있습니다')
+  })
+
+  it('확인 전 값은 실려 나가지 않는다', () => {
+    const guide = builder.build({
+      form: formOf(),
+      slots: [slot('counterpart_account', 'pii_pending', '110-***-******')],
+    })
+
+    expect(JSON.stringify(guide)).not.toContain('110-***-******')
+  })
+
+  it('채워진 칸으로 세지 않는다', () => {
+    const pending = builder.build({
+      form: formOf(),
+      slots: [slot('counterpart_account', 'pii_pending', '110-***-******')],
+    })
+    const nothing = builder.build({ form: formOf(), slots: [] })
+
+    // slot-checker 의 `tierStatus` 가 같은 이유로 이 상태를 채움에서 뺍니다
+    expect(pending.sections[1].filled).toBe(nothing.sections[1].filled)
+  })
+
+  it('확인을 마치면 그때 값이 나간다 — 막아 두기만 하는 것이 아니다', () => {
+    const guide = builder.build({
+      form: formOf(),
+      slots: [slot('counterpart_account', 'confirmed', '110-***-******')],
+    })
+
+    expect(account(guide)?.state).toBe('confirmed')
+    expect(JSON.stringify(guide)).toContain('110-***-******')
+  })
+
+  it('읽어만 둔 값은 확인 전 값과 다르게 다뤄진다', () => {
+    // `extracted` 는 값이 실립니다 — 「확인해 주세요」로. 두 상태를 같이
+    // 막아 버리면 확인 화면에 보여줄 것이 없어집니다
+    const guide = builder.build({
+      form: formOf(),
+      slots: [slot('counterpart_account', 'extracted', '110-***-******')],
+    })
+
+    expect(account(guide)?.state).toBe('unread')
+    expect(JSON.stringify(guide)).toContain('110-***-******')
+  })
+})
+
 describe('근거 없는 안내를 내보내지 않는다 — 불변 규칙 1', () => {
   it('근거를 함께 낸다', () => {
     const guide = builder.build({ form: formOf(), slots: [] })

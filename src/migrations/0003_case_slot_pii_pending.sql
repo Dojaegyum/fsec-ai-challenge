@@ -19,4 +19,9 @@ ALTER TABLE case_slot DROP CONSTRAINT IF EXISTS case_slot_state_check;
 ALTER TABLE case_slot ADD CONSTRAINT case_slot_state_check
   CHECK (state IN ('empty', 'extracted', 'pii_pending', 'confirmed', 'unknown'));
 
+-- 위 두 줄은 DROP IF EXISTS + ADD 라 다시 돌려도 안전합니다. 그래도
+-- 기록은 남겨야 합니다 — 없으면 apply.sh 가 매번 다시 적용합니다
+INSERT INTO schema_migrations (version) VALUES ('0003_case_slot_pii_pending')
+  ON CONFLICT (version) DO NOTHING;
+
 COMMIT;

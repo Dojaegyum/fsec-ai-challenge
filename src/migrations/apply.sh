@@ -50,6 +50,24 @@ for FILE in "$DIR"/[0-9]*.sql; do
   # ON_ERROR_STOP 이 없으면 중간에 실패해도 계속 돌아 절반만 적용됩니다.
   # 각 파일이 자기 BEGIN/COMMIT 을 갖고 있어 파일 단위로 전부 또는 전무입니다
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$FILE"
+
+  # **적용됐는데 이력에 안 남았으면 여기서 멈춥니다.**
+  #
+  # 기록은 각 .sql 이 스스로 합니다(0001 끝의 INSERT 참고). 이 스크립트는
+  # 표를 읽어 건너뛸 것을 고를 뿐입니다. 그래서 작성자가 INSERT 를 빠뜨리면
+  # **첫 실행은 멀쩡히 성공하고 두 번째 실행에서 깨집니다** — 0002·0003 이
+  # 실제로 그랬습니다. 그때는 이미 배포된 뒤라 고치기가 훨씬 비쌉니다.
+  #
+  # 그 시차를 없앱니다. 빠뜨린 그 실행에서 바로 걸립니다.
+  if ! psql "$DATABASE_URL" -tAc \
+      "SELECT 1 FROM schema_migrations WHERE version = '$VERSION'" | grep -qx 1; then
+    echo "✖ $VERSION 이 적용됐는데 schema_migrations 에 안 남았습니다." >&2
+    echo "  각 .sql 은 끝에서 자기를 기록해야 합니다. 이 줄을 COMMIT 앞에 넣으세요:" >&2
+    echo "    INSERT INTO schema_migrations (version) VALUES ('$VERSION')" >&2
+    echo "      ON CONFLICT (version) DO NOTHING;" >&2
+    echo "  없으면 다음 실행에서 이 파일이 다시 적용돼 깨집니다." >&2
+    exit 1
+  fi
 done
 
 if [[ $PENDING -eq 0 ]]; then

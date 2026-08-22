@@ -23,7 +23,7 @@
  * | --- | --- | --- |
  * | `confirmed` | 사용자가 확인했거나 직접 입력한 값 | 슬롯 `confirmed` |
  * | `unread` | 증거에서 읽었지만 **아직 확인 안 됨** | 슬롯 `extracted` |
- * | `unknown` | 값이 없습니다. **직접 적으셔야 합니다** | 슬롯 없음·`empty`·`unknown` |
+ * | `unknown` | 값이 없습니다. **직접 적으셔야 합니다** | 슬롯 없음·`empty`·`unknown`·`pii_pending` |
  * | `staff` | **신청인이 안 적는 칸** — 접수번호·접수일자 | 서식이 그렇게 정함 |
  */
 export type FieldState = 'confirmed' | 'unread' | 'unknown' | 'staff'
@@ -95,7 +95,19 @@ export interface FormDefinition {
 /** 사건이 아는 값 하나 → 09-data-model.md §5 */
 export interface CaseSlotValue {
   readonly slotKey: string
-  readonly state: 'empty' | 'extracted' | 'confirmed' | 'unknown'
+  /**
+   * 정본은 `slot-checker` 의 `SlotState` 입니다 → 09-data-model.md §5.2.
+   *
+   * ⚠️ **`pii_pending` 을 빼먹지 마세요.** 여기서 빠지면 그 값이 유니온에 없어
+   * `stateOf` 의 마지막 줄이 그것을 `'unread'` 로 떨어뜨리고, **확인받지 않은
+   * 계좌번호가 값이 있는 칸으로 서류 안내에 실립니다** → ADR-041.
+   */
+  readonly state:
+    | 'empty'
+    | 'extracted'
+    | 'pii_pending'
+    | 'confirmed'
+    | 'unknown'
   /**
    * **토큰화된 값**입니다. 원문이 아닙니다.
    *
