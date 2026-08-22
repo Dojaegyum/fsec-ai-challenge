@@ -78,7 +78,7 @@ export interface RequiredArtifact {
 /**
  * 저장된 단계 하나.
  *
- * **모양이 §3.1 과 §3.6 에서 같습니다** → ADR-042. 얇은 쪽이면 화면이 사건을 만든
+ * **모양이 §3.1 과 §3.6 에서 같습니다** → ADR-047. 얇은 쪽이면 화면이 사건을 만든
  * 직후에 작업 패널을 못 그립니다 — 그 패널을 정하는 `action` 이 `body` 안에 있습니다.
  */
 export interface StoredStep {
@@ -128,7 +128,7 @@ export interface CasePlanStore {
   /**
    * 이미 저장된 단계. 처음이면 빈 배열.
    *
-   * **`kb_entry` 와 `artifact` 를 함께 읽어야 합니다** → ADR-042.
+   * **`kb_entry` 와 `artifact` 를 함께 읽어야 합니다** → ADR-047.
    * `legalBasis` 는 `plan_step` 에 없는 칼럼이고, 부산물은 `idx_artifact_step` 으로 옵니다.
    */
   readSteps(caseId: string): Promise<readonly StoredStep[]>
@@ -143,7 +143,7 @@ export interface CasePlanStore {
    */
   applyPlan(caseId: string, result: PlanResult): Promise<readonly StoredStep[]>
   /**
-   * **사건과 플랜을 한 번에 만든다** → ADR-041.
+   * **사건과 플랜을 한 번에 만든다** → ADR-046.
    *
    * 사건을 먼저 저장하면 플랜이 실패했을 때 **되돌아갈 수 없는 빈 사건**이
    * 남습니다 — 에러 봉투에 `case_id` 를 담을 칸이 없기 때문입니다(10-errors.md §3).
@@ -158,7 +158,7 @@ export interface CasePlanStore {
 /**
  * 이 흐름이 밖에 요구하는 것 — **지금 어느 KB 릴리스인가.**
  *
- * **`KB_VERSION` 환경변수가 현재 릴리스입니다** → ADR-040 · §11.2.
+ * **`KB_VERSION` 환경변수가 현재 릴리스입니다** → ADR-045 · §11.2.
  *
  * 「가장 최근 적재분」을 쓰지 않습니다. 적재기는 검수 중인 다음 버전을 미리 올릴 수
  * 있고, 최신 것을 무조건 고르면 **아직 사람이 안 본 절차가 피해자에게 나갑니다.**
@@ -289,7 +289,7 @@ export class CaseNotFoundError extends AppError {
 }
 
 /**
- * 사건을 열고 **T0 공통 안전 절차를 함께 저장한다** → §3.1 · ADR-041.
+ * 사건을 열고 **T0 공통 안전 절차를 함께 저장한다** → §3.1 · ADR-046.
  *
  * 슬롯이 하나도 없어도 절차가 붙습니다 → 08-14-slot-tiering.md *"진입 자체로 충분"*.
  *

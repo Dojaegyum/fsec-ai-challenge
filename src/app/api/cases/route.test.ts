@@ -69,7 +69,7 @@ function caseStoreOf() {
   return { store, rows }
 }
 
-/** 사건과 플랜이 함께 저장됐는지 보려고 들여다봅니다 → ADR-041 */
+/** 사건과 플랜이 함께 저장됐는지 보려고 들여다봅니다 → ADR-046 */
 const opened: { caseId: string; steps: number }[] = []
 
 const casePlan: CasePlanStore = {
@@ -103,7 +103,7 @@ const casePlan: CasePlanStore = {
         body: one.body,
         kbEntryId: one.kbEntryId,
         kbVersion: one.kbVersion,
-        // kb_entry 를 함께 읽어야 나오는 값입니다 → ADR-042
+        // kb_entry 를 함께 읽어야 나오는 값입니다 → ADR-047
         legalBasis: `${one.kbEntryId} 근거 조항`,
         sourceUrl: one.sourceUrl,
         effectiveFrom: one.effectiveFrom,
@@ -183,7 +183,7 @@ describe('사건을 만든다 — §3.1', () => {
 
   it('단계와 근거의 칸도 계약 그대로다', async () => {
     // 최상위만 못 박으면 알맹이(steps[])가 달라져도 초록으로 남습니다.
-    // **모양이 §3.6 과 같아야 합니다** → ADR-042. 하나라도 빠지면 화면이 사건을
+    // **모양이 §3.6 과 같아야 합니다** → ADR-047. 하나라도 빠지면 화면이 사건을
     // 만든 직후에 작업 패널을 못 그립니다 — 그 패널을 정하는 action 이 body 안에
     // 있기 때문입니다(ADR-024)
     const res = await POST(ask({ track: 'victim' }))
@@ -222,7 +222,7 @@ describe('사건을 만든다 — §3.1', () => {
     }
   })
 
-  it('부산물과 필요 서류가 그대로 실려 나간다 — ADR-042', async () => {
+  it('부산물과 필요 서류가 그대로 실려 나간다 — ADR-047', async () => {
     // 칸 이름만 보면 빈 배열로 고정해도 안 걸립니다.
     // 화면이 「무엇을 이미 냈고 무엇이 더 필요한가」를 여기서 읽습니다
     const res = await POST(ask({ track: 'victim' }))
@@ -249,7 +249,7 @@ describe('사건을 만든다 — §3.1', () => {
     })
   })
 
-  it('작업 패널을 정하는 값이 응답 안에 있다 — ADR-024 · ADR-042', async () => {
+  it('작업 패널을 정하는 값이 응답 안에 있다 — ADR-024 · ADR-047', async () => {
     // 화면이 사건을 만든 직후에 곧장 작업 패널을 띄울 수 있어야 합니다.
     // 없으면 플랜 조회를 한 번 더 불러야 하고, 그만큼 늦습니다
     const res = await POST(ask({ track: 'victim' }))
@@ -260,7 +260,7 @@ describe('사건을 만든다 — §3.1', () => {
     expect(body.plan.steps[0].body).toMatchObject({ action: 'call' })
   })
 
-  it('사건 행을 따로 쓰는 경로가 없다 — ADR-041', async () => {
+  it('사건 행을 따로 쓰는 경로가 없다 — ADR-046', async () => {
     // openCase 말고 다른 자리에서 사건을 저장하면 원자성이 깨집니다.
     // caseIntake.open() 으로 되돌아가는 회귀가 여기서 걸립니다
     const cases = caseStoreOf()
@@ -274,7 +274,7 @@ describe('사건을 만든다 — §3.1', () => {
     expect(cases.rows).toHaveLength(0)
   })
 
-  it('사건과 플랜을 한 번에 저장한다 — ADR-041', async () => {
+  it('사건과 플랜을 한 번에 저장한다 — ADR-046', async () => {
     // 사건을 먼저 저장하면 플랜 실패 시 되돌아갈 수 없는 빈 사건이 남습니다.
     // 에러 봉투에 case_id 를 담을 칸이 없어 사용자가 자기 사건을 찾을 수 없습니다
     opened.length = 0
@@ -287,7 +287,7 @@ describe('사건을 만든다 — §3.1', () => {
     expect(opened[0].steps).toBeGreaterThan(0)
   })
 
-  it('플랜이 실패하면 사건도 안 남는다 — ADR-041', async () => {
+  it('플랜이 실패하면 사건도 안 남는다 — ADR-046', async () => {
     // 플랜 저장이 실패하는 순간까지 사건 행은 만들어지지 않아야 합니다
     opened.length = 0
     const broken = {

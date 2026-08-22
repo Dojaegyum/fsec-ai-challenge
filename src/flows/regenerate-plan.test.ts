@@ -120,7 +120,7 @@ function planStoreOf(
           body: one.body,
           kbEntryId: one.kbEntryId,
           kbVersion: one.kbVersion,
-          // kb_entry 를 함께 읽어야 나오는 값입니다 → ADR-042
+          // kb_entry 를 함께 읽어야 나오는 값입니다 → ADR-047
           legalBasis: `${one.kbEntryId} 근거 조항`,
           sourceUrl: one.sourceUrl,
           effectiveFrom: one.effectiveFrom,

@@ -884,7 +884,7 @@ CREATE INDEX idx_org_channel ON org (channel_id);
 | `channel_id` | `case_channel.channel_id` |
 | `org_id` | `case_channel.org_id` |
 | **조회 기준일** | **서버 시각 (오늘)** |
-| **`kb_version`** | **`KB_VERSION` 환경변수** → [ADR-040](../../decisions/040-kb-release-pin.md) |
+| **`kb_version`** | **`KB_VERSION` 환경변수** → [ADR-045](../../decisions/045-kb-release-pin.md) |
 
 **서버가 이미 아는 것만으로 조회가 완결됩니다.** 그래서 모델에게 조건을 물어볼 이유가 없습니다.
 
@@ -1319,7 +1319,7 @@ CREATE INDEX idx_source_change_dedupe ON source_change (dedupe_key);
 
 **확신도가 낮은 판정을 자동으로 버리지 않습니다.** `impact.confidence`가 낮으면 `pending`으로 사람에게 갑니다.
 
-**`deferred`는 「아직 판단하지 않았다」입니다** → [ADR-039](../../decisions/039-review-deferral.md).
+**`deferred`는 「아직 판단하지 않았다」입니다** → [ADR-044](../../decisions/044-review-deferral.md).
 시행일이 안 정해진 발표처럼 **지금은 판단할 수 없는 것**에 씁니다. `review_note`에 왜 미뤘는지를 남깁니다.
 
 | 지금 상태 | 다시 판단 |

@@ -1,4 +1,4 @@
-# ADR-040. 지금 쓰는 KB 릴리스는 배포 설정이 정한다 — `KB_VERSION`
+# ADR-045. 지금 쓰는 KB 릴리스는 배포 설정이 정한다 — `KB_VERSION`
 
 - 상태: **채택**
 - 날짜: 2026-08-21
@@ -7,7 +7,7 @@
   [KB 운영](../spec/backend/08-14-kb-operations.md) 원칙 4 「사람 검수는 생략 불가」 ·
   [RFC-002](../rfc/002-kb-authoring.md) 반영·릴리스 구간 ·
   [ADR-012](012-kb-collection.md) 수집 파이프라인 ·
-  [ADR-039](039-review-deferral.md) 검수의 미룸 ·
+  [ADR-044](044-review-deferral.md) 검수의 미룸 ·
   [ADR-028](028-runtime-and-module-shape.md) 조립 자리
 
 ## 맥락

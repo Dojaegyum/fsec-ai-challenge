@@ -165,7 +165,7 @@ export interface Ports {
  * 부르는 순간 그대로 말하며 멈춥니다.
  */
 /**
- * 지금 쓰는 KB 릴리스 → ADR-040 · 09-data-model.md §11.2.
+ * 지금 쓰는 KB 릴리스 → ADR-045 · 09-data-model.md §11.2.
  *
  * **「가장 최근 적재분」을 쓰지 않습니다.** 적재기는 검수 중인 다음 버전을 미리
  * 올릴 수 있고, 최신 것을 무조건 고르면 **아직 사람이 안 본 절차가 피해자에게
@@ -190,7 +190,7 @@ export function unconfiguredPorts(env: Env): Ports {
     purgeCaseStore: unconfigured('PurgeCaseStore', db),
     reminderSource: unconfigured('ReminderSource', db),
     casePlan: unconfigured('CasePlanStore', db),
-    // 배포 설정이 정합니다 → ADR-040. 비어 있으면 부를 때 그대로 말하며 멈춥니다
+    // 배포 설정이 정합니다 → ADR-045. 비어 있으면 부를 때 그대로 말하며 멈춥니다
     kbVersion: pinnedKbVersion(env),
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),

@@ -98,7 +98,7 @@ export interface ReviewDecision {
   /**
    * `pending` 으로 되돌리지 않습니다 — 아래 `review` 참고.
    *
-   * **`deferred` 는 「아직 판단하지 않았다」입니다** → ADR-039. 시행일이 안 정해진
+   * **`deferred` 는 「아직 판단하지 않았다」입니다** → ADR-044. 시행일이 안 정해진
    * 발표처럼 지금은 판단할 수 없는 것에 쓰고, `note` 에 왜 미뤘는지를 남깁니다.
    * 이것만 다시 판단할 수 있습니다.
    */
@@ -141,7 +141,7 @@ export interface KbReviewer {
    * 같은 제도 변경은 한 묶음으로 냅니다. **원문 스냅샷은 전부 남습니다** —
    * 근거가 여럿인 편이 낫습니다.
    *
-   * **미룬 것은 안 나옵니다** → §12.2 · ADR-039. 큐는 `pending` 인 행이고,
+   * **미룬 것은 안 나옵니다** → §12.2 · ADR-044. 큐는 `pending` 인 행이고,
    * 미룬 것까지 담으면 「아직 안 본 것」이 묻힙니다. 따로 찾아 엽니다.
    */
   queue(): Promise<readonly ChangeGroup[]>
@@ -150,7 +150,7 @@ export interface KbReviewer {
    * 사람의 판단을 기록한다.
    *
    * `pending` 과 `deferred` 를 받습니다. **`approved`·`rejected` 는 잠깁니다**
-   * → ADR-039.
+   * → ADR-044.
    *
    * @throws KbError 없는 항목이거나, 승인·거절이 끝난 것을 다시 판단하려 할 때.
    *         **덮어쓰지 않습니다** — 검수 이력이 사라지면 「사람 검수 생략 불가」를

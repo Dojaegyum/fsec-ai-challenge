@@ -1,4 +1,4 @@
-# ADR-041. 사건과 플랜은 함께 저장된다 — 빈 사건을 만들지 않는다
+# ADR-046. 사건과 플랜은 함께 저장된다 — 빈 사건을 만들지 않는다
 
 - 상태: **채택**
 - 날짜: 2026-08-21
@@ -7,7 +7,7 @@
   [에러 규약](../spec/backend/08-16-errors.md) §3 (에러 봉투에 `case_id` 가 없습니다) ·
   [데이터 모델](../spec/backend/08-16-data-model.md) §2 §6 ·
   [슬롯 티어링](../spec/backend/08-14-slot-tiering.md) 「진입 자체로 충분」 ·
-  [ADR-040](040-kb-release-pin.md) 현재 KB 릴리스
+  [ADR-045](045-kb-release-pin.md) 현재 KB 릴리스
 
 ## 맥락
 

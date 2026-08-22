@@ -63,7 +63,7 @@ export function createCaseIntake(deps: {
   const limits = deps.limits ?? DEFAULT_LIMITS
   const purgeDays = deps.purgeDays ?? DEFAULT_PURGE_DAYS
 
-  /** 값만 만듭니다. **저장하지 않습니다** → ADR-041 */
+  /** 값만 만듭니다. **저장하지 않습니다** → ADR-046 */
   function draft(input: { track: Track }): OpenedCase {
     if (!TRACKS.includes(input.track)) {
       throw new IngestError(`track 값이 목록 밖입니다: ${input.track}`, {

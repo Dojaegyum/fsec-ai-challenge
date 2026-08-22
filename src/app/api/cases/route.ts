@@ -17,7 +17,7 @@
  *
  * 사건을 먼저 저장하면 플랜이 실패했을 때 **되돌아갈 수 없는 빈 사건**이 남습니다 —
  * 에러 봉투에 `case_id` 를 담을 칸이 없기 때문입니다(08-16-errors.md §3).
- * 둘 다 만들어진 뒤 한 번에 저장합니다 → ADR-041.
+ * 둘 다 만들어진 뒤 한 번에 저장합니다 → ADR-046.
  *
  * ## 지금 부르면 멈춥니다
  *
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       const track = readTrack(await readJsonObject<OpenCaseBody>(ctx.request))
       const { container } = ctx
 
-      // 사건과 T0 공통 안전 절차를 함께 만들고 한 번에 저장합니다 → ADR-041.
+      // 사건과 T0 공통 안전 절차를 함께 만들고 한 번에 저장합니다 → ADR-046.
       // 슬롯이 하나도 없어도 절차가 붙습니다 → 08-14-slot-tiering.md
       const { opened, plan } = await openCaseWithPlan(
         { track },

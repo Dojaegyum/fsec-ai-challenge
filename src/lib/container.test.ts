@@ -128,7 +128,7 @@ describe('안 붙은 자원은 조용히 넘어가지 않는다', () => {
   })
 })
 
-describe('지금 쓰는 KB 릴리스는 배포 설정이 정한다 — ADR-040', () => {
+describe('지금 쓰는 KB 릴리스는 배포 설정이 정한다 — ADR-045', () => {
   it('설정된 값을 그대로 쓴다', async () => {
     const c = createContainer(readEnv({ KB_VERSION: '2026.08.1' }))
 
