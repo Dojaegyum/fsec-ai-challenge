@@ -26,6 +26,8 @@ export const ENV_KEYS = [
   'CRON_SECRET',
   'CASE_PURGE_DAYS',
   'KB_FETCH_CRON',
+  'TRANSCRIBER_URL',
+  'TRANSCRIBER_TOKEN',
 ] as const
 
 export type EnvKey = (typeof ENV_KEYS)[number]

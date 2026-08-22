@@ -28,6 +28,7 @@ import type {
   SttRequest,
   Transcriber,
   TranscriberDeps,
+  TranscribeResult,
 } from './types'
 
 /** 던진 것을 받아 온다. 안 던지면 시험이 그 자리에서 깨집니다 */
@@ -45,14 +46,34 @@ const reader: MediaReader = { readUrl: async (key) => `https://store.example/${k
 const audio: MediaRef = { objectKey: 'ev/01J8', kind: 'audio', mimeType: 'audio/m4a' }
 const image: MediaRef = { objectKey: 'ev/01J9', kind: 'image', mimeType: 'image/png' }
 
-/** 넘긴 것을 그대로 돌려주는 전사 대역 */
+/** 맡기면 바로 끝나 있는 전사 대역 */
 function sttOf(output: EngineOutput): SttEngine {
-  return { transcribe: async () => output }
+  return {
+    submit: async () => 'job-stt',
+    poll: async () => ({ status: 'done', output }),
+  }
 }
 
-/** 넘긴 것을 그대로 돌려주는 판독 대역 */
+/** 맡기면 바로 끝나 있는 판독 대역 */
 function ocrOf(output: EngineOutput): OcrEngine {
-  return { read: async () => output }
+  return {
+    submit: async () => 'job-ocr',
+    poll: async () => ({ status: 'done', output }),
+  }
+}
+
+/**
+ * 맡기고 끝날 때까지 물어본다. **시험이 읽기 쉬우라고 두 걸음을 묶은 것**이고,
+ * 실제로는 라우트가 두 번에 나눠 부릅니다 — 그 사이에 화면의 폴링이 있습니다.
+ */
+async function read(t: Transcriber, media: MediaRef): Promise<TranscribeResult> {
+  const started = await t.start({ media })
+  if (!started.started) return started.result
+  for (;;) {
+    const got = await t.collect(started.job)
+    if (got.status === 'done') return got.result
+    if (got.status === 'failed') throw new Error(`실패: ${got.reason}`)
+  }
 }
 
 /**
@@ -90,7 +111,7 @@ describe('덜 읽힌 것으로 던지지 않는다', () => {
     // 못 읽었다고 사건 진행을 막을 이유가 없습니다
     const transcriber = build({stt: sttOf({ lines: [] }) })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines).toEqual([])
     expect(result.shortfalls).toContain('empty')
@@ -101,7 +122,7 @@ describe('덜 읽힌 것으로 던지지 않는다', () => {
       stt: sttOf({ lines: [{ text: '여보세요', startMs: 0, endMs: 900 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].text).toBe('여보세요')
     expect(result.lines[0].speaker).toBeNull()
@@ -117,7 +138,7 @@ describe('덜 읽힌 것으로 던지지 않는다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].pieces[0].confidence).toBeNull()
     expect(result.shortfalls).toContain('no_confidence')
@@ -130,7 +151,7 @@ describe('덜 읽힌 것으로 던지지 않는다', () => {
       stt: sttOf({ lines: [{ text: '국민은행에서 연락드렸습니다' }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].text).toBe('국민은행에서 연락드렸습니다')
     expect(result.lines[0].at).toBeNull()
@@ -140,8 +161,10 @@ describe('덜 읽힌 것으로 던지지 않는다', () => {
   it('글로 올라온 것은 옮길 것이 없다 — 던지지 않는다', async () => {
     const transcriber = build()
 
-    const result = await transcriber.transcribe({
-      media: { objectKey: 'ev/01JA', kind: 'text', mimeType: 'text/plain' },
+    const result = await read(transcriber, {
+      objectKey: 'ev/01JA',
+      kind: 'text',
+      mimeType: 'text/plain',
     })
 
     expect(result.shortfalls).toEqual(['not_applicable'])
@@ -156,7 +179,7 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
     // 대역의 예외가 그대로 올라가야 어느 자리가 비었는지 알 수 있습니다
     const transcriber = build()
 
-    await expect(transcriber.transcribe({ media: audio })).rejects.toBeInstanceOf(StoreError)
+    await expect(read(transcriber, audio)).rejects.toBeInstanceOf(StoreError)
   })
 
   it('읽을 자리를 못 얻으면 멈춘다', async () => {
@@ -169,32 +192,34 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
       stt: sttOf({ lines: [] }),
     })
 
-    await expect(transcriber.transcribe({ media: audio })).rejects.toBeInstanceOf(IngestError)
+    await expect(read(transcriber, audio)).rejects.toBeInstanceOf(IngestError)
   })
 
   it('엔진 호출이 실패하면 멈춘다', async () => {
     const transcriber = build({
       stt: {
-        transcribe: async () => {
+        submit: async () => {
           throw new Error('모델 서비스 응답 없음')
         },
+        poll: async () => ({ status: 'done', output: { lines: [] } }),
       },
     })
 
-    await expect(transcriber.transcribe({ media: audio })).rejects.toBeInstanceOf(IngestError)
+    await expect(read(transcriber, audio)).rejects.toBeInstanceOf(IngestError)
   })
 
   it('그 예외는 다시 시도해도 되는 것이다', async () => {
     // 08-16-errors.md §2 — INGEST_FAILED · 422 · 재시도 1회 · 대기 2s
     const transcriber = build({
       stt: {
-        transcribe: async () => {
+        submit: async () => {
           throw new Error('모델 서비스 응답 없음')
         },
+        poll: async () => ({ status: 'done', output: { lines: [] } }),
       },
     })
 
-    const thrown = await thrownBy<IngestError>(() => transcriber.transcribe({ media: audio }))
+    const thrown = await thrownBy<IngestError>(() => read(transcriber, audio))
 
     expect(thrown.code).toBe('INGEST_FAILED')
     expect(thrown.httpStatus).toBe(422)
@@ -213,7 +238,7 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
       stt: sttOf({ lines: [] }),
     })
 
-    const thrown = await thrownBy<StoreError>(() => transcriber.transcribe({ media: audio }))
+    const thrown = await thrownBy<StoreError>(() => read(transcriber, audio))
 
     expect(thrown).toBeInstanceOf(StoreError)
     expect(thrown.code).toBe('STORE_ERROR')
@@ -222,13 +247,14 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
   it('엔진이 이 계층의 예외를 던져도 덮지 않는다', async () => {
     const transcriber = build({
       ocr: {
-        read: async () => {
+        submit: async () => {
           throw new StoreError('판독 서비스가 저장소를 못 읽었습니다')
         },
+        poll: async () => ({ status: 'done', output: { lines: [] } }),
       },
     })
 
-    const thrown = await thrownBy<StoreError>(() => transcriber.transcribe({ media: image }))
+    const thrown = await thrownBy<StoreError>(() => read(transcriber, image))
 
     expect(thrown).toBeInstanceOf(StoreError)
   })
@@ -237,13 +263,14 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
     // 읽기 주소는 유효기간이 붙은 접근 수단입니다. 감사 로그로 새면 안 됩니다
     const transcriber = build({
       stt: {
-        transcribe: async () => {
+        submit: async () => {
           throw new Error('연결 실패')
         },
+        poll: async () => ({ status: 'done', output: { lines: [] } }),
       },
     })
 
-    const thrown = await thrownBy<IngestError>(() => transcriber.transcribe({ media: audio }))
+    const thrown = await thrownBy<IngestError>(() => read(transcriber, audio))
 
     expect(JSON.stringify(thrown.detail)).not.toContain('https://store.example')
   })
@@ -252,13 +279,14 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
     // 판독기 오류 본문에 파일 내용이 섞여 올 수 있습니다
     const transcriber = build({
       ocr: {
-        read: async () => {
+        submit: async () => {
           throw new Error('failed to parse: 110-234-567890')
         },
+        poll: async () => ({ status: 'done', output: { lines: [] } }),
       },
     })
 
-    const thrown = await thrownBy<IngestError>(() => transcriber.transcribe({ media: image }))
+    const thrown = await thrownBy<IngestError>(() => read(transcriber, image))
 
     expect(JSON.stringify(thrown.detail)).not.toContain('110-234')
   })
@@ -276,7 +304,7 @@ describe('누가 사기범인지 정하지 않는다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines.map((one) => one.speaker)).toEqual(['A', 'B', 'A'])
     expect(result.speakerCount).toBe(2)
@@ -293,7 +321,7 @@ describe('누가 사기범인지 정하지 않는다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines.map((one) => one.speaker)).toEqual(['A', 'B'])
   })
@@ -309,7 +337,7 @@ describe('누가 사기범인지 정하지 않는다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.dropped).toBe(1)
     expect(result.lines.map((one) => one.speaker)).toEqual(['A', 'B'])
@@ -332,7 +360,7 @@ describe('누가 사기범인지 정하지 않는다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].speakerConfidence).toBe(0.62)
     expect(result.lines[0].pieces[0].confidence).toBe(0.41)
@@ -347,7 +375,7 @@ describe('값을 다듬지 않는다', () => {
       stt: sttOf({ lines: [{ text: '삼백만원을 보냈어요', startMs: 0, endMs: 1800 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].text).toBe('삼백만원을 보냈어요')
   })
@@ -358,7 +386,7 @@ describe('값을 다듬지 않는다', () => {
       stt: sttOf({ lines: [{ text: '어제 오후 세시쯤이요', startMs: 0, endMs: 2000 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].text).toBe('어제 오후 세시쯤이요')
   })
@@ -370,7 +398,7 @@ describe('값을 다듬지 않는다', () => {
       stt: sttOf({ lines: [{ text: '3333년 1월 23일 35678로', startMs: 0, endMs: 2400 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].text).toBe('3333년 1월 23일 35678로')
   })
@@ -380,7 +408,7 @@ describe('값을 다듬지 않는다', () => {
       stt: sttOf({ lines: [{ text: '110-234-567890 으로 보냈어요', startMs: 0, endMs: 2000 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].text).toContain('110-234-567890')
   })
@@ -399,7 +427,7 @@ describe('한 덩어리로 내보내지 않는다 — 구조가 곧 격리다', 
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines).toHaveLength(2)
     expect(result.lines[0]).toMatchObject({ speaker: 'A', text: '금융감독원입니다' })
@@ -413,7 +441,7 @@ describe('한 덩어리로 내보내지 않는다 — 구조가 곧 격리다', 
       stt: sttOf({ lines: [{ text: attack, startMs: 0, endMs: 1000 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].text).toBe(attack)
   })
@@ -438,7 +466,7 @@ describe('조각 단위로 낸다 — ADR-038 이 요구하는 것', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].pieces).toHaveLength(2)
     expect(result.lines[0].pieces[1]).toMatchObject({ text: '삼백만원', confidence: 0.42 })
@@ -450,7 +478,7 @@ describe('조각 단위로 낸다 — ADR-038 이 요구하는 것', () => {
       stt: sttOf({ lines: [{ text: '여보세요', startMs: 0, endMs: 500 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.shortfalls).toContain('no_pieces')
   })
@@ -465,7 +493,7 @@ describe('조각 단위로 낸다 — ADR-038 이 요구하는 것', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].pieces[0].confidence).toBeNull()
   })
@@ -475,7 +503,7 @@ describe('조각 단위로 낸다 — ADR-038 이 요구하는 것', () => {
       stt: sttOf({ lines: [{ text: '여보세요', startMs: 400 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines[0].at).toEqual({ kind: 'audio', startMs: 400, endMs: 400 })
   })
@@ -494,7 +522,7 @@ describe('이미지의 대화 구조 — 애매하면 안 가른다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: image })
+    const result = await read(transcriber, image)
 
     expect(result.lines.map((one) => one.speaker)).toEqual(['A', 'B', 'A', 'B'])
     expect(result.shortfalls).not.toContain('no_layout')
@@ -513,7 +541,7 @@ describe('이미지의 대화 구조 — 애매하면 안 가른다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: image })
+    const result = await read(transcriber, image)
 
     expect(result.lines.every((one) => one.speaker === null)).toBe(true)
     expect(result.shortfalls).toContain('no_layout')
@@ -524,7 +552,7 @@ describe('이미지의 대화 구조 — 애매하면 안 가른다', () => {
       ocr: ocrOf({ lines: [bubble('안녕', 40, 100), bubble('네', 700, 160)] }),
     })
 
-    const result = await transcriber.transcribe({ media: image })
+    const result = await read(transcriber, image)
 
     expect(result.lines.every((one) => one.speaker === null)).toBe(true)
     expect(result.shortfalls).toContain('no_layout')
@@ -547,8 +575,8 @@ describe('이미지의 대화 구조 — 애매하면 안 가른다', () => {
       layout: { minGapRatio: 0.9 },
     })
 
-    expect((await loose.transcribe({ media: image })).speakerCount).toBe(2)
-    expect((await strict.transcribe({ media: image })).speakerCount).toBe(0)
+    expect((await read(loose, image)).speakerCount).toBe(2)
+    expect((await read(strict, image)).speakerCount).toBe(0)
   })
 
   it('상자가 없으면 자리 없이 글자만 남는다', async () => {
@@ -556,7 +584,7 @@ describe('이미지의 대화 구조 — 애매하면 안 가른다', () => {
       ocr: ocrOf({ lines: [{ text: '입금 3,000,000원' }] }),
     })
 
-    const result = await transcriber.transcribe({ media: image })
+    const result = await read(transcriber, image)
 
     expect(result.lines[0].text).toBe('입금 3,000,000원')
     expect(result.lines[0].at).toBeNull()
@@ -567,7 +595,7 @@ describe('이미지의 대화 구조 — 애매하면 안 가른다', () => {
       ocr: ocrOf({ lines: [{ text: '가', box: [10, 20, 0, 40] }] }),
     })
 
-    const result = await transcriber.transcribe({ media: image })
+    const result = await read(transcriber, image)
 
     expect(result.lines[0].at).toBeNull()
   })
@@ -581,7 +609,7 @@ describe('버린 것을 센다 — 값은 안 담는다', () => {
       }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines).toHaveLength(1)
     expect(result.dropped).toBe(2)
@@ -592,7 +620,7 @@ describe('버린 것을 센다 — 값은 안 담는다', () => {
       stt: sttOf({ lines: 'lines 가 아닙니다' as unknown as [] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.lines).toEqual([])
     expect(result.shortfalls).toContain('empty')
@@ -600,22 +628,56 @@ describe('버린 것을 센다 — 값은 안 담는다', () => {
 })
 
 describe('부르는 쪽에 넘겨야 하는 것', () => {
-  it('진행 상태를 엔진에 그대로 넘긴다', async () => {
-    // 08-14-api.md §3.3 의 progress.percent 를 채우려면 엔진이 알려 줘야 합니다
-    const onProgress = vi.fn()
-    let seen: SttRequest | null = null
+  it('아직이면 진행률을 그대로 낸다', async () => {
+    // 08-14-api.md §3.3 의 progress.percent 가 이 값으로 채워집니다
     const transcriber = build({
       stt: {
-        transcribe: async (request) => {
-          seen = request
-          return { lines: [] }
-        },
+        submit: async () => 'job-1',
+        poll: async () => ({ status: 'running', percent: 62 }),
       },
     })
 
-    await transcriber.transcribe({ media: audio, onProgress })
+    const started = await transcriber.start({ media: audio })
+    if (!started.started) throw new Error('맡겨졌어야 합니다')
 
-    expect(seen!.onProgress).toBe(onProgress)
+    expect(await transcriber.collect(started.job)).toEqual({
+      status: 'running',
+      phase: 'stt',
+      percent: 62,
+    })
+  })
+
+  it('진행률이 100 을 넘지 않는다', async () => {
+    // 화면의 진행률이 100 에 붙었다가 다시 도는 것으로 보이면 고장으로 읽힙니다
+    const transcriber = build({
+      stt: {
+        submit: async () => 'job-1',
+        poll: async () => ({ status: 'running', percent: 140 }),
+      },
+    })
+
+    const started = await transcriber.start({ media: audio })
+    if (!started.started) throw new Error('맡겨졌어야 합니다')
+
+    expect(await transcriber.collect(started.job)).toMatchObject({ percent: 99 })
+  })
+
+  it('읽기가 실패해도 던지지 않는다 — 사건 진행을 막지 않는다', async () => {
+    // CLAUDE.md 불변 규칙 5. 부르는 쪽이 ingest_status 를 failed 로 적으면 됩니다
+    const transcriber = build({
+      stt: {
+        submit: async () => 'job-1',
+        poll: async () => ({ status: 'failed', reason: 'engine_failed' }),
+      },
+    })
+
+    const started = await transcriber.start({ media: audio })
+    if (!started.started) throw new Error('맡겨졌어야 합니다')
+
+    expect(await transcriber.collect(started.job)).toEqual({
+      status: 'failed',
+      reason: 'engine_failed',
+    })
   })
 
   it('어휘 힌트를 전사 도구에 넘긴다', async () => {
@@ -624,14 +686,15 @@ describe('부르는 쪽에 넘겨야 하는 것', () => {
     let seen: SttRequest | null = null
     const transcriber = build({
       stt: {
-        transcribe: async (request) => {
+        submit: async (request) => {
           seen = request
-          return { lines: [] }
+          return 'job-1'
         },
+        poll: async () => ({ status: 'done', output: { lines: [] } }),
       },
     })
 
-    await transcriber.transcribe({
+    await transcriber.start({
       media: audio,
       vocabulary: ['케이뱅크', '카카오뱅크', 'NH투자증권'],
     })
@@ -644,7 +707,7 @@ describe('부르는 쪽에 넘겨야 하는 것', () => {
       stt: sttOf({ lines: [{ text: '가', startMs: 0 }], engine: 'faster-whisper large-v3' }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.engine).toBe('faster-whisper large-v3')
   })
@@ -654,7 +717,7 @@ describe('부르는 쪽에 넘겨야 하는 것', () => {
       stt: sttOf({ lines: [{ text: '가', startMs: 0 }] }),
     })
 
-    const result = await transcriber.transcribe({ media: audio })
+    const result = await read(transcriber, audio)
 
     expect(result.engine).toBeNull()
   })
@@ -663,7 +726,7 @@ describe('부르는 쪽에 넘겨야 하는 것', () => {
     const withStt = build({stt: sttOf({ lines: [] }) })
     const withOcr = build({ocr: ocrOf({ lines: [] }) })
 
-    expect((await withStt.transcribe({ media: audio })).phase).toBe('stt')
-    expect((await withOcr.transcribe({ media: image })).phase).toBe('ocr')
+    expect((await read(withStt, audio)).phase).toBe('stt')
+    expect((await read(withOcr, image)).phase).toBe('ocr')
   })
 })

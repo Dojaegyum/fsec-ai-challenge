@@ -56,9 +56,9 @@ export function configReport(container: Container): readonly PortStatus[] {
     // 이 두 줄은 「붙었나」만이 아니라 **어느 쪽에 붙었나**가 중요합니다 —
     // 격리 경계 이전이라, 원격 API 를 끼우면 녹음·캡처 원문이 그대로 밖으로 나갑니다
     // → ARCHITECTURE.md §6 「경계의 가장 약한 고리」
-    row('녹음 전사', !isUnconfigured(ports.stt), ['(제품 미선정 — ARCHITECTURE §6)'],
+    row('녹음 전사', !isUnconfigured(ports.stt), ['TRANSCRIBER_URL'],
       '녹음을 올려도 글로 안 옮겨집니다. **사건 진행은 그대로 돕니다**'),
-    row('이미지 판독', !isUnconfigured(ports.ocr), ['(제품 미선정 — ARCHITECTURE §6)'],
+    row('이미지 판독', !isUnconfigured(ports.ocr), ['TRANSCRIBER_URL'],
       '캡처를 올려도 글자를 못 읽습니다. **사건 진행은 그대로 돕니다**'),
     row('메일 발송', !isUnconfigured(ports.mailer), ['(발송 수단 미정)'],
       '기한 알림이 안 나갑니다'),

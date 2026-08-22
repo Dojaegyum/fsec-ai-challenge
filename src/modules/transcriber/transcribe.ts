@@ -38,18 +38,22 @@ import { AppError, IngestError } from '@/lib/errors'
 
 import type {
   At,
+  CollectResult,
   EngineLine,
   EngineOutput,
   EnginePiece,
+  EngineProgress,
   IngestPhase,
   LayoutRule,
   Line,
   Piece,
   Shortfall,
+  StartResult,
   TranscribeInput,
   TranscribeResult,
   Transcriber,
   TranscriberDeps,
+  TranscriptionJob,
 } from './types'
 
 /**
@@ -300,7 +304,15 @@ function shortfallsOf(lines: readonly Line[], speakerCount: number): Shortfall[]
  */
 function ingestFailed(
   message: string,
-  detail: { objectKey: string; kind: string; phase: IngestPhase | null; reason: string },
+  detail: {
+    /** 맡길 때는 저장소 경로가, 물어볼 때는 작업 번호가 있습니다 */
+    readonly objectKey?: string
+    readonly jobId?: string
+    readonly kind: string
+    readonly phase: IngestPhase | null
+    /** 어디서 틀어졌나. **짧은 표시값만** — 예외 문구를 그대로 담지 않습니다 */
+    readonly reason: string
+  },
 ): IngestError {
   return new IngestError(message, { ...detail })
 }
@@ -308,21 +320,56 @@ function ingestFailed(
 export function createTranscriber(deps: TranscriberDeps): Transcriber {
   const layout: LayoutRule = { ...DEFAULT_LAYOUT, ...deps.layout }
 
+  /** 옮길 것이 없는 것은 실패가 아닙니다 */
+  const nothingToRead = (): TranscribeResult => ({
+    phase: null,
+    lines: [],
+    speakerCount: 0,
+    shortfalls: ['not_applicable'],
+    dropped: 0,
+    engine: null,
+  })
+
+  /** 읽은 것을 이 모듈의 어휘로 옮긴다. **판단은 전부 여기서** 합니다 */
+  const shape = (output: EngineOutput, phase: IngestPhase): TranscribeResult => {
+    const { lines: normalized, dropped } = normalize(output, phase)
+    const labelled = relabelSpeakers(arrayOf(output.lines), normalized)
+
+    let lines = labelled.lines
+    let speakerCount = labelled.count
+
+    // 판독기는 화자를 모릅니다. 좌표로 세워 봅니다 — 애매하면 안 세웁니다
+    if (phase === 'ocr' && speakerCount === 0) {
+      const arranged = applyLayout(lines, layout)
+      if (arranged.laidOut) {
+        lines = arranged.lines
+        speakerCount = arranged.count
+      }
+    }
+
+    const shortfalls = shortfallsOf(lines, speakerCount)
+    if (phase === 'ocr' && speakerCount === 0 && lines.length > 0) {
+      shortfalls.push('no_layout')
+    }
+
+    return {
+      phase,
+      lines,
+      speakerCount,
+      shortfalls,
+      dropped,
+      engine: textOf(output.engine),
+    }
+  }
+
   return {
-    async transcribe(input: TranscribeInput): Promise<TranscribeResult> {
-      const { media, vocabulary, onProgress } = input
+    async start(input: TranscribeInput): Promise<StartResult> {
+      const { media, vocabulary } = input
 
       // 글로 올라온 것은 옮길 것이 없습니다. **에러가 아닙니다** —
       // 부르는 쪽이 토큰화만 거쳐 그대로 저장하면 됩니다
       if (media.kind === 'text') {
-        return {
-          phase: null,
-          lines: [],
-          speakerCount: 0,
-          shortfalls: ['not_applicable'],
-          dropped: 0,
-          engine: null,
-        }
+        return { started: false, result: nothingToRead() }
       }
 
       const phase: IngestPhase = media.kind === 'audio' ? 'stt' : 'ocr'
@@ -331,8 +378,8 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
       try {
         url = await deps.media.readUrl(media.objectKey)
       } catch (error) {
-        // 이미 이 계층의 예외면 그대로 올립니다. 미설정(NotConfiguredError · 500 · 재시도
-        // 없음)을 전사 실패(422 · 재시도 있음)로 덮으면, **고칠 수 없는 상태를 두고
+        // 이미 이 계층의 예외면 그대로 올립니다. 미설정(500 · 재시도 없음)을
+        // 전사 실패(422 · 재시도 있음)로 덮으면, **고칠 수 없는 상태를 두고
         // 사용자가 계속 다시 누르게** 됩니다 → 08-16-errors.md §2 · lib/not-configured.ts
         if (error instanceof AppError) throw error
         throw ingestFailed('파일을 읽을 자리를 얻지 못했습니다', {
@@ -343,55 +390,60 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
         })
       }
 
-      let output: EngineOutput
       try {
-        output =
+        const jobId =
           media.kind === 'audio'
-            ? await deps.stt.transcribe({
-                url,
-                mimeType: media.mimeType,
-                vocabulary,
-                onProgress,
-              })
-            : await deps.ocr.read({ url, mimeType: media.mimeType, onProgress })
+            ? await deps.stt.submit({ url, mimeType: media.mimeType, vocabulary })
+            : await deps.ocr.submit({ url, mimeType: media.mimeType })
+        return { started: true, job: { jobId, phase, kind: media.kind } }
       } catch (error) {
         if (error instanceof AppError) throw error
-        throw ingestFailed('파일을 읽지 못했습니다', {
+        throw ingestFailed('읽어 달라고 맡기지 못했습니다', {
           objectKey: media.objectKey,
           kind: media.kind,
           phase,
-          reason: 'engine_failed',
+          reason: 'submit_failed',
+        })
+      }
+    },
+
+    async collect(job: TranscriptionJob): Promise<CollectResult> {
+      if (job.kind === 'text') {
+        return { status: 'done', result: nothingToRead() }
+      }
+
+      const tool = job.kind === 'audio' ? deps.stt : deps.ocr
+
+      let progress: EngineProgress
+      try {
+        progress = await tool.poll(job.jobId)
+      } catch (error) {
+        if (error instanceof AppError) throw error
+        throw ingestFailed('맡긴 일을 물어보지 못했습니다', {
+          jobId: job.jobId,
+          kind: job.kind,
+          phase: job.phase,
+          reason: 'poll_failed',
         })
       }
 
-      const { lines: normalized, dropped } = normalize(output, phase)
-      const labelled = relabelSpeakers(arrayOf(output.lines), normalized)
-
-      let lines = labelled.lines
-      let speakerCount = labelled.count
-
-      // 판독기는 화자를 모릅니다. 좌표로 세워 봅니다 — 애매하면 안 세웁니다
-      if (phase === 'ocr' && speakerCount === 0) {
-        const arranged = applyLayout(lines, layout)
-        if (arranged.laidOut) {
-          lines = arranged.lines
-          speakerCount = arranged.count
+      if (progress.status === 'running') {
+        // 100 을 넘거나 뒤로 가지 않게 합니다 — 화면의 진행률이 줄어들면 고장으로 보입니다
+        const percent = numberOf(progress.percent) ?? 0
+        return {
+          status: 'running',
+          phase: job.phase,
+          percent: Math.max(0, Math.min(99, Math.trunc(percent))),
         }
       }
 
-      const shortfalls = shortfallsOf(lines, speakerCount)
-      if (phase === 'ocr' && speakerCount === 0 && lines.length > 0) {
-        shortfalls.push('no_layout')
+      if (progress.status === 'failed') {
+        // **던지지 않습니다.** 부르는 쪽이 `ingest_status` 를 `failed` 로 적으면 되고,
+        // 사건 진행은 막지 않습니다 → CLAUDE.md 불변 규칙 5
+        return { status: 'failed', reason: textOf(progress.reason) ?? 'unknown' }
       }
 
-      return {
-        phase,
-        lines,
-        speakerCount,
-        shortfalls,
-        dropped,
-        engine: textOf(output.engine),
-      }
+      return { status: 'done', result: shape(progress.output, job.phase) }
     },
   }
 }

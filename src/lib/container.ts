@@ -25,6 +25,7 @@ import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
 import { ulidSource } from './ids'
 import { unconfigured } from './not-configured'
+import { createInferenceEngines } from './inference'
 import { createQuestionSource } from './questions'
 
 import { createAuditLogger } from '@/modules/audit-logger'
@@ -123,6 +124,26 @@ export interface Ports {
  * 각 줄이 「무엇이 · 어느 환경변수 때문에」 안 붙었는지를 담고 있어,
  * 부르는 순간 그대로 말하며 멈춥니다.
  */
+/**
+ * 읽는 도구 둘을 만든다 — **주소가 있을 때만.**
+ *
+ * 앱은 그 서비스가 무엇인지 모릅니다. 이 컴퓨터에서 띄운 것이든 국내 GPU 서버든
+ * **주소만 바뀝니다** → [inference.ts](./inference.ts) · `services/transcriber/`.
+ *
+ * 주소가 없으면 부르는 순간 터지는 대역을 끼웁니다. 조용히 빈 결과를 내면
+ * 사건이 「전사 0줄」로 지나가고 며칠 뒤에야 누가 알아챕니다.
+ */
+function readingEngines(env: Env): Pick<Ports, 'stt' | 'ocr'> {
+  const baseUrl = env.values.TRANSCRIBER_URL
+  if (!baseUrl) {
+    return {
+      stt: unconfigured('SttEngine', ['TRANSCRIBER_URL']),
+      ocr: unconfigured('OcrEngine', ['TRANSCRIBER_URL']),
+    }
+  }
+  return createInferenceEngines({ baseUrl, token: env.values.TRANSCRIBER_TOKEN })
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -145,10 +166,10 @@ export function unconfiguredPorts(env: Env): Ports {
     // ⬜ 판별 모델 미선정 → ARCHITECTURE.md §10
     tokenizer: unconfigured('PiiTokenizer', ['(모델 미선정)']),
     residualPii: unconfigured('ResidualPiiScanner', ['(모델 미선정)']),
-    // ⬜ 제품 미선정 → ARCHITECTURE.md §6. **경계 이전이라 선택이 곧 정책입니다** —
-    // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다 → ADR-043
-    stt: unconfigured('SttEngine', ['(제품 미선정 — ARCHITECTURE §6)']),
-    ocr: unconfigured('OcrEngine', ['(제품 미선정 — ARCHITECTURE §6)']),
+    // 주소가 있으면 그 서비스를 부르고, 없으면 부르는 순간 터집니다.
+    // **경계 이전이라 「어디를 부르나」가 곧 정책입니다** → ARCHITECTURE §6.
+    // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
+    ...readingEngines(env),
     llm: unconfigured('LlmClient', ['XAI_API_KEY']),
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
