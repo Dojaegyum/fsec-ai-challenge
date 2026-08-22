@@ -33,11 +33,22 @@ import DocGuide from "./doc";
  *
  * TODO(연결) — 지금은 UI 상태만 돕니다. 아래 「국면 고르기」는 **개발용 스위치**이고,
  * 실제로는 서버 시그널이 축을 정합니다
- *  · POST …/messages §3.9 · GET …/slots §3.4 · GET …/plan §3.6 · GET …/deadlines §3.7
+ *  · **첫 로드는 `GET /api/cases/{case_token}` 하나입니다** (§3.10) — 슬롯·플랜·기한 합본.
+ *    셋을 따로 부르면 첫 화면까지 왕복이 넷이고, 그동안 빈 화면입니다
+ *  · 이후 갱신 — POST …/messages §3.9 · PATCH …/slots §3.5 · POST …/artifacts §3.8
  *  · `referenced_steps` → `side: "work"` (work-handler)
- *  · 플랜 생성·재방문 → `focus: "plan"`
- *  · ⬜ TODO(계약 필요): `focus: "evidence"` 로 보내는 시그널이 API 에 없습니다
- *  · CASE_TOKEN 을 실제 경로 파라미터로
+ *
+ * **어느 화면으로 열지는 서버가 지목하지 않습니다** (§3.10 · 2026-08-21 확정).
+ * 응답의 사실로 `case-opener` 가 고릅니다
+ *
+ *     focus  plan.steps 가 비어 있지 않으면 → 'plan',  그 밖 → 'chat'
+ *     side   지금 할 단계가 있으면          → 'work',  그 밖 → 'casefile'
+ *
+ * **`focus: "evidence"` 로는 열지 않습니다** — 증거함은 눌러서 가는 곳이지
+ * 재진입의 도착지가 아닙니다. 시그널이 없는 것이 맞습니다
+ *
+ *  · ⬜ CASE_TOKEN 을 실제 경로 파라미터로. **`{case_id}` 와 URL 의 `{token}` 이 같은
+ *    값인지가 아직 미정입니다** → ADR-021 「남은 것」 · §3.10 경고
  */
 
 const CASE_TOKEN = "7fK2p"; // TODO: params.token 으로 교체
@@ -367,7 +378,12 @@ export default function CaseScreen() {
       </div>
 
       {/* 개발용 축 스위치 — 제품이 아닙니다. 서버 시그널이 붙으면 통째로 지웁니다.
-          화면 흐름을 가리지 않도록 오른쪽 아래에 떠 있게 두고, `?view=` 로도 받습니다 */}
+          화면 흐름을 가리지 않도록 오른쪽 아래에 떠 있게 두고, `?view=` 로도 받습니다.
+
+          ⚠️ **프로덕션 빌드에서는 렌더하지 않습니다.** 「제품이 아니다」라고 주석만
+          달아 두고 조건 없이 그리고 있어서, **심사위원 화면에 그대로 떴습니다.**
+          `?view=` 는 남겨 둡니다 — 화면이 없어질 뿐 시연·스크린샷 경로는 필요합니다 */}
+      {process.env.NODE_ENV !== "production" && (
       <div className="pointer-events-auto fixed bottom-3 right-3 z-50 flex items-center gap-1 rounded-full border border-hairline bg-stage/90 px-1.5 py-1 text-[12.5px] backdrop-blur">
         <span className="px-1.5 text-icon">dev</span>
         {DEV_VIEWS.map(([id, label]) => (
@@ -395,6 +411,7 @@ export default function CaseScreen() {
           {atWork ? "사건파일" : "WS"}
         </button>
       </div>
+      )}
 
       {/* 나가는 본문의 유령 — 새 본문과 **겹쳐** 지나갑니다.
           바깥 겹은 반드시 있어야 합니다: 유령이 기울고 늘어나며 화면 밖으로 나가는데,

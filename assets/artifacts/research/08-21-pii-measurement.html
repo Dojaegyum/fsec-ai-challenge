@@ -1,0 +1,708 @@
+<!--
+  ⚠️ 이 파일은 **사본**입니다. 내용의 정본은 Markdown 쪽입니다.
+
+    docs/research/09-로컬모델-PII인식-실측.md   STT 결론·발견·권고
+    docs/research/10-PII인식-실측-방법론.md     STT 방법론
+    docs/research/11-로컬OCR-PII인식-실측.md    OCR 결론·발견·권고
+    docs/research/12-OCR-실측-방법론.md         OCR 방법론
+    assets/datasets/08-21-local-llm-pii/        STT 측정 원본
+    assets/datasets/08-21-local-ocr-pii/        OCR 측정 원본
+
+  **숫자가 바뀌면 Markdown 을 먼저 고치고 여기를 맞추세요.** 반대로 하면
+  정본이 어느 쪽인지 알 수 없어지고, 안 고친 쪽이 조용히 틀린 문서가 됩니다.
+
+  발표·공유용으로 브라우저에서 여는 완성 산출물입니다 (RFC-001 「assets/」).
+  단일 파일이라 외부 CSS·JS 의존이 없습니다 — 글꼴만 Google Fonts 를 씁니다.
+-->
+<title>로컬 모델 PII 실측</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     값의 정본은 FinAlly src/app/globals.css 입니다.
+     여기 hex 는 그 파일의 oklch 를 변환한 것이고, 새 색을 만들지 않았습니다.
+     이 서비스는 라이트 모드가 아직 정해지지 않아 다크 단일 세계로 갑니다.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --ground:      #000000;
+    --stage:       #0c0d0f;
+    --surface-low: #131416;
+    --surface:     #1d1d1d;
+    --hairline:    #2c2f36;
+    --chip:        rgba(255,255,255,0.04);
+
+    --ink-1: #ffffff;
+    --ink-2: #caccd2;
+    --ink-3: #9ca3af;
+    --ink-4: #8f8f8f;
+
+    /* 상태색 둘. 이 디자인 시스템은 빨강을 쓰지 않습니다 */
+    --masked:  #5b9dff;   /* 가려짐 = 서버로 안 감 */
+    --masked-bg: #0f1d33;
+    --leaked:  #e3a75b;   /* 새어 나감 */
+    --lost:    #8f8f8f;   /* 전사에서 깨짐 — 좋지도 나쁘지도 않은 제3의 상태 */
+
+    --kr: "Pretendard Variable", Pretendard, "IBM Plex Sans KR",
+          system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    --mono: "IBM Plex Mono", "Pretendard Variable", ui-monospace, "Consolas", monospace;
+
+    --wide: 68rem;
+    --prose: 40rem;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink-2);
+    font-family: var(--kr);
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    font-weight: 400;
+  }
+
+  .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 24px; }
+
+  h1, h2, h3 { color: var(--ink-1); text-wrap: balance; margin: 0; font-weight: 600; }
+  h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.2; letter-spacing: -0.02em; }
+  h2 { font-size: 1.5rem; line-height: 1.35; letter-spacing: -0.01em; }
+  h3 { font-size: 1.0625rem; line-height: 1.5; }
+  p  { margin: 0; }
+  strong { color: var(--ink-1); font-weight: 600; }
+  em { font-style: normal; color: var(--ink-1); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+
+  .lede { font-size: 1.1875rem; line-height: 1.7; color: var(--ink-2); max-width: var(--prose); }
+  .note { font-size: 0.9375rem; line-height: 1.7; color: var(--ink-3); }
+  .num  { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ── 머리 ───────────────────────────────────────────────── */
+  header {
+    border-bottom: 1px solid var(--hairline);
+    padding: 72px 0 48px;
+    background:
+      radial-gradient(120% 90% at 12% 0%, rgba(91,157,255,0.10), transparent 60%),
+      var(--ground);
+  }
+  .head-grid { display: flex; flex-direction: column; gap: 24px; }
+  .verdict {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    padding-top: 8px;
+  }
+  .vpill {
+    display: inline-flex; align-items: baseline; gap: 10px;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 999px; padding: 8px 18px;
+  }
+  .vpill .k { font-size: 0.875rem; color: var(--ink-3); }
+  .vpill .v { font-family: var(--mono); font-weight: 600; font-size: 1.0625rem; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+  .vpill.good .v { color: var(--masked); }
+  .vpill.bad  .v { color: var(--leaked); }
+
+  /* ── 섹션 ───────────────────────────────────────────────── */
+  section { padding: 64px 0; border-bottom: 1px solid var(--hairline); }
+  section.band { background: var(--stage); }
+  .s-head { display: flex; flex-direction: column; gap: 12px; margin-bottom: 36px; }
+
+  /* ── 추적 (히어로) ──────────────────────────────────────── */
+  .trace { display: flex; flex-direction: column; gap: 2px; }
+  .step {
+    display: grid; grid-template-columns: 132px 1fr; gap: 20px;
+    padding: 20px 22px;
+    background: var(--surface-low);
+    border: 1px solid var(--hairline);
+  }
+  .step:first-child { border-radius: 12px 12px 0 0; background: var(--surface); }
+  .step:last-child  { border-radius: 0 0 12px 12px; }
+  .step + .step { border-top: none; }
+  .step-label { display: flex; flex-direction: column; gap: 2px; }
+  .step-label .t { font-family: var(--mono); font-size: 0.8125rem; color: var(--ink-2); font-weight: 500; }
+  .step-label .s { font-size: 0.75rem; color: var(--ink-4); }
+  .utter { font-size: 1rem; line-height: 1.85; color: var(--ink-2); }
+  .utter .acct { font-family: var(--mono); font-weight: 500; }
+
+  mark.ok   { background: var(--masked-bg); color: var(--masked); padding: 1px 5px; border-radius: 4px; font-weight: 500; }
+  mark.warn { background: rgba(227,167,91,0.14); color: var(--leaked); padding: 1px 5px; border-radius: 4px; font-weight: 500; }
+  mark.dim  { background: rgba(255,255,255,0.05); color: var(--ink-3); padding: 1px 5px; border-radius: 4px; }
+
+  .verdict-row {
+    display: grid; grid-template-columns: 132px 1fr; gap: 20px;
+    padding: 20px 22px; margin-top: 14px;
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px;
+  }
+  .outcomes { display: flex; flex-direction: column; gap: 10px; }
+  .outcome { display: flex; align-items: baseline; gap: 10px; font-size: 0.9375rem; }
+  .dot { width: 9px; height: 9px; border-radius: 2px; flex: none; transform: translateY(-1px); }
+  .dot.m { background: var(--masked); }
+  .dot.l { background: var(--leaked); }
+  .dot.x { background: var(--lost); }
+
+  /* ── 미터 표 ────────────────────────────────────────────── */
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 20px; }
+  .lg { display: inline-flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--ink-3); }
+
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  caption {
+    text-align: left; font-size: 0.9375rem; color: var(--ink-3);
+    padding-bottom: 14px;
+  }
+  th, td { text-align: left; padding: 13px 14px; border-bottom: 1px solid var(--hairline); vertical-align: middle; }
+  thead th {
+    font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-4); font-weight: 500; font-family: var(--mono);
+    border-bottom: 1px solid var(--hairline);
+  }
+  td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tbody tr.hi td { background: var(--surface); }
+  tbody tr.hi td:first-child { border-left: 2px solid var(--masked); }
+  .cfg { color: var(--ink-1); font-weight: 500; }
+  .cfg .sub { display: block; font-size: 0.8125rem; color: var(--ink-4); font-weight: 400; }
+
+  .meter { display: flex; gap: 2px; height: 12px; width: 100%; min-width: 180px; }
+  .meter span { display: block; height: 100%; }
+  .meter span:first-child { border-radius: 4px 0 0 4px; }
+  .meter span:last-child  { border-radius: 0 4px 4px 0; }
+  .meter span:only-child  { border-radius: 4px; }
+  .m-ok { background: var(--masked); }
+  .m-lk { background: var(--leaked); }
+  .m-xx { background: var(--lost); }
+
+  /* ── 발견 카드 ──────────────────────────────────────────── */
+  .cards { display: grid; grid-template-columns: 1fr; gap: 2px; }
+  .card {
+    background: var(--surface-low); border: 1px solid var(--hairline);
+    padding: 26px 24px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card:first-child { border-radius: 12px 12px 0 0; }
+  .card:last-child { border-radius: 0 0 12px 12px; }
+  .card + .card { border-top: none; }
+  .card .idx { font-family: var(--mono); font-size: 0.8125rem; color: var(--masked); letter-spacing: 0.06em; }
+  .card p { max-width: var(--prose); font-size: 1rem; }
+  .card .evidence {
+    font-family: var(--mono); font-size: 0.875rem; line-height: 1.7;
+    background: var(--ground); border: 1px solid var(--hairline);
+    border-radius: 8px; padding: 14px 16px; color: var(--ink-3);
+    overflow-x: auto;
+  }
+  .card .evidence b { color: var(--ink-1); font-weight: 500; }
+
+  /* ── 권고 ───────────────────────────────────────────────── */
+  .recs { display: flex; flex-direction: column; gap: 14px; }
+  .rec { display: grid; grid-template-columns: 56px 1fr; gap: 18px; align-items: start; }
+  .rec .tag {
+    font-family: var(--mono); font-size: 0.8125rem; color: var(--ink-1);
+    background: var(--chip); border: 1px solid var(--hairline);
+    border-radius: 6px; padding: 3px 0; text-align: center;
+  }
+  .rec p { font-size: 1rem; max-width: var(--prose); }
+
+  /* ── 단서 ───────────────────────────────────────────────── */
+  .caveat {
+    border-left: 2px solid var(--leaked);
+    padding: 4px 0 4px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .caveat p { max-width: var(--prose); }
+
+  .files { display: flex; flex-direction: column; gap: 8px; font-family: var(--mono); font-size: 0.875rem; }
+  .file { display: grid; grid-template-columns: minmax(0,26rem) 1fr; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+  .file .p { color: var(--ink-2); overflow-wrap: anywhere; }
+  .file .d { color: var(--ink-4); font-family: var(--kr); }
+
+  footer { padding: 40px 0 72px; color: var(--ink-4); font-size: 0.875rem; }
+
+  @media (max-width: 760px) {
+    .step, .verdict-row { grid-template-columns: 1fr; gap: 12px; }
+    .rec { grid-template-columns: 1fr; gap: 8px; }
+    .rec .tag { width: 56px; }
+    .file { grid-template-columns: 1fr; gap: 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<header>
+  <div class="wrap head-grid">
+    <div class="eyebrow">FinAlly · 실측 2026-08-21</div>
+    <h1>로컬 모델은 진술과 화면에서<br>개인정보를 잡아낼 수 있는가</h1>
+    <p class="lede">
+      STT·OCR에 브라우저 모델을 쓰지 않기로 한 뒤, 남은 선택지는 로컬 모델이었습니다.
+      그 모델의 성능이 <strong>전사된 진술에서 무엇이 개인정보인지 가려내는 정확도</strong>를
+      좌우할 것 같아 처음으로 재봤습니다. 합성 평가셋 40발화, 전화 음질로 합성한 음성,
+      Whisper 세 크기와 로컬 LLM 두 종입니다. <strong>증거 화면 20장으로 OCR 엔진 넷</strong>도 이어서 쟀습니다.
+    </p>
+    <div class="verdict">
+      <span class="vpill good"><span class="k">깨끗한 텍스트 누출률</span><span class="v">0.0%</span></span>
+      <span class="vpill bad"><span class="k">전사문 누출률</span><span class="v">9.1%</span></span>
+      <span class="vpill good"><span class="k">화면(OCR) 누출률</span><span class="v">5.7%</span></span>
+      <span class="vpill"><span class="k">분기 입력 훼손</span><span class="v">0건</span></span>
+    </div>
+    <p class="note">
+      결론부터 — <strong>로컬 4B 모델로 충분합니다.</strong> 다만 그건 텍스트가 깨끗할 때 이야기이고,
+      전사문에서는 <strong>정규식과 LLM의 역할이 통째로 뒤집힙니다.</strong> 그런데 <strong>화면에서는 안 뒤집힙니다</strong> — 같은 계좌번호도 듣는 것과 보는 것은 난이도가 다릅니다.
+    </p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">한 문장으로 보는 결과</div>
+      <h2>같은 말이 파이프라인을 지나며 무엇이 남는가</h2>
+      <p class="note" style="max-width:var(--prose)">
+        평가셋의 첫 발화입니다. 음성을 전화망 음질(8kHz·μ-law)로 떨어뜨린 뒤
+        Whisper 크기를 올려가며 받아썼습니다. <mark class="warn">계좌번호</mark>가 어떻게 되는지만 보세요.
+      </p>
+    </div>
+
+    <div class="trace">
+      <div class="step">
+        <div class="step-label"><span class="t">원문</span><span class="s">사람이 말한 것</span></div>
+        <p class="utter">
+          어제 오후 3시쯤 <mark class="dim">국민은행</mark>에서 <mark class="dim">신한은행</mark>
+          <span class="acct"><mark class="warn">110-234-567890</mark></span> 계좌로
+          <mark class="dim">850만원</mark>을 이체했어요. 받는 사람 이름은
+          <mark class="ok">김도현</mark>이라고 떴습니다.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-label"><span class="t">whisper base</span><span class="s">실시간 0.5배</span></div>
+        <p class="utter">
+          어제 오후 3시쯤 국민은행에서 <mark class="warn">시나는행</mark>
+          <span class="acct"><mark class="warn">일일공에 234마이너스 56만 7,890</mark></span>개짜로
+          850만 원을 이체했어요. 반은 사람 이름은 <mark class="warn">김도선</mark>이라고 떴습니다.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-label"><span class="t">whisper small</span><span class="s">실시간 1.1배</span></div>
+        <p class="utter">
+          어제 오후 3시쯤 국민은행에서 <mark class="warn">신안은행</mark>
+          <span class="acct"><mark class="warn">1일공에 234-56만 7,890</mark></span>개짜로
+          850만원을 이체했어요. 받는 사람 이름은 <mark class="ok">김도현</mark>이라고 떴습니다.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-label"><span class="t">whisper medium</span><span class="s">실시간 2.9배</span></div>
+        <p class="utter">
+          어제 오후 3시쯤 <mark class="dim">국민은행</mark>에서 <mark class="dim">신한은행</mark>
+          <span class="acct"><mark class="warn">110에 234-56만 7,890</mark></span>개자로
+          <mark class="dim">850만원</mark>을 이치했어요. 받는 사람 이름은
+          <mark class="ok">김도현</mark>이라고 떴습니다.
+        </p>
+      </div>
+    </div>
+
+    <div class="verdict-row">
+      <div class="step-label"><span class="t">medium 전사문에서</span><span class="s">탐지기가 낸 결과</span></div>
+      <div class="outcomes">
+        <div class="outcome"><span class="dot x"></span>
+          <span><strong>계좌번호는 전사에서 깨졌습니다.</strong> 정규식도 LLM도 못 잡습니다 —
+          샐 값이 애초에 남아 있지 않지만, <em>슬롯에는 틀린 계좌가 들어갑니다.</em></span></div>
+        <div class="outcome"><span class="dot m"></span>
+          <span><strong>이름 「김도현」은 LLM이 잡았습니다.</strong> 정규식은 이름을 보지 않습니다 — 설계상 2차 NER의 몫입니다.</span></div>
+        <div class="outcome"><span class="dot m"></span>
+          <span><strong>국민은행·신한은행·850만원은 그대로 남았습니다.</strong> 가리면 안 되는 값들이고, 실제로 아무도 안 건드렸습니다.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">숫자</div>
+      <h2>개인정보 33건이 어떻게 되었나</h2>
+      <p class="note" style="max-width:var(--prose)">
+        평가셋 40발화에는 반드시 가려야 할 값 33건과, 절대 가리면 안 되는 값 80건이 들어 있습니다.
+        아래 막대는 모두 <strong>같은 33건</strong>을 나눈 것입니다.
+      </p>
+    </div>
+
+    <div class="legend">
+      <span class="lg"><span class="dot m"></span>차단 — 가려져서 서버로 안 감</span>
+      <span class="lg"><span class="dot l"></span>누출 — 못 잡아서 외부로 나감</span>
+      <span class="lg"><span class="dot x"></span>전사손상 — 값이 깨져 사라짐</span>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <caption>사용자가 타이핑한 것처럼 깨끗한 텍스트일 때</caption>
+        <thead>
+          <tr>
+            <th>구성</th>
+            <th style="width:34%">개인정보 33건의 행방</th>
+            <th class="n">누출</th>
+            <th class="n">누출률</th>
+            <th class="n">분기 입력 훼손</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="cfg">정규식만<span class="sub">지금 저장소에 있는 것</span></td>
+            <td><div class="meter" role="img" aria-label="차단 20건, 누출 13건">
+              <span class="m-ok" style="width:60.6%"></span><span class="m-lk" style="width:39.4%"></span></div></td>
+            <td class="n">13</td><td class="n">39.4%</td><td class="n">0</td>
+          </tr>
+          <tr>
+            <td class="cfg">qwen3:4b 단독<span class="sub">LLM 만</span></td>
+            <td><div class="meter" role="img" aria-label="차단 28건, 누출 5건">
+              <span class="m-ok" style="width:84.8%"></span><span class="m-lk" style="width:15.2%"></span></div></td>
+            <td class="n">5</td><td class="n">15.2%</td><td class="n">14</td>
+          </tr>
+          <tr>
+            <td class="cfg">정규식 + qwen3:4b</td>
+            <td><div class="meter" role="img" aria-label="차단 30건, 누출 3건">
+              <span class="m-ok" style="width:90.9%"></span><span class="m-lk" style="width:9.1%"></span></div></td>
+            <td class="n">3</td><td class="n">9.1%</td><td class="n">14</td>
+          </tr>
+          <tr class="hi">
+            <td class="cfg">정규식 + gemma3:4b + 허용목록<span class="sub">권고 구성</span></td>
+            <td><div class="meter" role="img" aria-label="차단 33건, 누출 0건">
+              <span class="m-ok" style="width:100%"></span></div></td>
+            <td class="n">0</td><td class="n">0.0%</td><td class="n">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll" style="margin-top:44px">
+      <table>
+        <caption>전화 음질 음성을 whisper medium 으로 받아쓴 전사문일 때</caption>
+        <thead>
+          <tr>
+            <th>구성</th>
+            <th style="width:34%">개인정보 33건의 행방</th>
+            <th class="n">누출</th>
+            <th class="n">누출률</th>
+            <th class="n">분기 입력 훼손</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="cfg">정규식만<span class="sub">깨끗한 텍스트에선 20건을 잡던 것</span></td>
+            <td><div class="meter" role="img" aria-label="차단 10건, 누출 12건, 전사손상 11건">
+              <span class="m-ok" style="width:30.3%"></span><span class="m-lk" style="width:36.4%"></span><span class="m-xx" style="width:33.3%"></span></div></td>
+            <td class="n">12</td><td class="n">54.5%</td><td class="n">0</td>
+          </tr>
+          <tr>
+            <td class="cfg">gemma3:4b 단독</td>
+            <td><div class="meter" role="img" aria-label="차단 19건, 누출 3건, 전사손상 11건">
+              <span class="m-ok" style="width:57.6%"></span><span class="m-lk" style="width:9.1%"></span><span class="m-xx" style="width:33.3%"></span></div></td>
+            <td class="n">3</td><td class="n">13.6%</td><td class="n">2</td>
+          </tr>
+          <tr class="hi">
+            <td class="cfg">정규식 + gemma3:4b + 허용목록<span class="sub">권고 구성</span></td>
+            <td><div class="meter" role="img" aria-label="차단 20건, 누출 2건, 전사손상 11건">
+              <span class="m-ok" style="width:60.6%"></span><span class="m-lk" style="width:6.1%"></span><span class="m-xx" style="width:33.3%"></span></div></td>
+            <td class="n">2</td><td class="n">9.1%</td><td class="n">1</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note" style="margin-top:22px; max-width:var(--prose)">
+      누출률의 모수는 <strong>전사에서 살아남은 값</strong>입니다 — 깨져서 사라진 것을 「막았다」고 셀 수는 없으니까요.
+      전사손상 11건은 안전이 아니라 <strong>다른 종류의 사고</strong>입니다. 그 값이 곧 슬롯이 되고, 슬롯이 절차를 고릅니다.
+    </p>
+  </div>
+</section>
+
+
+<section class="band">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">화면 · OCR</div>
+      <h2>같은 계좌번호도 듣는 것과 보는 것은 다릅니다</h2>
+      <p class="note" style="max-width:var(--prose)">
+        증거는 말로만 오지 않습니다. 이체 완료 화면, 통장 거래내역, 상품권 핀 문자 —
+        <strong>이체내역 캡처가 슬롯 추출의 주 입력</strong>입니다. 합성 증거 화면 20장으로 따로 쟀습니다.
+      </p>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <caption>숫자가 아라비아 숫자로 살아남는 비율</caption>
+        <thead><tr><th>경로</th><th style="width:44%">리터럴 생존</th><th class="n">비율</th></tr></thead>
+        <tbody>
+          <tr><td class="cfg">말로 듣기<span class="sub">whisper base</span></td>
+            <td><div class="meter" role="img" aria-label="10퍼센트"><span class="m-lk" style="width:10%"></span><span class="m-xx" style="width:90%"></span></div></td><td class="n">10%</td></tr>
+          <tr><td class="cfg">말로 듣기<span class="sub">whisper medium</span></td>
+            <td><div class="meter" role="img" aria-label="65퍼센트"><span class="m-lk" style="width:65%"></span><span class="m-xx" style="width:35%"></span></div></td><td class="n">65%</td></tr>
+          <tr class="hi"><td class="cfg">화면에서 읽기<span class="sub">OCR · 전 엔진·전 조건</span></td>
+            <td><div class="meter" role="img" aria-label="98퍼센트"><span class="m-ok" style="width:98%"></span><span class="m-xx" style="width:2%"></span></div></td><td class="n">96~100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note" style="margin:22px 0 40px; max-width:var(--prose)">
+      <code style="font-family:var(--mono)">110-234-567890</code>을 STT는
+      <em>"일일공에 234마이너스 56만 7,890"</em>으로 흘렸지만, OCR은 전 조건에서 그대로 읽었습니다.
+      <strong>전사문에서 무너졌던 정규식 1차가 화면에서는 살아 있습니다</strong> — 계좌 12/14 · 전화 5/5.
+    </p>
+
+    <div class="scroll">
+      <table>
+        <caption>개인정보 36건이 어떻게 되었나 (합성 증거 화면 20장)</caption>
+        <thead>
+          <tr><th>구성</th><th style="width:30%">행방</th><th class="n">누출률</th><th class="n">필드 짝유지</th><th class="n">과차단</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="cfg">Tesseract + 정규식만</td>
+            <td><div class="meter" role="img" aria-label="차단 17건 누출 17건 손상 2건"><span class="m-ok" style="width:47.2%"></span><span class="m-lk" style="width:47.2%"></span><span class="m-xx" style="width:5.6%"></span></div></td>
+            <td class="n">50.0%</td><td class="n">85.5%</td><td class="n">0</td></tr>
+          <tr><td class="cfg">Tesseract + 공백복원 + LLM + 허용목록</td>
+            <td><div class="meter" role="img" aria-label="누출 5건"><span class="m-ok" style="width:80.6%"></span><span class="m-lk" style="width:13.9%"></span><span class="m-xx" style="width:5.6%"></span></div></td>
+            <td class="n">14.7%</td><td class="n">85.5%</td><td class="n">0</td></tr>
+          <tr class="hi"><td class="cfg">EasyOCR + 좌표복원 + 정규식 + LLM + 허용목록<span class="sub">권고 구성</span></td>
+            <td><div class="meter" role="img" aria-label="누출 2건"><span class="m-ok" style="width:91.7%"></span><span class="m-lk" style="width:5.6%"></span><span class="m-xx" style="width:2.7%"></span></div></td>
+            <td class="n">5.7%</td><td class="n">63.8%<span class="sub" style="display:inline"> → 94.2%</span></td><td class="n">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards" style="margin-top:44px">
+      <article class="card">
+        <div class="idx">OCR 발견 1</div>
+        <h3>한글이 깨지는 방식이 엔진마다 다릅니다</h3>
+        <div class="evidence">
+원문       국민은행 · 받는 분 김도현<br>
+Tesseract  <b>민 은 행</b> · <b>ge 분 김 도현</b>   ← 낱자로 쪼개고 공백을 넣음<br>
+EasyOCR    국민은행 · <b>본는 분</b> 김도현      ← 한글은 붙어 있고 라벨을 한 글자 오독<br>
+비전 모델   국민은행 · <b>분는 분</b> / 김도현    ← 라벨과 값이 줄로 갈림
+        </div>
+        <p>
+          <strong>고치는 법도 달라집니다.</strong> Tesseract는 낱자 공백을 다시 붙이면
+          누출이 32.4%에서 14.7%로 떨어집니다. EasyOCR의 오독은 <em>한 글자</em>뿐이라,
+          화면 라벨이 유한 집합인 걸 이용해 사전으로 되돌리면 짝유지가 63.8%에서 94.2%가 됩니다.
+        </p>
+      </article>
+
+      <article class="card">
+        <div class="idx">OCR 발견 2</div>
+        <h3>엔진이 주는 좌표를 버리고 있었습니다</h3>
+        <p>
+          EasyOCR은 글자 덩어리를 <strong>찾은 순서대로</strong> 뱉습니다. 흔히 쓰는
+          <code style="font-family:var(--mono)">detail=0</code> 호출은 좌표를 버려서,
+          화면에서 한 줄이던 <em>받는 분 | 김도현</em>이 두 줄로 갈리고 순서까지 뒤집힙니다.
+        </p>
+        <div class="evidence">
+detail=0 (좌표 버림)            detail=1 + y좌표로 행 복원<br>
+  김도현                          본는 분 김도현<br>
+  본는 분                         본는 계좌 신한은행 110-234-567890<br>
+  신한은행 110-234-567890         보랜 금액 8,500,000원
+        </div>
+        <p><strong>좌표는 엔진이 이미 주고 있습니다.</strong> 안 쓰면 버리는 것입니다.</p>
+      </article>
+
+      <article class="card">
+        <div class="idx">OCR 발견 3</div>
+        <h3>예상했던 자형 혼동은 나오지 않았습니다</h3>
+        <p>
+          <code style="font-family:var(--mono)">0↔O</code> ·
+          <code style="font-family:var(--mono)">1↔l</code> ·
+          <code style="font-family:var(--mono)">5↔S</code>를 따로 집계했는데
+          <strong>전 조건에서 0건</strong>이었습니다. 화면 글자는 인쇄물·스캔과 달리 픽셀이 또렷합니다.
+          <em>예측이 빗나갔고, 그래서 대비할 필요가 줄었습니다</em> — 다만 종이 서류를 받는 경로를 열면 다시 봐야 합니다.
+        </p>
+      </article>
+
+      <article class="card">
+        <div class="idx">OCR 발견 4</div>
+        <h3>화질은 거의 안 걸립니다</h3>
+        <p>
+          저해상도(긴 변 720px)도, 다른 폰으로 찍은 것도 원본과 비슷하거나 오히려 나았습니다 —
+          확대가 Tesseract에 유리했던 것으로 보입니다.
+          <strong>피해자가 캡처를 메신저로 돌려 보내거나 다른 폰으로 찍어 보내도 괜찮습니다.</strong>
+          STT는 모델 크기가 결정적이었지만(5%→65%), 여기서는 그 걱정을 옮겨 붙일 필요가 없습니다.
+        </p>
+      </article>
+    </div>
+
+    <p class="note" style="margin-top:36px; max-width:var(--prose)">
+      ⚠️ <strong>합성 화면 기준입니다.</strong> 실제 은행 앱은 자체 글꼴·좁은 자간·컬러 배경을 써서
+      결과가 달라집니다 — 특히 Tesseract의 한글 낱자 분리는 글꼴에 민감합니다.
+      비전 모델(gemma3:4b)은 장당 176~240초라 <strong>지금 하드웨어에서는 논외</strong>이고, 3장짜리 부분 표본입니다.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">발견 · 진술(STT)</div>
+      <h2>네 가지</h2>
+    </div>
+
+    <div class="cards">
+      <article class="card">
+        <div class="idx">발견 1</div>
+        <h3>지금 정규식의 구멍은 정확히 「이름」 하나입니다</h3>
+        <p>
+          계좌 8/8 · 전화 8/8 · 주민번호 3/3 · 카드 1/1 을 전부 잡고, 가리면 안 되는 값 80건은
+          <strong>한 건도 안 건드립니다.</strong> 대표번호 1588·112·114를 안 가리는 것까지 설계대로였습니다.
+          누출 13건은 <strong>전부 이름</strong>이었습니다 — 오탐이 폭발한다는 이유로 일부러 비워 둔 자리이고,
+          아직 비어 있는 것입니다.
+        </p>
+      </article>
+
+      <article class="card">
+        <div class="idx">발견 2</div>
+        <h3>프롬프트로 부탁하는 것만으로는 경계가 안 지켜집니다</h3>
+        <p>
+          「금액은 뽑지 마라」를 목록으로 명시했는데도 qwen3:4b는 <strong>금액을 뽑았습니다.</strong>
+          그것도 스스로 <em>금액</em>이라고 이름 붙여서요. 알면서 낸 겁니다. 프롬프트를 더 세게 쓸 문제가 아닙니다.
+        </p>
+        <div class="evidence">
+"300만원"      → { kind: <b>"금액"</b>, ... }        ← 금지 목록에 있는 말을 종류 이름으로<br>
+"1588-5000"    → { kind: "전화", ... }         ← 대표번호. 어느 기관에 전화했는지가 분기 입력<br>
+"케이뱅크 7777-01-9988776" → { kind: "계좌" }  ← 기관명까지 한 덩어리로. 가리면 분기가 무너짐
+        </div>
+        <p>
+          해법은 이미 저장소에 적혀 있었습니다 — <em>「허용 목록을 NER 결과보다 우선 적용한다」.</em>
+          그 문장을 코드로 실제 걸었더니 <strong>분기 입력 훼손이 14건에서 0건</strong>이 되고,
+          누출은 하나도 늘지 않았습니다. 장식이 아니라 필수 부품이었습니다.
+        </p>
+      </article>
+
+      <article class="card">
+        <div class="idx">발견 3</div>
+        <h3>전사문에서는 정규식과 LLM의 역할이 뒤집힙니다</h3>
+        <p>
+          깨끗한 텍스트에서 숫자 20건을 전부 잡던 정규식이, 전사문에서는 10건입니다.
+          반대로 LLM은 19건을 잡습니다. <strong><code style="font-family:var(--mono)">"공이 9876543"</code>을
+          전화번호로 읽는 건 정규식이 할 수 없는 일</strong>이니까요.
+        </p>
+        <div class="evidence">
+110-234-567890  → "일일공에 234마이너스 56만 7,890"<br>
+02-987-6543     → "공이 9876543으로"<br>
+5501234567      → "5501이 참사 567이에요"<br>
+010-4821-9930   → "1010-4821-930으로"        ← 자릿수가 밀림<br>
+880312-2345678  → "88만 312-2345678"          ← 0 하나가 사라짐
+        </div>
+        <p>
+          1차 정규식은 <strong>「사용자가 타이핑한 텍스트」를 위한 도구</strong>입니다.
+          전사문은 성질이 다른 입력이고, 같은 도구를 그대로 대면 못 잡습니다.
+        </p>
+      </article>
+
+      <article class="card">
+        <div class="idx">발견 4</div>
+        <h3>가장 위험한 오독은 「신뢰도가 낮을 때만 확인」으로는 못 잡습니다</h3>
+        <p>
+          계좌번호가 <strong>날짜로 바뀐 경우</strong>가 있었습니다. 값이 사라진 게 아니라
+          <em>다른 슬롯의 그럴듯한 값</em>이 된 것이라, 모델이 확신을 갖고 틀립니다 —
+          자연스러운 날짜 표현이니 신뢰도가 낮게 나올 이유가 없습니다.
+        </p>
+        <div class="evidence">
+3333-01-2345678 → "<b>3333년 1월 23일</b> 35678로"
+        </div>
+        <p>
+          기한 계산의 기산점이 여기서 틀어지는데 <strong>아무도 이상하다고 느끼지 않습니다.</strong>
+          기계가 읽은 값을 사람이 확인하는 화면은 유지해야 하고, <em>여는 조건을 넓히는 쪽</em>을 검토해야 합니다.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">그래서 무엇을</div>
+      <h2>권고 일곱</h2>
+    </div>
+    <div class="recs">
+      <div class="rec"><span class="tag">R-1</span><p><strong>2차 NER은 로컬 4B급으로 간다.</strong> gemma3:4b 기준 깨끗한 텍스트에서 누출 0%·훼손 0%. 미뤄 두던 모델 선택을 닫을 근거가 생겼습니다.</p></div>
+      <div class="rec"><span class="tag">R-2</span><p><strong>허용 목록을 코드로 건다.</strong> 프롬프트만으로는 훼손 17.5%.</p></div>
+      <div class="rec"><span class="tag">R-3</span><p><strong>허용 목록에 기관명 사전을 넣는다.</strong> 형태 규칙만으로는 <code style="font-family:var(--mono)">KT</code>를 사람 이름으로 본 것을 못 막습니다.</p></div>
+      <div class="rec"><span class="tag">R-4</span><p><strong>전사문 경로에서 정규식 1차를 신뢰하지 않는다.</strong> 타이핑 텍스트용 도구와 전사문 경로를 갈라야 합니다.</p></div>
+      <div class="rec"><span class="tag">R-5</span><p><strong>STT는 medium 이상을 쓴다.</strong> base는 숫자가 5~10%만 살아남아 파이프라인이 무너집니다.</p></div>
+      <div class="rec"><span class="tag">R-6</span><p><strong>기계가 읽은 값을 확인하는 화면을 없애지 않는다.</strong> medium에서도 33건 중 9~11건이 전사에서 깨집니다.</p></div>
+      <div class="rec"><span class="tag">R-7</span><p><strong>전사 품질 개선은 누출 대책이 아니라 슬롯 대책으로 잡는다.</strong> small에서 medium으로 올려도 누출률은 10.5%→9.1%밖에 안 내려갔습니다.</p></div>
+    </div>
+
+    <div style="margin-top:44px" class="s-head">
+      <div class="eyebrow">한 가지 더</div>
+      <h2>지금 하드웨어로는 서비스가 안 됩니다</h2>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>단계</th><th>모델</th><th class="n">소요 (CPU)</th></tr></thead>
+        <tbody>
+          <tr><td>전사</td><td class="cfg">whisper medium</td><td class="n">음성 길이의 2.9배</td></tr>
+          <tr><td>PII 인식</td><td class="cfg">qwen3:4b</td><td class="n">발화당 15.1초</td></tr>
+          <tr><td>PII 인식</td><td class="cfg">gemma3:4b</td><td class="n">발화당 27.7~39.3초</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:20px; max-width:var(--prose)">
+      7분짜리 통화 하나면 전사에 20분, PII 인식에 10~26분입니다. 폴링 구조라 동기 응답 제약은 없지만,
+      진술하고 한 시간을 기다리는 것은 서비스가 아닙니다. <strong>GPU가 필요합니다</strong> —
+      최소 사양의 역산은 아직 못 했습니다. 측정 기기에 전용 GPU가 없었습니다.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">단서</div>
+      <h2>이 숫자를 얼마나 믿을 수 있나</h2>
+    </div>
+    <div class="caveat">
+      <p><strong>여기 오독률은 낙관적 하한값입니다.</strong> 음성을 TTS로 합성했는데,
+      실제 통화보다 발음이 또렷합니다. 실제 피해자의 진술에는 울먹임·말 끊김·사투리가 섞이므로
+      <strong>실제 오독률은 이보다 나쁩니다.</strong></p>
+      <p class="note">상한을 보려면 실제 통화 음성이 필요한데, 금융감독원 「그놈 목소리」는
+      공공누리 유형과 내려받기 가능 여부가 아직 미확인이라 이번엔 쓰지 않았습니다.</p>
+      <p class="note"><strong>표본이 작습니다</strong> — 40발화, 개인정보 33건.
+      백분율의 한 칸이 대략 1건입니다. 속도는 순위 판단에만 쓰고 절대값으로 인용하지 마세요.
+      OCR은 이번 범위 밖입니다.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">어디에 있나</div>
+      <h2>저장소에 올라간 것</h2>
+    </div>
+    <div class="files">
+      <div class="file"><span class="p">docs/research/09-로컬모델-PII인식-실측.md</span><span class="d">결론 · 발견 · 권고</span></div>
+      <div class="file"><span class="p">docs/research/10-PII인식-실측-방법론.md</span><span class="d">평가셋 설계 · 프롬프트 전문 · 채점 규칙</span></div>
+      <div class="file"><span class="p">assets/datasets/08-21-local-llm-pii/eval-set.json</span><span class="d">평가셋 40발화 + 정답 라벨</span></div>
+      <div class="file"><span class="p">assets/datasets/08-21-local-llm-pii/transcripts.json</span><span class="d">7개 전사 조건의 전사문 전문</span></div>
+      <div class="file"><span class="p">assets/datasets/08-21-local-llm-pii/results.json</span><span class="d">탐지기별 채점 결과</span></div>
+      <div class="file"><span class="p">docs/research/11-로컬OCR-PII인식-실측.md</span><span class="d">OCR 결론 · 발견 · 권고</span></div>
+      <div class="file"><span class="p">docs/research/12-OCR-실측-방법론.md</span><span class="d">화면 합성 · 좌표 행 복원 · 짝짓기 채점</span></div>
+      <div class="file"><span class="p">assets/datasets/08-21-local-ocr-pii/</span><span class="d">증거 화면 20장 정답 · 엔진별 읽은 원문 · 채점 결과</span></div>
+      <div class="file"><span class="p">assets/artifacts/research/08-21-pii-measurement.html</span><span class="d"><strong>이 페이지</strong> — 위 문서에서 뽑은 사본. 숫자의 정본은 Markdown</span></div>
+    </div>
+    <p class="note" style="margin-top:24px; max-width:var(--prose)">
+      측정 하네스는 넣지 않았습니다 — 버리는 것을 전제로 쓴 코드입니다.
+      전사문이 남아 있어 <strong>전사를 다시 돌리지 않고 탐지기만 바꿔 잴 수 있고</strong>,
+      나중에 이 평가셋이 그대로 회귀 테스트가 됩니다. 누출 0건·훼손 0건이 통과 기준입니다.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    측정 2026-08-21 · 평가셋 40발화(개인정보 33 · 분기 입력 80) · edge-tts → 8kHz μ-law ·
+    faster-whisper CPU int8 · Ollama 0.32.13 · OCR — 합성 증거 화면 20장(라벨-값 81 · PII 36 · 분기입력 70) · Tesseract 5.4 · EasyOCR · gemma3:4b 비전 · 계좌·주민번호·전화·이름은 전부 실존하지 않는 임의값입니다.
+  </div>
+</footer>

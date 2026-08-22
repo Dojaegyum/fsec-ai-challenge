@@ -136,6 +136,8 @@ function tierStatus(
 ): TierStatus {
   const filled = keys.filter((key) => {
     const state = stateOf(key)
+    // `pii_pending` 은 세지 않습니다 — 개인정보인지 확인 전이라 절차 선택에
+    // 쓸 수 없습니다. 확인 전에는 없는 값과 같습니다 → ADR-041
     return state === 'confirmed' || state === 'extracted'
   }).length
 

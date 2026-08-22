@@ -263,6 +263,12 @@
   /* 상태 점 맥동 — PII 배지 */
   @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+  /* 아이콘 `working` 회전. **`spin-slow` 와 몸통이 같습니다** — 합치지 않은 것은
+     쓰임이 달라서입니다. `spin-slow` 는 랜딩 오비트 링(장식·9~46s)이고 이것은
+     「진행 중」 표시(1.4s)입니다. 한쪽 속도를 바꿀 때 다른 쪽이 딸려가면 안 됩니다.
+     `dots` 맥동은 위 `pulse-dot` 을 그대로 씁니다 */
+  @keyframes icon-spin { to { transform: rotate(360deg); } }
+
   /* 글로우 호흡 — 오렌지 가우시안 */
   @keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
 

@@ -114,6 +114,10 @@
 | [036](036-t0-rail.md) | 셸을 세 열로 하고, T0 안전 절차를 왼쪽 고정 레일에 둔다 | 채택 |
 | [037](037-doc-guidance-not-generation.md) | 서류를 만들어 주지 않는다 — 무엇을 어떻게 적는지 안내한다 | 채택 |
 | [038](038-transcript-confirm.md) | 기계가 읽은 값을 사용자가 확인하는 자리를 둔다 — `confirm` · `WS-confirm` | 채택 |
+| [039](039-link-token.md) | 링크 토큰을 `case_id` 와 분리하고, 경로 이름을 `{case_token}` 으로 바꾼다 | 채택 |
+| [040](040-write-path-boundary.md) | 쓰기 경로도 경계를 지난다 — 다만 토큰화가 아니라 거부다 | 채택 |
+| [041](041-pii-confirm-with-user.md) | PII 판정을 기계가 혼자 하지 않는다 — 사용자가 보고 있는 자리에서는 물어본다 | 채택 |
+| [042](042-submit-paths.md) | 신청서를 내는 길은 하나가 아니다 — 앱과 영업점을 함께 내놓고, 순서는 KB가 정한다 | 채택 |
 | [044](044-review-deferral.md) | 검수에서 「미룸」만 되돌아온다 — `deferred`의 뜻을 정한다 | 채택 |
 | [045](045-kb-release-pin.md) | 지금 쓰는 KB 릴리스는 배포 설정이 정한다 — `KB_VERSION` | 채택 |
 | [046](046-case-and-plan-together.md) | 사건과 플랜은 함께 저장된다 — 빈 사건을 만들지 않는다 | 채택 |

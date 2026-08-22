@@ -31,14 +31,16 @@ spec/             제품 계약 — 무엇을 만들어야 하나
 docs/             읽고 고치는 Markdown 문서
   plans/            구현 계획
   context/          배경·대회 정보 (AGENDA.md)
-  research/         바깥 사실 조사 — 법령·기관·제도 (근거 링크 필수)
+  research/         바깥 사실 조사 + 우리 실측의 해석 (근거 링크 필수)
 assets/           산출물·자산 원본 — 빌드에 안 들어가는 것
   brand/            로고·favicon·아이콘
   artifacts/        HTML 아티팩트 (브라우저로 여는 완성 문서)
     plans/            우리가 정한 설계
     context/          확인한 바깥 사실
+    research/         우리 실측을 사람이 보게 정리한 것 (docs/research/ 의 HTML 짝)
     handoff/          화면 디자인 핸드오프 스냅샷 (받은 그대로 · 안 고침)
     archived/         역할이 끝난 것 (이름도 내용도 안 건드림)
+  datasets/         우리가 잰 측정 원본 (JSON) — 해석은 docs/ 문서가 함
 src/              코드
   modules/          도메인 모듈 — 폴더 이름이 모듈 정본과 글자 그대로 같아야 함
   kb/               매뉴얼 KB 원본 (JSON) — DB는 여기서 적재된 사본
@@ -66,18 +68,26 @@ src/              코드
    - 역할이 끝났다 → `archived/`
    - 우리가 정한 설계 → `plans/`
    - 확인한 바깥 사실 → `context/`
+   - **우리 실측을 사람이 보게 정리한 것** → `research/`
+     — **정본은 `docs/research/` 의 Markdown 입니다.** 여기 HTML 은 사본이고,
+     머리에 어느 문서에서 왔는지 적습니다. 숫자가 바뀌면 Markdown 을 먼저 고칩니다.
    - **화면 디자인을 밖에서 받아온 것** → `handoff/{MM-dd-화면ID-slug}/` (→ [RFC-003](003-design-handoff.md))
-5. **구현이 따라야 할 제품 계약인가?** (이걸 어기면 제품이 틀린다) → `spec/`
+5. **우리가 잰 측정 원본인가?** (평가셋·결과 JSON) → `assets/datasets/{MM-dd-slug}/`
+   - **해석은 `docs/`에 씁니다.** 데이터만 두면 다음 사람이 숫자를 뒤집어 읽습니다 —
+     폴더의 `README.md`가 해석 문서를 가리켜야 합니다.
+6. **구현이 따라야 할 제품 계약인가?** (이걸 어기면 제품이 틀린다) → `spec/`
    - 백엔드·프론트가 **함께** 지켜야 → `common/`
    - 서버만 → `backend/` · 화면만 → `frontend/`
-6. **시스템이 무엇으로 어떻게 도는가인가?** (기술 선택·모듈 배치·저장소·외부 의존·배포) → `ARCHITECTURE.md`
+7. **시스템이 무엇으로 어떻게 도는가인가?** (기술 선택·모듈 배치·저장소·외부 의존·배포) → `ARCHITECTURE.md`
    - 계약은 `spec/`, 구현 선택은 여기입니다. 둘이 어긋나면 **`spec/`이 이깁니다** (→ [ADR-007](../decisions/007-architecture-doc.md))
-7. **"왜 이렇게 정했나"의 기록인가?** (맥락·대안·근거) → `decisions/`
-8. **"앞으로 이렇게 한다"는 규칙인가?** (작업 방식·구조·규약) → `rfc/`
-9. **구현 계획인가?** (무엇을 어떤 순서로 만들지) → `docs/plans/`
-10. **배경·대회 정보인가?** → `docs/context/` (대회 일정·진행 상황은 `AGENDA.md`)
-11. **바깥 사실을 조사한 것인가?** (법령·기관·제도) → `docs/research/`
-12. **에이전트가 매 작업마다 알아야 하는가?** → `CLAUDE.md`
+8. **"왜 이렇게 정했나"의 기록인가?** (맥락·대안·근거) → `decisions/`
+9. **"앞으로 이렇게 한다"는 규칙인가?** (작업 방식·구조·규약) → `rfc/`
+10. **구현 계획인가?** (무엇을 어떤 순서로 만들지) → `docs/plans/`
+11. **배경·대회 정보인가?** → `docs/context/` (대회 일정·진행 상황은 `AGENDA.md`)
+12. **바깥 사실을 조사했거나, 우리가 잰 것을 해석한 것인가?** → `docs/research/`
+   - 바깥 사실(법령·기관·제도)은 **근거 링크 필수**입니다.
+   - 우리 실측의 **해석·권고**도 여기입니다. 원본 데이터는 4번이 아니라 5번(`assets/datasets/`)입니다.
+13. **에이전트가 매 작업마다 알아야 하는가?** → `CLAUDE.md`
 
 어디에도 안 걸리면 **만들지 말고 물어보세요.** 새 최상위 폴더를 임의로 만들지 않습니다.
 
@@ -119,7 +129,7 @@ rfc/001-repo-structure.md      →   # RFC-001. 저장소 구조 규약 …
 - 템플릿은 `000-template.md`.
 - 각 폴더 `README.md`의 목록에 반드시 등록합니다.
 
-### `MM-dd-{slug}` — `spec/` · `docs/` · `assets/artifacts/{plans,context,handoff}`
+### `MM-dd-{slug}` — `spec/` · `docs/` · `assets/artifacts/{plans,context,research,handoff}` · `assets/datasets/`
 
 순서를 약속하지 않는 이름입니다(→ [ADR-003](../decisions/003-spec-layout.md)).
 
@@ -133,6 +143,8 @@ assets/artifacts/plans/08-13-service-plan.html
 - 같은 날 같은 slug이 겹치면 slug을 더 구체적으로 바꿉니다 (`08-14-api.md` → `08-14-api-case.md`).
 - `artifacts/handoff/`는 **파일이 아니라 폴더**에 이 이름을 씁니다 —
   `08-19-s04-landing/`. 날짜는 **넘겨받은 날**입니다 (→ [RFC-003](003-design-handoff.md)).
+- `datasets/`도 **폴더**에 씁니다 — `08-21-local-llm-pii/`. 날짜는 **측정한 날**입니다.
+  한 측정이 여러 파일을 낳아서 파일마다 흩어 두면 짝을 잃습니다.
 
 ### `NN-{제목}` — `docs/research/`
 
@@ -192,7 +204,15 @@ docs/research/06-경로별-실측조사.md
 - **`artifacts/handoff/`만 폴더 단위**입니다 — 밖에서 받은 화면 디자인을 **받은 그대로** 담습니다.
   `archived/`와 같이 **나중에 고치지 않습니다**. 절차는 [RFC-003](003-design-handoff.md).
 - 외부에서 받은 자산은 **출처와 라이선스를 함께 적습니다** — 대회 제출물에 들어가므로 출처 불명은 위험합니다.
+- **`artifacts/research/` 는 `docs/research/` 의 HTML 짝**입니다. 발표·공유용 완성본이고,
+  **숫자의 정본은 Markdown 쪽**입니다 — 두 벌이 되면 안 고친 쪽이 조용히 틀린 문서가 됩니다.
+  파일 머리에 어느 문서에서 뽑았는지 적습니다.
 - `artifacts/archived/`는 **읽되 갱신하지 않고, 이름도 바꾸지 않습니다.**
+- **`datasets/`는 우리가 잰 측정 원본**(JSON)입니다. **해석은 여기 쓰지 않습니다** —
+  폴더의 `README.md`가 `docs/`의 해석 문서를 가리키고, 숫자의 뜻은 그 문서가 집니다.
+  데이터만 남으면 다음 사람이 판정 기준을 모른 채 숫자를 뒤집어 읽습니다.
+- **구조 게이트는 `artifacts/handoff/`·`datasets/` 안쪽을 보지 않습니다** — 하나씩 늘어나는 폴더라
+  매번 규약 수정을 요구하면 게이트가 소음이 됩니다. 두 폴더 **자체**가 생기고 사라지는 것은 봅니다.
 
 ### `.claude/` — 에이전트가 쓰는 도구
 
@@ -363,3 +383,5 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-19 | 코드 게이트의 타입 검사를 `npm run typecheck` 로 바꿈 — `next typegen` 을 먼저 돌려야 CI 가 생성 타입을 찾습니다 | 커밋 메시지 |
 | 2026-08-19 | `assets/artifacts/handoff/` 신설 — 밖에서 받은 화면 디자인의 자리. 구조 게이트가 이 폴더 안쪽을 보지 않게 함 | [RFC-003](003-design-handoff.md) · [ADR-030](../decisions/030-design-handoff.md) |
 | 2026-08-17 | `src/modules/`가 서버 전용이 아님을 명시. 브라우저 도메인 모듈(층 C)도 여기 들어가고, 모듈과 UI 컴포넌트를 「금지가 붙어 있는가」로 가름 | [ADR-023](../decisions/023-frontend-module-names.md) |
+| 2026-08-21 | `assets/datasets/` 신설 — **우리가 잰 측정 원본**의 자리. `docs/research/`가 「바깥 사실」만 받던 것을 「우리 실측의 해석」까지로 넓힘 | 커밋 메시지 |
+| 2026-08-21 | `assets/artifacts/research/` 신설 — `docs/research/` 의 HTML 짝. 「성격은 양쪽에서 같은 이름으로 반복된다」던 자리에 research 만 비어 있었습니다 | 커밋 메시지 |

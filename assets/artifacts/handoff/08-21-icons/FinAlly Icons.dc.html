@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+body{margin:0;background:#0c0c0e;font-family:"Pretendard Variable",Pretendard,system-ui,sans-serif;word-break:keep-all}
+a{color:oklch(0.697 0.16 258.2);text-decoration:none}
+.dv-turn{padding:40px 44px 32px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#fff;color:#111;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 "Pretendard Variable",sans-serif;color:#eee}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.14);color:#eee;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11.5px/1.3 "Pretendard Variable",sans-serif;color:rgba(255,255,255,.6);margin-bottom:9px}
+.dv-card{background:#000;border:1px solid rgba(255,255,255,.1);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.5);overflow:hidden}
+.ic{width:22px;height:22px;flex:none}
+.cell{display:flex;flex-direction:column;align-items:center;gap:9px;padding:16px 8px 13px;border-radius:12px;border:1px solid oklch(0.305 0.013 267.1/40%);background:oklch(0.16 0.004 268)}
+.cname{font-size:12.5px;color:oklch(0.845 0.009 271.3);text-align:center}
+.ckey{font:500 11px ui-monospace,Menlo,monospace;color:oklch(0.609 0.008 260.7)}
+.chip{display:inline-flex;align-items:center;gap:7px;border-radius:999px;border:1px solid oklch(0.305 0.013 267.1/52%);background:oklch(1 0 0/4%);padding:6px 12px;font-size:13px;color:oklch(0.714 0.019 261.3)}
+@keyframes ir{to{transform:rotate(360deg)}}
+@keyframes ip{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+</style>
+</helmet>
+
+<svg aria-hidden="true" style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-key" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="12" r="3.25"></circle><path d="M10.75 12H20.5M17 12v3M20.5 12v2.25"></path></g></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="10.5" height="10.5" rx="2"></rect><path d="M4.5 15V6.5a2 2 0 012-2H15"></path></g></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 13a3 3 0 01-3 3H9.5l-5 4.5V6.5a3 3 0 013-3h10a3 3 0 013 3V13z"></path></g></symbol>
+<symbol id="i-board" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M8.5 9.5h7M8.5 13h4.5M8.25 16.75l1.4 1.4 2.6-2.9"></path></g></symbol>
+<symbol id="i-evidence" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v9.5a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5V8z"></path><path d="M3.5 4.5h17V8h-17zM10 12h4"></path></g></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4.5 4.5V19a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z"></path><path d="M14 3v4.5h4.5M9 13h6M9 16.5h6"></path></g></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v1.5a2.5 2.5 0 002.5 2.5h11a2.5 2.5 0 002.5-2.5V17M12 14.5V4M7.5 8.5L12 4l4.5 4.5"></path></g></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v1.5a2.5 2.5 0 002.5 2.5h11a2.5 2.5 0 002.5-2.5V17M12 4v10.5M7.5 10L12 14.5 16.5 10"></path></g></symbol>
+<symbol id="i-external" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 13.5V18a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h4.5M14.5 4H20v5.5M20 4l-8.5 8.5"></path></g></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h3.2L10 8.8 7.7 10.4a12.5 12.5 0 006 6l1.7-2.3 4.6 1.9V19a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"></path></g></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"></circle><path d="M12 7.5V12l3 2"></path></g></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2.5"></rect><path d="M4 10h16M8 3v4M16 3v4"></path><circle cx="8.5" cy="14.5" r="1.1" fill="currentColor" stroke="none"></circle></g></symbol>
+<symbol id="i-masked" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="8" rx="2.5"></rect><circle cx="8" cy="12" r="1.1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"></circle><circle cx="16" cy="12" r="1.1" fill="currentColor" stroke="none"></circle></g></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.8V11c0 4.4-2.9 7.8-7 9.7-4.1-1.9-7-5.3-7-9.7V5.8L12 3z"></path><path d="M9 11.75l2.1 2.1 3.9-4.35"></path></g></symbol>
+<symbol id="i-wait" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10M7 20.5h10M8.5 3.5v2.2c0 2.9 3.5 4 3.5 6.3s-3.5 3.4-3.5 6.3v2.2M15.5 3.5v2.2c0 2.9-3.5 4-3.5 6.3s3.5 3.4 3.5 6.3v2.2"></path></g></symbol>
+<symbol id="i-read" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.2C10 4.8 7.6 4.2 4 4.2v14c3.6 0 6 .6 8 2 2-1.4 4.4-2 8-2v-14c-3.6 0-6 .6-8 2z"></path><path d="M12 6.2v14"></path></g></symbol>
+<symbol id="i-write" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.1L16.6 4.4a2.05 2.05 0 012.9 2.9L8.1 18.9 4 20z"></path><path d="M14.7 6.3l2.9 2.9"></path></g></symbol>
+<symbol id="i-check-c" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"></circle><path d="M8.5 12.4l2.4 2.4 4.6-5.1"></path></g></symbol>
+<symbol id="i-help-c" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"></circle><path d="M9.6 9.6a2.4 2.4 0 114 1.8c-.8.7-1.6 1.1-1.6 2.1"></path><circle cx="12" cy="16.4" r="1" fill="currentColor" stroke="none"></circle></g></symbol>
+<symbol id="i-alert-c" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"></circle><path d="M12 7.75V12.5"></path><circle cx="12" cy="15.9" r="1" fill="currentColor" stroke="none"></circle></g></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 3.5L11 13M20.5 3.5L14.4 20l-3.4-7-7-3.4 16.5-6.1z"></path></g></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"></rect><path d="M4.5 7.5l7.5 5.5 7.5-5.5"></path></g></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></g></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5l7 7-7 7"></path></g></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V5.5A1.5 1.5 0 0111 4h2a1.5 1.5 0 011.5 1.5V7M6.5 7l.9 11.2a2 2 0 002 1.8h5.2a2 2 0 002-1.8L17.5 7M10 11v5.5M14 11v5.5"></path></g></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.75l1.9 5.1 5.1 1.9-5.1 1.9-1.9 5.1-1.9-5.1-5.1-1.9 5.1-1.9L12 3.75z"></path><path d="M18.75 16.5l.7 1.85 1.85.7-1.85.7-.7 1.85-.7-1.85-1.85-.7 1.85-.7.7-1.85z"></path></g></symbol>
+<symbol id="i-thinking" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12.5a3 3 0 01-3 3H9.5l-5 4.5V6a3 3 0 013-3h10a3 3 0 013 3v6.5z"></path><circle cx="8.5" cy="9.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12.25" cy="9.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="16" cy="9.5" r="1" fill="currentColor" stroke="none"></circle></g></symbol>
+<symbol id="i-working" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.25 12A8.25 8.25 0 1112 3.75"></path><path d="M20.25 12l1.5-1.75M20.25 12l-1.9-1.3"></path></g></symbol>
+<symbol id="i-verify" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.25"></circle><path d="M15.2 15.2L20.5 20.5M8 10.8l1.8 1.8 2.9-3.4"></path></g></symbol>
+<symbol id="i-maskwork" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.8V11c0 4.4-2.9 7.8-7 9.7-4.1-1.9-7-5.3-7-9.7V5.8L12 3z"></path><circle cx="8.75" cy="11.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.25" cy="11.5" r="1" fill="currentColor" stroke="none"></circle></g></symbol>
+<symbol id="i-retry" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12a7 7 0 0111.95-4.95L19 9M19 12a7 7 0 01-11.95 4.95L5 15"></path><path d="M19 4.5V9h-4.5M5 19.5V15h4.5"></path></g></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.25"></circle><rect x="9.25" y="9.25" width="5.5" height="5.5" rx="1"></rect></g></symbol>
+<symbol id="i-dots" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="12" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="18.5" cy="12" r="1.2" fill="currentColor" stroke="none"></circle></g></symbol>
+<symbol id="i-bank" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5L12 4l8.5 5.5h-17zM5.5 12.5v5M10 12.5v5M14 12.5v5M18.5 12.5v5M3.5 20.5h17"></path></g></symbol>
+</svg>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">FinAlly 아이콘 세트 — 24그리드 · 1.5 스트로크 · currentColor</span></div>
+
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>세트 34종 (기본 26 + AI 인터랙션 8) + 원칙 + 상태색 + 쓰임새. 아트보드 「icons-v1」</div>
+<div class="dv-card" style="width:1180px;padding:28px 30px 26px;color:oklch(0.845 0.009 271.3)" id="1a">
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;color:oklch(0.714 0.019 261.3);border:1px solid oklch(0.305 0.013 267.1/52%);border-radius:12px;background:oklch(0.16 0.004 268);padding:13px 16px">
+    <span>24×24 그리드 · 안전영역 2px</span><span>스트로크 1.5 · 끝 둥글게</span><span>색은 <b style="font-weight:620;color:#fff">currentColor</b> — 토큰이 정함</span><span><b style="font-weight:620;color:#fff">글자와 함께</b> — 아이콘 단독 금지</span><span>장식은 aria-hidden</span><span>기존 ✓·◆·○ 마크와 공존 (마크는 상태, 아이콘은 사물·행동)</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:16px;color:oklch(0.714 0.019 261.3)">
+    <div class="cell"><svg class="ic"><use href="#i-key"></use></svg><span class="cname">사건 열쇠<br><span class="ckey">key</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-copy"></use></svg><span class="cname">복사<br><span class="ckey">copy</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-chat"></use></svg><span class="cname">대응 비서<br><span class="ckey">chat</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-board"></use></svg><span class="cname">보드·할 일<br><span class="ckey">board</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-evidence"></use></svg><span class="cname">증거함<br><span class="ckey">evidence</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-doc"></use></svg><span class="cname">서류<br><span class="ckey">doc</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-write"></use></svg><span class="cname">받아적기<br><span class="ckey">write</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-upload"></use></svg><span class="cname">올리기<br><span class="ckey">upload</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-download"></use></svg><span class="cname">받기<br><span class="ckey">download</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-external"></use></svg><span class="cname">외부 이동<br><span class="ckey">external</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-phone"></use></svg><span class="cname">전화 112·1332<br><span class="ckey">phone</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-clock"></use></svg><span class="cname">기한<br><span class="ckey">clock</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-calendar"></use></svg><span class="cname">날짜<br><span class="ckey">calendar</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-wait"></use></svg><span class="cname">기다리기<br><span class="ckey">wait</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-masked"></use></svg><span class="cname">가려진 값<br><span class="ckey">masked</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-shield"></use></svg><span class="cname">보호·브라우저 안<br><span class="ckey">shield</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-read"></use></svg><span class="cname">읽기·해석<br><span class="ckey">read</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-check-c"></use></svg><span class="cname">확인됨<br><span class="ckey">check-c</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-help-c"></use></svg><span class="cname">모름·물어보기<br><span class="ckey">help-c</span></span></div>
+    <div class="cell" style="color:oklch(0.77 0.117 70.9)"><svg class="ic"><use href="#i-alert-c"></use></svg><span class="cname" style="color:oklch(0.845 0.009 271.3)">확인해 주세요<br><span class="ckey">alert-c · 앰버 전용</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-send"></use></svg><span class="cname">가족에게 보내기<br><span class="ckey">send</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-mail"></use></svg><span class="cname">이메일 알림<br><span class="ckey">mail</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-bank"></use></svg><span class="cname">은행·기관<br><span class="ckey">bank</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-trash"></use></svg><span class="cname">파기·삭제<br><span class="ckey">trash</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-x"></use></svg><span class="cname">닫기<br><span class="ckey">x</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-chevron"></use></svg><span class="cname">이동·펼침<br><span class="ckey">chevron</span></span></div>
+  </div>
+
+  <div style="font-size:12.5px;letter-spacing:.12em;color:oklch(0.609 0.008 260.7);margin:20px 0 0">AI 인터랙션 — 문장 카피 곁의 보조 (스트리밍 없음 원칙 그대로)</div>
+  <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:10px;color:oklch(0.714 0.019 261.3)">
+    <div class="cell"><svg class="ic"><use href="#i-spark"></use></svg><span class="cname">비서 표시<br><span class="ckey">spark</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-thinking"></use></svg><span class="cname">생각 중<br><span class="ckey">thinking</span></span></div>
+    <div class="cell"><svg class="ic" style="animation:ir 1.4s linear infinite"><use href="#i-working"></use></svg><span class="cname">진행 중 · 회전<br><span class="ckey">working</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-verify"></use></svg><span class="cname">근거 확인 중<br><span class="ckey">verify</span></span></div>
+    <div class="cell" style="color:oklch(0.697 0.16 258.2)"><svg class="ic"><use href="#i-maskwork"></use></svg><span class="cname" style="color:oklch(0.845 0.009 271.3)">가리는 중<br><span class="ckey">maskwork · 파랑 전용</span></span></div>
+    <div class="cell"><svg class="ic" style="animation:ip 1.6s ease-in-out infinite"><use href="#i-dots"></use></svg><span class="cname">보내는 중·대기<br><span class="ckey">dots · 맥동</span></span></div>
+    <div class="cell" style="color:oklch(0.77 0.117 70.9)"><svg class="ic"><use href="#i-retry"></use></svg><span class="cname" style="color:oklch(0.845 0.009 271.3)">다시 보내기<br><span class="ckey">retry · 앰버 전용</span></span></div>
+    <div class="cell"><svg class="ic"><use href="#i-stop"></use></svg><span class="cname">준비 중단<br><span class="ckey">stop</span></span></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px">
+    <span class="chip"><svg class="ic" style="width:16px;height:16px;animation:ir 1.4s linear infinite"><use href="#i-working"></use></svg>진술을 확인하고 있습니다</span>
+    <span class="chip" style="border-color:oklch(0.697 0.16 258.2/42%);background:oklch(0.697 0.16 258.2/10%);color:oklch(0.697 0.16 258.2)"><svg class="ic" style="width:16px;height:16px"><use href="#i-maskwork"></use></svg>가리는 중 74% — 이름·계좌를 찾고 있습니다</span>
+    <span class="chip" style="border-color:oklch(0.77 0.117 70.9/45%);background:oklch(0.77 0.117 70.9/10%);color:oklch(0.77 0.117 70.9)"><svg class="ic" style="width:16px;height:16px"><use href="#i-retry"></use></svg>다시 보내기</span>
+    <span style="font-size:12.5px;color:oklch(0.609 0.008 260.7)">회전·맥동은 장식 — reduced-motion에서 정지 · 타자기·스켈레톤 대체가 아니라 문장 로딩 카피 옆에 붙습니다</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px">
+    <div style="border-radius:12px;border:1px solid oklch(0.305 0.013 267.1/52%);background:oklch(0.16 0.004 268);padding:15px 17px">
+      <div style="font-size:12.5px;letter-spacing:.12em;color:oklch(0.609 0.008 260.7);margin-bottom:11px">상태색 — 토큰만</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center">
+        <span style="display:inline-flex;align-items:center;gap:7px;color:oklch(0.714 0.019 261.3);font-size:13px"><svg class="ic" style="width:18px;height:18px"><use href="#i-doc"></use></svg>기본 = ink-3/icon</span>
+        <span style="display:inline-flex;align-items:center;gap:7px;color:oklch(0.697 0.16 258.2);font-size:13px"><svg class="ic" style="width:18px;height:18px"><use href="#i-shield"></use></svg>파랑 = 가려짐·보호</span>
+        <span style="display:inline-flex;align-items:center;gap:7px;color:oklch(0.77 0.117 70.9);font-size:13px"><svg class="ic" style="width:18px;height:18px"><use href="#i-clock"></use></svg>앰버 = 기한 임박</span>
+        <span style="display:inline-flex;align-items:center;gap:7px;color:#fff;font-size:13px"><svg class="ic" style="width:18px;height:18px"><use href="#i-copy"></use></svg>흰색 = 버튼 위</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:13px;padding-top:12px;border-top:1px solid oklch(0.305 0.013 267.1/40%)">
+        <span style="font-size:12.5px;color:oklch(0.609 0.008 260.7)">크기 단계</span>
+        <span style="display:inline-flex;align-items:flex-end;gap:12px;color:oklch(0.714 0.019 261.3)"><svg class="ic" style="width:16px;height:16px"><use href="#i-evidence"></use></svg><svg class="ic" style="width:18px;height:18px"><use href="#i-evidence"></use></svg><svg class="ic" style="width:20px;height:20px"><use href="#i-evidence"></use></svg><svg class="ic" style="width:24px;height:24px"><use href="#i-evidence"></use></svg></span>
+        <span style="font-size:12.5px;color:oklch(0.609 0.008 260.7)">16 칩 · 18 행 · 20 버튼 · 24 패널 머리</span>
+      </div>
+    </div>
+    <div style="border-radius:12px;border:1px solid oklch(0.305 0.013 267.1/52%);background:oklch(0.16 0.004 268);padding:15px 17px">
+      <div style="font-size:12.5px;letter-spacing:.12em;color:oklch(0.609 0.008 260.7);margin-bottom:11px">쓰임새 — 항상 글자와 함께</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span class="chip"><svg class="ic" style="width:16px;height:16px"><use href="#i-send"></use></svg>가족에게 링크 보내기</span>
+        <span class="chip" style="border-color:oklch(0.77 0.117 70.9/45%);background:oklch(0.77 0.117 70.9/10%);color:oklch(0.77 0.117 70.9)"><svg class="ic" style="width:16px;height:16px"><use href="#i-clock"></use></svg>D-2</span>
+        <span class="chip" style="border-color:oklch(0.697 0.16 258.2/42%);background:oklch(0.697 0.16 258.2/10%);color:oklch(0.697 0.16 258.2)"><svg class="ic" style="width:16px;height:16px"><use href="#i-shield"></use></svg>가려진 뒤 전송됨</span>
+        <span style="display:inline-flex;align-items:center;gap:8px;min-height:44px;border-radius:10px;background:#fff;padding:0 16px;font-size:13.5px;font-weight:660;color:#000"><svg class="ic" style="width:18px;height:18px"><use href="#i-external"></use></svg>국민은행 앱 열기</span>
+        <span style="display:inline-flex;align-items:center;gap:8px;min-height:44px;border-radius:9px;border:1px solid oklch(0.305 0.013 267.1/52%);background:oklch(1 0 0/4%);padding:0 14px;font-size:13px;color:oklch(0.845 0.009 271.3)"><svg class="ic" style="width:16px;height:16px"><use href="#i-copy"></use></svg>복사</span>
+      </div>
+      <div style="display:grid;grid-template-columns:16px 1fr;gap:10px;align-items:start;margin-top:13px;padding-top:12px;border-top:1px solid oklch(0.305 0.013 267.1/40%)">
+        <svg class="ic" style="width:16px;height:16px;color:oklch(0.714 0.019 261.3);margin-top:1px"><use href="#i-phone"></use></svg>
+        <span style="font-size:13px;color:oklch(0.714 0.019 261.3)">T0 레일 예 — <b style="font-weight:620;color:#fff">112 신고</b> <span style="color:oklch(0.609 0.008 260.7)">완료 — 상태 마크(✓)는 기존 규칙 그대로, 아이콘은 항목의 사물만 맡습니다</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,4 @@
+/* globals.css 의 @layer base, 기존 keyframes 아래에 추가.
+   working 아이콘 회전 전용 — pulse-dot 은 기존 것 재사용.
+   기존 prefers-reduced-motion 블록이 함께 끕니다 */
+@keyframes icon-spin { to { transform: rotate(360deg); } }

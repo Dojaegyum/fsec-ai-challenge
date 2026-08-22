@@ -172,10 +172,10 @@
             "url": null
           },
           {
-            "text": "지급정지를 신청한 금융회사에 제출합니다. 제출 창구는 금융회사마다 다릅니다.",
+            "text": "지급정지를 신청한 금융회사에 제출합니다. 내는 길은 금융회사마다 다르고, 앱과 영업점이 함께 있을 수 있습니다.",
             "action": "visit",
             "channel": ["visit"],
-            "contact_ref": "org.contact.submit_place",
+            "contact_ref": "org.contact.submit",
             "url": null
           }
         ],

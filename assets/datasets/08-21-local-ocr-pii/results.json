@@ -1,0 +1,4615 @@
+{
+  "meta": {
+    "측정일": "2026-08-21",
+    "기기": "Intel Iris Xe 내장 그래픽 · RAM 15.7GB · 전용 GPU 없음",
+    "엔진": {
+      "tesseract": "5.4.0 · -l kor+eng · --psm 6 · tessdata(main)",
+      "easyocr": "Reader(['ko','en'], gpu=False) · detail=0 — 읽은 순서 그대로",
+      "easyocr-layout": "같은 호출에 detail=1 · y좌표로 행을 묶고 x순으로 이음",
+      "gemma3-vision": "Ollama gemma3:4b (멀티모달) · temperature=0 · seed=7"
+    },
+    "이미지": "Pillow 로 합성한 일반형 화면 (실제 앱 모사 아님) · 900px 폭 · 맑은고딕",
+    "열화": {
+      "clean": "화면 캡처 그대로 (PNG)",
+      "lowres": "긴 변 720px · JPEG q80 — 메신저를 한 번 거친 캡처",
+      "photo": "1100px 확대 · 2.4도 기울기 · 대각선 조명 · 블러 0.7 · JPEG q62"
+    },
+    "경고": "합성 화면 기준입니다. 실제 은행 앱은 글꼴·자간·배경이 달라 결과가 달라집니다."
+  },
+  "결과": [
+    {
+      "엔진": "easyocr-layout",
+      "열화조건": "clean",
+      "한글공백복원": false,
+      "탐지기": "LLM 단독 · gemma3:4b",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 1,
+        "pii_생존": 35,
+        "차단": 28,
+        "누출": 7,
+        "누출률": 0.2,
+        "keep_전체": 70,
+        "keep_전사손상": 17,
+        "keep_생존": 53,
+        "보존": 50,
+        "과차단": 3,
+        "과차단률": 0.0566,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 14,
+            "누출": 1,
+            "전사손상": 1
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 9,
+            "누출": 5,
+            "전사손상": 0
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 4,
+            "누출": 1,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 1,
+            "누출": 0,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 14,
+            "과차단": 3,
+            "전사손상": 9
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 10,
+            "과차단": 0,
+            "전사손상": 5
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 5,
+            "과차단": 0,
+            "전사손상": 1
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 1,
+            "과차단": 0,
+            "전사손상": 1
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 1,
+            "과차단": 0,
+            "전사손상": 1
+          }
+        },
+        "무라벨_검출": 6,
+        "필드_전체": 69,
+        "필드_짝유지": 44,
+        "필드_라벨오독": 21,
+        "짝유지율_사전복구시": 0.942,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 0,
+        "필드_값소실": 2,
+        "필드_둘다소실": 2,
+        "짝유지율": 0.6377,
+        "숫자_전체": 59,
+        "숫자_리터럴": 58,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 1,
+        "리터럴생존률": 0.9831,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "국민은행",
+              "outcome": "과차단",
+              "as_kind": "계좌"
+            },
+            {
+              "kind": "기관",
+              "value": "신한은행",
+              "outcome": "과차단",
+              "as_kind": "계좌"
+            },
+            {
+              "kind": "일시",
+              "value": "2026.08.20 15:04:22",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-234-567890",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "8,500,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "352-0123-4567-89",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "박준영",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "하나은행 352-0123-4567-89",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "3,000,000원",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "수수료",
+              "value": "500원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "301-0088-7766-51",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "농협은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "거래점",
+              "value": "농협은행 강남지점",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "토스뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "정우성",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "카카오뱅크 3333-01-2345678",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "6,200,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "최수진",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "1,900,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "604-21-0099-11",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "조민호",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "110-987-654321",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김대리",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 사람",
+              "value": "노은서",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I08",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "가맹점",
+              "value": "온라인 상품권몰",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I10",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "302-0987-6543-21",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.15 14:10:02",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.18 19:02:11",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "일시",
+              "value": "2026.08.18 20:15:47",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "예금주",
+              "value": "윤태호",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I13",
+          "ch": "CH-giftcard",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "상품권사",
+              "value": "컬쳐랜드",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "일시",
+              "value": "2026-08-18 03:22",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "대표번호",
+              "value": "114",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I17",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "전화",
+              "value": "02-987-6543",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "금융감독원",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "우리은행",
+              "outcome": "과차단",
+              "as_kind": "계좌"
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "이정훈",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "470,500원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "강민철",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "easyocr-layout",
+      "열화조건": "clean",
+      "한글공백복원": false,
+      "탐지기": "정규식+LLM+허용목록 · gemma3:4b",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 1,
+        "pii_생존": 35,
+        "차단": 33,
+        "누출": 2,
+        "누출률": 0.0571,
+        "keep_전체": 70,
+        "keep_전사손상": 17,
+        "keep_생존": 53,
+        "보존": 53,
+        "과차단": 0,
+        "과차단률": 0.0,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 14,
+            "누출": 1,
+            "전사손상": 1
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 14,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 5,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 17,
+            "과차단": 0,
+            "전사손상": 9
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 10,
+            "과차단": 0,
+            "전사손상": 5
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 5,
+            "과차단": 0,
+            "전사손상": 1
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 1,
+            "과차단": 0,
+            "전사손상": 1
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 1,
+            "과차단": 0,
+            "전사손상": 1
+          }
+        },
+        "무라벨_검출": 6,
+        "필드_전체": 69,
+        "필드_짝유지": 44,
+        "필드_라벨오독": 21,
+        "짝유지율_사전복구시": 0.942,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 0,
+        "필드_값소실": 2,
+        "필드_둘다소실": 2,
+        "짝유지율": 0.6377,
+        "숫자_전체": 59,
+        "숫자_리터럴": 58,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 1,
+        "리터럴생존률": 0.9831,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.20 15:04:22",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-234-567890",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "8,500,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "박준영",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "하나은행 352-0123-4567-89",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "3,000,000원",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "수수료",
+              "value": "500원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "농협은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "거래점",
+              "value": "농협은행 강남지점",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "토스뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "정우성",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "카카오뱅크 3333-01-2345678",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "6,200,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "최수진",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "1,900,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "조민호",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김대리",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 사람",
+              "value": "노은서",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I08",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "가맹점",
+              "value": "온라인 상품권몰",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I10",
+          "ch": "CH-securities",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.15 14:10:02",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.18 19:02:11",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "일시",
+              "value": "2026.08.18 20:15:47",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "예금주",
+              "value": "윤태호",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I13",
+          "ch": "CH-giftcard",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "상품권사",
+              "value": "컬쳐랜드",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "일시",
+              "value": "2026-08-18 03:22",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "대표번호",
+              "value": "114",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "금융감독원",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "이정훈",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "470,500원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "강민철",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "easyocr-layout",
+      "열화조건": "clean",
+      "한글공백복원": false,
+      "탐지기": "정규식만",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 1,
+        "pii_생존": 35,
+        "차단": 19,
+        "누출": 16,
+        "누출률": 0.4571,
+        "keep_전체": 70,
+        "keep_전사손상": 17,
+        "keep_생존": 53,
+        "보존": 53,
+        "과차단": 0,
+        "과차단률": 0.0,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 0,
+            "누출": 15,
+            "전사손상": 1
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 14,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 5,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 17,
+            "과차단": 0,
+            "전사손상": 9
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 10,
+            "과차단": 0,
+            "전사손상": 5
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 5,
+            "과차단": 0,
+            "전사손상": 1
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 1,
+            "과차단": 0,
+            "전사손상": 1
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 1,
+            "과차단": 0,
+            "전사손상": 1
+          }
+        },
+        "무라벨_검출": 3,
+        "필드_전체": 69,
+        "필드_짝유지": 44,
+        "필드_라벨오독": 21,
+        "짝유지율_사전복구시": 0.942,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 0,
+        "필드_값소실": 2,
+        "필드_둘다소실": 2,
+        "짝유지율": 0.6377,
+        "숫자_전체": 59,
+        "숫자_리터럴": 58,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 1,
+        "리터럴생존률": 0.9831,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김도현",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.20 15:04:22",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-234-567890",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "8,500,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "박준영",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "박준영",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "하나은행 352-0123-4567-89",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "3,000,000원",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "수수료",
+              "value": "500원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이서연",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "농협은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "거래점",
+              "value": "농협은행 강남지점",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "정우성",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "토스뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "정우성",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "카카오뱅크 3333-01-2345678",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "6,200,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "최수진",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "최수진",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "1,900,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "조민호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "조민호",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김대리",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 사람",
+              "value": "노은서",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I08",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "가맹점",
+              "value": "온라인 상품권몰",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I09",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "한지민",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I10",
+          "ch": "CH-securities",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.15 14:10:02",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "일시",
+              "value": "2026.08.18 19:02:11",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "일시",
+              "value": "2026.08.18 20:15:47",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "예금주",
+              "value": "윤태호",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I13",
+          "ch": "CH-giftcard",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "상품권사",
+              "value": "컬쳐랜드",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I14",
+          "ch": "CH-giftcard",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "일시",
+              "value": "2026-08-18 03:22",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "대표번호",
+              "value": "114",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I16",
+          "ch": "CH-carrier",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I17",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김민수",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "금융감독원",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이정훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "이정훈",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨오독"
+            },
+            {
+              "label": "보낸 금액",
+              "value": "470,500원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "강민철",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "tesseract",
+      "열화조건": "clean",
+      "한글공백복원": false,
+      "탐지기": "정규식만",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 2,
+        "pii_생존": 34,
+        "차단": 17,
+        "누출": 17,
+        "누출률": 0.5,
+        "keep_전체": 70,
+        "keep_전사손상": 13,
+        "keep_생존": 57,
+        "보존": 57,
+        "과차단": 0,
+        "과차단률": 0.0,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 0,
+            "누출": 16,
+            "전사손상": 0
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 12,
+            "누출": 0,
+            "전사손상": 2
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 5,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 11
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 6,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 2,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 0,
+            "과차단": 0,
+            "전사손상": 2
+          }
+        },
+        "무라벨_검출": 3,
+        "필드_전체": 69,
+        "필드_짝유지": 59,
+        "필드_라벨오독": 0,
+        "짝유지율_사전복구시": 0.8551,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 6,
+        "필드_값소실": 3,
+        "필드_둘다소실": 1,
+        "짝유지율": 0.8551,
+        "숫자_전체": 59,
+        "숫자_리터럴": 57,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 2,
+        "리터럴생존률": 0.9661,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김도현",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "국민은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨소실"
+            },
+            {
+              "label": "출금 계좌",
+              "value": "국민은행 123-45-678901",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "박준영",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "우리은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "하나은행 352-0123-4567-89",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이서연",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "정우성",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "카카오뱅크 3333-01-2345678",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "최수진",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "조민호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오페이",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "토스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I09",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "한지민",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "미래에셋증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I10",
+          "ch": "CH-securities",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "삼성증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "업비트",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "자산",
+              "value": "비트코인 (BTC)",
+              "outcome": "값소실"
+            },
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "입금 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I14",
+          "ch": "CH-giftcard",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I16",
+          "ch": "CH-carrier",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "LG유플러스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I17",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김민수",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이정훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "신한은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "tesseract",
+      "열화조건": "clean",
+      "한글공백복원": true,
+      "탐지기": "LLM 단독 · gemma3:4b",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 2,
+        "pii_생존": 34,
+        "차단": 17,
+        "누출": 17,
+        "누출률": 0.5,
+        "keep_전체": 70,
+        "keep_전사손상": 13,
+        "keep_생존": 57,
+        "보존": 56,
+        "과차단": 1,
+        "과차단률": 0.0175,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 12,
+            "누출": 4,
+            "전사손상": 0
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 3,
+            "누출": 9,
+            "전사손상": 2
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 2,
+            "누출": 3,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 11
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 5,
+            "과차단": 1,
+            "전사손상": 0
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 2,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 0,
+            "과차단": 0,
+            "전사손상": 2
+          }
+        },
+        "무라벨_검출": 2,
+        "필드_전체": 69,
+        "필드_짝유지": 59,
+        "필드_라벨오독": 0,
+        "짝유지율_사전복구시": 0.8551,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 6,
+        "필드_값소실": 3,
+        "필드_둘다소실": 1,
+        "짝유지율": 0.8551,
+        "숫자_전체": 59,
+        "숫자_리터럴": 57,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 2,
+        "리터럴생존률": 0.9661,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "110-234-567890",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "계좌",
+              "value": "123-45-678901",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "국민은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨소실"
+            },
+            {
+              "label": "출금 계좌",
+              "value": "국민은행 123-45-678901",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "우리은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "하나은행 352-0123-4567-89",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "301-0088-7766-51",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "정우성",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "계좌",
+              "value": "3333-01-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "카카오뱅크 3333-01-2345678",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "조민호",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "계좌",
+              "value": "604-21-0099-11",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오페이",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "토스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I09",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "5501234567",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "계좌",
+              "value": "004-22-113355",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "미래에셋증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I10",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "302-0987-6543-21",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "삼성증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "업비트",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "자산",
+              "value": "비트코인 (BTC)",
+              "outcome": "값소실"
+            },
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "전화",
+              "value": "010-3391-8845",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "입금 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I16",
+          "ch": "CH-carrier",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "LG유플러스",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "대표번호",
+              "value": "1544-0010",
+              "outcome": "과차단",
+              "as_kind": "전화"
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I17",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "전화",
+              "value": "02-987-6543",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "전화",
+              "value": "010-9982-3316",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "신한은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "1000-56-789012",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "tesseract",
+      "열화조건": "clean",
+      "한글공백복원": true,
+      "탐지기": "정규식+LLM+허용목록 · gemma3:4b",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 2,
+        "pii_생존": 34,
+        "차단": 29,
+        "누출": 5,
+        "누출률": 0.1471,
+        "keep_전체": 70,
+        "keep_전사손상": 13,
+        "keep_생존": 57,
+        "보존": 57,
+        "과차단": 0,
+        "과차단률": 0.0,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 12,
+            "누출": 4,
+            "전사손상": 0
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 12,
+            "누출": 0,
+            "전사손상": 2
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 5,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 11
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 6,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 2,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 0,
+            "과차단": 0,
+            "전사손상": 2
+          }
+        },
+        "무라벨_검출": 4,
+        "필드_전체": 69,
+        "필드_짝유지": 59,
+        "필드_라벨오독": 0,
+        "짝유지율_사전복구시": 0.8551,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 6,
+        "필드_값소실": 3,
+        "필드_둘다소실": 1,
+        "짝유지율": 0.8551,
+        "숫자_전체": 59,
+        "숫자_리터럴": 57,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 2,
+        "리터럴생존률": 0.9661,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "국민은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨소실"
+            },
+            {
+              "label": "출금 계좌",
+              "value": "국민은행 123-45-678901",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "우리은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "하나은행 352-0123-4567-89",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "정우성",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "카카오뱅크 3333-01-2345678",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "조민호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오페이",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "토스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I09",
+          "ch": "CH-securities",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "미래에셋증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I10",
+          "ch": "CH-securities",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "삼성증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "업비트",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "자산",
+              "value": "비트코인 (BTC)",
+              "outcome": "값소실"
+            },
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "입금 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I16",
+          "ch": "CH-carrier",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "LG유플러스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "신한은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "tesseract",
+      "열화조건": "clean",
+      "한글공백복원": true,
+      "탐지기": "정규식만",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 2,
+        "pii_생존": 34,
+        "차단": 17,
+        "누출": 17,
+        "누출률": 0.5,
+        "keep_전체": 70,
+        "keep_전사손상": 13,
+        "keep_생존": 57,
+        "보존": 57,
+        "과차단": 0,
+        "과차단률": 0.0,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 0,
+            "누출": 16,
+            "전사손상": 0
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 12,
+            "누출": 0,
+            "전사손상": 2
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 5,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 11
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 6,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 2,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 0,
+            "과차단": 0,
+            "전사손상": 2
+          }
+        },
+        "무라벨_검출": 3,
+        "필드_전체": 69,
+        "필드_짝유지": 59,
+        "필드_라벨오독": 0,
+        "짝유지율_사전복구시": 0.8551,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 6,
+        "필드_값소실": 3,
+        "필드_둘다소실": 1,
+        "짝유지율": 0.8551,
+        "숫자_전체": 59,
+        "숫자_리터럴": 57,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 2,
+        "리터럴생존률": 0.9661,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김도현",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "국민은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨소실"
+            },
+            {
+              "label": "출금 계좌",
+              "value": "국민은행 123-45-678901",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "박준영",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "우리은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "하나은행 352-0123-4567-89",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이서연",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "정우성",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "카카오뱅크 3333-01-2345678",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "최수진",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "둘다소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "조민호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오페이",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "토스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I09",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "한지민",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "미래에셋증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I10",
+          "ch": "CH-securities",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "삼성증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "업비트",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "자산",
+              "value": "비트코인 (BTC)",
+              "outcome": "값소실"
+            },
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "전사손상",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "입금 계좌",
+              "value": "케이뱅크 7777-01-9988776",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I14",
+          "ch": "CH-giftcard",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I16",
+          "ch": "CH-carrier",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "LG유플러스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I17",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김민수",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이정훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "신한은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "케이뱅크",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "tesseract",
+      "열화조건": "lowres",
+      "한글공백복원": false,
+      "탐지기": "정규식만",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 1,
+        "pii_생존": 35,
+        "차단": 19,
+        "누출": 16,
+        "누출률": 0.4571,
+        "keep_전체": 70,
+        "keep_전사손상": 8,
+        "keep_생존": 62,
+        "보존": 62,
+        "과차단": 0,
+        "과차단률": 0.0,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 0,
+            "누출": 15,
+            "전사손상": 1
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 14,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 5,
+            "누출": 0,
+            "전사손상": 0
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 20,
+            "과차단": 0,
+            "전사손상": 6
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 19,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 6,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 2,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 0,
+            "과차단": 0,
+            "전사손상": 2
+          }
+        },
+        "무라벨_검출": 3,
+        "필드_전체": 69,
+        "필드_짝유지": 63,
+        "필드_라벨오독": 0,
+        "짝유지율_사전복구시": 0.913,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 4,
+        "필드_값소실": 2,
+        "필드_둘다소실": 0,
+        "짝유지율": 0.913,
+        "숫자_전체": 59,
+        "숫자_리터럴": 59,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 0,
+        "리터럴생존률": 1.0,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김도현",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "김도현",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "박준영",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "우리은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이서연",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "정우성",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "정우성",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "최수진",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "조민호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "카카오페이",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I09",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "한지민",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "미래에셋증권",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "업비트",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "자산",
+              "value": "비트코인 (BTC)",
+              "outcome": "값소실"
+            },
+            {
+              "label": "받는 주소",
+              "value": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I14",
+          "ch": "CH-giftcard",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I16",
+          "ch": "CH-carrier",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "LG유플러스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I17",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김민수",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이정훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "신한은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "우리은행 1002-857-441026",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 분",
+              "value": "강민철",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        }
+      ]
+    },
+    {
+      "엔진": "tesseract",
+      "열화조건": "photo",
+      "한글공백복원": false,
+      "탐지기": "정규식만",
+      "장당_초": null,
+      "요약": {
+        "pii_전체": 36,
+        "pii_전사손상": 1,
+        "pii_생존": 35,
+        "차단": 17,
+        "누출": 18,
+        "누출률": 0.5143,
+        "keep_전체": 70,
+        "keep_전사손상": 7,
+        "keep_생존": 63,
+        "보존": 63,
+        "과차단": 0,
+        "과차단률": 0.0,
+        "종류별_pii": {
+          "이름": {
+            "전체": 16,
+            "차단": 0,
+            "누출": 16,
+            "전사손상": 0
+          },
+          "계좌": {
+            "전체": 14,
+            "차단": 13,
+            "누출": 1,
+            "전사손상": 0
+          },
+          "전화": {
+            "전체": 5,
+            "차단": 4,
+            "누출": 0,
+            "전사손상": 1
+          },
+          "주민번호": {
+            "전체": 1,
+            "차단": 0,
+            "누출": 1,
+            "전사손상": 0
+          }
+        },
+        "종류별_keep": {
+          "기관": {
+            "전체": 26,
+            "보존": 23,
+            "과차단": 0,
+            "전사손상": 3
+          },
+          "금액": {
+            "전체": 19,
+            "보존": 17,
+            "과차단": 0,
+            "전사손상": 2
+          },
+          "일시": {
+            "전체": 15,
+            "보존": 15,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "대표번호": {
+            "전체": 6,
+            "보존": 6,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "상품권사": {
+            "전체": 2,
+            "보존": 2,
+            "과차단": 0,
+            "전사손상": 0
+          },
+          "통신사": {
+            "전체": 2,
+            "보존": 0,
+            "과차단": 0,
+            "전사손상": 2
+          }
+        },
+        "무라벨_검출": 4,
+        "필드_전체": 69,
+        "필드_짝유지": 63,
+        "필드_라벨오독": 1,
+        "짝유지율_사전복구시": 0.9275,
+        "필드_짝깨짐": 0,
+        "필드_라벨소실": 4,
+        "필드_값소실": 1,
+        "필드_둘다소실": 0,
+        "짝유지율": 0.913,
+        "숫자_전체": 59,
+        "숫자_리터럴": 58,
+        "숫자_자형혼동": 0,
+        "숫자_소실": 1,
+        "리터럴생존률": 0.9831,
+        "자형혼동_건수": 0
+      },
+      "틀린화면": [
+        {
+          "id": "I01",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김도현",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I02",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "박준영",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I03",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이서연",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I04",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "정우성",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I05",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "최수진",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "계좌",
+              "value": "7777-01-9988776",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "거래 일시",
+              "value": "2026.08.19 09:00:15",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I06",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "조민호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I07",
+          "ch": "CH-easypay",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "받는 계좌",
+              "value": "신한은행 110-987-654321",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I08",
+          "ch": "CH-easypay",
+          "pii": [],
+          "keep": [],
+          "fields": [
+            {
+              "label": "가맹점",
+              "value": "온라인 상품권몰",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I09",
+          "ch": "CH-securities",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "한지민",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [
+            {
+              "label": "처리 일시",
+              "value": "2026.08.17 10:31:44",
+              "outcome": "라벨소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I11",
+          "ch": "CH-crypto",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "업비트",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "자산",
+              "value": "비트코인 (BTC)",
+              "outcome": "값소실"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I12",
+          "ch": "CH-crypto",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "윤태호",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "빗썸",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [
+            {
+              "label": "입금액",
+              "value": "5,500,000원",
+              "outcome": "라벨오독"
+            }
+          ],
+          "confusions": []
+        },
+        {
+          "id": "I14",
+          "ch": "CH-giftcard",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "금액",
+              "value": "500,000원",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I15",
+          "ch": "CH-carrier",
+          "pii": [],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "SK텔레콤",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I16",
+          "ch": "CH-carrier",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "노은서",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "통신사",
+              "value": "LG유플러스",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I17",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "김민수",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "전화",
+              "value": "02-987-6543",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I18",
+          "ch": "CH-facetoface",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "주민번호",
+              "value": "880312-2345678",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I19",
+          "ch": "CH-bank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "이정훈",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "기관",
+              "value": "신한은행",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        },
+        {
+          "id": "I20",
+          "ch": "CH-neobank",
+          "pii": [
+            {
+              "kind": "이름",
+              "value": "서지훈",
+              "outcome": "누출",
+              "as_kind": null
+            },
+            {
+              "kind": "이름",
+              "value": "강민철",
+              "outcome": "누출",
+              "as_kind": null
+            }
+          ],
+          "keep": [
+            {
+              "kind": "금액",
+              "value": "6,200,000원",
+              "outcome": "전사손상",
+              "as_kind": null
+            }
+          ],
+          "fields": [],
+          "confusions": []
+        }
+      ]
+    }
+  ]
+}

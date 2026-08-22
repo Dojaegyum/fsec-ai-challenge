@@ -51,6 +51,7 @@ spec/backend/08-14-channel-matrix.md
 | [08-14-api.md](common/08-14-api.md) | API 계약 — 엔드포인트 10개 + 관리자 2개, 요청·응답, 계측 헤더 |
 | [08-17-service-concept.md](common/08-17-service-concept.md) | **서비스 골자** — 무엇이고 무엇이 아닌가, 누가 어디서 들어와 어떻게 돌아오는가. 기획서 §0을 대체 |
 | [08-20-automation-boundary.md](common/08-20-automation-boundary.md) | **자동화의 경계** — 어디까지 대신해 주고 어디서 멈추는가. 넘으면 인허가가 필요한 것들 |
+| [08-21-user-journeys.md](common/08-21-user-journeys.md) | **사용자 여정 — 경우별.** 갈림길 여덟과 여정 열둘. 골자의 세로축(시간)에 대한 **가로축(경우)**. `src/` 를 읽어 세웠습니다 |
 
 ### `backend/` — 서버
 
@@ -77,7 +78,7 @@ spec/backend/08-14-channel-matrix.md
 
 | 무엇 | 어디 | 상태 |
 | --- | --- | --- |
-| **"서면 신청"은 틀린 표현** — 2026년 7월부터 은행 앱 비대면 신청, 계좌번호·거래내역 자동 입력 | [channel-matrix](backend/08-14-channel-matrix.md) [completion-hook](backend/08-14-completion-hook.md) [screens](frontend/08-14-screens.md) | **반영됨** — 세 문서 모두 |
+| ~~**"서면 신청"은 틀린 표현**~~ — 은행 앱 비대면 신청 | [channel-matrix](backend/08-14-channel-matrix.md) [completion-hook](backend/08-14-completion-hook.md) [screens](frontend/08-14-screens.md) | ⛔ **뒤집혔습니다** (2026-08-21) — 1차 출처로 보니 KB·NH 는 **영업점 서면**이고 나머지는 확인 실패입니다. **기관마다 다른 것**이라 `org.contact.submit` 배열로 내렸습니다 → [ADR-042](../decisions/042-submit-paths.md) |
 | **통장묶기 트랙 신설** — 피해자가 아니라 억울하게 묶인 사람. 5월부터 소명자료 제출 시 5영업일 내 결과 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
 | **기한 계산에 LLM 금지** — 규칙으로 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
 | **자율배상은 "대상인지 진단"** — 1년 4개월간 41건·피해액의 0.1%·평균 116일 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
