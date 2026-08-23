@@ -28,9 +28,10 @@
  * 라우트가 서면 그 자리가 `fetch` 입니다.
  */
 
+import { dueLabel, WaitCard } from "@/modules/deadline-viewer";
 import { PlanBoard } from "@/modules/plan-viewer";
 
-import { FIXTURE_DEADLINES, FIXTURE_PLAN } from "./fixtures";
+import { FIXTURE_DEADLINES, FIXTURE_NOTICE, FIXTURE_PLAN } from "./fixtures";
 
 /** 사건 진행 레일 — 지금 어디쯤인지. 색만으로 가르지 않고 라벨을 함께 둡니다 */
 const RAIL = [
@@ -46,6 +47,9 @@ const RAIL = [
 const step = (i: number) => ({ animationDelay: `${520 + i * 120}ms` });
 
 export default function PlanView() {
+  // 공고는 `kind: "info"` 기한 하나입니다 — 사용자가 지킬 기한이 아닙니다 (§3.7)
+  const notice = FIXTURE_DEADLINES.deadlines.find((d) => d.kind === "info");
+
   return (
     <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5">
       {/* ── 히어로 스트립 — 첫 줄이 답입니다 ─────────────── */}
@@ -138,41 +142,31 @@ export default function PlanView() {
         <PlanBoard
           steps={FIXTURE_PLAN.steps}
           hasDeadline={(id) => FIXTURE_DEADLINES.deadlines.some((d) => d.step_id === id)}
-          deadlineFor={(id) =>
-            FIXTURE_DEADLINES.deadlines.find((d) => d.step_id === id && d.kind === "primary")
-              ? "8월 20일까지"
-              : null
-          }
+          deadlineFor={(id) => {
+            const d = FIXTURE_DEADLINES.deadlines.find(
+              (x) => x.step_id === id && x.kind === "primary",
+            );
+            const label = d ? dueLabel(d) : null;
+            return label && `${label}까지`;
+          }}
           artifactFor={(id) =>
             id === "m1" ? "◆ 통화 접수번호" : id === "m2" ? "◆ 사건접수번호" : null
+          }
+          /* 공고 대기 카드는 **단계 행 사이**에 같은 폭으로 들어갑니다 — 시안 「wait-card」.
+             1b 의 풀폭 진행 스트립은 카운트다운으로 읽혀 폐기됐습니다 */
+          afterStep={(id) =>
+            id === "m3" && notice ? (
+              <WaitCard
+                deadline={notice}
+                startAt={FIXTURE_NOTICE.startAt}
+                progress={FIXTURE_NOTICE.progress}
+                onUpload={() => {}}
+              />
+            ) : null
           }
         />
       </div>
 
-      {/* ── 공고 대기 — 할 일이 없는 두 달에도 보드는 비지 않습니다 ──
-          앰버를 쓰지 않습니다: 사용자 기한이 아니라 제도가 흐르는 시간입니다 */}
-      <section
-        style={step(3)}
-        className="rise rounded-[13px] border border-hairline bg-surface-low p-[15px_18px]"
-      >
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="size-1.5 rounded-full bg-pii [animation:pulse-dot_2.6s_ease-in-out_infinite]"
-          />
-          <h3 className="text-[14px] font-[620] text-ink-1">
-            다음은 채권소멸 공고 2개월, 기다리는 구간입니다
-          </h3>
-        </div>
-        <p className="mt-2 text-[13.5px] leading-[1.65] text-ink-3">
-          신청이 접수되면 공고가 나가고, 그동안은{" "}
-          <b className="font-[620] text-ink-2">할 일이 없습니다.</b> 그 사이 통지문이 오면 여기에
-          올려주세요. 무슨 뜻인지 풀어 드리는 것이 이 구간의 일입니다.
-        </p>
-        <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">
-          기다리는 동안 할 수 있는 것: 명의도용 점검 · 가족에게 링크 보내기
-        </p>
-      </section>
     </div>
   );
 }

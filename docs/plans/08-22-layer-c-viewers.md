@@ -17,6 +17,11 @@
 
 **기술:** TypeScript 5 · React 19 · Next 16 (App Router) · vitest 4 · Tailwind v4 (프로젝트 토큰)
 
+> **2026-08-23 (오후) — S-07 시안 턴 2 가 들어와 `deadline-viewer` 를 다시 세웠습니다.**
+> `DeadlineList` 를 지우고 **배지 3변형 + 공고 대기 카드**로 바꿨습니다 →
+> [핸드오프](../../assets/artifacts/handoff/08-23-s07-wait-and-badges/README.md).
+> `plan-viewer` 의 `todo`·`anytime` 기호도 시안대로 **빈 원**이 됐습니다.
+>
 > **2026-08-23 — 태스크 아홉 전부 끝났습니다.** 세 모듈이 서고 시험 28개가 돕니다.
 > 실행하며 계획과 다르게 간 자리 셋은 각 커밋 메시지에 적었습니다 —
 > 순번 배지 크기(ADR-032), `PlanBoard` 가 머리·꼬리까지 가져온 것,
@@ -1637,6 +1642,13 @@ git commit -m "transcript-viewer — 전사 본문을 화면에서 모듈로 옮
 > 시각 표시(「00:12」)는 `start_ms` 의 표기 변환이라 **기한 계산이 아닙니다** — 넣어도 됩니다.
 > 화자 **이름**만 계약 구멍입니다.
 
-**렌더가 통째로 미접속인 것 하나** — `deadline-viewer` 의 `DeadlineList`·`DeadlineBadge` 는
+**렌더가 통째로 미접속인 것 하나** — `deadline-viewer` 의 `DeadlineBadge`·`DeadlinePair` 는
 `days_left` 가 확정되기 전이라 **어느 화면에도 세우지 않습니다.** 모듈은 서고 시험도 도는데
 화면에는 안 붙은 상태로 끝나는 것이 맞습니다.
+
+> **`DeadlineList` 는 2026-08-23 에 지웠습니다.** 「기한만 모아 보여주는 화면의 시안이 없다」고
+> 올려 둔 물음에 시안이 답했고, 답은 **「두지 마라」** 였습니다 —
+> 목록을 두면 히어로·단계 행과 어긋날 수 있는 **두 번째 정본**이 생깁니다
+> ([핸드오프](../../assets/artifacts/handoff/08-23-s07-wait-and-badges/README.md) 「deadline-badges」).
+> 같은 핸드오프가 **공고 대기 카드**(`WaitCard`)도 확정해서, 그것은 `deadline-viewer` 에 서고
+> `plan-viewer` 의 `afterStep` 슬롯으로 단계 행 사이에 들어갔습니다.

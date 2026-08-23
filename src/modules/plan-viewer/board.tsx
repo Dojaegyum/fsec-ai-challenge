@@ -1,5 +1,8 @@
 "use client";
 
+import { Fragment } from "react";
+import type { ReactNode } from "react";
+
 import { numberSteps } from "./order";
 import { tagOf, toneOf } from "./tone";
 import type { PlanStep, StepTone } from "./types";
@@ -14,10 +17,12 @@ const MARK: Record<StepTone, { glyph: string; cls: string }> = {
     glyph: "→",
     cls: "border-[oklch(0.77_0.117_70.9/70%)] bg-[oklch(0.77_0.117_70.9/20%)] text-deadline-urgent",
   },
-  // ⬜ 시안·현행은 `•`, §S-07 표는 `○`·`◇` 입니다 — 사람이 정하기 전까지 시안 값입니다
-  //    (`CLAUDE.md` 「spec과 아티팩트의 관계」 · RFC-003 — 어느 쪽도 자동으로 이기지 않습니다)
-  todo: { glyph: "•", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
-  anytime: { glyph: "•", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
+  // 미시작·언제든은 **빈 원**입니다 (글리프 없음) — 시안 「wait-card」·1c.
+  // 가르는 것은 우측 태그 글자(「미시작」·「언제든」)이고 모양이 아닙니다.
+  // ⬜ §S-07 표는 `anytime` 을 `◇` 로 적었는데 시안은 `todo` 와 같은 빈 원입니다 —
+  //    RFC-003 「코드는 시안대로, 어긋난 지점은 사람이 정한다」를 따랐습니다
+  todo: { glyph: "", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
+  anytime: { glyph: "", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
   na: { glyph: "—", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
 };
 
@@ -104,6 +109,14 @@ export interface PlanBoardProps {
   hasDeadline?: (stepId: string) => boolean;
   /** 그 단계의 부산물 한 줄. 「◆ 통화 접수번호」 */
   artifactFor?: (stepId: string) => string | null;
+  /**
+   * 그 단계 **뒤에** 끼워 넣을 것. 공고 대기 카드가 이 자리를 씁니다
+   * (시안 「wait-card」 — 「단계 행 사이에 같은 폭으로」).
+   *
+   * **이 모듈이 무엇을 끼울지 고르지 않습니다** — 끼우는 것은 부르는 쪽의 판단이고,
+   * 여기서 고르면 `plan-viewer` 가 기한·국면까지 알게 됩니다.
+   */
+  afterStep?: (stepId: string) => ReactNode;
 }
 
 /**
@@ -118,6 +131,7 @@ export function PlanBoard({
   deadlineFor,
   hasDeadline,
   artifactFor,
+  afterStep,
 }: PlanBoardProps) {
   const numbers = numberSteps(steps);
   const numbered = [...numbers.values()].some((n) => n !== null);
@@ -139,16 +153,19 @@ export function PlanBoard({
       <ul className="mt-2">
         {steps.map((s) => {
           const tone = toneOf(s, hasDeadline?.(s.step_id) ?? false);
+          const after = afterStep?.(s.step_id);
           return (
-            <StepRow
-              key={s.step_id}
-              step={s}
-              tone={tone}
-              tag={tagOf(s, tone)}
-              number={numbers.get(s.step_id) ?? null}
-              deadlineLabel={deadlineFor?.(s.step_id) ?? null}
-              artifactLabel={artifactFor?.(s.step_id) ?? null}
-            />
+            <Fragment key={s.step_id}>
+              <StepRow
+                step={s}
+                tone={tone}
+                tag={tagOf(s, tone)}
+                number={numbers.get(s.step_id) ?? null}
+                deadlineLabel={deadlineFor?.(s.step_id) ?? null}
+                artifactLabel={artifactFor?.(s.step_id) ?? null}
+              />
+              {after && <li>{after}</li>}
+            </Fragment>
           );
         })}
       </ul>
