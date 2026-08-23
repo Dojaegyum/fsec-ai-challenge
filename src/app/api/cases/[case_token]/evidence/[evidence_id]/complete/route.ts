@@ -15,6 +15,16 @@
  * 네트워크가 흔들리면 브라우저가 다시 보냅니다. `markUploaded` 가
  * `pending` 일 때만 옮기므로 **이미 처리 중인 것을 되돌리지 않습니다**
  * → `lib/db.ts`.
+ *
+ * **읽기도 마찬가지여야 합니다.** 사건 행만 멱등이고 아래 `startReading` 은
+ * 부를 때마다 도는 상태였습니다 — 같은 파일을 다시 내려받아 모델을 다시
+ * 돌렸습니다. 접수 쪽에서 막습니다 → `services/transcriber/jobs.py` 의
+ * `create` 가 「이번에 열렸는가」를 잠금 안에서 답하고, 안 열렸으면 돌리지
+ * 않습니다. **상한으로는 못 막는 자리입니다** — 분당 10회를 걸어도 10번 돕니다.
+ *
+ * ## 창으로 세지 않습니다 — `rate: 'none'`
+ *
+ * §1.3 표에 이 자리가 없습니다. **안 적으면 빠뜨린 것과 구분되지 않아** 밝혀 둡니다.
  */
 
 import { startReading } from '@/flows/read-evidence'
@@ -52,5 +62,5 @@ export async function POST(
       status: 202,
       body: { evidence_id: evidenceId, ingest_status: status },
     }
-  })
+  }, { rate: 'none' })
 }
