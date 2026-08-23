@@ -51,4 +51,5 @@
 | `order.ts` | 사슬 안 위치로 번호 매기기 |
 | `board.tsx` | `StepRow` · `PlanBoard` (렌더만) |
 | `types.ts` | `PlanStep` · `StepState` · `StepTone` |
-| `tone.test.ts` · `order.test.ts` | 12건. `npm test` |
+| `tone.test.ts` · `order.test.ts` | 판정 12건 |
+| `board.test.tsx` | 렌더의 **금지 규칙** 7건 — 빨강 금지 · 없는 순서 안 지어내기 · 건너뛴 단계 안 지우기 · 화면이 날짜 안 만들기 |

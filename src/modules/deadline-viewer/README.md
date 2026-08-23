@@ -81,4 +81,5 @@
 | `badges.tsx` | `DeadlineBadge` · `DeadlinePair` (렌더만) |
 | `wait.tsx` | `WaitCard` — 공고 대기 (렌더만) |
 | `types.ts` | `Deadline` · `DeadlineKind` · `DeadlineGroups` |
-| `group.test.ts` · `label.test.ts` | 19건. `npm test` |
+| `group.test.ts` · `label.test.ts` | 판정 19건 |
+| `render.test.tsx` | 렌더의 **금지 규칙** 11건 — D-day 안 그리기 · 앰버 안 쓰기 · 퍼센트 안 쓰기 · 달력 앵커는 `aria-hidden` |

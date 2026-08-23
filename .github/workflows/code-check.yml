@@ -2,7 +2,7 @@ name: code-check
 
 # 도메인 모듈의 타입과 테스트를 봅니다.
 # 사람이 손으로 돌리는 명령과 CI 가 같아야 게이트가 문지기가 아니라 안전망이 됩니다.
-#   cd src && npm run typecheck && npm test
+#   cd src && npm run typecheck && npm test && npm run build
 #
 # typecheck 가 `next typegen` 을 먼저 돌립니다. Next 16 은 LayoutProps·PageProps 같은
 # 전역 타입을 .next/types/ 에 생성해서 주므로, 그걸 건너뛰면 tsc 가 없는 이름을
@@ -45,3 +45,11 @@ jobs:
 
       - name: 테스트
         run: npm test
+
+      # 빌드만 잡아내는 것이 있습니다 — `client-only`·`server-only` 표식은
+      # 시험 실행기에서 빈 구현으로 갈아 끼워지므로(`vitest.config.mts` 참고),
+      # **층 경계 위반은 여기서만 걸립니다.** 라우트의 Next 타입 검사도 같습니다.
+      #
+      # 환경변수 없이 돕니다 — `lib/env.ts` 가 빠진 값을 던지지 않고 목록으로 모읍니다.
+      - name: 빌드
+        run: npm run build

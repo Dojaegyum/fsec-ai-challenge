@@ -26,7 +26,13 @@ export default defineConfig({
     // `proxy.ts` 는 Next 규약상 app/ 과 같은 층에 있어야 해서 lib/ 로 못 옮깁니다
     // → node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md.
     // Next 빌드 산출물(.next)은 제외됩니다
-    include: ["{lib,modules,flows,app}/**/*.test.ts", "*.test.ts"],
+    // `.tsx` 도 봅니다 — 렌더에는 **금지 규칙**이 붙어 있고(빨강 금지 · 「모름」 안 지우기 ·
+    // 화면이 날짜를 세지 않기), 그건 타입도 순수 함수 시험도 못 잡습니다.
+    include: ["{lib,modules,flows,app}/**/*.test.{ts,tsx}", "*.test.ts"],
+    // **jsdom 을 쓰지 않습니다.** 렌더 시험은 `react-dom/server` 의
+    // `renderToStaticMarkup` 으로 HTML 문자열을 받아 봅니다 — 브라우저가 필요 없고,
+    // 의존성이 늘지 않으며, 「무엇이 그려지나」를 보는 데는 그것으로 충분합니다.
+    // 클릭·포커스처럼 **실제 상호작용**을 봐야 할 때 그때 jsdom 을 답니다.
     environment: "node",
   },
 });

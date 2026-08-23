@@ -53,4 +53,5 @@ URL 토큰으로 사건을 열고, 발급 직후 복사·공유를 제공합니�
 | `open.ts` | `isCaseToken` · `openCase` — 토큰 검사와 첫 화면 |
 | `handoff.tsx` | `LinkHandoff` — 발급 직후 넘기는 카드 (렌더만) |
 | `types.ts` | `CaseResponse` · `ScreenState` · `Focus` · `Side` |
-| `open.test.ts` | 12건. `npm test` |
+| `open.test.ts` | 판정 12건 |
+| `handoff.test.tsx` | 렌더의 **금지 규칙** 3건 — 주소가 전부 보이기 · 복사가 막혀도 실패 아님 |

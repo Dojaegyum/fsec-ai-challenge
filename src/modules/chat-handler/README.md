@@ -62,4 +62,5 @@
 | `turn.ts` | `outgoing` · `toTurn` · `sourceNote` |
 | `stream.tsx` | `AnswerBubble` · `QuestionButtons` (렌더만) |
 | `types.ts` | `ChatResponse` · `Turn` · `NextQuestion` · `OutgoingMessage` |
-| `turn.test.ts` | 12건. `npm test` |
+| `turn.test.ts` | 판정 12건 |
+| `stream.test.tsx` | 렌더의 **금지 규칙** 6건 — 「모름」 안 지우기 · 같은 크기·같은 자리 · 인용 번호·판단 근거 안 쓰기 |

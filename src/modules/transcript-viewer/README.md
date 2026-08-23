@@ -50,4 +50,5 @@
 | `read.ts` | 원문으로 펼치기 · 종류별 개수 |
 | `view.tsx` | `TranscriptView` (렌더만) |
 | `types.ts` | `RawLine` · `TranscriptLine` · `PiiToken` · `TokenCount` |
-| `read.test.ts` | 6건. `npm test` |
+| `read.test.ts` | 판정 6건 |
+| `view.test.tsx` | 렌더의 **금지 규칙** 8건 — 원문으로 펼치기 · 못 펼쳐도 화면 안 비우기 · 개수만 밝히기 |

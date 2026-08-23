@@ -59,4 +59,5 @@
 | `send.ts` | `screenName` · `nextStep` · `forkFor` |
 | `rail.tsx` | `FileRail` · `StatusDot` (렌더만) |
 | `types.ts` | `SendState` · `SendStep` · `SendTarget` · `UploadSlot` · `EvidenceStatus` |
-| `send.test.ts` | 12건. `npm test` |
+| `send.test.ts` | 판정 12건 |
+| `rail.test.tsx` | 렌더의 **금지 규칙** 7건 — 색만으로 안 가르기 · 못 가린 파일 안 막기 · 빨강 금지 |
