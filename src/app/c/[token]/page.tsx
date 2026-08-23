@@ -3,12 +3,13 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { isCaseToken } from "@/modules/case-opener";
+import { isCaseToken, openCase } from "@/modules/case-opener";
 import { CallPanel } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
 import { ABSORB_MS, absorbKeyframes, fadeKeyframes, prefersReducedMotion, rectOf } from "./absorb";
 import ChatView, { MiniChat } from "./chat";
+import { FIXTURE_CASE } from "./fixtures";
 import T0Rail from "./safety";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
@@ -50,6 +51,8 @@ import DocGuide from "./doc";
  *
  *  · 링크 토큰은 **ADR-039 로 확정**됐습니다 — 128비트 · Crockford Base32 · 26자이고
  *    `case_id` 와 **다른 칸**입니다. 모양 검사는 `case-opener` 가 합니다
+ *  · **첫 화면은 `case-opener` 가 고릅니다** — 남은 것은 `fetch` 뿐입니다.
+ *    지금은 `fixtures.ts` 의 `FIXTURE_CASE` 를 먹습니다
  */
 
 /** 유령을 띄워 두는 시간 — 흡수(1.5s)와 `.view-out`(0.3s 지연 + 0.7s) 중 긴 쪽 */
@@ -79,8 +82,14 @@ export default function CaseScreen() {
   const devFocus: Focus =
     wanted === "plan" || wanted === "evidence" || wanted === "doc" ? wanted : "chat";
 
-  const [focus, setFocus] = useState<Focus>(devFocus);
-  const [side, setSide] = useState<Side>(devFocus === "chat" ? "casefile" : "work");
+  // `?view=` 가 없으면 **규칙**이 첫 화면을 고릅니다 — 서버가 지목하지 않습니다 (§3.10).
+  // 라우트가 서면 `FIXTURE_CASE` 자리가 `GET /api/cases/{token}` 응답이 됩니다
+  const opened = openCase(FIXTURE_CASE);
+
+  const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
+  const [side, setSide] = useState<Side>(
+    wanted ? (devFocus === "chat" ? "casefile" : "work") : opened.side,
+  );
   const [copied, setCopied] = useState(false);
 
   const atWork = side === "work";

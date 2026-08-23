@@ -19,6 +19,7 @@
 import type { Deadline } from "@/modules/deadline-viewer";
 import type { PlanStep } from "@/modules/plan-viewer";
 import type { RestorableMapping } from "@/modules/pii-restorer";
+import type { CaseResponse } from "@/modules/case-opener";
 import type { NextQuestion } from "@/modules/chat-handler";
 import type { RailFile } from "@/modules/file-sender";
 import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
@@ -212,4 +213,18 @@ export const FIXTURE_QUESTION: NextQuestion = {
     "직접 만나서 현금으로",
     "기억이 안 나요",
   ],
+};
+
+/**
+ * §3.10 `GET /api/cases/{case_token}` 중 **첫 화면을 고르는 데 쓰는 부분만**.
+ *
+ * `case-opener` 가 이 값으로 `focus`·`side` 를 정합니다 — **서버가 지목하지 않습니다.**
+ * 단계는 `FIXTURE_PLAN` 과 같은 것을 가리킵니다.
+ */
+export const FIXTURE_CASE: CaseResponse = {
+  case_id: "01J8XKR5000000000000000000",
+  track: "victim",
+  plan: {
+    steps: FIXTURE_PLAN.steps.map((s) => ({ step_id: s.step_id, state: s.state })),
+  },
 };
