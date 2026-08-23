@@ -18,6 +18,8 @@
 
 import type { Deadline } from "@/modules/deadline-viewer";
 import type { PlanStep } from "@/modules/plan-viewer";
+import type { RestorableMapping } from "@/modules/pii-restorer";
+import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
 
 /** §3.6 `GET /api/cases/{case_token}/plan` — 지금 `plan.tsx` 의 `STEPS` 여섯 줄 */
 export const FIXTURE_PLAN: { steps: PlanStep[] } = {
@@ -110,3 +112,58 @@ export const FIXTURE_DEADLINES: { deadlines: Deadline[] } = {
     },
   ],
 };
+
+/**
+ * §3.3 `GET /api/cases/{case_token}/evidence/{evidence_id}` 완료 응답.
+ *
+ * **전사는 토큰화된 상태로 내려옵니다** — 원문은 `FIXTURE_MAPPINGS` 가 갖고 있고,
+ * 펼치는 것은 브라우저 안에서만 일어납니다 (ADR-009 · ADR-034).
+ *
+ * 값의 출처는 지금 `evidence.tsx` 의 `TRANSCRIPT` 넷입니다. 「00:12」 같은 시각은
+ * `start_ms` 로 옮겼습니다 — 계약에 시각 문자열 칸이 없습니다.
+ *
+ * ⬜ 시안의 「사칭 정황 구간」·「미확인」 표기는 옮기지 못했습니다.
+ * 근거 스팬은 `case-reader`(층 1)가 내는데 미구현이고 §3.3 에도 자리가 없습니다.
+ */
+export const FIXTURE_EVIDENCE: {
+  evidence_id: string;
+  ingest_status: string;
+  transcript: RawLine[];
+  pii_tokens: PiiToken[];
+} = {
+  evidence_id: "01J8XKR6",
+  ingest_status: "done",
+  transcript: [
+    {
+      speaker: "A",
+      text: "서울중앙지검 수사관입니다. [이름-1] 씨 명의 계좌가 범죄에 연루되어 확인이 필요합니다.",
+      start_ms: 12_000,
+    },
+    { speaker: "B", text: "제가요? 저는 그런 적이 없는데요.", start_ms: 64_000 },
+    {
+      speaker: "A",
+      text: "안전계좌로 옮기셔야 합니다. 지금 불러드리는 [계좌-1] 로 이체해 주세요.",
+      start_ms: 167_000,
+    },
+    {
+      speaker: "A",
+      text: "확인되면 24시간 안에 돌려드립니다. 절대 다른 곳에 말하지 마세요.",
+      start_ms: 271_000,
+    },
+  ],
+  pii_tokens: [
+    { token: "[이름-1]", kind: "name" },
+    { token: "[계좌-1]", kind: "account" },
+  ],
+};
+
+/**
+ * 볼트에서 열어 온 복원 매핑 — **브라우저에만 있습니다.**
+ *
+ * 실제로는 `key-handler` 가 볼트를 열어 만듭니다. 여기 있는 값은 **예시**이고,
+ * 서버·로그·DB 어디에도 같은 것을 두지 마세요 (`CLAUDE.md` 불변 규칙 3).
+ */
+export const FIXTURE_MAPPINGS: RestorableMapping[] = [
+  { token: "[이름-1]", original: "김민수" },
+  { token: "[계좌-1]", original: "110-2345-678901" },
+];

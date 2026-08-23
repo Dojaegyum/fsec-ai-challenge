@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import { countTokens, TranscriptView } from "@/modules/transcript-viewer";
+
+import { FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
+
 /**
  * S-08 증거함 — `/c/{token}` 의 `focus: "evidence"` 일 때의 본문.
  *
@@ -26,6 +30,10 @@ import { useState } from "react";
  * TODO(연결) — 지금은 UI 상태만 돕니다
  *  · POST …/evidence §3.2 · GET …/evidence/{id} §3.3
  *  · 층 C: transcript-viewer · file-sender
+ *
+ * 전사 본문은 `transcript-viewer` 로 옮겼습니다 — 데이터는 `fixtures.ts`,
+ * 라우트가 서면 그 자리가 `fetch` 입니다.
+ * `FILES`·`DOT`·`Status` 는 자료 레일이 쓰므로 남겨 둡니다 — `file-sender` 가 가져갑니다.
  */
 
 type Status = "done" | "processing" | "failed" | "pending";
@@ -47,34 +55,6 @@ const DOT: Record<Status, string> = {
   pending: "border border-icon bg-transparent",
 };
 
-/** 서버가 준 전사 그대로. **화면이 다시 가리거나 풀지 않습니다** */
-const TRANSCRIPT = [
-  {
-    at: "00:12",
-    who: "상대방",
-    suspect: false,
-    body: "서울중앙지검 수사관입니다. 김민수 씨 명의 계좌가 범죄에 연루되어 확인이 필요합니다.",
-  },
-  {
-    at: "01:04",
-    who: "나",
-    suspect: false,
-    body: "제가요? 저는 그런 적이 없는데요.",
-  },
-  {
-    at: "02:47",
-    who: "상대방",
-    suspect: true,
-    body: "안전계좌로 옮기셔야 합니다. 지금 불러드리는 110-2345-678901 로 이체해 주세요.",
-  },
-  {
-    at: "04:31",
-    who: "상대방",
-    suspect: false,
-    unverified: true,
-    body: "확인되면 24시간 안에 돌려드립니다. 절대 다른 곳에 말하지 마세요.",
-  },
-] as const;
 
 /** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작합니다 */
 const step = (i: number) => ({ animationDelay: `${520 + i * 80}ms` });
@@ -166,7 +146,13 @@ export default function EvidenceView() {
           </div>
           {/* 가려서 보낸 것이 무엇인지 — 값이 아니라 **개수**입니다 */}
           <p className="shrink-0 text-[12.5px] text-ink-3">
-            서버로는 <b className="font-[620] text-pii">이름 1 · 계좌 1</b>을 가려서 보냈습니다
+            서버로는{" "}
+            <b className="font-[620] text-pii">
+              {countTokens(FIXTURE_EVIDENCE.pii_tokens)
+                .map((c) => `${c.kind} ${c.count}`)
+                .join(" · ")}
+            </b>
+            을 가려서 보냈습니다
           </p>
         </header>
 
@@ -212,52 +198,18 @@ export default function EvidenceView() {
           </p>
         ) : (
           <>
-            <div className="grid gap-4 p-[18px_16px]">
-              {TRANSCRIPT.map((line, i) => (
-                <div
-                  key={line.at}
-                  style={step(i + 3)}
-                  className="rise grid grid-cols-[42px_1fr] gap-3"
-                >
-                  <span data-numeric className="mt-0.5 font-mono text-[12.5px] text-ink-3">
-                    {line.at}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="mb-1 text-[12.5px] text-ink-3">
-                      {line.who}
-                      {line.suspect && (
-                        <>
-                          {" · "}
-                          <b className="font-[620] text-deadline-urgent">사칭 정황 구간</b>
-                        </>
-                      )}
-                    </p>
-                    <p
-                      className={`text-[14px] leading-[1.7] text-ink-2 ${
-                        line.suspect
-                          ? "border-l-2 border-[oklch(0.77_0.117_70.9/60%)] pl-3"
-                          : ""
-                      }`}
-                    >
-                      {"unverified" in line && line.unverified ? (
-                        <>
-                          <span className="underline decoration-[oklch(0.77_0.117_70.9/70%)] decoration-dashed underline-offset-4">
-                            {line.body}
-                          </span>
-                          <span className="ml-2 inline-flex items-center rounded-full border border-[oklch(0.77_0.117_70.9/45%)] px-2 py-px align-middle text-[12.5px] text-deadline-urgent">
-                            미확인
-                          </span>
-                        </>
-                      ) : (
-                        line.body
-                      )}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div className="p-[18px_16px]">
+              <TranscriptView
+                lines={FIXTURE_EVIDENCE.transcript}
+                mappings={FIXTURE_MAPPINGS}
+                lineStyle={(i) => step(i + 3)}
+              />
             </div>
 
-            {/* ⚠️ 시안의 「서버가 받은 것은 이 화면 그대로입니다」는 ADR-034 이후 거짓입니다 */}
+            {/* ⚠️ 시안의 「서버가 받은 것은 이 화면 그대로입니다」는 ADR-034 이후 거짓입니다.
+                ⬜ 아래 「미확인 구간」은 지금 화면에 표시가 없습니다 — 근거 스팬을 내는
+                `case-reader`(층 1)가 미구현이고 §3.3 에도 자리가 없어 전사 본문에서
+                빠졌습니다. 문구는 여전히 참이라 두되, 표기가 서면 함께 보여야 합니다 */}
             <footer className="border-t border-hairline p-[11px_16px] text-[12.5px] leading-[1.6] text-ink-3">
               <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 밖으로 나간 것은
               가려진 형태였습니다. 복원은 이 브라우저 안에서만 일어납니다.{" "}
