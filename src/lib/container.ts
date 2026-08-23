@@ -32,6 +32,7 @@ import { readEnv, type Env } from './env'
 import { linkTokenSource, newUlid, ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
+import { createHolidayCalendar } from './holidays'
 import { createLlmClient } from './llm'
 import { createQuestionSource } from './questions'
 import {
@@ -327,7 +328,15 @@ export function unconfiguredPorts(env: Env): Ports {
     // ⬜ 볼트 제품 미결 → ADR-016 「남은 것」
     vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
     // ⬜ 정본의 환경변수 표에 공휴일 API 키가 없습니다
-    holidays: unconfigured('HolidayCalendar', ['(정본에 키 이름 없음)']),
+    /**
+     * ⚠️ **표로 답합니다. 임시공휴일이 안 들어옵니다** → holidays.ts.
+     *
+     * 정본은 특일 정보 API(공공데이터포털 15012690)인데 키가 없습니다.
+     * **미설정 대역으로 두지 않는 이유**는, 그러면 기한이 하나도 안 나와
+     * 이 서비스의 핵심이 통째로 멈추기 때문입니다. 대신 무엇이 빠졌는지를
+     * 설정 현황이 드러냅니다 → config-report.ts
+     */
+    holidays: createHolidayCalendar(),
     // ⬜ 판별 모델 미선정 → ARCHITECTURE.md §10.
     // **부르면 터지는 대역으로 두지 않습니다** — 1차 정규식만으로 경계가 서고,
     // 여기서 던지면 붙어 있는 1차까지 못 씁니다

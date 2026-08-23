@@ -24,6 +24,11 @@ export interface PortStatus {
   readonly effect: string
 }
 
+/** 공휴일을 API 로 답하고 있나 — 표로 답하면 임시공휴일이 빠집니다 */
+function holidaysComplete(holidays: unknown): boolean {
+  return (holidays as { coversAdHoc?: boolean } | null)?.coversAdHoc === true
+}
+
 export function configReport(container: Container): readonly PortStatus[] {
   const { env, ports } = container
 
@@ -52,8 +57,11 @@ export function configReport(container: Container): readonly PortStatus[] {
     // 설명이 낡으면 운영자가 유입 차단을 찾는 동안 파기가 계속 멈춰 있습니다
     row('크론 비밀값', has(env, 'CRON_SECRET'), ['CRON_SECRET'],
       '크론 경로가 전부 401 입니다 — 사건 파기·기한 알림이 한 번도 안 돕니다'),
-    row('공휴일', !isUnconfigured(ports.holidays), ['(정본에 키 이름 없음)'],
-      '영업일 계산이 멈춥니다'),
+    // **붙어 있지만 완전하지 않습니다.** 그 사실을 숨기면 기한이 하루
+    // 앞당겨진 것을 아무도 모릅니다 → holidays.ts
+    row('공휴일 · 임시공휴일', holidaysComplete(ports.holidays),
+      ['(특일 정보 API 키 없음 — 표로 답하는 중)'],
+      '표에 있는 공휴일은 셉니다. **임시공휴일이 안 들어와** 그런 날이 생기면 기한이 하루 앞당겨집니다'),
     // 1차 정규식은 붙어 있습니다. 이 줄은 2차(이름 탐지)만 봅니다 —
     // 착수 기준선이 「NER 을 기다리지 않는다」로 정했고, 대신 안 붙은 것을 드러냅니다
     row('개인정보 2차 탐지', ports.ner !== null, ['(모델 미선정)'],
