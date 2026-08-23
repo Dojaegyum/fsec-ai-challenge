@@ -43,6 +43,7 @@ import {
   createEvidenceReader,
   createKbStore,
   createSlotReader,
+  createSlotWriter,
   createSql,
 } from './db'
 import type {
@@ -51,6 +52,7 @@ import type {
   DeadlineReader,
   EvidenceReader,
   SlotReader,
+  SlotWriter,
 } from './db'
 import { createCasePlanStore } from './db-plan'
 import {
@@ -264,6 +266,12 @@ function caseReader(env: Env): CaseReader {
   return createCaseReader(sql)
 }
 
+function slotWriter(env: Env): SlotWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('SlotWriter', ['DATABASE_URL'])
+  return createSlotWriter(sql)
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -348,6 +356,8 @@ export interface Container {
   readonly deadlines: DeadlineReader
   /** 사건 자체의 값 → §3.10 */
   readonly caseRead: CaseReader
+  /** 슬롯 쓰기 → §3.5. **토큰화된 값만 넣습니다** (ADR-040) */
+  readonly slotWrite: SlotWriter
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -404,6 +414,7 @@ export function createContainer(
     slots: slotReader(env),
     deadlines: deadlineReader(env),
     caseRead: caseReader(env),
+    slotWrite: slotWriter(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,
