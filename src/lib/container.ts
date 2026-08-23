@@ -38,6 +38,7 @@ import {
   createAuditStore,
   createCaseStore,
   createCaseTokenResolver,
+  createArtifactWriter,
   createCaseReader,
   createDeadlineReader,
   createEvidenceReader,
@@ -47,6 +48,7 @@ import {
   createSql,
 } from './db'
 import type {
+  ArtifactWriter,
   CaseReader,
   CaseTokenResolver,
   DeadlineReader,
@@ -272,6 +274,12 @@ function slotWriter(env: Env): SlotWriter {
   return createSlotWriter(sql)
 }
 
+function artifactWriter(env: Env): ArtifactWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('ArtifactWriter', ['DATABASE_URL'])
+  return createArtifactWriter(sql)
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -316,7 +324,18 @@ export function unconfiguredPorts(env: Env): Ports {
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
     // ⬜ 접수번호 형식의 근거가 없습니다
-    receiptFormat: unconfigured('ReceiptNumberFormat', ['(형식 근거 없음)']),
+    /**
+     * **부르면 터지는 대역을 두지 않습니다.**
+     *
+     * `completion-checker` 가 「형식을 모른다」를 **정상 결과로** 다룹니다 —
+     * `matches()` 가 `undefined` 를 내면 `format_unknown` 으로 실패하고,
+     * 사용자에게 다른 길(L2·L3)을 냅니다. 여기에 던지는 대역을 끼우면
+     * 그 설계가 무력화되고 접수번호 입력이 500 이 됩니다.
+     *
+     * ⬜ **형식의 정본이 없습니다** → 08-14-completion-hook.md TODO(근거 필요).
+     * 기관별 접수번호 규칙을 확보하면 여기만 바뀝니다.
+     */
+    receiptFormat: { matches: () => undefined },
     ...{ env },
   } as Ports
 }
@@ -358,6 +377,8 @@ export interface Container {
   readonly caseRead: CaseReader
   /** 슬롯 쓰기 → §3.5. **토큰화된 값만 넣습니다** (ADR-040) */
   readonly slotWrite: SlotWriter
+  /** 단계 부산물 → §3.8. **완료는 부산물로 판정합니다**(불변 규칙 6) */
+  readonly artifacts: ArtifactWriter
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -415,6 +436,7 @@ export function createContainer(
     deadlines: deadlineReader(env),
     caseRead: caseReader(env),
     slotWrite: slotWriter(env),
+    artifacts: artifactWriter(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,

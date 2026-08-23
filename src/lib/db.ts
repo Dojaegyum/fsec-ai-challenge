@@ -555,3 +555,60 @@ export function createSlotWriter(sql: Sql): SlotWriter {
     },
   }
 }
+
+/**
+ * 단계의 부산물을 적는다 → 계약 §3.8 · 08-14-completion-hook.md.
+ *
+ * **완료는 사용자의 체크가 아니라 부산물로 판정합니다** → CLAUDE.md 불변
+ * 규칙 6. 이 표에 줄이 생기는 것이 「했다」의 근거입니다.
+ *
+ * ⚠️ **`value_masked` 는 토큰화된 값입니다.** 접수번호에 개인정보가 섞여
+ * 들어올 수 있습니다 → ADR-040.
+ */
+export interface ArtifactWriter {
+  write(input: {
+    readonly artifactId: string
+    readonly caseId: string
+    readonly planStepId: string
+    readonly kind: string
+    /** **토큰화된 값.** 파일로 올린 것이면 `null` */
+    readonly valueMasked: string | null
+    readonly objectKey: string | null
+    readonly verifyLevel: string
+    readonly verifyResult: string
+    readonly verifyDetail: Readonly<Record<string, unknown>> | null
+  }): Promise<void>
+
+  /** 단계의 상태를 옮긴다 — 부산물이 붙으면 완료로 판정됩니다 */
+  markStep(caseId: string, planStepId: string, state: string): Promise<boolean>
+}
+
+export function createArtifactWriter(sql: Sql): ArtifactWriter {
+  return {
+    async write(input) {
+      await sql`
+        INSERT INTO artifact
+          (artifact_id, plan_step_id, case_id, kind, value_masked, object_key,
+           verify_level, verify_result, verify_detail)
+        VALUES (${input.artifactId}, ${input.planStepId}, ${input.caseId},
+                ${input.kind}, ${input.valueMasked}, ${input.objectKey},
+                ${input.verifyLevel}, ${input.verifyResult},
+                ${input.verifyDetail === null ? null : sql.json(input.verifyDetail as never)})
+      `
+    },
+
+    async markStep(caseId, planStepId, state) {
+      // **사건과 함께 찾습니다.** 단계 번호만으로 옮기면 남의 사건 단계를
+      // 자기 주소로 완료 처리할 수 있습니다
+      const rows = await sql<{ plan_step_id: string }[]>`
+        UPDATE plan_step
+        SET state = ${state},
+            done_at = CASE WHEN ${state} = 'done_verified' THEN now() ELSE done_at END,
+            updated_at = now()
+        WHERE case_id = ${caseId} AND plan_step_id = ${planStepId}
+        RETURNING plan_step_id
+      `
+      return rows.length > 0
+    },
+  }
+}
