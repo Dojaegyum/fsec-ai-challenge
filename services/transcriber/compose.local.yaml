@@ -1,0 +1,35 @@
+# 이 컴퓨터에서 도커로 띄울 때.
+#
+#   docker compose -f compose.local.yaml up -d --build
+#
+# ## 배포판(compose.yaml)과 무엇이 다른가
+#
+# **Caddy 가 없습니다.** 배포판은 앞에 세워 HTTPS 를 강제하는데, 여기서는
+# `127.0.0.1` 에만 열어서 **애초에 이 컴퓨터 밖으로 안 나갑니다.**
+# 나가지 않는 것을 암호화할 이유가 없고, 로컬에 인증서를 붙이려면 도메인이
+# 필요해집니다.
+#
+# ⚠️ **`127.0.0.1:` 접두사를 지우지 마세요.** 그것만 지우면 같은 망의 아무나
+# 부를 수 있게 되고, 그때부터는 전사 원문이 암호화 없이 오갑니다.
+services:
+  transcriber:
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      # 앞의 127.0.0.1 이 「이 컴퓨터에서만」을 뜻합니다
+      - "127.0.0.1:8917:8917"
+    environment:
+      FINALLY_ENGINE: local
+      FINALLY_DEVICE: cpu
+      FINALLY_STT: ${FINALLY_STT:-medium}
+      FINALLY_COMPUTE: int8
+      FINALLY_WARMUP: "1"
+      # 로컬에서도 채웁니다. 앱 쪽 TRANSCRIBER_TOKEN 과 같아야 합니다
+      FINALLY_TOKEN: ${FINALLY_TOKEN:?FINALLY_TOKEN 을 .env 에 넣으세요}
+    volumes:
+      - models:/models
+    mem_limit: ${MEM_LIMIT:-4g}
+
+volumes:
+  models:

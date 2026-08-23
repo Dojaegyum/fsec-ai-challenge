@@ -29,7 +29,7 @@ import 'server-only'
 import { asAuditSink, asKbSource, asRetryJudge } from './adapters'
 import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
-import { linkTokenSource, ulidSource } from './ids'
+import { linkTokenSource, newUlid, ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
 import { createLlmClient } from './llm'
@@ -38,10 +38,12 @@ import {
   createAuditStore,
   createCaseStore,
   createCaseTokenResolver,
+  createEvidenceReader,
   createKbStore,
   createSql,
 } from './db'
-import type { CaseTokenResolver } from './db'
+import type { CaseTokenResolver, EvidenceReader } from './db'
+import { createCasePlanStore } from './db-plan'
 import {
   createMediaReader,
   createObjectStore,
@@ -228,6 +230,13 @@ function caseTokenResolver(env: Env): CaseTokenResolver {
   return createCaseTokenResolver(sql)
 }
 
+/** 같은 이유로 포트가 아닙니다 — 모듈이 아니라 라우트가 쓰는 조회입니다 */
+function evidenceReader(env: Env): EvidenceReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('EvidenceReader', ['DATABASE_URL'])
+  return createEvidenceReader(sql)
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -243,7 +252,9 @@ export function unconfiguredPorts(env: Env): Ports {
     auditStore: sql ? createAuditStore(sql) : unconfigured('AuditStore', db),
     purgeCaseStore: unconfigured('PurgeCaseStore', db),
     reminderSource: unconfigured('ReminderSource', db),
-    casePlan: unconfigured('CasePlanStore', db),
+    casePlan: sql
+      ? createCasePlanStore(sql, () => newUlid())
+      : unconfigured('CasePlanStore', db),
     // 배포 설정이 정합니다 → ADR-045. 비어 있으면 부를 때 그대로 말하며 멈춥니다
     kbVersion: pinnedKbVersion(env),
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
@@ -294,6 +305,11 @@ export interface Container {
    * 열립니다.
    */
   readonly caseTokens: CaseTokenResolver
+  /**
+   * 증거 한 건의 갈래·경로. **라우트가 「무엇을 읽어야 하나」를 알려고 씁니다.**
+   * 접속 정보가 없으면 부를 때 터집니다.
+   */
+  readonly evidence: EvidenceReader
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -346,6 +362,7 @@ export function createContainer(
     piiTokenizer,
 
     caseTokens: caseTokenResolver(env),
+    evidence: evidenceReader(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,

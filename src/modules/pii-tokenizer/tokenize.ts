@@ -22,6 +22,7 @@
 import { findHits } from '@/modules/pii-masker'
 import { PiiBoundaryError, PiiTokenizerUnavailableError } from '@/lib/errors'
 
+import { findTranscriptDigits } from './transcript-digits'
 import { WIRE_NAME } from './types'
 import type {
   NerModel,
@@ -271,6 +272,22 @@ function countForeignTokens(text: string): number {
 export function createPiiTokenizer(deps: { ner?: NerModel } = {}): PiiTokenizer {
   const { ner } = deps
 
+  /**
+   * 전사문 전용 숫자 규칙 → `transcript-digits.ts`.
+   *
+   * **못 알아본 숫자 덩어리를 가리는 쪽으로 떨어뜨립니다.** 근거는 제외
+   * 목록이 닫혀 있다는 것입니다 — 가리면 안 되는 숫자는 금액·일시·대표번호
+   * 셋뿐이고 셋 다 형태가 있습니다 → ADR-011.
+   */
+  const transcriptSpans = (text: string): Span[] =>
+    findTranscriptDigits(text).map((one) => ({
+      kind: one.kind,
+      start: one.start,
+      end: one.end,
+      value: text.slice(one.start, one.end),
+      text,
+    }))
+
   /** 정규식 1차와 같은 패턴. 정본은 pii-masker/patterns.ts */
   const regexSpans = (text: string): Span[] =>
     findHits(text).map((hit) => ({
@@ -308,7 +325,14 @@ export function createPiiTokenizer(deps: { ner?: NerModel } = {}): PiiTokenizer 
 
       // 확실한 것부터 — 정규식과 **이미 아는 원문**이 이깁니다.
       // 모델이 집은 것은 겹치는 부분을 잘라내고 남은 조각만 씁니다
-      const strong = mergeSpans(regexSpans(text), knownSpans(text, mappings))
+      const strong = mergeSpans(
+        // 전사문이면 숫자 규칙을 함께 씁니다. **정규식만으로는 샙니다** —
+        // 구분자가 깨진 계좌번호를 못 잡는 것이 실측으로 확인됐습니다
+        ctx.transcript
+          ? mergeSpans(regexSpans(text), transcriptSpans(text))
+          : regexSpans(text),
+        knownSpans(text, mappings),
+      )
       const spans = mergeSpans(strong, nerSpans)
 
       let out = ''

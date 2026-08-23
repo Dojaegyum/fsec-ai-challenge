@@ -164,6 +164,9 @@ export function createInferenceEngines(cfg: InferenceConfig): {
     }
     const vocabulary = (req as SttRequest).vocabulary
     if (vocabulary && vocabulary.length > 0) body.vocabulary = [...vocabulary]
+    // 부르는 쪽이 번호를 정했으면 그대로 넘깁니다. 같은 번호로 다시 오면
+    // 서비스가 앞의 작업을 돌려주므로, 재시도가 전사를 다시 안 돌립니다
+    if (req.jobId) body.job_id = req.jobId
 
     return jobIdOf(
       await call(cfg, '/jobs', { method: 'POST', body: JSON.stringify(body) }),

@@ -28,6 +28,7 @@ import type { Env } from './env'
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
 import type {
   CaseStore,
+  EvidenceKind,
   EvidenceRow,
   EvidenceTotals,
   IngestStatus,
@@ -268,6 +269,55 @@ export function createKbStore(sql: Sql): KbStore {
         ORDER BY channel_id, step_seq
       `
       return rows.map(toRow)
+    },
+  }
+}
+
+/**
+ * 증거 한 건의 갈래와 경로 → 09-data-model.md §3.
+ *
+ * `CaseStore` 에 넣지 않은 이유는 **모듈이 요구한 것이 아니기 때문**입니다.
+ * `case-intake` 는 쓰기만 하고, 이 조회는 **라우트가 「무엇을 읽어야 하나」를
+ * 알려고** 부릅니다. 모듈 인터페이스에 없는 것을 끼워 넣으면 그 모듈이
+ * 안 쓰는 메서드를 들고 있게 됩니다 → `caseTokenResolver` 와 같은 판단.
+ */
+export interface EvidenceReader {
+  read(
+    caseId: string,
+    evidenceId: string,
+  ): Promise<{
+    readonly kind: EvidenceKind
+    readonly objectKey: string
+    readonly mimeType: string
+    readonly ingestStatus: IngestStatus
+  } | null>
+}
+
+export function createEvidenceReader(sql: Sql): EvidenceReader {
+  return {
+    async read(caseId, evidenceId) {
+      // **`case_id` 를 함께 봅니다.** 증거 번호만으로 찾으면 남의 사건 증거를
+      // 자기 주소로 열 수 있습니다 — 증거 번호는 비밀이 아닙니다
+      const rows = await sql<
+        {
+          kind: EvidenceKind
+          object_key: string | null
+          mime_type: string | null
+          ingest_status: IngestStatus
+        }[]
+      >`
+        SELECT kind, object_key, mime_type, ingest_status
+        FROM evidence WHERE case_id = ${caseId} AND evidence_id = ${evidenceId}
+      `
+      const row = rows[0]
+      if (!row) return null
+
+      return {
+        kind: row.kind,
+        objectKey: row.object_key ?? '',
+        mimeType: row.mime_type ?? '',
+        ingestStatus: row.ingest_status,
+      }
     },
   }
 }
