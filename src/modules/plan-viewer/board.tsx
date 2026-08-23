@@ -17,12 +17,14 @@ const MARK: Record<StepTone, { glyph: string; cls: string }> = {
     glyph: "→",
     cls: "border-[oklch(0.77_0.117_70.9/70%)] bg-[oklch(0.77_0.117_70.9/20%)] text-deadline-urgent",
   },
-  // 미시작·언제든은 **빈 원**입니다 (글리프 없음) — 시안 「wait-card」·1c.
-  // 가르는 것은 우측 태그 글자(「미시작」·「언제든」)이고 모양이 아닙니다.
-  // ⬜ §S-07 표는 `anytime` 을 `◇` 로 적었는데 시안은 `todo` 와 같은 빈 원입니다 —
-  //    RFC-003 「코드는 시안대로, 어긋난 지점은 사람이 정한다」를 따랐습니다
+  // 미시작은 **빈 원**(글리프 없음), 언제든은 `◇` 입니다.
+  //
+  // 시안(「wait-card」·1c)은 둘을 같은 빈 원으로 그렸고 §S-07 표는 `todo: ○`·`anytime: ◇`
+  // 였습니다. **2026-08-23 에 사람이 `◇` 로 정했습니다** — 기호가 정보를 한 겹 더
+  // 싣는 쪽입니다. `todo` 의 빈 원은 표의 `○` 와 같은 뜻이라 그대로 둡니다.
+  // 시안은 이 자리에서 어긋난 채 남습니다 → 다음 핸드오프에 반영을 요청합니다.
   todo: { glyph: "", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
-  anytime: { glyph: "", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
+  anytime: { glyph: "◇", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
   na: { glyph: "—", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
 };
 
