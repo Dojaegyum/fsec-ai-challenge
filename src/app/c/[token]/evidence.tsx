@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { FileRail } from "@/modules/file-sender";
 import { countTokens, TranscriptView } from "@/modules/transcript-viewer";
 
 import { FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
@@ -33,42 +34,23 @@ import { FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
  *
  * 전사 본문은 `transcript-viewer` 로 옮겼습니다 — 데이터는 `fixtures.ts`,
  * 라우트가 서면 그 자리가 `fetch` 입니다.
- * `FILES`·`DOT`·`Status` 는 자료 레일이 쓰므로 남겨 둡니다 — `file-sender` 가 가져갑니다.
+ * 자료 레일도 `file-sender` 로 옮겼습니다 — 상태 점·갈림길이 그쪽 규칙입니다.
  */
-
-type Status = "done" | "processing" | "failed" | "pending";
-
-/** 상태 어휘는 S-06 EvidenceCard 와 같습니다 — 넷 밖의 값을 만들지 마세요 */
-const FILES = [
-  { id: "a", name: "0812_수신전화.m4a", status: "done", note: "통화 녹음 · 전사 완료" },
-  { id: "b", name: "0813_재통화.m4a", status: "processing", note: "가리는 중 74%" },
-  { id: "c", name: "지급정지_접수문자.png", status: "done", note: "캡처 · ◆ 단계 증빙" },
-  { id: "d", name: "신분증_사진.jpg", status: "failed", note: "주민번호를 못 가려 제외됨" },
-  { id: "e", name: "이체내역_0812.png", status: "pending", note: "대기 중" },
-] as const satisfies readonly { id: string; name: string; status: Status; note: string }[];
-
-/** 상태 점 — 색만으로 가르지 않습니다. 아래 한 줄이 항상 말로 설명합니다 */
-const DOT: Record<Status, string> = {
-  done: "bg-pii",
-  processing: "bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]",
-  failed: "bg-deadline-urgent",
-  pending: "border border-icon bg-transparent",
-};
-
 
 /** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작합니다 */
 const step = (i: number) => ({ animationDelay: `${520 + i * 80}ms` });
 
 export default function EvidenceView() {
   const [selected, setSelected] = useState<string>("a");
-  const file = FILES.find((f) => f.id === selected) ?? FILES[0];
+  const files = FIXTURE_EVIDENCE.files;
+  const file = files.find((f) => f.id === selected) ?? files[0];
 
   return (
     <div className="grid w-full gap-4 md:grid-cols-[220px_1fr]">
       {/* ── 자료 레일 ──────────────────────────────────── */}
       <aside style={step(0)} className="rise min-w-0">
         <div className="flex items-baseline justify-between px-1.5">
-          <h3 className="text-[12.5px] tracking-[0.12em] text-ink-4">자료 {FILES.length}</h3>
+          <h3 className="text-[12.5px] tracking-[0.12em] text-ink-4">자료 {files.length}</h3>
           <button
             type="button"
             className="inline-flex min-h-[var(--size-touch)] items-center text-[13px] text-pii"
@@ -77,46 +59,9 @@ export default function EvidenceView() {
           </button>
         </div>
 
-        <ul className="mt-1.5 grid gap-1">
-          {FILES.map((f, i) => {
-            const on = f.id === selected;
-            return (
-              <li key={f.id} style={step(i + 1)} className="rise">
-                <button
-                  type="button"
-                  onClick={() => setSelected(f.id)}
-                  aria-current={on ? "true" : undefined}
-                  className={`flex w-full items-center gap-2.5 rounded-[10px] border px-2.5 py-2.5 text-left transition-colors duration-200 ${
-                    on
-                      ? "border-[oklch(0.697_0.16_258.2/34%)] bg-[oklch(0.697_0.16_258.2/10%)]"
-                      : "border-transparent hover:border-hairline"
-                  }`}
-                >
-                  <span
-                    aria-hidden
-                    className={`size-[7px] shrink-0 rounded-full ${DOT[f.status]}`}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={`block truncate text-[12.5px] ${
-                        on ? "font-[600] text-ink-1" : "text-ink-2"
-                      }`}
-                    >
-                      {f.name}
-                    </span>
-                    <span
-                      className={`block truncate text-[12.5px] ${
-                        f.status === "failed" ? "text-deadline-urgent" : "text-ink-3"
-                      }`}
-                    >
-                      {f.note}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {/* 자료 레일은 `file-sender` 가 그립니다 — 상태 점과 갈림길이
+            그쪽 규칙이기 때문입니다(경계 표: 「업로드 + 처리 상태」). 레일은 선택 UI 를 겸합니다 */}
+        <FileRail files={files} selectedId={selected} onSelect={setSelected} />
 
         <p className="mt-3 rounded-[10px] border border-dashed border-hairline p-3 text-[12.5px] leading-[1.6] text-ink-3">
           증거가 없어도 사건은 진행됩니다.{" "}

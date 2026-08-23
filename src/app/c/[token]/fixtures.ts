@@ -19,6 +19,7 @@
 import type { Deadline } from "@/modules/deadline-viewer";
 import type { PlanStep } from "@/modules/plan-viewer";
 import type { RestorableMapping } from "@/modules/pii-restorer";
+import type { RailFile } from "@/modules/file-sender";
 import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
 
 /** §3.6 `GET /api/cases/{case_token}/plan` — 지금 `plan.tsx` 의 `STEPS` 여섯 줄 */
@@ -146,6 +147,9 @@ export const FIXTURE_EVIDENCE: {
   ingest_status: string;
   transcript: RawLine[];
   pii_tokens: PiiToken[];
+  /** 자료 레일이 그리는 목록. **§3.3 응답이 아니라 브라우저가 들고 있는 것**입니다 —
+   *  못 가려서 안 올린 파일도 여기 남아야 해서 `evidence_id` 가 없을 수 있습니다 */
+  files: RailFile[];
 } = {
   evidence_id: "01J8XKR6",
   ingest_status: "done",
@@ -170,6 +174,13 @@ export const FIXTURE_EVIDENCE: {
   pii_tokens: [
     { token: "[이름-1]", kind: "name" },
     { token: "[계좌-1]", kind: "account" },
+  ],
+  files: [
+    { id: "a", evidence_id: "01J8XKR6", name: "0812_수신전화.m4a", status: "done" },
+    { id: "b", name: "0813_재통화.m4a", status: "processing", percent: 74 },
+    { id: "c", evidence_id: "01J8XKR7", name: "지급정지_접수문자.png", status: "done" },
+    { id: "d", name: "신분증_사진.jpg", status: "failed" },
+    { id: "e", name: "이체내역_0812.png", status: "pending" },
   ],
 };
 
