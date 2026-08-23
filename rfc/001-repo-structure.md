@@ -117,8 +117,17 @@ services/         앱 밖에서 도는 것 — 모델을 올리는 자리
 「자원은 인터페이스로 받는다」가 뜻하는 것입니다. 서비스가 커지면서 판단이 그쪽으로
 새고 있으면 경계를 다시 봐야 하는 신호입니다.
 
-**코드 게이트가 이 폴더를 안 봅니다.** `src/` 의 타입 검사·시험·린트 대상이 아닙니다 —
-언어가 다르기 때문입니다. 그래서 **서비스 안의 규칙은 사람이 지켜야 합니다.**
+**코드 게이트(`code-check`)가 이 폴더를 안 봅니다.** `src/` 의 타입 검사·시험·린트 대상이
+아닙니다 — 언어가 다르기 때문입니다.
+
+**대신 `services-check` 가 이 폴더의 시험을 돌립니다** (2026-08-23 신설).
+`python -m unittest discover -s services/transcriber -t .` — 표준 라이브러리만 쓰므로
+의존성 설치 없이 돕니다. **모델을 부르는 자리는 아직 시험이 없습니다** — 그쪽을 시험하려면
+설치 단계를 더해야 하고, 그때 이 문단을 고칩니다.
+
+**신설한 이유**는 그 틈에서 실제로 하나가 샜기 때문입니다 — 전사 접수가 멱등이 아니라
+같은 증거로 다시 부르면 모델을 두 번 돌리고 있었습니다. `src/` 쪽 시험 541개가 전부
+초록인 채로요.
 
 **다만 문서 검사기는 훑습니다.** `services/**/README.md` 의 링크와 ID 도 검사 대상이라,
 `src/` 안에서와 달리 **깨진 링크를 남기면 게이트에 걸립니다.**
@@ -325,6 +334,7 @@ src/modules/{모듈 이름}/
 ```
 python .github/scripts/doc-integrity.py
 python .claude/skills/module-inventory/scripts/inventory.py --check
+python -m unittest discover -s services/transcriber -t .
 ```
 
 ### 폴더 구조 (→ [ADR-008](../decisions/008-structure-gate-ci.md))
@@ -418,3 +428,4 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-17 | `src/modules/`가 서버 전용이 아님을 명시. 브라우저 도메인 모듈(층 C)도 여기 들어가고, 모듈과 UI 컴포넌트를 「금지가 붙어 있는가」로 가름 | [ADR-023](../decisions/023-frontend-module-names.md) |
 | 2026-08-21 | `assets/datasets/` 신설 — **우리가 잰 측정 원본**의 자리. `docs/research/`가 「바깥 사실」만 받던 것을 「우리 실측의 해석」까지로 넓힘 | 커밋 메시지 |
 | 2026-08-21 | `assets/artifacts/research/` 신설 — `docs/research/` 의 HTML 짝. 「성격은 양쪽에서 같은 이름으로 반복된다」던 자리에 research 만 비어 있었습니다 | 커밋 메시지 |
+| 2026-08-23 | 서비스 게이트(`services-check`) 신설 — 「서비스 안의 규칙은 사람이 지켜야 합니다」를 되돌림. 그 틈에서 전사 접수 멱등성이 실제로 깨져 있었습니다 | 커밋 메시지 |
