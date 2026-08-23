@@ -321,3 +321,180 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
     },
   }
 }
+
+/**
+ * 슬롯을 **값까지** 읽는다 → 계약 §3.4.
+ *
+ * `CasePlanStore.readSlots` 와 나눈 이유는 **요구가 다르기 때문**입니다.
+ * 플랜을 만드는 데는 상태와 티어면 충분하고, 그래서 그쪽 인터페이스가
+ * 그렇게 정의됐습니다. 화면은 값도 보여줘야 합니다.
+ *
+ * ⚠️ **`value_masked` 는 토큰화된 값입니다.** 서버에는 복호화 키가 없어
+ * 원문을 만들 수 없고, 만들어서도 안 됩니다 → 04-pii-boundary.md 규칙 3.
+ */
+export interface SlotReader {
+  read(caseId: string): Promise<readonly SlotView[]>
+}
+
+export interface SlotView {
+  readonly slotKey: string
+  readonly tier: string
+  readonly state: string
+  /** **토큰화된 값.** 복원은 브라우저가 합니다 */
+  readonly valueMasked: string | null
+  readonly valueType: string | null
+  readonly confidence: number | null
+  /** 어느 증거에서 나왔나 → 09-data-model.md §5 */
+  readonly sourceRef: string | null
+}
+
+export function createSlotReader(sql: Sql): SlotReader {
+  return {
+    async read(caseId) {
+      const rows = await sql<
+        {
+          slot_key: string
+          tier: string
+          state: string
+          value_masked: string | null
+          value_type: string | null
+          confidence: string | number | null
+          source_ref: string | null
+        }[]
+      >`
+        SELECT slot_key, tier, state, value_masked, value_type, confidence, source_ref
+        FROM case_slot WHERE case_id = ${caseId} ORDER BY tier, slot_key
+      `
+      return rows.map((one) => ({
+        slotKey: one.slot_key,
+        tier: one.tier,
+        state: one.state,
+        valueMasked: one.value_masked,
+        valueType: one.value_type,
+        // NUMERIC 은 드라이버가 문자열로 줍니다. 그대로 내보내면 화면이
+        // `"0.91" > 0.9` 를 문자열로 비교합니다
+        confidence: one.confidence === null ? null : Number(one.confidence),
+        sourceRef: one.source_ref,
+      }))
+    },
+  }
+}
+
+/**
+ * 계산해 둔 기한을 읽는다 → 계약 §3.7.
+ *
+ * **제목이 `deadline` 표에 없습니다.** 딸린 단계(`plan_step.title`)에서
+ * 가져옵니다 — 기한은 언제나 어떤 단계의 기한이고, 제목을 복사해 두면
+ * 단계 제목이 바뀔 때 둘이 어긋납니다.
+ *
+ * **`on_miss` · `note` 는 계산 근거 안에 있습니다** (`rule_snapshot`).
+ * 계산 시점의 KB 항목 전체를 그 안에 담아 두기 때문에(§8.2), KB 가 개정돼도
+ * 「그때 무엇을 근거로 이 날짜가 나왔나」가 남습니다.
+ */
+export interface DeadlineReader {
+  read(caseId: string): Promise<readonly DeadlineView[]>
+}
+
+export interface DeadlineView {
+  readonly deadlineId: string
+  readonly stepId: string | null
+  readonly title: string
+  readonly kind: string
+  readonly dueAt: string
+  readonly status: string
+  readonly computedFrom: string | null
+  /** 넘겼을 때 무슨 일이 생기나. 없으면 `null` */
+  readonly onMiss: string | null
+  /** 사용자가 할 일이 없는 기한(`kind: info`)에 붙습니다 */
+  readonly note: string | null
+}
+
+export function createDeadlineReader(sql: Sql): DeadlineReader {
+  return {
+    async read(caseId) {
+      const rows = await sql<
+        {
+          deadline_id: string
+          plan_step_id: string | null
+          kind: string
+          due_at: Date
+          status: string
+          computed_from: string | null
+          rule_snapshot: Record<string, unknown> | null
+          title: string | null
+        }[]
+      >`
+        SELECT d.deadline_id, d.plan_step_id, d.kind, d.due_at, d.status,
+               d.computed_from, d.rule_snapshot, s.title
+        FROM deadline d
+        LEFT JOIN plan_step s ON s.plan_step_id = d.plan_step_id
+        WHERE d.case_id = ${caseId}
+        ORDER BY d.due_at
+      `
+      return rows.map((one) => {
+        const snap = one.rule_snapshot ?? {}
+        return {
+          deadlineId: one.deadline_id,
+          stepId: one.plan_step_id,
+          // 단계가 지워졌으면 제목이 없습니다. 빈 문자열보다 그렇다고 말합니다
+          title: one.title ?? '(단계를 찾지 못했습니다)',
+          kind: one.kind,
+          dueAt: one.due_at.toISOString(),
+          status: one.status,
+          computedFrom: one.computed_from,
+          onMiss: typeof snap.on_miss === 'string' ? snap.on_miss : null,
+          note: typeof snap.note === 'string' ? snap.note : null,
+        }
+      })
+    },
+  }
+}
+
+/**
+ * 사건 자체의 값 → 계약 §3.10.
+ *
+ * `CasePlanStore.readCase` 는 갈래만 돌려줍니다 — 플랜을 만드는 데 그것만
+ * 필요해서입니다. 재방문 화면은 **언제 만들었나 · 마지막 활동이 언제인가 ·
+ * 언제 지워지나**도 보여줘야 합니다.
+ */
+export interface CaseReader {
+  read(caseId: string): Promise<{
+    readonly track: string
+    readonly status: string
+    readonly createdAt: string
+    readonly lastActivityAt: string
+    readonly purgeAfter: string
+  } | null>
+}
+
+export function createCaseReader(sql: Sql): CaseReader {
+  return {
+    async read(caseId) {
+      const rows = await sql<
+        {
+          track: string
+          status: string
+          created_at: Date
+          updated_at: Date
+          purge_after: Date
+        }[]
+      >`
+        SELECT track, status, created_at, updated_at, purge_after
+        FROM "case" WHERE case_id = ${caseId}
+      `
+      const row = rows[0]
+      if (!row) return null
+
+      return {
+        track: row.track,
+        status: row.status,
+        createdAt: row.created_at.toISOString(),
+        // **`updated_at` 이 마지막 활동입니다.** 파기일을 미는 것도 이 값을
+        // 함께 올립니다 → `touchPurgeAfter`
+        lastActivityAt: row.updated_at.toISOString(),
+        // 날짜입니다. 시각을 붙이면 「언제 지워지나」가 시간대에 따라 하루 어긋납니다
+        purgeAfter: row.purge_after.toISOString().slice(0, 10),
+      }
+    },
+  }
+}

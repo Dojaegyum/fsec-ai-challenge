@@ -38,11 +38,20 @@ import {
   createAuditStore,
   createCaseStore,
   createCaseTokenResolver,
+  createCaseReader,
+  createDeadlineReader,
   createEvidenceReader,
   createKbStore,
+  createSlotReader,
   createSql,
 } from './db'
-import type { CaseTokenResolver, EvidenceReader } from './db'
+import type {
+  CaseReader,
+  CaseTokenResolver,
+  DeadlineReader,
+  EvidenceReader,
+  SlotReader,
+} from './db'
 import { createCasePlanStore } from './db-plan'
 import {
   createMediaReader,
@@ -237,6 +246,24 @@ function evidenceReader(env: Env): EvidenceReader {
   return createEvidenceReader(sql)
 }
 
+function slotReader(env: Env): SlotReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('SlotReader', ['DATABASE_URL'])
+  return createSlotReader(sql)
+}
+
+function deadlineReader(env: Env): DeadlineReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('DeadlineReader', ['DATABASE_URL'])
+  return createDeadlineReader(sql)
+}
+
+function caseReader(env: Env): CaseReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('CaseReader', ['DATABASE_URL'])
+  return createCaseReader(sql)
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -310,6 +337,17 @@ export interface Container {
    * 접속 정보가 없으면 부를 때 터집니다.
    */
   readonly evidence: EvidenceReader
+  /**
+   * 슬롯을 **값까지** 읽는 자리 → §3.4.
+   *
+   * 포트(`CasePlanStore.readSlots`)와 나뉘어 있습니다 — 플랜을 만드는 데는
+   * 상태와 티어면 되고, 화면은 값도 봐야 합니다.
+   */
+  readonly slots: SlotReader
+  /** 계산해 둔 기한 → §3.7 */
+  readonly deadlines: DeadlineReader
+  /** 사건 자체의 값 → §3.10 */
+  readonly caseRead: CaseReader
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -363,6 +401,9 @@ export function createContainer(
 
     caseTokens: caseTokenResolver(env),
     evidence: evidenceReader(env),
+    slots: slotReader(env),
+    deadlines: deadlineReader(env),
+    caseRead: caseReader(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,
