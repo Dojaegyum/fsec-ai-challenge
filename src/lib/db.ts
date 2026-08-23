@@ -290,7 +290,67 @@ export interface EvidenceReader {
     readonly objectKey: string
     readonly mimeType: string
     readonly ingestStatus: IngestStatus
+    /** 다 읽었으면 **토큰화된 결과**. 아직이면 `null` */
+    readonly transcriptMasked: string | null
   } | null>
+}
+
+/**
+ * 읽은 결과를 적는다 → 09-data-model.md §3.
+ *
+ * ## ⚠️ 토큰화를 통과한 것만 넣습니다
+ *
+ * 정본이 *"`transcript_masked` 에 `pii-tokenizer` 를 통과한 문자열만 저장합니다.
+ * 전사·OCR 원문을 저장하지 않습니다"* 로 못 박았습니다.
+ *
+ * ## 왜 저장해야 하나 — 세 가지가 걸립니다
+ *
+ * 1. **챗이 전사를 못 봅니다.** `caseTalk` 이 이 칸에서 옵니다
+ * 2. **폴링할 때마다 다시 토큰화됩니다.** 그러면 같은 계좌번호에 매번 다른
+ *    번호가 붙어, 브라우저가 들고 있는 매핑과 어긋나 **복원이 깨집니다**
+ * 3. **`ingest_status` 가 `done` 에 영영 못 갑니다** — 화면이 계속 물어봅니다
+ */
+export interface EvidenceWriter {
+  /** 다 읽었다. **토큰화된 것만** */
+  finish(input: {
+    readonly caseId: string
+    readonly evidenceId: string
+    readonly transcriptMasked: string
+  }): Promise<void>
+
+  /** 못 읽었다. **오류가 아니라 상태입니다** → 불변 규칙 5 */
+  fail(input: {
+    readonly caseId: string
+    readonly evidenceId: string
+    readonly reason: string
+  }): Promise<void>
+}
+
+export function createEvidenceWriter(sql: Sql): EvidenceWriter {
+  return {
+    async finish(input) {
+      // **`done` 이 아닐 때만 씁니다.** 폴링이 겹쳐 들어오면 같은 값을 두 번
+      // 쓰게 되는데, 그 사이 사용자가 확인 화면에서 고친 것을 덮을 수 있습니다
+      await sql`
+        UPDATE evidence
+        SET transcript_masked = ${input.transcriptMasked},
+            ingest_status = 'done',
+            ingest_error = NULL
+        WHERE case_id = ${input.caseId} AND evidence_id = ${input.evidenceId}
+          AND ingest_status <> 'done'
+      `
+    },
+
+    async fail(input) {
+      await sql`
+        UPDATE evidence
+        SET ingest_status = 'failed',
+            ingest_error = ${input.reason.slice(0, 255)}
+        WHERE case_id = ${input.caseId} AND evidence_id = ${input.evidenceId}
+          AND ingest_status <> 'done'
+      `
+    },
+  }
 }
 
 export function createEvidenceReader(sql: Sql): EvidenceReader {
@@ -304,9 +364,10 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
           object_key: string | null
           mime_type: string | null
           ingest_status: IngestStatus
+          transcript_masked: string | null
         }[]
       >`
-        SELECT kind, object_key, mime_type, ingest_status
+        SELECT kind, object_key, mime_type, ingest_status, transcript_masked
         FROM evidence WHERE case_id = ${caseId} AND evidence_id = ${evidenceId}
       `
       const row = rows[0]
@@ -317,6 +378,7 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
         objectKey: row.object_key ?? '',
         mimeType: row.mime_type ?? '',
         ingestStatus: row.ingest_status,
+        transcriptMasked: row.transcript_masked,
       }
     },
   }
@@ -695,11 +757,26 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
         WHERE case_id = ${caseId} AND transcript_masked IS NOT NULL
         ORDER BY created_at
       `
-      return rows
-        .map((one) => one.transcript_masked ?? '')
-        .filter((text) => text.length > 0)
-        // 화자를 따로 안 저장합니다 — 화자 분리가 아직 없습니다
-        .map((text) => ({ speaker: '?', text }))
+      // 저장된 것은 구조입니다 → `flows/read-evidence.ts` 의 `finish`.
+      // 칸이 `TEXT` 하나라 담아 넣었고, 여기서 풀어 줄 단위로 되돌립니다
+      const out: { speaker: string; text: string }[] = []
+      for (const row of rows) {
+        const raw = row.transcript_masked
+        if (!raw) continue
+        try {
+          const parsed = JSON.parse(raw) as {
+            lines?: readonly { speaker: string | null; text: string }[]
+          }
+          for (const line of parsed.lines ?? []) {
+            if (line.text) out.push({ speaker: line.speaker ?? '?', text: line.text })
+          }
+        } catch {
+          // 옛 형식이거나 깨졌으면 통째로 한 줄로 넣습니다 —
+          // **버리지 않습니다.** 맥락이 사라지면 챗이 사건을 모릅니다
+          out.push({ speaker: '?', text: raw })
+        }
+      }
+      return out
     },
   }
 }

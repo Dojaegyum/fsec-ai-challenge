@@ -84,9 +84,22 @@ export type ReadState =
  * 유일한 길목이고, 그래서 여기서 막습니다.
  */
 export async function collectReading(
-  input: { readonly evidenceId: string; readonly kind: EvidenceKind },
+  input: {
+    readonly caseId: string
+    readonly evidenceId: string
+    readonly kind: EvidenceKind
+    /** 이미 저장된 결과. 있으면 다시 읽지 않습니다 */
+    readonly stored: string | null
+  },
   container: Container,
 ): Promise<ReadState> {
+  // **이미 다 읽은 것은 저장된 것을 돌려줍니다.**
+  //
+  // 매번 다시 토큰화하면 같은 계좌번호에 **번호가 매번 달리 붙습니다** —
+  // 브라우저가 들고 있는 매핑과 어긋나 복원이 깨집니다. 게다가 전사 서비스는
+  // 30분 뒤 작업을 버리므로, 그 뒤에는 아예 못 읽습니다
+  if (input.stored !== null) return fromStored(input.stored)
+
   const progress = await container.transcriber.collect({
     jobId: input.evidenceId,
     // 아래 둘은 `collect` 가 결과를 어느 갈래로 읽을지 정할 때만 씁니다
@@ -105,17 +118,63 @@ export async function collectReading(
 
   if (progress.status === 'failed') {
     // **에러로 올리지 않습니다** → 불변 규칙 5. 못 읽은 것은 정상 상태입니다
+    await container.evidenceWrite.fail({
+      caseId: input.caseId,
+      evidenceId: input.evidenceId,
+      reason: progress.reason,
+    })
     return { status: 'failed', reason: progress.reason }
   }
 
   // ── 여기부터 원문입니다 ────────────────────────────────────────────
   const masked = await maskLines(progress.result.lines, container)
 
-  return {
+  const state: ReadState = {
     status: 'done',
     lines: masked.lines,
     tokens: masked.tokens,
     shortfalls: [...progress.result.shortfalls],
+  }
+
+  // **한 번만 토큰화합니다.** 저장해 두면 다음 폴링은 위에서 바로 돌아갑니다.
+  // 챗도 이 값을 맥락으로 씁니다 → `flows/chat-turn.ts`
+  await container.evidenceWrite.finish({
+    caseId: input.caseId,
+    evidenceId: input.evidenceId,
+    transcriptMasked: JSON.stringify({
+      lines: state.lines,
+      tokens: state.tokens,
+      shortfalls: state.shortfalls,
+    }),
+  })
+
+  return state
+}
+
+/**
+ * 저장해 둔 것을 되돌린다.
+ *
+ * 칸이 `TEXT` 하나라 구조를 담아 넣습니다 — 화자와 시각을 버리면 확인
+ * 화면이 「어느 대목인지」를 못 보여줍니다 → ADR-038.
+ *
+ * **못 읽으면 「다 됐지만 내용이 없다」로 답합니다.** 여기서 던지면 이미
+ * 끝난 증거가 오류로 보이고, 사용자가 다시 올리게 됩니다.
+ */
+function fromStored(text: string): ReadState {
+  try {
+    const parsed = JSON.parse(text) as {
+      lines?: ReadState extends { lines: infer L } ? L : never
+      tokens?: readonly { token: string; kind: string }[]
+      shortfalls?: readonly string[]
+    }
+    return {
+      status: 'done',
+      lines: parsed.lines ?? [],
+      tokens: parsed.tokens ?? [],
+      shortfalls: parsed.shortfalls ?? [],
+    }
+  } catch {
+    return { status: 'done', lines: [], tokens: [], shortfalls: ['no_layout'] }
   }
 }
 

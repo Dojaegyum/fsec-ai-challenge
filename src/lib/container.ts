@@ -43,6 +43,7 @@ import {
   createMessageStore,
   createDeadlineReader,
   createEvidenceReader,
+  createEvidenceWriter,
   createKbStore,
   createSlotReader,
   createSlotWriter,
@@ -55,6 +56,7 @@ import type {
   CaseTokenResolver,
   DeadlineReader,
   EvidenceReader,
+  EvidenceWriter,
   SlotReader,
   SlotWriter,
 } from './db'
@@ -252,6 +254,12 @@ function evidenceReader(env: Env): EvidenceReader {
   return createEvidenceReader(sql)
 }
 
+function evidenceWriter(env: Env): EvidenceWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('EvidenceWriter', ['DATABASE_URL'])
+  return createEvidenceWriter(sql)
+}
+
 function slotReader(env: Env): SlotReader {
   const sql = createSql(env)
   if (!sql) return unconfigured('SlotReader', ['DATABASE_URL'])
@@ -372,6 +380,8 @@ export interface Container {
    * 접속 정보가 없으면 부를 때 터집니다.
    */
   readonly evidence: EvidenceReader
+  /** 읽은 결과 적기 → §3.3. **토큰화된 것만** */
+  readonly evidenceWrite: EvidenceWriter
   /**
    * 슬롯을 **값까지** 읽는 자리 → §3.4.
    *
@@ -442,6 +452,7 @@ export function createContainer(
 
     caseTokens: caseTokenResolver(env),
     evidence: evidenceReader(env),
+    evidenceWrite: evidenceWriter(env),
     slots: slotReader(env),
     deadlines: deadlineReader(env),
     caseRead: caseReader(env),

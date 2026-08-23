@@ -47,7 +47,17 @@ export async function GET(
       }
     }
 
-    const state = await collectReading({ evidenceId, kind: found.kind }, container)
+    // 이미 저장돼 있으면 그것을 씁니다 — 다시 토큰화하면 번호가 달라져
+    // 브라우저가 들고 있는 매핑과 어긋납니다
+    const state = await collectReading(
+      {
+        caseId,
+        evidenceId,
+        kind: found.kind,
+        stored: found.transcriptMasked,
+      },
+      container,
+    )
 
     if (state.status === 'running') {
       return {
