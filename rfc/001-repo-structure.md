@@ -334,6 +334,7 @@ src/modules/{모듈 이름}/
 ```
 python .github/scripts/doc-integrity.py
 python .claude/skills/module-inventory/scripts/inventory.py --check
+python .github/scripts/route-contract.py
 python -m unittest discover -s services/transcriber -t .
 ```
 
@@ -408,6 +409,30 @@ cd src && npm run typecheck && npm test
 - **정본에 있는데 코드가 없는 것은 통과**입니다. 반대(코드에 있는데 정본에 없음)만 막습니다.
 - 산문만 고친 스키마 문서 변경은 마이그레이션을 요구하지 않습니다 — DDL 줄만 봅니다.
 
+### 라우트 규약 (→ [ADR-028](../decisions/028-runtime-and-module-shape.md) · [ADR-039](../decisions/039-link-token.md))
+
+**API 라우트가 껍데기를 비껴가면 CI가 막습니다**
+(`.github/workflows/route-contract.yml` · `.github/scripts/route-contract.py`).
+
+`handleRoute` 가 계측 헤더·속도 제한·인증·에러 봉투를 **한 자리에서** 붙입니다. 라우트가
+그 자리를 지나지 않으면 그 응답 하나만 조용히 규약을 어기는데, **어기는 쪽이 정상으로 보입니다** —
+200은 잘 나가고 빠진 것은 헤더나 카운터뿐이라 눈에 안 띕니다.
+
+| 검사 | 무엇을 막나 |
+| --- | --- |
+| **R1** 모든 HTTP 메서드 export가 `handleRoute` 를 지나는가 | 껍데기를 통째로 비껴가는 라우트 |
+| **R2** `new Response`·`Response.json`·`NextResponse` 를 안 쓰는가 | 계측 헤더가 빠진 응답 (§1.1) |
+| **R3** `GET`·`HEAD` 가 아닌 메서드가 상한을 밝혔는가 | **안 적으면 `'none'` 입니다** — 빠뜨린 것과 일부러 안 건 것이 구분되지 않습니다 |
+| **R4** 경로 파라미터를 전용 헬퍼로 읽는가 | `[case_id]` 폴더 · 링크 토큰을 조회 없이 내부 식별자로 쓰는 것 |
+
+- **R3은 상한을 걸라는 것이 아니라 밝히라는 것입니다.** 일부러 안 걸 자리는
+  `rate: 'none'` 으로 적습니다 — 그 표기가 껍데기에 이미 있습니다.
+- **R4가 가장 중요합니다.** 링크 토큰은 사실상 비밀번호이고 `case_id` 와 규격이 같아
+  **형식으로는 둘을 못 가릅니다.** 「어느 사건인가」는 반드시 조회로 답해야 하는데,
+  그 규칙을 문서에만 두면 다음 라우트에서 샙니다.
+- 검사기는 **주석과 문자열을 걷어내고 봅니다.** 타입 자리(`params: Promise<{ case_token: string }>`)는
+  값을 읽는 것이 아니므로 R4에서 제외합니다.
+
 ## 개정 이력
 
 **이 규약을 고칠 때마다 여기에 한 줄 적습니다.** 대부분의 개정은 이 줄과 커밋 메시지로 끝이고,
@@ -428,4 +453,5 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-17 | `src/modules/`가 서버 전용이 아님을 명시. 브라우저 도메인 모듈(층 C)도 여기 들어가고, 모듈과 UI 컴포넌트를 「금지가 붙어 있는가」로 가름 | [ADR-023](../decisions/023-frontend-module-names.md) |
 | 2026-08-21 | `assets/datasets/` 신설 — **우리가 잰 측정 원본**의 자리. `docs/research/`가 「바깥 사실」만 받던 것을 「우리 실측의 해석」까지로 넓힘 | 커밋 메시지 |
 | 2026-08-21 | `assets/artifacts/research/` 신설 — `docs/research/` 의 HTML 짝. 「성격은 양쪽에서 같은 이름으로 반복된다」던 자리에 research 만 비어 있었습니다 | 커밋 메시지 |
+| 2026-08-23 | 라우트 게이트(`route-contract`) 신설 — 껍데기를 비껴간 라우트를 막습니다. 규약이 문서에만 있으면 다음 라우트에서 샙니다 | [ADR-028](../decisions/028-runtime-and-module-shape.md) · [ADR-039](../decisions/039-link-token.md) |
 | 2026-08-23 | 서비스 게이트(`services-check`) 신설 — 「서비스 안의 규칙은 사람이 지켜야 합니다」를 되돌림. 그 틈에서 전사 접수 멱등성이 실제로 깨져 있었습니다 | 커밋 메시지 |

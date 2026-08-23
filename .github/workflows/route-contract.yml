@@ -1,0 +1,38 @@
+name: route-contract
+
+# API 라우트가 껍데기(`handleRoute`)를 지나는지 봅니다.
+# 검사기는 사람이 손으로 돌리는 것과 같은 스크립트입니다 — 명령이 같아야
+# 게이트가 문지기가 아니라 안전망이 됩니다.
+#   python .github/scripts/route-contract.py
+# 근거: ADR-028 「라우트는 얇게」 · ADR-039 · RFC-001 「CI가 강제합니다」
+#
+# ⚠️ `src/lib/request.ts` 도 방아쇠에 넣습니다 — 검사기가 그 파일의 헬퍼 이름
+#    (`handleRoute`·`caseTokenOf`·`caseIdOf`·`ulidParamOf`)을 알고 있어서,
+#    거기서 이름이 바뀌면 라우트를 안 건드려도 검사가 어긋납니다.
+on:
+  pull_request:
+    paths:
+      - "src/app/api/**"
+      - "src/lib/request.ts"
+      - ".github/scripts/route-contract.py"
+      - ".github/workflows/route-contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/app/api/**"
+      - "src/lib/request.ts"
+      - ".github/scripts/route-contract.py"
+      - ".github/workflows/route-contract.yml"
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 라우트 규약 검사
+        run: python .github/scripts/route-contract.py
