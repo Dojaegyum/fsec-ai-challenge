@@ -16,6 +16,7 @@
  * 그 목업이 S-10 을 살아 있게 하는 유일한 것입니다.
  */
 
+import type { Deadline } from "@/modules/deadline-viewer";
 import type { PlanStep } from "@/modules/plan-viewer";
 
 /** §3.6 `GET /api/cases/{case_token}/plan` — 지금 `plan.tsx` 의 `STEPS` 여섯 줄 */
@@ -77,10 +78,8 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
  *
  * **`days_left` 를 넣지 않았습니다.** 아직 계약에 없는 칸입니다(계획 Task 1) —
  * 넣으면 D-day 가 화면에 떠서 「없으면 안 그린다」를 시험할 수 없게 됩니다.
- *
- * ⬜ 타입은 `deadline-viewer` 가 서면 붙입니다 (계획 Task 5).
  */
-export const FIXTURE_DEADLINES = {
+export const FIXTURE_DEADLINES: { deadlines: Deadline[] } = {
   deadlines: [
     {
       deadline_id: "01J8XKR8",

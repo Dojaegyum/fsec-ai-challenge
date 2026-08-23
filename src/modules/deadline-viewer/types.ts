@@ -20,6 +20,8 @@ export interface Deadline {
   /** 서버가 계산한 만료 시점 */
   due_at: string;
   status: string;
+  /** 무엇을 기점으로 셌는가 — 「지급정지 요청 시각부터」 (§3.7 · 데이터 모델 §8) */
+  computed_from?: string;
   /** 본 기한을 넘겼을 때 무슨 일이 생기는지 */
   on_miss?: string;
   /** 추가 기간이 주어지는 조건 */
