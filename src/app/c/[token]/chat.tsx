@@ -1,5 +1,9 @@
 "use client";
 
+import { QuestionButtons } from "@/modules/chat-handler";
+
+import { FIXTURE_QUESTION } from "./fixtures";
+
 /**
  * `focus: "chat"` 일 때의 본문 — S-06.
  *
@@ -16,13 +20,6 @@
  *  · 화면이 보여주는 값은 **원문**입니다 (ADR-034). 토큰은 경계를 넘을 때의 형태입니다
  */
 
-/** 「기억이 안 나요」는 **같은 크기·같은 자리**. 글자색만 내립니다 */
-const CHOICES = [
-  ["계좌로 이체했어요", false],
-  ["간편송금 앱으로 보냈어요", false],
-  ["직접 만나서 현금으로", false],
-  ["기억이 안 나요", true],
-] as const;
 
 /** 서버(poll-checker)가 내준 값 그대로. **화면이 추측하지 않습니다** */
 const PENDING_STEPS = [
@@ -79,30 +76,10 @@ export default function ChatView({
               <span className="mt-1.5 block text-[13px] text-ink-3">한 번에 하나만 여쭤봅니다</span>
             </Bubble>
 
-            {/* 선택지 — 전부 버튼. 기본 선택 없음 */}
-            <div
-              style={step(4)}
-              className="rise grid gap-2 md:grid-cols-2"
-              role="radiogroup"
-              aria-label="돈이 어떻게 나갔나요?"
-            >
-              {CHOICES.map(([label, dim]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="radio"
-                  aria-checked={false}
-                  onClick={onPickChoice}
-                  className={`flex min-h-[48px] items-center gap-2.5 rounded-[12px] border border-hairline bg-chip px-[14px] py-[11px] text-left text-[14.5px] transition-colors duration-200 hover:border-[oklch(1_0_0/25%)] ${
-                    dim ? "text-ink-3" : "text-ink-2"
-                  }`}
-                >
-                  <span aria-hidden className="shrink-0 text-[18px] text-icon">
-                    ○
-                  </span>
-                  {label}
-                </button>
-              ))}
+            {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
+                「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06) */}
+            <div style={step(4)} className="rise">
+              <QuestionButtons question={FIXTURE_QUESTION} onPick={onPickChoice} />
             </div>
           </>
         )}

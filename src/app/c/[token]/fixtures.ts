@@ -19,6 +19,7 @@
 import type { Deadline } from "@/modules/deadline-viewer";
 import type { PlanStep } from "@/modules/plan-viewer";
 import type { RestorableMapping } from "@/modules/pii-restorer";
+import type { NextQuestion } from "@/modules/chat-handler";
 import type { RailFile } from "@/modules/file-sender";
 import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
 
@@ -194,3 +195,21 @@ export const FIXTURE_MAPPINGS: RestorableMapping[] = [
   { token: "[이름-1]", original: "김민수" },
   { token: "[계좌-1]", original: "110-2345-678901" },
 ];
+
+/**
+ * §3.4 `next_question` — 지금 `chat.tsx` 의 `CHOICES` 넷을 옮긴 것.
+ *
+ * **「모름」 선택지를 빼지 마세요.** 계약이 항상 싣기로 한 것이라,
+ * 픽스처에서 빠지면 화면이 그걸 안 그리게 되고 위반이 가려집니다 (§3.4).
+ */
+export const FIXTURE_QUESTION: NextQuestion = {
+  slot_key: "channel",
+  text: "돈이 어떻게 나갔나요?",
+  input: "buttons",
+  options: [
+    "계좌로 이체했어요",
+    "간편송금 앱으로 보냈어요",
+    "직접 만나서 현금으로",
+    "기억이 안 나요",
+  ],
+};
