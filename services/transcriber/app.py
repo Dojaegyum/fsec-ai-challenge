@@ -107,6 +107,9 @@ class JobRequest(BaseModel):
     # 나올 법한 낱말 — 기관명 사전 등. ⬜ 효과가 아직 검증되지 않았습니다
     # → docs/research/09 §5.6 (기관명 36건 중 10건이 전사에서 손상)
     vocabulary: list[str] | None = None
+    # 앱이 번호를 정할 수 있습니다. 넘기면 그 번호로 열고, 같은 번호로 다시
+    # 오면 앞의 작업을 그대로 돌려줍니다 — 앱이 번호를 저장하지 않아도 됩니다
+    job_id: str | None = None
 
 
 def _guard(token: str | None) -> None:
@@ -207,7 +210,7 @@ def submit(
     _guard(x_finally_token)
     if req.kind not in ("audio", "image"):
         raise HTTPException(status_code=400, detail="unsupported_kind")
-    job = jobs.create(req.kind)
+    job = jobs.create(req.kind, req.job_id)
     tasks.add_task(_run, job.job_id, req)
     return {"job_id": job.job_id}
 

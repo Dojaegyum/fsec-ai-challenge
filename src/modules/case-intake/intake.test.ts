@@ -98,6 +98,8 @@ function intake(opts: {
   const u = fakeUploads()
   const checker = createCaseIntake({
     ids: fakeIds(...(opts.ids ?? ['CASE01', 'EV01'])),
+    // 실제로는 추측 불가능한 난수입니다 → ADR-039. 시험에서는 단언을 쓰려고 고정합니다
+    linkTokens: { next: () => 'TOKEN01' },
     clock: { now: () => NOW, today: () => TODAY },
     dates,
     store: s.store,

@@ -29,11 +29,41 @@ import 'server-only'
 import { asAuditSink, asKbSource, asRetryJudge } from './adapters'
 import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
-import { ulidSource } from './ids'
+import { linkTokenSource, newUlid, ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
+import { createLlmClient } from './llm'
 import { createQuestionSource } from './questions'
-import { createMediaReader } from './storage'
+import {
+  createAuditStore,
+  createCaseStore,
+  createCaseTokenResolver,
+  createArtifactWriter,
+  createCaseReader,
+  createMessageStore,
+  createDeadlineReader,
+  createEvidenceReader,
+  createKbStore,
+  createSlotReader,
+  createSlotWriter,
+  createSql,
+} from './db'
+import type {
+  ArtifactWriter,
+  CaseReader,
+  MessageStore,
+  CaseTokenResolver,
+  DeadlineReader,
+  EvidenceReader,
+  SlotReader,
+  SlotWriter,
+} from './db'
+import { createCasePlanStore } from './db-plan'
+import {
+  createMediaReader,
+  createObjectStore,
+  createUploadSlotSource,
+} from './storage'
 import {
   createMemoryRateCounter,
   createRateLimiter,
@@ -203,27 +233,89 @@ function pinnedKbVersion(env: Env): KbVersionSource {
   return { current: async () => pinned }
 }
 
+/**
+ * 링크 토큰을 사건으로 바꾸는 자리 → ADR-039.
+ *
+ * 포트가 아니라 조립부가 직접 만듭니다 — 모듈이 요구한 것이 아니라
+ * **라우트가 신분을 확인하려고 쓰는 것**이라서, 모듈 인터페이스에 없습니다.
+ */
+function caseTokenResolver(env: Env): CaseTokenResolver {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('CaseTokenResolver', ['DATABASE_URL'])
+  return createCaseTokenResolver(sql)
+}
+
+/** 같은 이유로 포트가 아닙니다 — 모듈이 아니라 라우트가 쓰는 조회입니다 */
+function evidenceReader(env: Env): EvidenceReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('EvidenceReader', ['DATABASE_URL'])
+  return createEvidenceReader(sql)
+}
+
+function slotReader(env: Env): SlotReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('SlotReader', ['DATABASE_URL'])
+  return createSlotReader(sql)
+}
+
+function deadlineReader(env: Env): DeadlineReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('DeadlineReader', ['DATABASE_URL'])
+  return createDeadlineReader(sql)
+}
+
+function caseReader(env: Env): CaseReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('CaseReader', ['DATABASE_URL'])
+  return createCaseReader(sql)
+}
+
+function slotWriter(env: Env): SlotWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('SlotWriter', ['DATABASE_URL'])
+  return createSlotWriter(sql)
+}
+
+function artifactWriter(env: Env): ArtifactWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('ArtifactWriter', ['DATABASE_URL'])
+  return createArtifactWriter(sql)
+}
+
+function messageStore(env: Env): MessageStore {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('MessageStore', ['DATABASE_URL'])
+  return createMessageStore(sql, () => newUlid())
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
 
+  // 접속 정보가 있으면 실제 저장소에 붙습니다 → db.ts.
+  // **연결을 여기서 한 번만 만듭니다** — 포트마다 만들면 요청 하나가
+  // 연결을 여럿 쥐고, 연결 모으는 곳이 먼저 막힙니다
+  const sql = createSql(env)
+
   return {
-    caseStore: unconfigured('CaseStore', db),
-    kbStore: unconfigured('KbStore', db),
-    auditStore: unconfigured('AuditStore', db),
+    caseStore: sql ? createCaseStore(sql) : unconfigured('CaseStore', db),
+    kbStore: sql ? createKbStore(sql) : unconfigured('KbStore', db),
+    auditStore: sql ? createAuditStore(sql) : unconfigured('AuditStore', db),
     purgeCaseStore: unconfigured('PurgeCaseStore', db),
     reminderSource: unconfigured('ReminderSource', db),
-    casePlan: unconfigured('CasePlanStore', db),
+    casePlan: sql
+      ? createCasePlanStore(sql, () => newUlid())
+      : unconfigured('CasePlanStore', db),
     // 배포 설정이 정합니다 → ADR-045. 비어 있으면 부를 때 그대로 말하며 멈춥니다
     kbVersion: pinnedKbVersion(env),
     // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
     sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
-    uploads: unconfigured('UploadSlotSource', storage),
+    uploads: createUploadSlotSource(env) ?? unconfigured('UploadSlotSource', storage),
     // 접속 정보가 있으면 실제로 주소를 냅니다 → storage.ts.
     // 없으면 부르는 순간 터집니다 — 조용히 빈 주소를 내면 추론 서비스가
     // 엉뚱한 것을 내려받으려다 실패하고, 원인이 두 단계 뒤에서 드러납니다
     mediaReader: createMediaReader(env) ?? unconfigured('MediaReader', storage),
-    objects: unconfigured('ObjectStore', storage),
+    objects: createObjectStore(env) ?? unconfigured('ObjectStore', storage),
     // ⬜ 볼트 제품 미결 → ADR-016 「남은 것」
     vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
     // ⬜ 정본의 환경변수 표에 공휴일 API 키가 없습니다
@@ -236,11 +328,22 @@ export function unconfiguredPorts(env: Env): Ports {
     // **경계 이전이라 「어디를 부르나」가 곧 정책입니다** → ARCHITECTURE §6.
     // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
     ...readingEngines(env),
-    llm: unconfigured('LlmClient', ['XAI_API_KEY']),
+    llm: createLlmClient(env) ?? unconfigured('LlmClient', ['XAI_API_KEY']),
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
     // ⬜ 접수번호 형식의 근거가 없습니다
-    receiptFormat: unconfigured('ReceiptNumberFormat', ['(형식 근거 없음)']),
+    /**
+     * **부르면 터지는 대역을 두지 않습니다.**
+     *
+     * `completion-checker` 가 「형식을 모른다」를 **정상 결과로** 다룹니다 —
+     * `matches()` 가 `undefined` 를 내면 `format_unknown` 으로 실패하고,
+     * 사용자에게 다른 길(L2·L3)을 냅니다. 여기에 던지는 대역을 끼우면
+     * 그 설계가 무력화되고 접수번호 입력이 500 이 됩니다.
+     *
+     * ⬜ **형식의 정본이 없습니다** → 08-14-completion-hook.md TODO(근거 필요).
+     * 기관별 접수번호 규칙을 확보하면 여기만 바뀝니다.
+     */
+    receiptFormat: { matches: () => undefined },
     ...{ env },
   } as Ports
 }
@@ -256,6 +359,36 @@ export interface Container {
   /** 격리 경계. 이것을 거치지 않은 텍스트는 외부로 나갈 수 없습니다 */
   readonly piiTokenizer: ReturnType<typeof createPiiTokenizer>
   readonly caseIntake: ReturnType<typeof createCaseIntake>
+  /**
+   * 주소의 링크 토큰 → 내부 사건 식별자.
+   *
+   * **이 조회가 신분 확인입니다** → ADR-039. 형식으로는 둘을 못 가릅니다.
+   * 접속 정보가 없으면 부를 때 터집니다 — 조용히 통과시키면 남의 사건이
+   * 열립니다.
+   */
+  readonly caseTokens: CaseTokenResolver
+  /**
+   * 증거 한 건의 갈래·경로. **라우트가 「무엇을 읽어야 하나」를 알려고 씁니다.**
+   * 접속 정보가 없으면 부를 때 터집니다.
+   */
+  readonly evidence: EvidenceReader
+  /**
+   * 슬롯을 **값까지** 읽는 자리 → §3.4.
+   *
+   * 포트(`CasePlanStore.readSlots`)와 나뉘어 있습니다 — 플랜을 만드는 데는
+   * 상태와 티어면 되고, 화면은 값도 봐야 합니다.
+   */
+  readonly slots: SlotReader
+  /** 계산해 둔 기한 → §3.7 */
+  readonly deadlines: DeadlineReader
+  /** 사건 자체의 값 → §3.10 */
+  readonly caseRead: CaseReader
+  /** 슬롯 쓰기 → §3.5. **토큰화된 값만 넣습니다** (ADR-040) */
+  readonly slotWrite: SlotWriter
+  /** 단계 부산물 → §3.8. **완료는 부산물로 판정합니다**(불변 규칙 6) */
+  readonly artifacts: ArtifactWriter
+  /** 챗 기록 → §3.9. **토큰화된 것만 들어갑니다** */
+  readonly messages: MessageStore
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -307,8 +440,20 @@ export function createContainer(
     rateLimiter: createRateLimiter({ counter: rateCounter, clock }),
     piiTokenizer,
 
+    caseTokens: caseTokenResolver(env),
+    evidence: evidenceReader(env),
+    slots: slotReader(env),
+    deadlines: deadlineReader(env),
+    caseRead: caseReader(env),
+    slotWrite: slotWriter(env),
+    artifacts: artifactWriter(env),
+    messages: messageStore(env),
+
     caseIntake: createCaseIntake({
       ids: ulidSource,
+      // **`ids` 와 따로입니다.** ULID 는 앞 10자가 생성 시각이라 주소에 쓰면
+      // 이웃 사건을 좁혀 찔러볼 수 있습니다 → ADR-039
+      linkTokens: linkTokenSource,
       clock,
       // date-checker 의 addDays — 보관 기한은 법정 기한이 아닙니다
       dates: dateChecker,

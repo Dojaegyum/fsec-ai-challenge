@@ -311,6 +311,19 @@ export interface SttRequest {
   readonly url: string
   readonly mimeType: string
   /**
+   * 부르는 쪽이 정하는 작업 번호.
+   *
+   * **없어도 됩니다** — 안 넘기면 읽는 도구가 알아서 붙입니다. 넘기는 쪽은
+   * 대개 **그 번호를 어디에도 저장하고 싶지 않은 경우**입니다. 증거 번호를
+   * 그대로 쓰면 나중에 유도할 수 있어, 「어느 작업이었나」를 기록할 칸이
+   * 없어도 다시 물어볼 수 있습니다.
+   *
+   * 같은 번호로 다시 맡기면 **앞의 작업을 그대로 돌려받습니다** — 재시도가
+   * 진행 중인 전사를 처음부터 다시 돌리면 안 됩니다.
+   */
+  readonly jobId?: string
+
+  /**
    * 나올 법한 낱말들 — 기관명 사전 등.
    *
    * ⬜ **효과가 검증되지 않았습니다.** 전사 모델에 미리 어휘를 알려 주면 그쪽으로
@@ -328,6 +341,18 @@ export interface SttRequest {
 export interface OcrRequest {
   readonly url: string
   readonly mimeType: string
+  /**
+   * 부르는 쪽이 정하는 작업 번호.
+   *
+   * **없어도 됩니다** — 안 넘기면 읽는 도구가 알아서 붙입니다. 넘기는 쪽은
+   * 대개 **그 번호를 어디에도 저장하고 싶지 않은 경우**입니다. 증거 번호를
+   * 그대로 쓰면 나중에 유도할 수 있어, 「어느 작업이었나」를 기록할 칸이
+   * 없어도 다시 물어볼 수 있습니다.
+   *
+   * 같은 번호로 다시 맡기면 **앞의 작업을 그대로 돌려받습니다** — 재시도가
+   * 진행 중인 전사를 처음부터 다시 돌리면 안 됩니다.
+   */
+  readonly jobId?: string
 }
 
 /**
@@ -391,6 +416,19 @@ export interface TranscriberDeps {
 
 export interface TranscribeInput {
   readonly media: MediaRef
+  /**
+   * 부르는 쪽이 정하는 작업 번호.
+   *
+   * **없어도 됩니다** — 안 넘기면 읽는 도구가 알아서 붙입니다. 넘기는 쪽은
+   * 대개 **그 번호를 어디에도 저장하고 싶지 않은 경우**입니다. 증거 번호를
+   * 그대로 쓰면 나중에 유도할 수 있어, 「어느 작업이었나」를 기록할 칸이
+   * 없어도 다시 물어볼 수 있습니다.
+   *
+   * 같은 번호로 다시 맡기면 **앞의 작업을 그대로 돌려받습니다** — 재시도가
+   * 진행 중인 전사를 처음부터 다시 돌리면 안 됩니다.
+   */
+  readonly jobId?: string
+
   /** 전사 모델에 미리 알려 줄 낱말들 → `SttRequest.vocabulary` */
   readonly vocabulary?: readonly string[]
 }

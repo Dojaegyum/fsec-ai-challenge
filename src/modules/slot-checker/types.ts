@@ -119,3 +119,10 @@ export interface SlotCheckResult {
 export interface SlotChecker {
   check(input: SlotCheckInput): SlotCheckResult
 }
+
+/**
+ * 슬롯 값의 종류 → 09-data-model.md §5.1.
+ *
+ * `case_slot.value_type` 의 `CHECK` 와 같은 다섯입니다.
+ */
+export type SlotValueType = 'datetime' | 'decimal' | 'string' | 'enum' | 'bool'

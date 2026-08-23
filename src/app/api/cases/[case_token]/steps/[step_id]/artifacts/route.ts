@@ -1,0 +1,117 @@
+/**
+ * `POST /api/cases/{case_token}/steps/{step_id}/artifacts` — 단계의 부산물.
+ *
+ * 정본: spec/common/08-14-api.md §3.8 · spec/backend/08-14-completion-hook.md
+ * 근거: CLAUDE.md 불변 규칙 6(완료는 사용자의 체크가 아니라 부산물로 판정) ·
+ *       ADR-040(쓰기도 경계를 지난다)
+ *
+ * ## 검증 실패는 오류가 아닙니다
+ *
+ * L1 을 통과하지 못해도 **200 입니다.** 접수번호 형식이 안 맞는 것은
+ * 시스템 오류가 아니라 사용자에게 알려 줄 사실이고, 그때 **다른 길(L2·L3)을
+ * 함께 냅니다** — 막히면 사용자가 사건을 포기합니다.
+ *
+ * ⬜ **접수번호 형식의 정본이 아직 없습니다** → 08-14-completion-hook.md
+ * TODO(근거 필요). 그래서 지금 `receipt_no` 는 언제나 `format_unknown` 으로
+ * 실패하고 다른 길을 냅니다. **아무 숫자나 통과시키지 않습니다.**
+ */
+
+import { BadRequestError, readJsonObject } from '@/lib/http'
+import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
+import { newUlid } from '@/lib/ids'
+
+import type { ArtifactSubmission } from '@/modules/completion-checker'
+
+interface ArtifactBody {
+  readonly kind?: unknown
+  readonly value?: unknown
+  readonly evidence_id?: unknown
+  readonly self_reported?: unknown
+}
+
+/** §3.8 이 정한 셋 */
+function readSubmission(body: ArtifactBody): ArtifactSubmission {
+  const kind = body.kind
+
+  if (kind === 'receipt_no') {
+    if (typeof body.value !== 'string' || body.value.trim().length === 0) {
+      throw new BadRequestError('value 가 없습니다', { param: 'value' })
+    }
+    return { kind: 'receipt_no', value: body.value }
+  }
+
+  if (kind === 'sms_capture' || kind === 'receipt_doc') {
+    if (typeof body.evidence_id !== 'string') {
+      throw new BadRequestError('evidence_id 가 없습니다', { param: 'evidence_id' })
+    }
+    return { kind, evidenceId: body.evidence_id }
+  }
+
+  if (kind === 'other') {
+    if (body.self_reported !== true) {
+      throw new BadRequestError('self_reported 가 true 여야 합니다', {
+        param: 'self_reported',
+      })
+    }
+    return { kind: 'other', selfReported: true }
+  }
+
+  // ⚠️ **받은 값을 detail 에 넣지 않습니다** — 감사 기록으로 갑니다
+  throw new BadRequestError('kind 값이 목록 밖입니다', {
+    param: 'kind',
+    allowed: ['receipt_no', 'sms_capture', 'receipt_doc', 'other'],
+  })
+}
+
+export async function POST(
+  request: Request,
+  route: { params: Promise<{ case_token: string; step_id: string }> },
+) {
+  return handleRoute(request, async (ctx) => {
+    const { container } = ctx
+    const caseId = await caseIdOf(route, container.caseTokens)
+    const stepId = await ulidParamOf(route, 'step_id')
+
+    const submission = readSubmission(await readJsonObject<ArtifactBody>(ctx.request))
+    const verdict = container.completionChecker.verify({ submission })
+
+    // ── 경계 ─────────────────────────────────────────────────────────
+    // 접수번호에 개인정보가 섞여 들어올 수 있습니다 → ADR-040.
+    // 파일로 올린 것은 값이 없습니다 — 그쪽은 이미 전사 경로가 다뤘습니다
+    const raw = submission.kind === 'receipt_no' ? submission.value : null
+    const valueMasked =
+      raw === null ? null : (await container.piiTokenizer.tokenize(raw)).masked
+
+    const artifactId = newUlid()
+    await container.artifacts.write({
+      artifactId,
+      caseId,
+      planStepId: stepId,
+      kind: submission.kind,
+      valueMasked,
+      objectKey: null,
+      verifyLevel: verdict.verifyLevel,
+      verifyResult: verdict.verifyResult,
+      verifyDetail: verdict.verifyDetail ? { ...verdict.verifyDetail } : null,
+    })
+
+    // 단계가 이 사건 것이 아니면 안 옮겨집니다 — 남의 단계를 완료 처리할 수 없습니다
+    await container.artifacts.markStep(caseId, stepId, verdict.stepState)
+
+    return {
+      body: {
+        artifact_id: artifactId,
+        verify_level: verdict.verifyLevel,
+        verify_result: verdict.verifyResult,
+        step_state: verdict.stepState,
+        ...(verdict.verifyDetail ? { verify_detail: verdict.verifyDetail } : {}),
+        // **막히지 않게 다음 길을 함께 냅니다** → 08-14-completion-hook.md
+        ...(verdict.nextOptions ? { next_options: verdict.nextOptions } : {}),
+        // ⬜ **잠금 해제된 단계가 아직 안 나갑니다.** 부산물 하나가 다음 단계를
+        // 열려면 KB 가 「이 단계는 저 부산물을 요구한다」를 적어 둬야 하는데,
+        // 그 연쇄를 읽는 자리를 아직 안 붙였습니다 → §3.8 `unlocked_steps`
+        unlocked_steps: [],
+      },
+    }
+  })
+}

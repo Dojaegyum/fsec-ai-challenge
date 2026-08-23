@@ -41,8 +41,8 @@ import 'server-only'
 
 import { kbRowToPlanStep } from '@/lib/adapters'
 import { serverClock } from '@/lib/clock'
+import { CaseNotFoundError } from '@/lib/http'
 import type { Container } from '@/lib/container'
-import { AppError } from '@/lib/errors'
 
 import type { OpenedCase, Track } from '@/modules/case-intake'
 import type { Actor, PlanResult, StepState } from '@/modules/planner'
@@ -286,11 +286,59 @@ export async function regeneratePlan(
  * **`KB_ENTRY_NOT_FOUND` 와 다릅니다** — 저쪽은 절차 항목이 없는 것이고
  * 이쪽은 사건이 없는 것이라, 사용자에게 보일 말이 완전히 다릅니다.
  */
-export class CaseNotFoundError extends AppError {
-  readonly code: string = 'CASE_NOT_FOUND'
-  readonly httpStatus: number = 404
-  readonly retryable: boolean = false
+/**
+ * 저장된 플랜을 **다시 만들지 않고 읽는다** — §3.4 · §3.6 · §3.10.
+ *
+ * `regeneratePlan` 과 나눈 이유는 **조회가 쓰기를 하면 안 되기 때문**입니다.
+ * 화면은 폴링으로 이 경로를 반복해서 부르는데(§1.3 「세션당 분당 300회」),
+ * 그때마다 KB 를 다시 조회해 플랜을 갈아엎으면 세 가지가 깨집니다 —
+ * 감사 기록이 조회 횟수만큼 쌓이고, KB 릴리스가 바뀌는 순간 사용자가 보던
+ * 플랜이 새로고침 한 번에 달라지며, 비용이 조회마다 붙습니다.
+ *
+ * **`auditId` 가 없습니다.** 읽기는 기록할 일이 아닙니다 — 감사 기록은
+ * 「무엇을 했나」를 남기는 것이고 조회는 아무것도 안 바꿉니다.
+ */
+export async function readCasePlan(
+  caseId: string,
+  deps: { container: RegeneratePlanDeps['container']; store: CasePlanStore },
+): Promise<Omit<PlanSnapshot, 'auditId'> & { readonly kbVersion: string | null }> {
+  const { container, store } = deps
+
+  const found = await store.readCase(caseId)
+  if (!found) {
+    throw new CaseNotFoundError('그 사건을 찾지 못했습니다', { caseId })
+  }
+
+  const [slots, steps] = await Promise.all([
+    store.readSlots(caseId),
+    store.readSteps(caseId),
+  ])
+
+  // 슬롯이 하나도 없어도 판정합니다 — T1 미충족이고, 그것이 정상입니다
+  const check = container.slotChecker.check({ slots })
+
+  return {
+    caseId,
+    isSuperset: check.needsSupersetPlan,
+    // **저장된 단계가 어느 릴리스로 만들어졌는지**를 그대로 씁니다.
+    // 지금 릴리스를 쓰면 「이 안내가 어느 기준인가」가 실제와 어긋납니다 —
+    // 플랜은 옛 릴리스로 만들어졌는데 새 번호가 붙습니다
+    kbVersion: steps[0]?.kbVersion ?? null,
+    steps,
+    nextQuestion: check.nextQuestion,
+    t1: check.t1,
+    t2: check.t2,
+  }
 }
+
+/**
+ * 여기 있던 `CaseNotFoundError` 를 `lib/http.ts` 로 옮겼습니다 (2026-08-23).
+ *
+ * **같은 코드의 클래스가 둘이면 열거 방어가 한쪽만 셉니다** — `handleRoute` 가
+ * `instanceof` 로 404 를 세는데(ADR-039 ④), 두 클래스는 서로 `instanceof` 가
+ * 아닙니다. 이 파일에서 던진 404 만 안 세어지는 상태였습니다.
+ */
+export { CaseNotFoundError }
 
 /**
  * 사건을 열고 **T0 공통 안전 절차를 함께 저장한다** → §3.1 · ADR-046.

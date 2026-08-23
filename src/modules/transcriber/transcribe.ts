@@ -364,7 +364,8 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
 
   return {
     async start(input: TranscribeInput): Promise<StartResult> {
-      const { media, vocabulary } = input
+      // 밖에서 정한 번호. 아래 `jobId` 는 실제로 열린 번호라 이름을 가릅니다
+      const { media, vocabulary, jobId: wanted } = input
 
       // 글로 올라온 것은 옮길 것이 없습니다. **에러가 아닙니다** —
       // 부르는 쪽이 토큰화만 거쳐 그대로 저장하면 됩니다
@@ -393,8 +394,13 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
       try {
         const jobId =
           media.kind === 'audio'
-            ? await deps.stt.submit({ url, mimeType: media.mimeType, vocabulary })
-            : await deps.ocr.submit({ url, mimeType: media.mimeType })
+            ? await deps.stt.submit({
+                url,
+                mimeType: media.mimeType,
+                vocabulary,
+                jobId: wanted,
+              })
+            : await deps.ocr.submit({ url, mimeType: media.mimeType, jobId: wanted })
         return { started: true, job: { jobId, phase, kind: media.kind } }
       } catch (error) {
         if (error instanceof AppError) throw error

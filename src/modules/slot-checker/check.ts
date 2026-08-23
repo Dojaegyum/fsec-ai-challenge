@@ -17,11 +17,13 @@ import type {
   SlotChecker,
   SlotKey,
   SlotState,
+  SlotTier,
+  SlotValueType,
   TierStatus,
 } from './types'
 
 /** 08-16-data-model.md §5.1 의 T1 */
-const T1_KEYS: readonly SlotKey[] = ['transferred', 'channel']
+export const T1_KEYS: readonly SlotKey[] = ['transferred', 'channel']
 
 /**
  * 08-16-data-model.md §5.1 의 T2.
@@ -31,7 +33,7 @@ const T1_KEYS: readonly SlotKey[] = ['transferred', 'channel']
  * (정확한 액수를 알면 구간을 묻지 않고, 모르면 `amount` 가 `unknown` 입니다)
  * 넣으면 T2 가 `satisfied` 에 영영 도달하지 못합니다.
  */
-const T2_KEYS: readonly SlotKey[] = [
+export const T2_KEYS: readonly SlotKey[] = [
   'org_name',
   'amount',
   'occurred_at',
@@ -184,4 +186,51 @@ function withUnknownOption(question: NextQuestion): NextQuestion {
   if (options.includes(UNKNOWN_OPTION)) return question
 
   return { ...question, options: [...options, UNKNOWN_OPTION] }
+}
+
+/**
+ * 이 슬롯이 어느 티어인가 → 08-16-data-model.md §5.1.
+ *
+ * **저장할 때 티어를 적어야 하는데** 그 판단의 정본이 여기입니다. 쓰는 쪽이
+ * 따로 표를 들면 둘이 어긋나고, 어긋나면 티어 판정이 조용히 틀립니다.
+ *
+ * 목록 밖은 `T2` 입니다 — T1 은 분기를 정하는 둘로 닫혀 있고, 나머지는 전부
+ * 「있으면 좋은 것」입니다.
+ */
+export function tierOf(slotKey: string): SlotTier {
+  return T1_KEYS.includes(slotKey as SlotKey) ? 'T1' : 'T2'
+}
+
+/**
+ * 이 슬롯의 값이 어떤 종류인가 → 09-data-model.md §5.1 의 표.
+ *
+ * **저장할 때 `value_type` 이 필수라서** 필요합니다(`NOT NULL`). 티어와 같은
+ * 자리에 두는 이유도 같습니다 — 표가 둘로 갈리면 어긋나고, 어긋나면
+ * 삽입이 제약에 걸려 터집니다.
+ *
+ * 목록 밖은 `string` 입니다 — 새 슬롯이 생겼는데 여기 안 적혔을 때
+ * 저장이 아예 안 되는 것보다 낫습니다.
+ */
+export function valueTypeOf(slotKey: string): SlotValueType {
+  return VALUE_TYPES[slotKey] ?? 'string'
+}
+
+/** 09-data-model.md §5.1 의 표를 그대로 */
+const VALUE_TYPES: Readonly<Record<string, SlotValueType>> = {
+  transferred: 'bool',
+  channel: 'enum',
+  org_name: 'string',
+  amount: 'decimal',
+  // 금액 구간. `amount` 를 「모름」으로 답했을 때만 묻습니다
+  amount_hint: 'string',
+  occurred_at: 'datetime',
+  elapsed_hint: 'string',
+  contact_method: 'string',
+  counterpart_account: 'string',
+  impersonated_org: 'string',
+  freeze_requested_at: 'datetime',
+  // 3영업일 기한의 기산점
+  relief_applied_at: 'datetime',
+  report_filed_at: 'datetime',
+  objection_submitted_at: 'datetime',
 }

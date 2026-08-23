@@ -30,8 +30,8 @@ import { serverClock } from './clock'
 import type { Container } from './container'
 import { isAdminPath } from './gated-paths'
 import { AppError } from './errors'
-import { BadRequestError, UnauthorizedError, fail, ok } from './http'
-import { isUlid } from './ids'
+import { BadRequestError, CaseNotFoundError, UnauthorizedError, fail, ok } from './http'
+import { isTokenShaped, isUlid } from './ids'
 import type { CaseRateBucket, UpfrontRateBucket } from './rate-limit'
 import { hasAdminSession } from './session-cookie'
 import { createTelemetry, type TelemetryRecorder } from './telemetry'
@@ -128,7 +128,10 @@ function subjectFor(bucket: UpfrontRateBucket, ctx: {
   sessionId: string | null
   clientIp: string | null
 }): string {
-  if (bucket === 'caseCreate') return `ip:${ctx.clientIp ?? 'unknown'}`
+  // IP 로 세는 갈래 둘 — 사건 생성(아직 사건이 없다)과 열거 방어(매번 다른 사건이다)
+  if (bucket === 'caseCreate' || bucket === 'notFound') {
+    return `ip:${ctx.clientIp ?? 'unknown'}`
+  }
 
   // 'read' — 세션당. 없으면 IP 로 떨어집니다
   return ctx.sessionId !== null
@@ -197,6 +200,28 @@ export async function handleRoute(
       telemetry: telemetry.snapshot(),
     })
   } catch (error) {
+    // **열거 방어는 여기서 겁니다** → ADR-039 ④ · §1.3.
+    //
+    // 앞의 속도 제한은 요청이 들어오자마자 거는 것이라 「404 를 몇 번 냈나」를
+    // 셀 수 없습니다. 그 값은 처리해 봐야 나옵니다.
+    //
+    // **막는 것이 아니라 세는 것입니다.** 이번 404 는 그대로 나가고, 한도를
+    // 넘은 **다음** 요청부터 429 가 됩니다 — 정상 사용자가 링크를 한 번
+    // 잘못 눌렀을 때 곧바로 막히면 안 됩니다.
+    if (!isAdmin && error instanceof CaseNotFoundError) {
+      try {
+        await container.rateLimiter.check(
+          'notFound',
+          subjectFor('notFound', { sessionId, clientIp }),
+        )
+      } catch (limited) {
+        // 한도를 넘었으면 404 대신 429 를 냅니다. 이 지점부터는
+        // **사건이 있는지 없는지도 알려주지 않습니다**
+        logServerFailure(request, limited)
+        return fail(limited, { telemetry: telemetry.snapshot() })
+      }
+    }
+
     logServerFailure(request, error)
     return fail(error, { telemetry: telemetry.snapshot() })
   }
@@ -244,26 +269,59 @@ function defaultRateFor(method: string): UpfrontRateBucket | 'none' {
 }
 
 /**
- * 경로 파라미터에서 사건 식별자를 꺼낸다.
+ * 경로 파라미터에서 **링크 토큰**을 꺼낸다.
  *
- * **Next 16 은 경로 파라미터가 `Promise` 입니다.** `await` 없이 읽으면 `undefined`
- * 가 나오는데, 그러면 형식 검사도 통과 못 해 400 이 나갑니다 — 조용히 새지는
- * 않지만 원인이 안 보입니다.
+ * **`case_id` 가 아닙니다** → ADR-039. 주소에 오는 것은 링크 토큰 하나뿐이고,
+ * 내부 식별자는 URL 에 쓰지 않습니다. Next 폴더가 `[case_token]` 이므로
+ * 파라미터 키도 `case_token` 입니다.
  *
- * 잘못된 식별자는 `BAD_REQUEST`(400)입니다 → 08-16-errors.md §3.
- * **`CASE_NOT_FOUND`(404)와 다릅니다** — 이쪽은 「식별자 모양이 틀렸다」이고
- * 저쪽은 「그 모양은 맞는데 그런 사건이 없다」입니다.
+ * **Next 16 은 경로 파라미터가 `Promise` 입니다.** `await` 없이 읽으면
+ * `undefined` 가 나옵니다.
+ *
+ * ⚠️ **여기서 하는 것은 모양 검사뿐입니다.** 링크 토큰과 `case_id` 는 규격이
+ * 같아서(둘 다 26자 Crockford Base32) **형식으로 신분을 확인할 수 없습니다**
+ * → `lib/ids.ts` 의 `isTokenShaped`. 「어느 사건인가」는 저장소 조회로
+ * 답해야 합니다 → `caseIdOf`.
+ *
+ * 모양이 틀린 것은 `BAD_REQUEST`(400)입니다 → 08-16-errors.md §3.
+ * **`CASE_NOT_FOUND`(404)와 다릅니다** — 이쪽은 「모양이 틀렸다」이고
+ * 저쪽은 「모양은 맞는데 그런 사건이 없다」입니다.
  */
-export async function caseIdOf(route: {
-  params: Promise<{ case_id: string }>
+export async function caseTokenOf(route: {
+  params: Promise<{ case_token: string }>
 }): Promise<string> {
-  const { case_id: caseId } = await route.params
-  if (typeof caseId !== 'string' || !isUlid(caseId)) {
-    // detail 에 값을 넣지 않습니다 — 감사 로그로 흘러가는 자리입니다
-    throw new BadRequestError('사건 식별자 형식이 아닙니다', {
-      param: 'case_id',
-      length: typeof caseId === 'string' ? caseId.length : 0,
+  const { case_token: token } = await route.params
+  if (typeof token !== 'string' || !isTokenShaped(token)) {
+    // ⚠️ **detail 에 값을 넣지 않습니다.** 링크 토큰은 사실상 비밀번호이고
+    // 이 detail 은 감사 기록으로 갑니다 → ADR-039 · 09-data-model.md §10.1
+    throw new BadRequestError('사건 주소 형식이 아닙니다', {
+      param: 'case_token',
+      length: typeof token === 'string' ? token.length : 0,
     })
+  }
+  return token
+}
+
+/**
+ * 링크 토큰을 내부 사건 식별자로 바꾼다.
+ *
+ * **이 조회가 신분 확인입니다.** 토큰을 그대로 내부 식별자로 흘리면
+ * 두 가지가 깨집니다 — 속도 제한이 사건 단위가 아니라 토큰 단위가 되고
+ * (같은 사건인데 다른 값이 오면 카운터가 갈립니다), 기본키 조회는 언제나
+ * 빕니다. ADR-039 「검토한 대안」이 그 모양을 명시적으로 기각했습니다.
+ *
+ * 없으면 `CASE_NOT_FOUND`(404)입니다. **저장소 장애와 구분됩니다** —
+ * 조회 자체가 실패하면 그쪽 오류가 그대로 올라옵니다.
+ */
+export async function caseIdOf(
+  route: { params: Promise<{ case_token: string }> },
+  resolver: { toCaseId(linkToken: string): Promise<string | null> },
+): Promise<string> {
+  const token = await caseTokenOf(route)
+  const caseId = await resolver.toCaseId(token)
+  if (caseId === null) {
+    // ⚠️ **토큰을 메시지에도 detail 에도 담지 않습니다**
+    throw new CaseNotFoundError('그 주소로 열리는 사건이 없습니다')
   }
   return caseId
 }
