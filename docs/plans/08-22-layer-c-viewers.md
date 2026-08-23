@@ -17,6 +17,12 @@
 
 **기술:** TypeScript 5 · React 19 · Next 16 (App Router) · vitest 4 · Tailwind v4 (프로젝트 토큰)
 
+> **2026-08-23 — 태스크 아홉 전부 끝났습니다.** 세 모듈이 서고 시험 28개가 돕니다.
+> 실행하며 계획과 다르게 간 자리 셋은 각 커밋 메시지에 적었습니다 —
+> 순번 배지 크기(ADR-032), `PlanBoard` 가 머리·꼬리까지 가져온 것,
+> `Deadline` 에 `computed_from` 을 더한 것.
+> **`DeadlineList` 는 어느 화면에도 안 붙었습니다** — 아래 「덮지 않는 것」 그대로입니다.
+
 **스펙:**
 [모듈 경계](../../spec/common/08-16-module-boundaries.md) ·
 [모듈 명칭](../../spec/common/08-16-module-names.md) 층 C ·
@@ -60,7 +66,7 @@
 **Interfaces:**
 - Produces: 아래 세 물음의 답. Task 2·5 가 이 답에 따라 기본값을 바꿉니다.
 
-- [ ] **Step 0: 계획 문서를 먼저 커밋한다** (다른 계획 실행자가 이미 했으면 건너뜁니다)
+- [x] **Step 0: 계획 문서를 먼저 커밋한다** (다른 계획 실행자가 이미 했으면 건너뜁니다)
 
 ```bash
 git add docs/plans/08-22-layer-c-viewers.md docs/plans/08-22-layer-c-transport.md docs/plans/README.md
@@ -71,7 +77,7 @@ git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야�
 가리키는 링크**를 심습니다. 계획 파일이 커밋에 없으면 워킹트리를 보는 로컬 검사기는
 통과하고 **CI 에서만** 「가리키는 파일이 없습니다」로 깨집니다.
 
-- [ ] **Step 1: 세 구멍을 정본에 적는다**
+- [x] **Step 1: 세 구멍을 정본에 적는다**
 
 `spec/common/08-14-api.md` 의 §3.6 마지막에 붙입니다:
 
@@ -120,7 +126,7 @@ git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야�
 > (이 표는 제목이 「여섯」인데 행이 다섯입니다 — 함께 정리해 주세요.)
 ```
 
-- [ ] **Step 2: 착수 문서의 미결 표에 세 줄을 더한다**
+- [x] **Step 2: 착수 문서의 미결 표에 세 줄을 더한다**
 
 `docs/plans/08-20-api-routes.md` 의 「정본에 없어 채워야 하는 것」 표에 추가:
 
@@ -130,7 +136,7 @@ git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야�
 | **`unconfirmed` 의 화면 어휘** | S-07 상태 어휘 여섯에 대응 칸이 없습니다 |
 ```
 
-- [ ] **Step 3: 검사기를 돌린다**
+- [x] **Step 3: 검사기를 돌린다**
 
 ```bash
 python .github/scripts/doc-integrity.py
@@ -138,7 +144,7 @@ python .github/scripts/doc-integrity.py
 
 기대: `OK` — 링크·앵커가 깨지지 않았습니다.
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add spec/common/08-14-api.md spec/frontend/08-14-screens.md docs/plans/08-20-api-routes.md
@@ -172,7 +178,7 @@ git commit -m "화면이 요구하는데 응답에 없는 값 셋을 정본에 �
 > **`doc.tsx` 의 `SECTIONS` 는 옮기지 않습니다.** `doc-filler` 가 이 계획에서 빠졌고,
 > 그 목업이 S-10 을 살아 있게 하는 유일한 것입니다 — 화면에 그대로 둡니다.
 
-- [ ] **Step 1: 픽스처 파일을 쓴다**
+- [x] **Step 1: 픽스처 파일을 쓴다**
 
 `src/app/c/[token]/fixtures.ts`. 머리에 이 문단을 답니다:
 
@@ -220,7 +226,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
 > **`days_left` 를 픽스처에 넣지 마세요.** 아직 계약에 없는 칸입니다(Task 1) —
 > 넣으면 D-day 가 화면에 떠서 「없으면 안 그린다」는 규칙을 시험할 수 없게 됩니다.
 
-- [ ] **Step 2: 빌드가 통과하는지 확인한다**
+- [x] **Step 2: 빌드가 통과하는지 확인한다**
 
 ```bash
 cd src && npm run build
@@ -228,7 +234,7 @@ cd src && npm run build
 
 기대: exit 0 (아직 아무도 부르지 않으므로 화면은 그대로입니다)
 
-- [ ] **Step 3: 커밋**
+- [x] **Step 3: 커밋**
 
 ```bash
 git add "src/app/c/[token]/fixtures.ts"
@@ -249,7 +255,7 @@ git commit -m "층 C 픽스처 — 목업 상수를 §3 응답 모양으로 옮�
 - Produces: `toneOf(step, hasOwnDeadline): StepTone` · `tagOf(step): string` ·
   타입 `PlanStep` · `StepTone` · `StepState`. Task 3·4 가 이 이름을 그대로 씁니다.
 
-- [ ] **Step 1: 계약 타입을 쓴다**
+- [x] **Step 1: 계약 타입을 쓴다**
 
 `src/modules/plan-viewer/types.ts`:
 
@@ -297,7 +303,7 @@ export interface PlanStep {
 }
 ```
 
-- [ ] **Step 2: 실패하는 시험을 쓴다**
+- [x] **Step 2: 실패하는 시험을 쓴다**
 
 `src/modules/plan-viewer/tone.test.ts`:
 
@@ -351,7 +357,7 @@ describe("상태를 화면 어휘로 옮긴다", () => {
 });
 ```
 
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
+- [x] **Step 3: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/plan-viewer
@@ -359,7 +365,7 @@ cd src && npx vitest run modules/plan-viewer
 
 기대: FAIL — `Cannot find module './tone'`
 
-- [ ] **Step 4: 최소 구현을 쓴다**
+- [x] **Step 4: 최소 구현을 쓴다**
 
 `src/modules/plan-viewer/tone.ts`:
 
@@ -417,7 +423,7 @@ export function tagOf(step: PlanStep, tone: StepTone): string {
 }
 ```
 
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
+- [x] **Step 5: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/plan-viewer
@@ -425,7 +431,7 @@ cd src && npx vitest run modules/plan-viewer
 
 기대: PASS — 7 passed
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/plan-viewer/
@@ -448,7 +454,7 @@ git commit -m "plan-viewer — 상태 다섯을 화면 어휘로 옮긴다 (S-07
 - Produces: `numberSteps(steps): ReadonlyMap<string, number | null>` — 키는 `step_id`,
   값은 **사슬 안 위치**(1부터) 또는 `null`(순서 없음). Task 4 가 씁니다.
 
-- [ ] **Step 1: 실패하는 시험을 쓴다**
+- [x] **Step 1: 실패하는 시험을 쓴다**
 
 `src/modules/plan-viewer/order.test.ts`:
 
@@ -512,7 +518,7 @@ describe("번호는 사슬에 있는 것에만 붙는다", () => {
 });
 ```
 
-- [ ] **Step 2: 시험이 실패하는지 확인한다**
+- [x] **Step 2: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/plan-viewer/order
@@ -520,7 +526,7 @@ cd src && npx vitest run modules/plan-viewer/order
 
 기대: FAIL — `Cannot find module './order'`
 
-- [ ] **Step 3: 최소 구현을 쓴다**
+- [x] **Step 3: 최소 구현을 쓴다**
 
 `src/modules/plan-viewer/order.ts`:
 
@@ -576,7 +582,7 @@ export function numberSteps(
 }
 ```
 
-- [ ] **Step 4: 시험이 통과하는지 확인한다**
+- [x] **Step 4: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/plan-viewer
@@ -584,7 +590,7 @@ cd src && npx vitest run modules/plan-viewer
 
 기대: PASS — 12 passed
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/modules/plan-viewer/
@@ -606,7 +612,7 @@ git commit -m "plan-viewer — 사슬에 있는 것에만 번호를 붙인다. s
 - Produces: `StepRow` (React 컴포넌트, props `{ step, tone, tag, number, deadlineLabel }`) ·
   `PlanBoard` (props `{ steps, deadlineFor }`)
 
-- [ ] **Step 1: 렌더를 옮긴다**
+- [x] **Step 1: 렌더를 옮긴다**
 
 `src/modules/plan-viewer/board.tsx` 를 만들고, 지금 `src/app/c/[token]/plan.tsx` 의
 `MARK` 상수와 단계 행 마크업을 옮깁니다. 값은 시안에서 온 것이라 임의로 다듬지 않되,
@@ -716,7 +722,7 @@ export function StepRow({
 }
 ```
 
-- [ ] **Step 2: 머리말을 목록 위에 둔다**
+- [x] **Step 2: 머리말을 목록 위에 둔다**
 
 같은 파일에 `PlanBoard` 를 더합니다. **머리말 문장은 §S-07 이 정한 그대로입니다 —
 고쳐 쓰지 마세요.**
@@ -769,7 +775,7 @@ export function PlanBoard({
 }
 ```
 
-- [ ] **Step 3: 공개 API 와 README 를 쓴다**
+- [x] **Step 3: 공개 API 와 README 를 쓴다**
 
 `src/modules/plan-viewer/index.ts`:
 
@@ -820,7 +826,7 @@ export type { PlanStep, StepState, StepTone } from "./types";
 `deadline-viewer` 와 주인이 겹치고, **화면이 날짜를 세는 길**이 열립니다.
 ```
 
-- [ ] **Step 4: 화면을 모듈로 갈아 끼운다**
+- [x] **Step 4: 화면을 모듈로 갈아 끼운다**
 
 `src/app/c/[token]/plan.tsx` 에서 `STEPS`·`MARK`·`type Tone` 을 지우고,
 단계 목록 자리를 아래로 바꿉니다. **히어로 스트립과 진행 레일(`RAIL`)은 그대로 둡니다** —
@@ -847,7 +853,7 @@ import { PlanBoard } from "@/modules/plan-viewer";
 파일 머리 주석의 `TODO(연결)` 줄에 「단계 목록은 `plan-viewer` 로 옮겼습니다 —
 데이터는 `fixtures.ts`, 라우트가 서면 그 자리가 `fetch` 입니다」를 더합니다.
 
-- [ ] **Step 5: 빌드와 시험이 통과하는지 확인한다**
+- [x] **Step 5: 빌드와 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -855,7 +861,7 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/plan-viewer/ "src/app/c/[token]/plan.tsx"
@@ -879,7 +885,7 @@ git commit -m "plan-viewer — 단계 목록을 화면에서 모듈로 옮긴다
 - Produces: `groupDeadlines(list): DeadlineGroups` · `ddayLabel(d): string | null` ·
   `isCountdown(d): boolean` · 타입 `Deadline` · `DeadlineKind`
 
-- [ ] **Step 1: 계약 타입을 쓴다**
+- [x] **Step 1: 계약 타입을 쓴다**
 
 `src/modules/deadline-viewer/types.ts`:
 
@@ -931,7 +937,7 @@ export interface DeadlineGroups {
 }
 ```
 
-- [ ] **Step 2: 실패하는 시험을 쓴다**
+- [x] **Step 2: 실패하는 시험을 쓴다**
 
 `src/modules/deadline-viewer/group.test.ts`:
 
@@ -1000,7 +1006,7 @@ describe("환급을 카운트다운으로 만들지 않는다", () => {
 });
 ```
 
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
+- [x] **Step 3: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/deadline-viewer
@@ -1008,7 +1014,7 @@ cd src && npx vitest run modules/deadline-viewer
 
 기대: FAIL — `Cannot find module './group'`
 
-- [ ] **Step 4: 최소 구현을 쓴다**
+- [x] **Step 4: 최소 구현을 쓴다**
 
 `src/modules/deadline-viewer/group.ts`:
 
@@ -1055,7 +1061,7 @@ export function isCountdown(d: Deadline): boolean {
 }
 ```
 
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
+- [x] **Step 5: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/deadline-viewer
@@ -1063,7 +1069,7 @@ cd src && npx vitest run modules/deadline-viewer
 
 기대: PASS — 10 passed
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/deadline-viewer/
@@ -1083,7 +1089,7 @@ git commit -m "deadline-viewer — 갈래를 나누되 날짜를 세지 않는�
 - Consumes: `groupDeadlines` · `ddayLabel` · `isCountdown` (Task 5)
 - Produces: `DeadlineList` (props `{ deadlines }`) · `DeadlineBadge` (props `{ deadline }`)
 
-- [ ] **Step 1: 렌더를 쓴다**
+- [x] **Step 1: 렌더를 쓴다**
 
 `src/modules/deadline-viewer/list.tsx`:
 
@@ -1145,7 +1151,7 @@ export function DeadlineList({ deadlines }: { deadlines: readonly Deadline[] }) 
 }
 ```
 
-- [ ] **Step 2: 공개 API 와 README 를 쓴다**
+- [x] **Step 2: 공개 API 와 README 를 쓴다**
 
 `src/modules/deadline-viewer/index.ts`:
 
@@ -1185,7 +1191,7 @@ export type { Deadline, DeadlineGroups, DeadlineKind } from "./types";
 `days_left` 는 **아직 §3.7 에 없습니다** → [계획 Task 1](../../../docs/plans/08-22-layer-c-viewers.md).
 ```
 
-- [ ] **Step 3: 빌드가 통과하는지 확인한다**
+- [x] **Step 3: 빌드가 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -1193,7 +1199,7 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add src/modules/deadline-viewer/
@@ -1219,7 +1225,7 @@ git commit -m "deadline-viewer — 표시와 공개 API. days_left 가 없으면
   `countTokens(tokens): TokenCount[]` · 타입 `RawLine` · `TranscriptLine` · `PiiToken`
   (`ingest_status` 는 이 모듈이 다루지 않습니다 — `file-sender` 몫)
 
-- [ ] **Step 1: 계약 타입을 쓴다**
+- [x] **Step 1: 계약 타입을 쓴다**
 
 `src/modules/transcript-viewer/types.ts`:
 
@@ -1264,7 +1270,7 @@ export interface TokenCount {
 }
 ```
 
-- [ ] **Step 2: 실패하는 시험을 쓴다**
+- [x] **Step 2: 실패하는 시험을 쓴다**
 
 `src/modules/transcript-viewer/read.test.ts`:
 
@@ -1323,7 +1329,7 @@ describe("무엇이 가려져 나갔는지 개수로 밝힌다", () => {
 });
 ```
 
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
+- [x] **Step 3: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/transcript-viewer
@@ -1331,7 +1337,7 @@ cd src && npx vitest run modules/transcript-viewer
 
 기대: FAIL — `Cannot find module './read'`
 
-- [ ] **Step 4: 최소 구현을 쓴다**
+- [x] **Step 4: 최소 구현을 쓴다**
 
 `src/modules/transcript-viewer/read.ts`:
 
@@ -1388,7 +1394,7 @@ export function countTokens(tokens: readonly PiiToken[]): TokenCount[] {
 }
 ```
 
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
+- [x] **Step 5: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/transcript-viewer
@@ -1402,7 +1408,7 @@ cd src && npx vitest run modules/transcript-viewer
 > 이 콜백만으로 `unresolved` 를 채웁니다 — 패턴을 두 곳에 두면 어긋난 쪽이 조용히
 > 새는 쪽이 됩니다.
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/transcript-viewer/
@@ -1429,7 +1435,7 @@ git commit -m "transcript-viewer — 전사를 원문으로 펼친다. 못 펼�
 > 그래서 `EvidenceStatus` 타입과 점 렌더는 둘 다
 > [서버와 이야기하는 넷 계획](08-22-layer-c-transport.md) Task 7 의 `file-sender` 로 갑니다.
 
-- [ ] **Step 1: 전사 본문을 옮긴다**
+- [x] **Step 1: 전사 본문을 옮긴다**
 
 `src/modules/transcript-viewer/view.tsx`. **화면이 다시 가리거나 풀지 않습니다** — 값이 이미 원문입니다.
 
@@ -1484,7 +1490,7 @@ export function TranscriptView({ lines, mappings, tokens = [] }: TranscriptViewP
 }
 ```
 
-- [ ] **Step 2: 공개 API 와 README 를 쓴다**
+- [x] **Step 2: 공개 API 와 README 를 쓴다**
 
 `src/modules/transcript-viewer/index.ts`:
 
@@ -1528,7 +1534,7 @@ export type { PiiToken, RawLine, TokenCount, TranscriptLine } from "./types";
 「처음 시작하신 기기에서 열면 그대로 보입니다」를 함께 보여줍니다.
 ```
 
-- [ ] **Step 3: 화면을 모듈로 갈아 끼운다**
+- [x] **Step 3: 화면을 모듈로 갈아 끼운다**
 
 `src/app/c/[token]/evidence.tsx` 에서 **`TRANSCRIPT` 만** 지우고 전사 본문 자리를
 `<TranscriptView lines={FIXTURE_EVIDENCE.transcript} mappings={FIXTURE_MAPPINGS}
@@ -1539,7 +1545,7 @@ tokens={FIXTURE_EVIDENCE.pii_tokens} />` 로 바꿉니다 (픽스처는 Task 1b)
 > [다음 계획](08-22-layer-c-transport.md) Task 7 이 셋을 함께 걷어냅니다.
 > 여기서 지우면 남겨 둔 레일이 컴파일되지 않아 **바로 다음 단계의 빌드가 깨집니다.**
 
-- [ ] **Step 4: 빌드와 시험이 통과하는지 확인한다**
+- [x] **Step 4: 빌드와 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -1547,7 +1553,7 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/modules/transcript-viewer/ "src/app/c/[token]/evidence.tsx"
