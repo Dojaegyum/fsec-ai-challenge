@@ -21,12 +21,18 @@ export function groupDeadlines(list: readonly Deadline[]): DeadlineGroups {
  *
  * `due_at` 에서 직접 세지 마세요 — 기준 시계는 서버이고, 사용자 기기의 날짜가
  * 틀리면 기한을 놓칩니다 → spec/common/08-16-deadline-rules.md 「계산의 전제」.
+ *
+ * **음수는 오지 않습니다** (2026-08-23 확정 · §3.7). 서버는 **아직 안 지난 기한에만**
+ * `days_left` 를 싣고, 지난 것은 `status: "missed"` 하나로 말합니다 —
+ * 지난 기한의 표시는 「본 기한 8월 20일 · 지남」 배지가 맡습니다 (시안 2b).
+ * 그래도 음수가 오면 **그리지 않습니다** — 시안에 「D+3」 이라는 표시가 없어서,
+ * 지어내느니 날짜만 보이는 쪽이 낫습니다.
  */
 export function ddayLabel(d: Deadline): string | null {
   if (typeof d.days_left !== "number") return null;
   if (d.days_left > 0) return `D-${d.days_left}`;
   if (d.days_left === 0) return "오늘";
-  return `D+${Math.abs(d.days_left)}`;
+  return null;
 }
 
 /**

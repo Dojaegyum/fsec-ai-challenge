@@ -15,7 +15,8 @@ export function toneOf(step: PlanStep, hasOwnDeadline: boolean): StepTone {
       return "now";
     case "skipped":
       return "na";
-    // ⬜ `unconfirmed` 의 어휘는 미결입니다 → 계획 Task 1 · 화면 설계 §S-07
+    // 자기 신고(L3)는 `done` 이 아닙니다 — 부산물이 판정하지 않았습니다.
+    // 기호는 `todo` 와 같고, 태그만 「증빙 대기」로 가릅니다 → §S-07 상태 어휘 여섯
     case "unconfirmed":
       return "todo";
     case "not_started":
@@ -30,12 +31,17 @@ export function toneOf(step: PlanStep, hasOwnDeadline: boolean): StepTone {
  * 색 하나로 가르지 않습니다 — 기호·태그·색 셋이 함께 갑니다 (§S-07).
  *
  * **태그는 화면 어휘(tone) 기준입니다** — 「언제든」은 상태가 아니라 어휘의 태그입니다.
- * `unconfirmed` 만 상태로 가립니다 → 계획 Task 1 미결.
+ * `unconfirmed` 만 상태로 가립니다.
+ *
+ * **「미확인」이 아니라 「증빙 대기」입니다** (2026-08-23 확정). 「미확인」은 슬롯 배지
+ * (아직 모르는 정보)와 §S-08 전사 스팬이 이미 쓰는 말이라, 단계 상태까지 같은 말을 쓰면
+ * **셋이 한 화면에서 섞입니다** → [모듈 명칭](../../../spec/common/08-16-module-names.md)
+ * 「상태·등급의 호칭」.
  * `now` 의 태그는 어휘 표에서 D-day 입니다 — 서버가 준 기한 문자열(`deadlineLabel`)이
  * 그 자리를 대신하고, 없으면 비웁니다. **화면이 날짜를 만들지 않습니다.**
  */
 export function tagOf(step: PlanStep, tone: StepTone): string {
-  if (step.state === "unconfirmed") return "미확인";
+  if (step.state === "unconfirmed") return "증빙 대기";
   switch (tone) {
     case "done":
       return "증빙됨";

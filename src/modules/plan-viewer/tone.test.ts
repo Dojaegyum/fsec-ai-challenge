@@ -17,9 +17,10 @@ describe("상태를 화면 어휘로 옮긴다", () => {
     expect(tagOf(step("done_verified"), "done")).toBe("증빙됨");
   });
 
-  it("자기 신고는 증빙됨이 아니다 — 미확인으로 남는다", () => {
+  it("자기 신고는 증빙됨이 아니다 — 증빙 대기로 남는다", () => {
     expect(toneOf(step("unconfirmed"), true)).toBe("todo");
-    expect(tagOf(step("unconfirmed"), "todo")).toBe("미확인");
+    // 「미확인」은 슬롯 배지·전사 스팬이 쓰는 말이라 단계 상태와 섞이면 안 됩니다
+    expect(tagOf(step("unconfirmed"), "todo")).toBe("증빙 대기");
   });
 
   it("건너뛴 단계는 지우지 않고 해당 없음으로 흐리게 둔다", () => {

@@ -42,8 +42,9 @@ describe("화면이 날짜를 세지 않는다", () => {
     expect(ddayLabel(mk({ days_left: 0 }))).toBe("오늘");
   });
 
-  it("지난 기한은 지우지 않고 지난 것으로 표시한다", () => {
-    expect(ddayLabel(mk({ days_left: -3 }))).toBe("D+3");
+  it("음수는 그리지 않는다 — 서버가 지난 기한에는 잔여일을 싣지 않는다", () => {
+    // 지난 기한의 표시는 status: "missed" 배지가 맡습니다 → §3.7 · 시안 2b
+    expect(ddayLabel(mk({ days_left: -3 }))).toBeNull();
   });
 });
 
