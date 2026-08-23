@@ -612,3 +612,94 @@ export function createArtifactWriter(sql: Sql): ArtifactWriter {
     },
   }
 }
+
+/**
+ * 챗 기록을 읽고 쓴다 → 계약 §3.9 · 11-chat-context.md.
+ *
+ * ## ⚠️ 여기 있는 것은 전부 토큰화된 상태여야 합니다
+ *
+ * 칼럼 이름이 `content_masked` · `prompt_masked` · `reasoning_masked` 인
+ * 것이 그 뜻입니다. **`caseTalk` 은 매 턴 모델에 다시 갑니다** — 원문이
+ * 한 번 들어가면 그 뒤로 계속 나갑니다.
+ */
+export interface MessageStore {
+  write(input: {
+    readonly messageId: string
+    readonly caseId: string
+    readonly turnNo: number
+    readonly role: string
+    readonly contentMasked: string
+    readonly promptMasked: string
+    readonly reasoningMasked: string | null
+    readonly citations: readonly unknown[]
+    readonly kbContextRefs: readonly unknown[]
+    readonly insufficient: boolean
+    /** 사용자 발화. 다음 턴의 맥락이 됩니다 */
+    readonly utteranceMasked: string
+  }): Promise<void>
+
+  /** 앞선 대화 — 모델에 맥락으로 갑니다 */
+  history(
+    caseId: string,
+  ): Promise<readonly { speaker: 'user' | 'assistant'; text: string }[]>
+
+  /** 전사문 — **이미 토큰화된 것만** */
+  transcript(caseId: string): Promise<readonly { speaker: string; text: string }[]>
+}
+
+/** 맥락에 넣을 앞 대화의 최대 턴 수 */
+const HISTORY_TURNS = 20
+
+export function createMessageStore(sql: Sql, newId: () => string): MessageStore {
+  return {
+    async write(input) {
+      // 사용자 발화와 답을 **두 줄로** 남깁니다. 한 줄에 합치면 다음 턴에
+      // 맥락으로 되돌릴 때 누가 말한 것인지가 사라집니다
+      await sql`
+        INSERT INTO message
+          (message_id, case_id, turn_no, role, content_masked, citations,
+           kb_context_refs, insufficient, prompt_masked, reasoning_masked)
+        VALUES
+          (${newId()}, ${input.caseId}, ${input.turnNo}, 'user',
+           ${input.utteranceMasked}, ${sql.json([] as never)},
+           ${sql.json([] as never)}, false, '', NULL),
+          (${input.messageId}, ${input.caseId}, ${input.turnNo}, ${input.role},
+           ${input.contentMasked}, ${sql.json(input.citations as never)},
+           ${sql.json(input.kbContextRefs as never)}, ${input.insufficient},
+           ${input.promptMasked}, ${input.reasoningMasked})
+      `
+    },
+
+    async history(caseId) {
+      // 최근 것부터 잘라 온 뒤 되돌립니다 — 오래된 것을 버려야 하는데
+      // 모델에는 시간순으로 줘야 합니다
+      const rows = await sql<{ role: string; content_masked: string }[]>`
+        SELECT role, content_masked FROM message
+        WHERE case_id = ${caseId}
+        ORDER BY turn_no DESC, created_at DESC
+        LIMIT ${HISTORY_TURNS * 2}
+      `
+      return rows
+        .reverse()
+        .map((one) => ({
+          speaker: one.role === 'user' ? ('user' as const) : ('assistant' as const),
+          text: one.content_masked,
+        }))
+    },
+
+    async transcript(caseId) {
+      // ⚠️ **`transcript_masked` 입니다.** 이름이 「토큰화된 것」이라는 뜻이고,
+      // 이 값이 매 턴 모델에 갑니다
+      const rows = await sql<{ transcript_masked: string | null }[]>`
+        SELECT transcript_masked FROM evidence
+        WHERE case_id = ${caseId} AND transcript_masked IS NOT NULL
+        ORDER BY created_at
+      `
+      return rows
+        .map((one) => one.transcript_masked ?? '')
+        .filter((text) => text.length > 0)
+        // 화자를 따로 안 저장합니다 — 화자 분리가 아직 없습니다
+        .map((text) => ({ speaker: '?', text }))
+    },
+  }
+}

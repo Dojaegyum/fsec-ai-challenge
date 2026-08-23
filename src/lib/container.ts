@@ -40,6 +40,7 @@ import {
   createCaseTokenResolver,
   createArtifactWriter,
   createCaseReader,
+  createMessageStore,
   createDeadlineReader,
   createEvidenceReader,
   createKbStore,
@@ -50,6 +51,7 @@ import {
 import type {
   ArtifactWriter,
   CaseReader,
+  MessageStore,
   CaseTokenResolver,
   DeadlineReader,
   EvidenceReader,
@@ -280,6 +282,12 @@ function artifactWriter(env: Env): ArtifactWriter {
   return createArtifactWriter(sql)
 }
 
+function messageStore(env: Env): MessageStore {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('MessageStore', ['DATABASE_URL'])
+  return createMessageStore(sql, () => newUlid())
+}
+
 export function unconfiguredPorts(env: Env): Ports {
   const db = ['DATABASE_URL'] as const
   const storage = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
@@ -379,6 +387,8 @@ export interface Container {
   readonly slotWrite: SlotWriter
   /** 단계 부산물 → §3.8. **완료는 부산물로 판정합니다**(불변 규칙 6) */
   readonly artifacts: ArtifactWriter
+  /** 챗 기록 → §3.9. **토큰화된 것만 들어갑니다** */
+  readonly messages: MessageStore
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -437,6 +447,7 @@ export function createContainer(
     caseRead: caseReader(env),
     slotWrite: slotWriter(env),
     artifacts: artifactWriter(env),
+    messages: messageStore(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,
