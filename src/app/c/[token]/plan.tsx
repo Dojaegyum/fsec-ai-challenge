@@ -23,31 +23,14 @@
  * TODO(연결) — 지금은 UI 상태만 돕니다
  *  · GET …/plan §3.6 · GET …/deadlines §3.7
  *  · 층 C: plan-viewer · deadline-viewer
+ *
+ * 단계 목록은 `plan-viewer` 로 옮겼습니다 — 데이터는 `fixtures.ts`,
+ * 라우트가 서면 그 자리가 `fetch` 입니다.
  */
 
-/**
- * 서버(`GET …/plan`)가 내준 값 그대로. **화면이 상태를 계산하지 않습니다**
- *
- * 둘째 칸이 **순번**입니다. `null` 이면 순서가 없는 단계입니다.
- *
- * ⚠️ **세로로 늘어놓으면 사람은 순서로 읽습니다.** 그런데 우리 단계는 절반이
- * 순서가 없습니다 — 112 신고와 지급정지 요청은 **동시에** 하는 것이고
- * (`body.after` 가 둘 다 비어 있습니다), 명의도용 점검은 아무 때나 합니다.
- * 전부 번호를 매기면 **없는 순서를 지어내는 것**이고, 전부 안 매기면
- * 진짜 순서가 있는 곳(신청 → 서류 → 접수증)이 안 보입니다.
- *
- * 그래서 **번호는 `body.after` 사슬에 있는 것에만** 붙이고, 나머지는 점(·)입니다.
- * 순번은 `step_seq` 가 아니라 **사슬 안에서 몇 번째인가**입니다 —
- * `step_seq` 는 10·20·25 처럼 띄엄띄엄이라 사용자에게 보일 숫자가 아닙니다.
- */
-const STEPS = [
-  ["done", null, "국민은행에 지급정지 요청", "증빙됨", "◆ 통화 접수번호"],
-  ["done", null, "112 신고", "증빙됨", "◆ 사건접수번호"],
-  ["now", 1, "피해구제 신청서 제출", "D-2", "8월 20일까지"],
-  ["todo", 2, "접수증 올리기", "미시작", ""],
-  ["anytime", null, "명의도용 점검", "언제든", ""],
-  ["na", null, "가상자산 환급 신청", "해당 없음", ""],
-] as const;
+import { PlanBoard } from "@/modules/plan-viewer";
+
+import { FIXTURE_DEADLINES, FIXTURE_PLAN } from "./fixtures";
 
 /** 사건 진행 레일 — 지금 어디쯤인지. 색만으로 가르지 않고 라벨을 함께 둡니다 */
 const RAIL = [
@@ -57,23 +40,6 @@ const RAIL = [
   ["결정", "todo"],
   ["환급", "todo"],
 ] as const;
-
-type Tone = (typeof STEPS)[number][0];
-
-/** 상태 어휘 — 모양·글자·색 셋이 함께 갑니다 (색 하나로 가르지 않습니다) */
-const MARK: Record<Tone, { glyph: string; cls: string }> = {
-  done: {
-    glyph: "✓",
-    cls: "border-[oklch(0.697_0.16_258.2/70%)] bg-[oklch(0.697_0.16_258.2/22%)] text-pii",
-  },
-  now: {
-    glyph: "→",
-    cls: "border-[oklch(0.77_0.117_70.9/70%)] bg-[oklch(0.77_0.117_70.9/20%)] text-deadline-urgent",
-  },
-  todo: { glyph: "•", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
-  anytime: { glyph: "•", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
-  na: { glyph: "—", cls: "border-[oklch(0.305_0.013_267.1/70%)] text-ink-3" },
-};
 
 /** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작해야 합니다 —
  *  안 그러면 자식이 다 나타난 뒤에 부모가 페이드인합니다 */
@@ -165,72 +131,23 @@ export default function PlanView() {
         </ol>
       </section>
 
-      {/* ── 단계 목록 ──────────────────────────────────── */}
-      <section style={step(2)} className="rise">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h3 className="text-[12.5px] tracking-[0.12em] text-ink-4">할 일</h3>
-          {/* ⚠️ 세로 목록은 순서로 읽힙니다. 절반은 순서가 없으니 말로 밝힙니다 */}
-          <p className="text-[12.5px] leading-[1.5] text-ink-3">
-            <b className="font-[620] text-ink-2">번호가 붙은 것만 순서대로</b>입니다. 나머지는 <b className="font-[620] text-ink-2">순서와 상관없습니다.</b>
-          </p>
-        </div>
-        <ul className="mt-2">
-          {STEPS.map(([tone, order, label, tag, artifact]) => {
-            const mark = MARK[tone];
-            return (
-              <li
-                key={label}
-                className={`flex items-center gap-3 border-b border-hairline px-1.5 py-3 last:border-b-0 ${
-                  tone === "now" ? "rounded-[8px] bg-[oklch(0.77_0.117_70.9/8%)]" : ""
-                } ${tone === "na" ? "opacity-50" : ""}`}
-              >
-                {/* 순번이 있으면 숫자, 없으면 상태 글리프. **한 칸만 씁니다** —
-                    두 칸으로 나누면 어느 쪽이 순서인지가 더 헷갈립니다.
-
-                    ⚠️ 순번일 때는 **읽히는 글자**입니다 — `aria-hidden` 으로 덮어
-                    12.5px 하한을 피하지 마세요. 21px/11px 이던 것을 24px/12.5px 로
-                    올렸습니다 (ADR-032) */}
-                <span
-                  {...(order === null ? { "aria-hidden": true } : {})}
-                  data-numeric={order === null ? undefined : true}
-                  className={`grid size-[24px] shrink-0 place-items-center rounded-full border text-[12.5px] font-[700] ${mark.cls}`}
-                >
-                  {order === null ? mark.glyph : order}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block text-[14.5px] ${
-                      tone === "now" ? "font-[620] text-ink-1" : "text-ink-2"
-                    }`}
-                  >
-                    {label}
-                  </span>
-                  {artifact && (
-                    <span className="block text-[12.5px] text-ink-3">{artifact}</span>
-                  )}
-                </span>
-                <span
-                  data-numeric
-                  className={`shrink-0 text-[12.5px] ${
-                    tone === "done"
-                      ? "text-pii"
-                      : tone === "now"
-                        ? "font-[620] text-deadline-urgent"
-                        : "text-ink-3"
-                  }`}
-                >
-                  {tag}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
-          기한은 <b className="font-[620] text-ink-2">서버가 계산한 값</b>입니다. 화면이 날짜를
-          세지 않습니다. 완료는 체크가 아니라 <b className="font-[620] text-ink-2">부산물(◆)</b>이
-          판정합니다.
-        </p>
-      </section>
+      {/* ── 단계 목록 — `plan-viewer` 가 그립니다 ──────────
+          기한은 **서버가 준 값**만 넘깁니다. 잔여일(`days_left`)이 계약에 없어
+          D-day 는 여기서 만들지 않습니다 — docs/plans/08-22-layer-c-viewers.md Task 1 */}
+      <div style={step(2)} className="rise">
+        <PlanBoard
+          steps={FIXTURE_PLAN.steps}
+          hasDeadline={(id) => FIXTURE_DEADLINES.deadlines.some((d) => d.step_id === id)}
+          deadlineFor={(id) =>
+            FIXTURE_DEADLINES.deadlines.find((d) => d.step_id === id && d.kind === "primary")
+              ? "8월 20일까지"
+              : null
+          }
+          artifactFor={(id) =>
+            id === "m1" ? "◆ 통화 접수번호" : id === "m2" ? "◆ 사건접수번호" : null
+          }
+        />
+      </div>
 
       {/* ── 공고 대기 — 할 일이 없는 두 달에도 보드는 비지 않습니다 ──
           앰버를 쓰지 않습니다: 사용자 기한이 아니라 제도가 흐르는 시간입니다 */}
