@@ -72,7 +72,7 @@ HTTP 상태로 유추할 수도 없습니다 — `IngestError` 는 **재시도 �
 
 ```bash
 git add docs/plans/08-22-layer-c-viewers.md docs/plans/08-22-layer-c-transport.md docs/plans/README.md
-git commit -m "층 C 구현 계획 둘 — 보여주는 넷 · 서버와 이야기하는 넷"
+git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야기하는 넷"
 ```
 
 **이 커밋이 먼저여야 합니다.** 바로 아래 Step 1 이 `spec/` 에 **이 계획을 가리키는 링크**를
@@ -838,7 +838,7 @@ const looksReal = isCaseToken(token);
 | 헤더 칩 `사건 {CASE_TOKEN}` | `사건 {token.slice(0, 5)}…` — 26자를 다 쓰면 칩이 넘칩니다 |
 | `<DocGuide caseId={CASE_TOKEN} />` **두 곳**(본문·유령) | `<DocGuide caseToken={token} … />` — **prop 이름도 함께 바꿉니다**(`doc.tsx`). `caseId` 라는 이름에 링크 토큰을 담으면 [ADR-039](../../decisions/039-link-token.md) ② 「코드에서 섞지 마세요」 위반이 **이 계획의 지시로** 생깁니다 |
 
-> ⚠️ `<DocGuide>` 의 나머지 props 는 [보여주는 넷 계획](08-22-layer-c-viewers.md) Task 11 이
+> ⚠️ `<DocGuide>` 의 나머지 props 는 [보여주는 셋 계획](08-22-layer-c-viewers.md) Task 11 이
 > 함께 고칩니다. **같은 날 실행한다면 이 태스크를 먼저** 끝내세요 — `page.tsx` 는
 > 두 계획이 모두 만지는 유일한 파일입니다.
 
@@ -1376,11 +1376,11 @@ export type {
 
 `src/app/c/[token]/evidence.tsx` 에서:
 
-1. **`FILES`·`DOT`·`type Status` 셋을 함께 지웁니다.** ([보여주는 넷 계획](08-22-layer-c-viewers.md)
+1. **`FILES`·`DOT`·`type Status` 셋을 함께 지웁니다.** ([보여주는 셋 계획](08-22-layer-c-viewers.md)
    Task 8 이 이 셋을 남겨 뒀습니다 — `DOT` 의 유일한 사용처가 이 레일이라 거기서
    지우면 빌드가 깨지기 때문입니다.)
 2. 자료 레일 목록을 `<FileRail files={FIXTURE_EVIDENCE.files} selectedId={selected}
-   onSelect={setSelected} />` 로 바꿉니다 (픽스처는 보여주는 넷 계획 Task 1b).
+   onSelect={setSelected} />` 로 바꿉니다 (픽스처는 보여주는 셋 계획 Task 1b).
    **「＋ 올리기」 버튼과 「신분증은 올리지 마세요」 문구는 화면에 남습니다.**
 3. 전사 본문 쪽(`<TranscriptView>`)은 **건드리지 않습니다** — 앞 계획의 몫입니다.
 
@@ -1863,7 +1863,7 @@ git commit -m "chat-handler — 챗 스트림을 화면에서 모듈로 옮긴�
 
 **Interfaces:**
 - Consumes: `openCase` · `LinkHandoff` (Task 4·5) ·
-  `FIXTURE_CASE` ([보여주는 넷 계획](08-22-layer-c-viewers.md) Task 1b)
+  `FIXTURE_CASE` ([보여주는 셋 계획](08-22-layer-c-viewers.md) Task 1b)
 
 - [ ] **Step 1: 첫 화면을 규칙으로 정한다**
 
@@ -1913,7 +1913,7 @@ git commit -m "openCase·LinkHandoff 를 화면에 잇는다 — 첫 화면은 �
 ```
 
 > **여전히 미접속인 것 하나** — `deadline-viewer` 의 `DeadlineList`·`DeadlineBadge` 는
-> `days_left` 확정 전이라 세우지 않습니다. [보여주는 넷 계획](08-22-layer-c-viewers.md)의
+> `days_left` 확정 전이라 세우지 않습니다. [보여주는 셋 계획](08-22-layer-c-viewers.md)의
 > 「덮지 않는 것」 표가 그 자리를 지킵니다.
 
 ---
@@ -1922,7 +1922,7 @@ git commit -m "openCase·LinkHandoff 를 화면에 잇는다 — 첫 화면은 �
 
 | | 전 | 후 |
 | --- | --- | --- |
-| 층 C 구현 | 7 / 11 (보여주는 넷 뒤) | **11 / 11** |
+| 층 C 구현 | 7 / 11 (보여주는 셋 뒤) | **11 / 11** |
 | 이 넷의 시험 | 0 | 약 44개 |
 | 라우트가 서면 | 화면을 새로 짜야 함 | **배선을 잇는다** — 규칙은 시험까지 서 있고, 픽스처 자리를 `fetch` 로 바꾸면 됩니다. `PendingBubble` 의 진행 단계 연결(§S-06)과 발화·파일이 실제로 이 모듈들을 지나게 하는 일이 남습니다 |
 | 계약 구멍 | 재시도 여부가 브라우저에 안 옴 | 정본에 초안이 올라가 사람이 볼 수 있음 |
@@ -1930,6 +1930,6 @@ git commit -m "openCase·LinkHandoff 를 화면에 잇는다 — 첫 화면은 �
 **이 넷은 라우트가 없어도 완성됩니다.** 서버 응답을 가짜로 넣어 규칙을 전부
 검증했기 때문에, 라우트가 서는 날 붙이는 것은 `fetch` 한 줄씩입니다.
 
-**앞선 계획** — `plan-viewer` · `deadline-viewer` · `transcript-viewer` · `doc-filler` 는
-[층 C 보여주는 넷 계획](08-22-layer-c-viewers.md)에 있습니다. Task 7 이 그쪽 Task 8 을
+**앞선 계획** — `plan-viewer` · `deadline-viewer` · `transcript-viewer` 는
+[층 C 보여주는 셋 계획](08-22-layer-c-viewers.md)에 있습니다. Task 7 이 그쪽 Task 8 을
 선행으로 씁니다.

@@ -1,10 +1,14 @@
-# 층 C · 보여주는 넷 구현 계획
+# 층 C · 보여주는 셋 구현 계획
 
 > **에이전트에게:** 이 계획은 태스크 단위로 실행합니다. 각 단계가 `- [ ]` 로 되어 있으니
 > 하나씩 체크하며 나아가세요. 한 태스크가 끝날 때마다 커밋합니다.
 
-**목표:** `plan-viewer` · `deadline-viewer` · `transcript-viewer` · `doc-filler` 네 모듈을 만들어,
+**목표:** `plan-viewer` · `deadline-viewer` · `transcript-viewer` 세 모듈을 만들어,
 지금 화면 파일에 **상수로 박힌 표시 규칙**을 서버 응답 형태로 받는 순수 함수와 렌더로 옮긴다.
+
+> **`doc-filler` 는 2026-08-23 에 뺐습니다** — 값을 내려줄 경로도, 먹일 서식 정의도 없어
+> 막혀 있습니다. 이유와 다시 넣을 때의 주의는 [아래](#doc-filler-는-이-계획에서-뺐습니다--2026-08-23)에 있습니다.
+> 파일 이름은 그대로 둡니다 — 다른 문서가 이 주소로 가리키고 있습니다.
 
 **설계:** 각 모듈은 `types.ts`(계약) · 판정 `.ts`(순수 함수) · 렌더 `.tsx` · `index.ts`(공개 API)
 골격을 따릅니다 — [`src/modules/work-handler/`](../../src/modules/work-handler/) 가 선례입니다.
@@ -16,13 +20,12 @@
 **스펙:**
 [모듈 경계](../../spec/common/08-16-module-boundaries.md) ·
 [모듈 명칭](../../spec/common/08-16-module-names.md) 층 C ·
-[화면 설계](../../spec/frontend/08-14-screens.md) §S-07 §S-08 §S-10 ·
+[화면 설계](../../spec/frontend/08-14-screens.md) §S-07 §S-08 ·
 [기한 계산 규칙](../../spec/common/08-16-deadline-rules.md) ·
 [API 계약](../../spec/common/08-14-api.md) §3.3 §3.6 §3.7 ·
 [ADR-023](../../decisions/023-frontend-module-names.md) ·
 [ADR-034](../../decisions/034-browser-shows-plaintext.md) ·
-[ADR-037](../../decisions/037-doc-guidance-not-generation.md) ·
-[ADR-042](../../decisions/042-submit-paths.md)
+[ADR-035](../../decisions/035-screen-state-axes.md)
 
 ## 전역 제약
 
@@ -61,7 +64,7 @@
 
 ```bash
 git add docs/plans/08-22-layer-c-viewers.md docs/plans/08-22-layer-c-transport.md docs/plans/README.md
-git commit -m "층 C 구현 계획 둘 — 보여주는 넷 · 서버와 이야기하는 넷"
+git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야기하는 넷"
 ```
 
 **이 커밋이 먼저여야 합니다.** 바로 아래 Step 1 과 Task 9 가 `spec/` 에 **이 계획을
@@ -162,9 +165,12 @@ git commit -m "화면이 요구하는데 응답에 없는 값 셋을 정본에 �
 
 **Interfaces:**
 - Produces: `FIXTURE_PLAN` (§3.6 — 지금 `plan.tsx` 의 `STEPS` 여섯 줄) ·
-  `FIXTURE_DEADLINES` (§3.7 예시) · `FIXTURE_EVIDENCE` (§3.3 완료 응답) ·
-  `FIXTURE_MAPPINGS` (`RestorableMapping[]`) · `FIXTURE_DOC` (§3.12 모양 — 지금 `SECTIONS`) ·
+  `FIXTURE_DEADLINES` (§3.7 예시) · `FIXTURE_EVIDENCE` (§3.3 완료 응답 + 레일용 파일 목록) ·
+  `FIXTURE_MAPPINGS` (`RestorableMapping[]`) ·
   `FIXTURE_CASE` (§3.10 부분) · `FIXTURE_QUESTION` (§3.4 `next_question` — 지금 `CHOICES`)
+
+> **`doc.tsx` 의 `SECTIONS` 는 옮기지 않습니다.** `doc-filler` 가 이 계획에서 빠졌고,
+> 그 목업이 S-10 을 살아 있게 하는 유일한 것입니다 — 화면에 그대로 둡니다.
 
 - [ ] **Step 1: 픽스처 파일을 쓴다**
 
@@ -206,9 +212,9 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
 };
 ```
 
-나머지 여섯도 같은 방식으로 옮깁니다 — `FIXTURE_DEADLINES` 는 §3.7 예시 셋
+나머지 다섯도 같은 방식으로 옮깁니다 — `FIXTURE_DEADLINES` 는 §3.7 예시 셋
 (`primary`·`grace`·`info`)을 그대로, `FIXTURE_EVIDENCE` 는 §3.3 완료 응답
-(`transcript`·`pii_tokens`)을, `FIXTURE_DOC` 은 §3.12 모양으로 `SECTIONS` 를,
+(`transcript`·`pii_tokens`)에 지금 `FILES` 의 파일 목록을 더해서,
 `FIXTURE_QUESTION` 은 §3.4 `next_question` 으로 `CHOICES` 를 옮깁니다.
 
 > **`days_left` 를 픽스처에 넣지 마세요.** 아직 계약에 없는 칸입니다(Task 1) —
@@ -1550,668 +1556,37 @@ git commit -m "transcript-viewer — 전사 본문을 화면에서 모듈로 옮
 
 ---
 
-## Task 9: doc-filler — 입력 계약 초안을 정본에 올린다
+## `doc-filler` 는 이 계획에서 뺐습니다 — 2026-08-23
 
-> ⚠️ **2026-08-22 갱신 — 이 태스크는 다시 봐야 합니다.**
-> 계획을 쓴 뒤 `main` 에 **`doc-builder`(층 3)가 구현돼 들어왔습니다**
-> (`src/modules/doc-builder/`). 그 모듈이 이미 `DocGuide` · `GuideSection` · `GuideField` ·
-> `FieldState` 타입을 내놓고 있으므로, **§3.12 초안을 새로 지어내지 말고
-> `src/modules/doc-builder/types.ts` 의 산출 모양을 그대로 계약으로 올리세요.**
-> 아래 초안은 그 모듈이 없던 시점에 화면이 요구하는 것에서 뽑은 것이라 **대조가 필요합니다.**
+**막혀 있어서입니다.** 원래 Task 9·10·11 이 이 자리에 있었고, 초안까지 써 뒀다가
+재료를 다시 재고 걷어냈습니다. 걷어낸 이유가 둘, 뺀 김에 정리된 것이 하나입니다.
 
-**아직 정해지지 않은 것은 「그 값을 어느 경로로 내려주나」입니다.** `doc-builder` 는 서 있지만
-「기재 항목과 값」을 내려주는 엔드포인트가 [API 계약](../../spec/common/08-14-api.md) §2 에
-없습니다. **초안을 올리고 사람이 확정합니다.**
-
-**확정 전에 만들지 않는 것은 서버 쪽**(`doc-builder`·라우트)입니다 — 브라우저 쪽(Task 10·11)은
-이 초안 모양대로 진행하되, 계약 타입을 §3.12 그대로 두어 **초안이 바뀌면 `types.ts` 한 곳만
-고치면 되게** 합니다. 사람이 「초안 기준 선구현도 안 된다」고 정하면 Task 10 앞에서 멈춥니다.
-
-**Files:**
-- Modify: `spec/common/08-14-api.md` — §2 엔드포인트 표에 한 줄, §3.12 신설
-- Modify: `docs/plans/08-20-api-routes.md` — 미결 표에 한 줄
-
-**Interfaces:**
-- Produces: `GET /api/cases/{case_token}/doc` 응답 계약(초안). Task 10 이 이 모양을 씁니다.
-
-- [ ] **Step 1: 엔드포인트 표에 한 줄을 더한다**
-
-`spec/common/08-14-api.md` §2 표의 `POST …/vault` 아래:
-
-```markdown
-| `GET` | `/api/cases/{case_token}/doc` | **서류 기재 안내** (`F-08`). 계약은 **§3.12** — ⬜ 초안 |
-```
-
-- [ ] **Step 2: §3.12 를 초안으로 쓴다**
-
-§3.11 뒤에 붙입니다. **값은 토큰으로 내려옵니다** — 서버는 원문을 갖고 있지 않습니다.
-
-````markdown
-### 3.12 `GET /api/cases/{case_token}/doc` — 서류 기재 안내 (`F-08`)
-
-> ⬜ **초안입니다. 사람이 확정해야 합니다** →
-> [층 C 보여주는 넷 계획](../../docs/plans/08-22-layer-c-viewers.md) Task 9.
->
-> 모양은 **이미 서 있는 화면**(`src/app/c/[token]/doc.tsx`)이 요구하는 것에서 뽑았습니다.
-> 화면이 먼저 있고 계약이 없던 자리라, 화면을 계약에 맞추는 것이 아니라
-> **화면이 실제로 필요로 하는 것**을 적었습니다.
-
-**서류를 조판해 내려주지 않습니다** → [ADR-037](../../decisions/037-doc-guidance-not-generation.md).
-항목과 값을 짝지어 줄 뿐이고, 조판은 하지 않습니다.
-
-```jsonc
-// 응답 200
-{
-  "form_id": "relief-application-form1",
-  "form_name": "피해구제신청서 (별지 제1호서식)",
-  "citation": {
-    "kb_entry_id": "relief-application",
-    "kb_version": "2026.08.1",
-    "legal_basis": "통신사기피해환급법 시행령 제3조",
-    "source_url": "https://www.law.go.kr/...",
-    "effective_from": "2026-07-01"
-  },
-
-  // 배열 순서가 곧 권장 순서입니다. 화면이 정렬하지 않습니다 → ADR-042
-  // 비어 있으면 화면이 카드를 **아예 그리지 않습니다** — 「모른다」를 「없다」로 그리지 않습니다
-  "submit": [
-    { "how": "branch", "text": "국민은행 영업점 창구", "url": "https://..." }
-  ],
-
-  // 구획 순서는 **서식 실물 그대로**입니다. 채우는 순서가 아닙니다
-  "sections": [
-    {
-      "section_id": "victim",
-      "name": "피해자",
-      "fields": [
-        { "field_id": "v-name",  "label": "성명",
-          "state": "confirmed", "value": "[이름-3]" },
-        { "field_id": "v-birth", "label": "생년월일",
-          "state": "unknown",
-          "note": "직접 적으셔야 합니다 — 주민등록번호가 아닙니다" },
-        { "field_id": "v-amount", "label": "금액",
-          "state": "confirmed", "value": "3000000" }
-      ]
-    }
-  ]
-}
-```
-
-| 칸 | 뜻 |
+| 무엇 | 상태 |
 | --- | --- |
-| `label` | **서식 칸 이름 그대로.** 서버가 다듬지 않습니다 — 사용자가 실물과 대조합니다 |
-| `state` | `confirmed`(확인됨) · `unread`(읽은 값, 확인 필요) · `unknown`(직접 적음) · `staff`(신청인이 적지 않는 란) |
-| `value` | **토큰 또는 원문.** 개인정보는 토큰(`[이름-3]`), [토큰화 제외 목록](08-14-pii-boundary.md)에 있는 금액·기관명·시각은 원문 |
-| `note` | 그 칸을 어떻게 채우는지. `unknown` 일 때 필수 |
+| **서버가 값을 내려줄 경로** | 없습니다. [API 계약](../../spec/common/08-14-api.md) §2 의 엔드포인트 목록에 서류 기재 안내가 없습니다 |
+| **먹일 서식 정의** | KB 에 없습니다. `src/modules/doc-builder/types.ts` 가 직접 말합니다 — *"아직 KB 에 없습니다 — `src/kb/common.json` 에 절차 넷만"*. 그 넷도 **시행일이 전부 `TODO(근거 필요)`** 라 적재가 거부됩니다 (국가법령정보 `OC` 키 승인 대기 — **외부 의존**) |
+| ~~입력 계약을 지어내야 함~~ | **해소됐습니다.** `doc-builder`(층 3)가 구현돼 들어오면서 `DocGuide` · `GuideSection { id, name, fields, filled, toWrite }` · `GuideField { id, label, state, valueMasked?, hint? }` 를 이미 내놓습니다 |
 
-**`value` 가 토큰인 것이 정상입니다.** 서버는 원문을 갖고 있지 않고,
-**브라우저의 `doc-filler` 가 볼트 매핑으로 펼칩니다**
-→ [ADR-009](../../decisions/009-restore-mapping-location.md) · [ADR-034](../../decisions/034-browser-shows-plaintext.md).
+### 다시 넣을 때 — 지어내지 마세요
 
-**`state: "unknown"` 을 결함으로 세지 않습니다.** 환급받을 계좌는 **원래 알 수 없는 값**입니다.
-화면은 「저희가 채운 값 0」이 아니라 「전부 직접 적습니다」로 말합니다 → §S-10.
+**입력은 `doc-builder` 의 `DocGuide` 그대로입니다.** 제가 §3.12 초안으로 쓰려던
+`field_id`·`value`·`note` 같은 이름을 새로 만들지 말고, `src/modules/doc-builder/types.ts` 를
+그대로 계약으로 올리세요.
 
-> ⬜ **미결 — 서식 1차 대조.** 별지 제1호서식은 **2차 출처로 확보됐습니다**
-> (2026-08-20 · [research/01](../../docs/research/01-환급절차-기한.md) §5 에 칸 이름 전문 · `U-17`).
-> **남은 것은 법제처 1차 대조**입니다 — 시행일 표기가 없어 어느 개정본인지 확인되지
-> 않았습니다(법령 API `OC` 키 승인 대기). 대조가 끝나면 KB 항목으로 등재하고
-> `label` 을 그 칸 이름 그대로 부릅니다. **런타임에 모델이 서식을 읽어 안내하는 구조를
-> 만들지 마세요** → 불변 규칙 1.
-````
+**`summarize()` 를 만들지 마세요.** 「몇 칸을 직접 적어야 하나」는 `doc-builder` 가
+`filled`·`toWrite` 로 이미 세고 있습니다. 브라우저가 다시 세면 두 곳이 어긋납니다.
 
-> ⚠️ **`spec/frontend/08-14-screens.md` §S-10 은 아직 「원본이 미확인(`U-17`)」이라고 말합니다** —
-> 2026-08-20 확보 이후 갱신되지 않은 낡은 서술입니다. **이 계획이 임의로 고치지 않습니다**
-> (`CLAUDE.md` 「어긋난 걸 발견하면 임의로 맞추지 말고 사람에게 알리세요」).
-> 갱신 여부를 사람에게 확인하세요.
+`doc-filler` 가 실제로 할 일은 **하나만** 남습니다 — `valueMasked` 를 `key-handler` 의
+매핑으로 **원문으로 되돌리는 것**(`restore`, `site: "doc-field"`), 그리고 복사.
+열쇠가 없으면 칩 그대로이고 **그 상태가 정상입니다**(타입 주석이 그렇게 적혀 있습니다).
 
-- [ ] **Step 3: 착수 문서의 미결 표에 한 줄을 더한다**
+**화면은 이미 서 있습니다** — `src/app/c/[token]/doc.tsx` 가 구획·복사·`unread` 앰버 표시·
+클립보드 거부 폴백(`docval-…` 앵커)까지 갖고 있습니다. **새로 그리지 말고 옮기세요.**
 
-`docs/plans/08-20-api-routes.md` 「정본에 없어 채워야 하는 것」 표에:
+### 그때까지 화면은 그대로 둡니다
 
-```markdown
-| **서류 기재 안내 경로** | §3.12 초안을 올렸습니다. `doc-builder`(층 3) 미구현 — 확정 필요 |
-```
-
-- [ ] **Step 4: 검사기를 돌린다**
-
-```bash
-python .github/scripts/doc-integrity.py
-```
-
-기대: `OK`
-
-- [ ] **Step 5: 커밋**
-
-```bash
-git add spec/common/08-14-api.md docs/plans/08-20-api-routes.md
-git commit -m "서류 기재 안내 §3.12 초안 — 화면이 요구하는 것에서 뽑았다 (ADR-037)"
-```
-
----
-
-## Task 10: doc-filler — 값을 브라우저에서 펼친다
-
-**Files:**
-- Create: `src/modules/doc-filler/types.ts`
-- Create: `src/modules/doc-filler/fill.ts`
-- Create: `src/modules/doc-filler/fill.test.ts`
-
-**Interfaces:**
-- Consumes: §3.12 응답(Task 9) · `restore` from `@/modules/pii-restorer`
-- Produces: `fillSections(sections, mappings): FilledSection[]` · `summarize(sections): FillSummary`
-  · 타입 `DocField` · `FilledField` · `FieldState`
-
-- [ ] **Step 1: 계약 타입을 쓴다**
-
-`src/modules/doc-filler/types.ts`:
-
-```ts
-/**
- * doc-filler — 기재 안내에 뜨는 값을 브라우저에서 원문으로 복원한다 (층 C · 브라우저)
- *
- * 계약: spec/common/08-14-api.md §3.12 (⬜ 초안) · spec/frontend/08-14-screens.md §S-10
- * 근거: ADR-037(서류를 만들지 않는다) · ADR-009(매핑은 브라우저) · ADR-042(제출 경로 둘)
- *
- * 절대 하지 않는 것 — spec/common/08-16-module-boundaries.md
- *  · **서버가 만든 완성 문서를 그대로 받기** (F-08 위반)
- */
-
-/** §3.12 `fields[].state` */
-export type FieldState = "confirmed" | "unread" | "unknown" | "staff";
-
-/** 서버가 준 것. `value` 는 토큰일 수 있습니다 */
-export interface DocField {
-  field_id: string;
-  /** 서식 칸 이름 **그대로**. 다듬지 마세요 */
-  label: string;
-  state: FieldState | string;
-  value?: string;
-  note?: string;
-}
-
-export interface DocSection {
-  section_id: string;
-  name: string;
-  fields: readonly DocField[];
-}
-
-/** 펼친 뒤. **`raw` 는 복사되는 원문이라 끊지 않습니다** */
-export interface FilledField extends DocField {
-  /** 복사 대상. 복원 실패 시 `undefined` */
-  raw?: string;
-  /**
-   * 읽기 좋게 끊은 표시용 값 — 「352-0912-3456-73」. 없으면 `raw` 를 그대로 보입니다.
-   *
-   * ⬜ **§3.12 에 주인이 없습니다** — 서버가 끊어 주는지, 화면이 끊는지 미정입니다.
-   * Task 9 의 초안 표에 `display` 행을 ⬜ 로 함께 올리세요.
-   */
-  display?: string;
-  /** 다른 기기에서 보이는 칩. 「이름·3」 — **대괄호 토큰을 그대로 보이지 않습니다** */
-  masked?: string;
-  /** 이 칸을 펼치지 못했나. **에러가 아닙니다** */
-  unresolved: boolean;
-}
-
-export interface FilledSection {
-  section_id: string;
-  name: string;
-  fields: readonly FilledField[];
-}
-
-/** 「전부 직접 적습니다」를 말하기 위한 셈 */
-export interface FillSummary {
-  total: number;
-  /** 사용자가 직접 적어야 하는 칸 */
-  byHand: number;
-  /** **`0` 을 드러내지 않습니다** — 아래 README */
-  filled: number;
-}
-```
-
-- [ ] **Step 2: 실패하는 시험을 쓴다**
-
-`src/modules/doc-filler/fill.test.ts`:
-
-```ts
-import { describe, expect, it } from "vitest";
-import { fillSections, summarize } from "./fill";
-import type { DocSection } from "./types";
-
-const sections: DocSection[] = [
-  {
-    section_id: "victim",
-    name: "피해자",
-    fields: [
-      { field_id: "v-name", label: "성명", state: "confirmed", value: "[이름-3]" },
-      {
-        field_id: "v-birth",
-        label: "생년월일",
-        state: "unknown",
-        note: "직접 적으셔야 합니다 — 주민등록번호가 아닙니다",
-      },
-      { field_id: "v-amount", label: "금액", state: "confirmed", value: "3000000" },
-    ],
-  },
-];
-
-const mapping = [{ token: "[이름-3]", original: "이영희" }];
-
-describe("값을 브라우저에서 펼친다", () => {
-  it("토큰을 원문으로 되돌린다", () => {
-    const got = fillSections(sections, mapping);
-    expect(got[0].fields[0].raw).toBe("이영희");
-    expect(got[0].fields[0].unresolved).toBe(false);
-  });
-
-  it("금액은 원래 토큰이 아니다 — 그대로 둔다", () => {
-    const got = fillSections(sections, mapping);
-    expect(got[0].fields[2].raw).toBe("3000000");
-  });
-
-  it("직접 적는 칸에는 값이 없다 — 결함이 아니다", () => {
-    const got = fillSections(sections, mapping);
-    expect(got[0].fields[1].raw).toBeUndefined();
-    expect(got[0].fields[1].unresolved).toBe(false);
-  });
-
-  it("펼치지 못하면 칩만 남기고 던지지 않는다 — 다른 기기다", () => {
-    const got = fillSections(sections, []);
-    expect(got[0].fields[0].unresolved).toBe(true);
-    expect(got[0].fields[0].raw).toBeUndefined();
-    // 대괄호 토큰을 그대로 보이지 않습니다 — 칩은 「이름·3」
-    expect(got[0].fields[0].masked).toBe("이름·3");
-  });
-
-  it("구획 순서를 바꾸지 않는다 — 서식 실물과 대조하는 순서다", () => {
-    const got = fillSections(sections, mapping);
-    expect(got.map((s) => s.section_id)).toEqual(["victim"]);
-    expect(got[0].fields.map((f) => f.field_id)).toEqual([
-      "v-name",
-      "v-birth",
-      "v-amount",
-    ]);
-  });
-});
-
-describe("모름을 실패로 세지 않는다", () => {
-  it("직접 적는 칸 수를 센다", () => {
-    expect(summarize(sections)).toEqual({ total: 3, byHand: 1, filled: 2 });
-  });
-
-  it("전부 직접 적는 구획도 셈이 된다", () => {
-    const refund: DocSection[] = [
-      {
-        section_id: "refund",
-        name: "피해환급금 입금계좌",
-        fields: [
-          { field_id: "r-bank", label: "금융회사", state: "unknown", note: "적으세요" },
-        ],
-      },
-    ];
-    expect(summarize(refund)).toEqual({ total: 1, byHand: 1, filled: 0 });
-  });
-});
-```
-
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
-
-```bash
-cd src && npx vitest run modules/doc-filler
-```
-
-기대: FAIL — `Cannot find module './fill'`
-
-- [ ] **Step 4: 최소 구현을 쓴다**
-
-`src/modules/doc-filler/fill.ts`:
-
-```ts
-import { parseToken, restore } from "@/modules/pii-restorer";
-import type { RestorableMapping } from "@/modules/pii-restorer";
-import type {
-  DocSection,
-  FillSummary,
-  FilledField,
-  FilledSection,
-} from "./types";
-
-/** `[이름-3]` 처럼 생겼는가 */
-const looksLikeToken = (value: string) => /^\[[^\]]+\]$/.test(value.trim());
-
-/**
- * 값을 브라우저에서 펼칩니다.
- *
- * **`site: "doc-field"` 는 전체 복원입니다** — 주민번호가 실제로 필요한 자리이고,
- * 부분 복원이면 서류에 옮겨 적을 수 없습니다 → pii-restorer/types.ts.
- *
- * **구획과 칸의 순서를 바꾸지 않습니다.** 서식 실물과 1:1 로 대조하는 순서입니다.
- */
-export function fillSections(
-  sections: readonly DocSection[],
-  mappings: readonly RestorableMapping[],
-): FilledSection[] {
-  const pool = [...mappings];
-
-  return sections.map((section) => ({
-    section_id: section.section_id,
-    name: section.name,
-    fields: section.fields.map((field): FilledField => {
-      if (field.value == null || field.value === "") {
-        // 직접 적는 칸입니다. **결함이 아닙니다**
-        return { ...field, unresolved: false };
-      }
-
-      const opened = restore(field.value, pool, { site: "doc-field" });
-
-      // 토큰이 그대로 남았다면 이 기기에 열쇠가 없는 것입니다
-      if (looksLikeToken(field.value) && opened === field.value) {
-        const parsed = parseToken(field.value.trim());
-        return {
-          ...field,
-          // 칩은 「이름·3」 — 대괄호 토큰 표기를 사용자에게 그대로 보이지 않습니다 (시안)
-          masked: parsed ? `${parsed.kind}·${parsed.seq}` : field.value,
-          unresolved: true,
-        };
-      }
-
-      return { ...field, raw: opened, unresolved: false };
-    }),
-  }));
-}
-
-/**
- * 몇 칸을 직접 적어야 하나.
- *
- * **`filled` 를 화면에 `0` 으로 드러내지 마세요** → 화면 설계 §S-10.
- * 환급받을 계좌는 원래 알 수 없는 값이라, `0` 이 뜨면 우리가 실패한 것처럼 읽힙니다.
- * 「전부 직접 적습니다」처럼 **사용자가 할 일**로 바꿔 말합니다.
- */
-export function summarize(sections: readonly DocSection[]): FillSummary {
-  let total = 0;
-  let byHand = 0;
-
-  for (const section of sections) {
-    for (const field of section.fields) {
-      if (field.state === "staff") continue; // 신청인이 적지 않는 란
-      total += 1;
-      if (field.state === "unknown") byHand += 1;
-    }
-  }
-
-  return { total, byHand, filled: total - byHand };
-}
-```
-
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
-
-```bash
-cd src && npx vitest run modules/doc-filler
-```
-
-기대: PASS — 7 passed
-
-- [ ] **Step 6: 커밋**
-
-```bash
-git add src/modules/doc-filler/
-git commit -m "doc-filler — 값을 브라우저에서 펼친다. 못 펼쳐도 칩으로 남긴다 (§3.12 초안)"
-```
-
----
-
-## Task 11: doc-filler — 화면을 모듈로 옮긴다
-
-**Files:**
-- Create: `src/modules/doc-filler/guide.tsx`
-- Create: `src/modules/doc-filler/index.ts`
-- Create: `src/modules/doc-filler/README.md`
-- Modify: `src/app/c/[token]/doc.tsx` — `SECTIONS` 상수를 지우고 props 로 받습니다
-- Modify: `src/app/c/[token]/page.tsx` — `<DocGuide>` 호출부 **두 곳**(본문·유령 렌더)
-
-**Interfaces:**
-- Consumes: `fillSections` · `summarize` (Task 10)
-- Produces: `FieldRow` (props `{ field, onCopy }`) · `SubmitCard` (props `{ paths }`)
-
-- [ ] **Step 1: 제출 경로 카드를 옮긴다**
-
-`src/modules/doc-filler/guide.tsx`. **화면이 정렬하지 않고, 비면 아예 그리지 않습니다.**
-
-```tsx
-"use client";
-
-import type { FilledField } from "./types";
-
-/** §3.12 `submit[]` — 배열 순서가 곧 권장 순서입니다 (ADR-042) */
-export interface SubmitPath {
-  how: "branch" | "app" | string;
-  text: string;
-  url?: string;
-}
-
-export function SubmitCard({ paths }: { paths: readonly SubmitPath[] }) {
-  // **비어 있으면 카드를 아예 그리지 않습니다** — 「모른다」를 「없다」로 그리지 않습니다
-  if (paths.length === 0) return null;
-
-  // 하나뿐이면 「먼저」를 붙이지 않습니다 — 다른 길이 있는 것처럼 읽힙니다
-  const prefix = (i: number) => (paths.length === 1 ? "" : i === 0 ? "먼저 " : "안 되면 ");
-
-  return (
-    <section className="rounded-[13px] border border-hairline bg-surface-low p-4">
-      <h3 className="text-[15px] font-[620] text-ink-1">어디에 내나요</h3>
-      <ul className="mt-2 flex flex-col gap-1.5">
-        {paths.map((p, i) => (
-          <li key={`${p.how}-${i}`} className="text-[14px] leading-[1.6] text-ink-2">
-            {prefix(i)}
-            {p.text}
-            {p.url && (
-              <a
-                href={p.url}
-                target="_blank"
-                rel="noreferrer"
-                className="ml-2 text-pii underline underline-offset-[3px]"
-              >
-                찾기
-              </a>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-```
-
-- [ ] **Step 2: 칸 한 줄을 옮긴다**
-
-같은 파일에 더합니다. **복사가 이 화면의 핵심 동작입니다** — 계좌번호를 손으로 옮겨
-적다 틀리는 것이 실제 사고 원인입니다.
-
-```tsx
-/** 화면(`doc.tsx`)이 관리하는 복사 상태 — **모듈은 저장하지 않습니다** */
-export type CopyState = "idle" | "copied" | "flash" | "failed";
-
-export function FieldRow({
-  field,
-  copyState = "idle",
-  onCopy,
-}: {
-  field: FilledField;
-  copyState?: CopyState;
-  onCopy?: (field: FilledField) => void;
-}) {
-  const shown = field.display ?? field.raw;
-  return (
-    <li className="grid grid-cols-[minmax(0,140px)_1fr_auto] items-center gap-3 border-b border-[oklch(0.305_0.013_267.1/40%)] py-[11px] last:border-b-0">
-      <span className="text-[13px] leading-[1.45] text-ink-3">{field.label}</span>
-
-      <span className="min-w-0">
-        {shown !== undefined ? (
-          <>
-            {/* 복사가 거부되면 화면이 이 앵커로 값을 골라 줍니다 — 지우면 폴백이 죽습니다 */}
-            <span
-              id={`docval-${field.field_id}`}
-              data-numeric
-              className="text-[15px] font-[600] leading-[1.45] text-ink-1 selection:bg-[oklch(0.697_0.16_258.2/35%)]"
-            >
-              {shown}
-            </span>
-            {/* 색만으로 가르지 않습니다 — 앰버 + `!` + 글자 (§3.12 `unread`) */}
-            {field.state === "unread" && (
-              <span className="mt-0.5 flex items-center gap-1.5 text-[12.5px] leading-[1.5] text-deadline-urgent">
-                <span
-                  aria-hidden
-                  className="grid size-[14px] shrink-0 place-items-center rounded-full border border-[oklch(0.77_0.117_70.9/50%)] bg-[oklch(0.77_0.117_70.9/20%)] text-[10px] font-bold"
-                >
-                  !
-                </span>
-                {field.note ?? "읽은 값 — 확인해 주세요"}
-              </span>
-            )}
-            {copyState === "failed" && (
-              <span className="mt-0.5 block text-[12.5px] leading-[1.5] text-ink-2">
-                이 브라우저가 복사를 막았습니다.{" "}
-                <b className="font-[620] text-ink-1">값을 골라 뒀으니</b> 그대로 옮겨 주세요.
-              </span>
-            )}
-          </>
-        ) : field.unresolved ? (
-          <span className="inline-flex items-center rounded-[6px] border border-[oklch(0.697_0.16_258.2/40%)] bg-pii-bg px-2 text-[13px] text-pii">
-            {field.masked}
-          </span>
-        ) : (
-          <span className="justify-self-start border-b border-dashed border-[oklch(0.305_0.013_267.1/70%)] pb-0.5 text-[13.5px] text-ink-3">
-            {field.note}
-          </span>
-        )}
-      </span>
-
-      {field.raw !== undefined && onCopy ? (
-        <button
-          type="button"
-          onClick={() => onCopy(field)}
-          className={`inline-flex min-h-[var(--size-touch)] shrink-0 items-center rounded-[9px] border px-3.5 text-[13px] transition-colors duration-200 ${
-            copyState === "copied" || copyState === "flash"
-              ? "border-[oklch(0.697_0.16_258.2/45%)] bg-[oklch(0.697_0.16_258.2/14%)] font-[620] text-pii"
-              : "border-hairline bg-chip text-ink-2 hover:border-[oklch(1_0_0/25%)]"
-          }`}
-        >
-          {copyState === "failed"
-            ? "직접 복사"
-            : copyState === "flash"
-              ? "복사됨 ✓"
-              : copyState === "copied"
-                ? "✓ 복사됨"
-                : "복사"}
-        </button>
-      ) : field.unresolved ? (
-        <span className="text-[12.5px] text-ink-4">이 기기에선 복사 안 됨</span>
-      ) : (
-        <span />
-      )}
-    </li>
-  );
-}
-```
-
-> **`id="docval-…"` 앵커를 지우지 마세요.** 지금 화면은 클립보드가 거부될 때 그 앵커로
-> 값을 선택해 줍니다(`doc.tsx` 의 `selectValue`). 앵커가 없으면 **폴백이 조용히 죽어**
-> 사용자는 아무 일도 안 일어난 화면을 봅니다.
-
-- [ ] **Step 3: 공개 API 와 README 를 쓴다**
-
-`src/modules/doc-filler/index.ts`:
-
-```ts
-/**
- * doc-filler — 기재 안내에 뜨는 값을 브라우저에서 원문으로 복원한다 (층 C · 브라우저)
- *
- * 정본: spec/common/08-16-module-names.md 층 C
- * 근거: ADR-023(층 C) · ADR-037(서류를 만들지 않는다) · ADR-009(매핑은 브라우저)
- */
-
-import "client-only";
-
-export { fillSections, summarize } from "./fill";
-export { FieldRow, SubmitCard } from "./guide";
-export type { CopyState, SubmitPath } from "./guide";
-export type {
-  DocField,
-  DocSection,
-  FieldState,
-  FillSummary,
-  FilledField,
-  FilledSection,
-} from "./types";
-```
-
-`src/modules/doc-filler/README.md`:
-
-```markdown
-# doc-filler
-
-기재 안내에 뜨는 값을 **브라우저에서** 원문으로 복원합니다. **층 C** 입니다.
-
-| | |
-| --- | --- |
-| 받는 것 | 초안 + 복원 매핑 (`GET …/doc` §3.12 — ⬜ 초안) |
-| 내놓는 것 | 완성 문서 |
-| 절대 하지 않는 것 | **서버가 만든 완성 문서를 그대로 받기** (F-08 위반) |
-
-## 서류를 만들어 주지 않습니다
-
-무엇을 어느 칸에 적는지 값과 함께 보여줄 뿐입니다 → [ADR-037](../../../decisions/037-doc-guidance-not-generation.md).
-별지 제1호서식은 **2차 출처로 확보됐고 1차 대조가 남았습니다**(`U-17`).
-**틀린 서류는 반려 → 3영업일 상실**입니다.
-
-## `0` 을 드러내지 마세요
-
-`summarize().filled` 가 `0` 인 구획이 있습니다 — 환급받을 계좌는 **원래 알 수 없는 값**입니다.
-그 자리에 `0` 이 뜨면 우리가 실패한 것처럼 읽힙니다. **「전부 직접 적습니다」** 처럼
-사용자가 할 일로 바꿔 말하세요 → 불변 규칙 5 의 화면판.
-
-## 순서를 바꾸지 마세요
-
-구획 순서는 **서식 실물 그대로**입니다. 사용자가 실물과 1:1 로 대조하라고 그렇게 둔 것이지
-「이 순서로 하세요」가 아닙니다. **구획에 번호를 매기지 마세요.**
-```
-
-- [ ] **Step 4: 화면을 모듈로 갈아 끼운다**
-
-`src/app/c/[token]/doc.tsx` 에서 `SECTIONS`·`type Field`·`type Section`·`type SubmitPath`
-를 지우고, `DocGuide` 가 `sections`·`submit` 을 props 로 받게 고칩니다. **복사 상태 관리
-(`copiedMem`·`readCopied`·`writeCopied`)는 화면에 그대로 둡니다** — 그건 이 화면의 UI
-상태이지 모듈의 일이 아닙니다. 그 상태를 `FieldRow` 의 `copyState` 로 넘깁니다.
-
-**그리고 `src/app/c/[token]/page.tsx` 의 `<DocGuide caseId={…} />` 두 곳**(본문과 유령 렌더)을
-`<DocGuide sections={FIXTURE_DOC.sections} submit={FIXTURE_DOC.submit} />` 로 바꿉니다
-(픽스처는 Task 1b). 안 고치면 지운 상수의 기본값이 사라져 **빌드가 깨집니다.**
-
-> ⚠️ **`page.tsx` 는 [서버와 이야기하는 넷 계획](08-22-layer-c-transport.md) Task 5 도 고칩니다** —
-> 두 계획이 같은 파일을 만지는 유일한 자리입니다. 같은 날 함께 실행한다면
-> **그쪽 Task 5 를 먼저** 끝내고 이 태스크를 하세요.
-
-머리말 문장은 §S-10 이 정한 그대로 유지합니다:
-
-```
-칸 순서는 서식에 적힌 그대로라 실물과 나란히 대조하실 수 있습니다.
-채우는 순서는 없습니다 — 아는 것부터 하셔도 됩니다.
-```
-
-- [ ] **Step 5: 빌드와 시험이 통과하는지 확인한다**
-
-```bash
-cd src && npx vitest run && npm run build
-```
-
-기대: 시험 전부 통과 · 빌드 exit 0
-
-- [ ] **Step 6: 검사기와 커밋**
-
-```bash
-python .github/scripts/doc-integrity.py
-git add src/modules/doc-filler/ "src/app/c/[token]/doc.tsx"
-git commit -m "doc-filler — 기재 안내를 화면에서 모듈로 옮긴다 (S-10)"
-```
+`doc.tsx` 의 `SECTIONS` 상수를 지우지 않습니다. 서버가 값을 내려주기 전까지
+그 목업이 S-10 을 살아 있게 하는 유일한 것입니다.
 
 ---
 
@@ -2219,30 +1594,37 @@ git commit -m "doc-filler — 기재 안내를 화면에서 모듈로 옮긴다 
 
 | | 전 | 후 |
 | --- | --- | --- |
-| 층 C 구현 | 3 / 11 | **7 / 11** |
-| 이 넷의 시험 | 0 | 약 35개 |
+| 층 C 구현 | 3 / 11 | **6 / 11** |
+| 이 셋의 시험 | 0 | 약 28개 |
 | 화면의 표시 규칙 | `*.tsx` 안 상수 | 모듈의 순수 함수 — 서버 응답이 오면 그대로 이어집니다 |
 | 계약 구멍 | 넷이 조용히 있었음 | 정본에 올라가 사람이 볼 수 있음 |
 
 **남는 것 넷** — `case-opener` · `poll-checker` · `file-sender` · `chat-handler` 는
 [층 C 서버와 이야기하는 넷 계획](08-22-layer-c-transport.md)에 있습니다.
+**`doc-filler` 하나**는 [위](#doc-filler-는-이-계획에서-뺐습니다--2026-08-23)에 적은 대로 막혀 있습니다.
 
-## 이 계획이 덮지 않는 것 — 여섯
+## 이 계획이 덮지 않는 것 — 다섯
 
 **스펙에 있는데 여기 태스크가 없는 자리입니다.** 빠뜨린 것이 아니라 **재료가 없어서**이고,
 지어내지 않기로 한 것들입니다. **이 표가 그 전수 목록입니다** — 여기 없는데 태스크도 없으면
-그건 누락입니다.
+그건 누락입니다. (`doc-filler` 는 [위](#doc-filler-는-이-계획에서-뺐습니다--2026-08-23)에 따로 적었습니다.)
+
+> **공고 대기 카드는 이 표에서 뺐습니다 (2026-08-23).** 처음에 「시안도 없다」고 적었는데
+> **틀렸습니다** — 핸드오프의 README 만 뒤진 탓이었고, 시안 본문에 「공고 대기 국면 —
+> 보드는 비지 않습니다 (**WS-wait** + 통지 해독이 그 자리의 일)」이 있습니다.
+> 그리고 `WS-wait` 패널은 **`work-handler` 에 이미 구현돼 있습니다**(「`WS-wait` 에 앰버를
+> 쓰지 않습니다」 규칙까지). 서버가 `body.action: "wait"` 단계를 내려주면
+> `panelForStep` 이 그 패널을 고릅니다 — **이 계획이 할 일이 없습니다.**
 
 | 무엇 | 스펙 | 왜 못 하나 |
 | --- | --- | --- |
 | **히어로 스트립의 D-day 박스** | §S-07 「첫 줄이 답입니다」 | `days_left` 가 응답에 없습니다(Task 1). 지금 화면의 목업은 그대로 두고, 그 값이 확정되면 `deadline-viewer` 의 `DeadlineBadge` 를 그 자리에 끼웁니다 |
-| **공고 대기 카드** | §S-07 「앰버를 쓰지 않습니다」 | 채권소멸 공고 구간인지 판정할 값이 `GET /plan` 에 없습니다. 「그 자리의 일은 통지 해독」이라는 규칙만 있고 **무엇을 보고 그 국면임을 아는지**가 정해지지 않았습니다. **시안도 없습니다** |
-| **사건 진행 레일 (타임라인)** | [모듈 명칭](../../spec/common/08-16-module-names.md) `plan-viewer` 「**타임라인**·단계·상태 배지」 | 지금 어느 국면인지 판정할 값이 §3.6 에 없습니다 — 공고 대기 카드와 **같은 구멍**입니다. 레일 목업(`RAIL`)은 화면에 그대로 둡니다 |
+| **사건 진행 레일 (타임라인)** | [모듈 명칭](../../spec/common/08-16-module-names.md) `plan-viewer` 「**타임라인**·단계·상태 배지」 | 지금 어느 국면인지 판정할 값이 §3.6 에 없습니다. 레일 목업(`RAIL`)은 화면에 그대로 둡니다 |
 | **대응 경과 타이머** | [기한 규칙](../../spec/common/08-16-deadline-rules.md) 「표시 규칙」 첫 줄 | 기산 시점과 경과값을 주는 응답이 없습니다. **화면이 세면 「화면이 날짜를 세지 않는다」 위반**입니다 |
 | **사칭 정황 구간 · 미확인 표기** | §S-08 「전사 본문」 | 근거 스팬은 `case-reader`(층 1)가 내는데 **미구현**이고, §3.3 응답에도 그 자리가 없습니다 |
 | **전사의 화자 이름** | §S-08 (시안: 「상대방 · 나」) | §3.3 은 `speaker: "A"/"B"` 뿐입니다 — **누가 「나」인지 서버가 밝히는 칸이 없습니다.** Task 1 과 같은 방식으로 정본에 물어야 합니다. 그때까지 `TranscriptView` 는 §3.3 값을 그대로 보입니다 |
 
-**여섯 다 「값이 오면 그리는」 자리라, 지금 만들면 가짜 데이터에 맞춘 렌더가 됩니다.**
+**다섯 다 「값이 오면 그리는」 자리라, 지금 만들면 가짜 데이터에 맞춘 렌더가 됩니다.**
 `days_left` 가 확정되면 첫째는 바로 붙고, 나머지는 각각 플랜 응답·`case-reader`·§3.3 보완을
 기다립니다. 그때 이 표에서 지우고 태스크로 옮기세요.
 
