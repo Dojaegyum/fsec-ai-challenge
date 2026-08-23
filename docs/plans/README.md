@@ -8,7 +8,7 @@
 | [08-18-backend-baseline.md](08-18-backend-baseline.md) | 백엔드 착수 기준선 — 무엇이 서 있고 무엇이 막혀 있나. 순서와 의존. **일시 문서** |
 | [08-20-api-routes.md](08-20-api-routes.md) | API 라우트 설계도와 남은 것. 만드는 순서 14단계, 안 풀린 blocker 셋, 정본에 없어 채워야 할 것 열. **일시 문서** |
 | [08-22-layer-c-viewers.md](08-22-layer-c-viewers.md) | 층 C **보여주는 셋** — `plan-viewer`·`deadline-viewer`·`transcript-viewer`. 태스크 9개 **전부 끝남**(2026-08-23) (`doc-filler` 는 막혀 있어 뺐습니다) |
-| [08-22-layer-c-transport.md](08-22-layer-c-transport.md) | 층 C **서버와 이야기하는 넷** — `case-opener`·`poll-checker`·`file-sender`·`chat-handler`. 태스크 10개. 라우트가 없어도 규칙을 시험까지 세웁니다 |
+| [08-22-layer-c-transport.md](08-22-layer-c-transport.md) | 층 C **서버와 이야기하는 넷** — `case-opener`·`poll-checker`·`file-sender`·`chat-handler`. 태스크 10개 **전부 끝남**(2026-08-23). 라우트가 없어도 규칙이 시험까지 서 있습니다 |
 
 ## 여기가 아닌 것
 

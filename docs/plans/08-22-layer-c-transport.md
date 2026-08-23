@@ -17,6 +17,15 @@
 
 **기술:** TypeScript 5 · React 19 · Next 16 (App Router) · vitest 4 · Tailwind v4 (프로젝트 토큰)
 
+> **2026-08-23 — 태스크 열 전부 끝났습니다. 층 C 가 11 / 11 입니다.**
+> Task 1 이 「사람이 정해야 한다」고 올린 물음도 닫혔습니다 — 에러 본문에
+> **`retryable` 을 싣기로** 했고, 그 값이 **§2 표의 값과 다르다**는 것을
+> 계약에 표로 박았습니다 (에러 §3.1.1).
+>
+> 실행하며 계획과 다르게 간 자리 넷은 각 커밋 메시지에 있습니다 —
+> `poll-checker` verdict 에 `retryable` 을 실은 것, `LinkHandoff`·`QuestionButtons` 를
+> 계획 스케치가 아니라 **시안 마크업**으로 옮긴 것, `AnswerBubble` 을 화면에 안 붙인 것.
+
 **스펙:**
 [모듈 경계](../../spec/common/08-16-module-boundaries.md) ·
 [모듈 명칭](../../spec/common/08-16-module-names.md) 층 C ·
@@ -68,7 +77,7 @@ HTTP 상태로 유추할 수도 없습니다 — `IngestError` 는 **재시도 �
 - Produces: 에러 본문의 `retryable: boolean` — **자동 재시도가 아니라
   「다시 시도」 버튼을 보여줄지**를 정하는 데 씁니다(아래 Step 1 의 경고 참조).
 
-- [ ] **Step 0: 계획 문서를 먼저 커밋한다** (다른 계획 실행자가 이미 했으면 건너뜁니다)
+- [x] **Step 0: 계획 문서를 먼저 커밋한다** (다른 계획 실행자가 이미 했으면 건너뜁니다)
 
 ```bash
 git add docs/plans/08-22-layer-c-viewers.md docs/plans/08-22-layer-c-transport.md docs/plans/README.md
@@ -79,7 +88,7 @@ git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야�
 심습니다. 계획 파일이 커밋에 없으면 워킹트리를 보는 로컬 검사기는 통과하고
 **CI 에서만** 「가리키는 파일이 없습니다」로 깨집니다.
 
-- [ ] **Step 1: 응답 형식에 한 칸을 더한다 (초안)**
+- [x] **Step 1: 응답 형식에 한 칸을 더한다 (초안)**
 
 `spec/backend/08-16-errors.md` §3 의 예시와 표 사이에 붙입니다:
 
@@ -130,7 +139,7 @@ git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야�
 > 표에는 **429 에도 붙는다**고 되어 있습니다. 위 결정과 함께 정리해 주세요.
 ````
 
-- [ ] **Step 2: 착수 문서의 미결 표에 한 줄을 더한다**
+- [x] **Step 2: 착수 문서의 미결 표에 한 줄을 더한다**
 
 `docs/plans/08-20-api-routes.md` 「정본에 없어 채워야 하는 것」 표에:
 
@@ -138,7 +147,7 @@ git commit -m "층 C 구현 계획 둘 — 보여주는 셋 · 서버와 이야�
 | **에러 본문의 `retryable`** | 브라우저 `poll-checker` 가 「재시도 여부 하나만 본다」를 지킬 수단이 없습니다 |
 ```
 
-- [ ] **Step 3: 검사기를 돌린다**
+- [x] **Step 3: 검사기를 돌린다**
 
 ```bash
 python .github/scripts/doc-integrity.py
@@ -146,7 +155,7 @@ python .github/scripts/doc-integrity.py
 
 기대: `OK`
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add spec/backend/08-16-errors.md docs/plans/08-20-api-routes.md
@@ -174,7 +183,7 @@ git commit -m "에러 본문에 retryable 을 싣는 초안 — 브라우저가 
 > 남습니다 — `chat.tsx` 의 `PendingBubble` `TODO(연결)` 이 그 자리입니다.
 > 라우트가 붙는 날 그 배선까지가 한 작업입니다.
 
-- [ ] **Step 1: 계약 타입을 쓴다**
+- [x] **Step 1: 계약 타입을 쓴다**
 
 `src/modules/poll-checker/types.ts`:
 
@@ -247,7 +256,7 @@ export type PollVerdict =
     };
 ```
 
-- [ ] **Step 2: 실패하는 시험을 쓴다**
+- [x] **Step 2: 실패하는 시험을 쓴다**
 
 `src/modules/poll-checker/poll.test.ts`:
 
@@ -313,7 +322,7 @@ describe("에러는 자동으로 다시 부르지 않는다 — 에러 §3.1", (
 });
 ```
 
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
+- [x] **Step 3: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/poll-checker
@@ -321,7 +330,7 @@ cd src && npx vitest run modules/poll-checker
 
 기대: FAIL — `Cannot find module './poll'`
 
-- [ ] **Step 4: 최소 구현을 쓴다**
+- [x] **Step 4: 최소 구현을 쓴다**
 
 `src/modules/poll-checker/poll.ts`:
 
@@ -366,7 +375,7 @@ export function decidePoll(input: PollInput): PollVerdict {
 }
 ```
 
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
+- [x] **Step 5: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/poll-checker
@@ -374,7 +383,7 @@ cd src && npx vitest run modules/poll-checker
 
 기대: PASS — 8 passed
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/poll-checker/
@@ -389,7 +398,7 @@ git commit -m "poll-checker — 재시도 여부 하나만 보고 다음 호출�
 - Create: `src/modules/poll-checker/index.ts`
 - Create: `src/modules/poll-checker/README.md`
 
-- [ ] **Step 1: 공개 API 를 쓴다**
+- [x] **Step 1: 공개 API 를 쓴다**
 
 `src/modules/poll-checker/index.ts`:
 
@@ -409,7 +418,7 @@ export { decidePoll } from "./poll";
 export type { PollInput, PollVerdict, StopReason } from "./types";
 ```
 
-- [ ] **Step 2: README 를 쓴다**
+- [x] **Step 2: README 를 쓴다**
 
 `src/modules/poll-checker/README.md`:
 
@@ -448,7 +457,7 @@ Vercel 서버리스는 장시간 연결에 제약이 있습니다. 서버가 `po
 → [계획 Task 1](../../../docs/plans/08-22-layer-c-transport.md). 그 전까지는 멈추는 쪽입니다.
 ```
 
-- [ ] **Step 3: 빌드가 통과하는지 확인한다**
+- [x] **Step 3: 빌드가 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -456,7 +465,7 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add src/modules/poll-checker/
@@ -480,7 +489,7 @@ git commit -m "poll-checker — 공개 API 와 README"
 - Produces: `isCaseToken(value): boolean` · `openCase(response): ScreenState` ·
   타입 `CaseResponse` · `ScreenState` · `Focus` · `Side`
 
-- [ ] **Step 1: 계약 타입을 쓴다**
+- [x] **Step 1: 계약 타입을 쓴다**
 
 `src/modules/case-opener/types.ts`:
 
@@ -520,7 +529,7 @@ export interface CaseResponse {
 }
 ```
 
-- [ ] **Step 2: 실패하는 시험을 쓴다**
+- [x] **Step 2: 실패하는 시험을 쓴다**
 
 `src/modules/case-opener/open.test.ts`:
 
@@ -593,7 +602,7 @@ describe("첫 화면은 서버가 지목하지 않는다 — 사실로 고른다
 });
 ```
 
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
+- [x] **Step 3: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/case-opener
@@ -601,7 +610,7 @@ cd src && npx vitest run modules/case-opener
 
 기대: FAIL — `Cannot find module './open'`
 
-- [ ] **Step 4: 최소 구현을 쓴다**
+- [x] **Step 4: 최소 구현을 쓴다**
 
 `src/modules/case-opener/open.ts`:
 
@@ -648,7 +657,7 @@ export function openCase(response: CaseResponse): ScreenState {
 }
 ```
 
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
+- [x] **Step 5: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/case-opener
@@ -656,7 +665,7 @@ cd src && npx vitest run modules/case-opener
 
 기대: PASS — 12 passed
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/case-opener/
@@ -689,7 +698,7 @@ git commit -m "case-opener — 토큰을 알아보고 첫 화면을 규칙으로
 > 「나에게 문자로」(`sms:`)처럼 시안에 없는 것을 더할지는 **사람이 정합니다.**
 > 화면에 실제로 끼우는 것은 Task 10 입니다.
 
-- [ ] **Step 1: 넘기는 카드를 쓴다**
+- [x] **Step 1: 넘기는 카드를 쓴다**
 
 `src/modules/case-opener/handoff.tsx`:
 
@@ -761,7 +770,7 @@ export function LinkHandoff({
 }
 ```
 
-- [ ] **Step 2: 공개 API 와 README 를 쓴다**
+- [x] **Step 2: 공개 API 와 README 를 쓴다**
 
 `src/modules/case-opener/index.ts`:
 
@@ -813,7 +822,7 @@ URL 토큰으로 사건을 열고, 발급 직후 복사·공유를 제공합니�
 → [ADR-039](../../../decisions/039-link-token.md).
 ```
 
-- [ ] **Step 3: 화면의 하드코딩 토큰을 지운다**
+- [x] **Step 3: 화면의 하드코딩 토큰을 지운다**
 
 `src/app/c/[token]/page.tsx` 에서 `const CASE_TOKEN = "7fK2p";` 를 지우고,
 Next 의 경로 파라미터를 씁니다. 개발용 `?view=` 스위치는 그대로 둡니다 — 아직 서버가 없습니다.
@@ -854,7 +863,7 @@ export type { Focus, Side, ScreenState } from "@/modules/case-opener";
 파일 머리 주석의 `⬜ CASE_TOKEN 을 실제 경로 파라미터로` 줄을 지우고
 「ADR-039 로 확정, case-opener 가 검사합니다」로 바꿉니다.
 
-- [ ] **Step 4: 빌드와 시험이 통과하는지 확인한다**
+- [x] **Step 4: 빌드와 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -862,7 +871,7 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/modules/case-opener/ "src/app/c/[token]/page.tsx"
@@ -888,7 +897,7 @@ git commit -m "case-opener — 발급 직후 넘기기 + 하드코딩 토큰 제
   `forkFor(status): Fork | null` · 타입 `SendTarget` · `SendState` · `SendStep` ·
   `Fork` · `EvidenceStatus`
 
-- [ ] **Step 1: 계약 타입을 쓴다**
+- [x] **Step 1: 계약 타입을 쓴다**
 
 `src/modules/file-sender/types.ts`:
 
@@ -963,7 +972,7 @@ export interface Fork {
 }
 ```
 
-- [ ] **Step 2: 실패하는 시험을 쓴다**
+- [x] **Step 2: 실패하는 시험을 쓴다**
 
 `src/modules/file-sender/send.test.ts`:
 
@@ -1063,7 +1072,7 @@ describe("가리지 못한 파일은 막지 않고 갈림길을 준다", () => {
 });
 ```
 
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
+- [x] **Step 3: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/file-sender
@@ -1071,7 +1080,7 @@ cd src && npx vitest run modules/file-sender
 
 기대: FAIL — `Cannot find module './send'`
 
-- [ ] **Step 4: 최소 구현을 쓴다**
+- [x] **Step 4: 최소 구현을 쓴다**
 
 `src/modules/file-sender/send.ts`:
 
@@ -1152,7 +1161,7 @@ export function forkFor(status: string): Fork | null {
 }
 ```
 
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
+- [x] **Step 5: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/file-sender
@@ -1166,7 +1175,7 @@ cd src && npx vitest run modules/file-sender
 > 안 잡힌다면 **여기서 정규식을 새로 만들지 마세요** — 패턴을 두 곳에 두면 어긋난 쪽이
 > 조용히 새는 쪽이 됩니다. `pii-masker` 를 고칩니다.
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/file-sender/
@@ -1192,7 +1201,7 @@ git commit -m "file-sender — 세 단계 흐름과 갈림길. 이름도 경계�
 > 그 파일로 바뀝니다(시안 1d 의 두 칸 구조). 그 동작을 잃지 않도록 `selectedId`·`onSelect`
 > 를 받습니다.
 
-- [ ] **Step 1: 상태 점과 자료 레일을 쓴다**
+- [x] **Step 1: 상태 점과 자료 레일을 쓴다**
 
 `src/modules/file-sender/rail.tsx`. **점은 색뿐이라 아래 한 줄이 항상 같은 것을 말로
 말합니다** (§S-08) — 그래서 라벨이 딸려 갑니다.
@@ -1309,7 +1318,7 @@ export function FileRail({
 }
 ```
 
-- [ ] **Step 2: 공개 API 와 README 를 쓴다**
+- [x] **Step 2: 공개 API 와 README 를 쓴다**
 
 `src/modules/file-sender/index.ts`:
 
@@ -1372,7 +1381,7 @@ export type {
 모듈을 갈라 두었습니다.
 ```
 
-- [ ] **Step 3: 화면을 모듈로 갈아 끼운다**
+- [x] **Step 3: 화면을 모듈로 갈아 끼운다**
 
 `src/app/c/[token]/evidence.tsx` 에서:
 
@@ -1384,7 +1393,7 @@ export type {
    **「＋ 올리기」 버튼과 「신분증은 올리지 마세요」 문구는 화면에 남습니다.**
 3. 전사 본문 쪽(`<TranscriptView>`)은 **건드리지 않습니다** — 앞 계획의 몫입니다.
 
-- [ ] **Step 4: 빌드와 시험이 통과하는지 확인한다**
+- [x] **Step 4: 빌드와 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -1392,7 +1401,7 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/modules/file-sender/ "src/app/c/[token]/evidence.tsx"
@@ -1424,7 +1433,7 @@ git commit -m "file-sender — 자료 레일을 화면에서 모듈로 옮긴다
 > 컴포저가 사용자 입력을 그대로 `fetch` 에 태우게 되고 **계좌·전화가 원문으로 경계를
 > 넘는 것이 기본값**이 됩니다 (불변 규칙 2).
 
-- [ ] **Step 1: 계약 타입을 쓴다**
+- [x] **Step 1: 계약 타입을 쓴다**
 
 `src/modules/chat-handler/types.ts`:
 
@@ -1495,7 +1504,7 @@ export interface Turn {
 }
 ```
 
-- [ ] **Step 2: 실패하는 시험을 쓴다**
+- [x] **Step 2: 실패하는 시험을 쓴다**
 
 `src/modules/chat-handler/turn.test.ts`:
 
@@ -1602,7 +1611,7 @@ describe("발화도 경계를 지나서 나간다", () => {
 });
 ```
 
-- [ ] **Step 3: 시험이 실패하는지 확인한다**
+- [x] **Step 3: 시험이 실패하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/chat-handler
@@ -1610,7 +1619,7 @@ cd src && npx vitest run modules/chat-handler
 
 기대: FAIL — `Cannot find module './turn'`
 
-- [ ] **Step 4: 최소 구현을 쓴다**
+- [x] **Step 4: 최소 구현을 쓴다**
 
 `src/modules/chat-handler/turn.ts`:
 
@@ -1674,7 +1683,7 @@ export function toTurn(
 }
 ```
 
-- [ ] **Step 5: 시험이 통과하는지 확인한다**
+- [x] **Step 5: 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run modules/chat-handler
@@ -1682,7 +1691,7 @@ cd src && npx vitest run modules/chat-handler
 
 기대: PASS — 12 passed
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/modules/chat-handler/
@@ -1703,7 +1712,7 @@ git commit -m "chat-handler — 한 턴을 화면 모양으로 옮긴다. 인용
 - Consumes: `toTurn` · `sourceNote` (Task 8)
 - Produces: `AnswerBubble` (props `{ turn }`) · `QuestionButtons` (props `{ question, onPick }`)
 
-- [ ] **Step 1: 답변 버블을 쓴다**
+- [x] **Step 1: 답변 버블을 쓴다**
 
 `src/modules/chat-handler/stream.tsx`:
 
@@ -1727,7 +1736,7 @@ export function AnswerBubble({ turn }: { turn: Turn }) {
 }
 ```
 
-- [ ] **Step 2: 질문 버튼을 쓴다**
+- [x] **Step 2: 질문 버튼을 쓴다**
 
 같은 파일에 더합니다. **질문은 한 번에 하나이고 전부 버튼입니다.**
 
@@ -1765,7 +1774,7 @@ export function QuestionButtons({
 > **`options` 를 여기서 걸러내지 마세요.** 「모름·기억 안 남」이 항상 들어 있고,
 > 없으면 그건 **서버 쪽 스펙 위반**입니다 (§3.4). 화면이 대신 채우면 그 위반이 가려집니다.
 
-- [ ] **Step 3: 공개 API 와 README 를 쓴다**
+- [x] **Step 3: 공개 API 와 README 를 쓴다**
 
 `src/modules/chat-handler/index.ts`:
 
@@ -1827,13 +1836,13 @@ export type {
 **순서도 계약입니다** — `added` 매핑을 볼트에 먼저 올리고(§3.11) 그 다음에 발화를 보냅니다.
 ```
 
-- [ ] **Step 4: 화면을 모듈로 갈아 끼운다**
+- [x] **Step 4: 화면을 모듈로 갈아 끼운다**
 
 `src/app/c/[token]/chat.tsx` 에서 `CHOICES` 상수를 지우고, `Bubble` 안의 답변 표시를
 `<AnswerBubble turn={…} />`, 선택지를 `<QuestionButtons … />` 로 바꿉니다.
 `PendingBubble`·`MiniChat` 은 이 화면의 UI 상태라 **그대로 둡니다.**
 
-- [ ] **Step 5: 빌드와 시험이 통과하는지 확인한다**
+- [x] **Step 5: 빌드와 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -1841,7 +1850,7 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 6: 검사기와 커밋**
+- [x] **Step 6: 검사기와 커밋**
 
 ```bash
 python .github/scripts/doc-integrity.py
@@ -1865,7 +1874,7 @@ git commit -m "chat-handler — 챗 스트림을 화면에서 모듈로 옮긴�
 - Consumes: `openCase` · `LinkHandoff` (Task 4·5) ·
   `FIXTURE_CASE` ([보여주는 셋 계획](08-22-layer-c-viewers.md) Task 1b)
 
-- [ ] **Step 1: 첫 화면을 규칙으로 정한다**
+- [x] **Step 1: 첫 화면을 규칙으로 정한다**
 
 `page.tsx` 의 `focus`/`side` 초기값을 바꿉니다 — `?view=` 가 **있으면** 지금처럼 그 값
 (개발용 스위치 유지), **없으면** `openCase(FIXTURE_CASE)` 가 고른 값.
@@ -1884,7 +1893,7 @@ const [side, setSide] = useState<Side>(wanted ? devSide : opened.side);
 파일 머리 주석의 `TODO(연결)` 에 「첫 화면은 `case-opener` 가 고른다 — 남은 것은 `fetch`」를
 적습니다.
 
-- [ ] **Step 2: 발급 카드를 모듈로 잇는다**
+- [x] **Step 2: 발급 카드를 모듈로 잇는다**
 
 `src/app/start/page.tsx` 발급(2/2) 절의 **「내 사건 주소」 카드**를
 `<LinkHandoff url={caseUrl} />` 로 바꿉니다.
@@ -1897,7 +1906,7 @@ const [side, setSide] = useState<Side>(wanted ? devSide : opened.side);
 > [ADR-030](../../decisions/030-design-handoff.md)). 「나에게 문자로」(`sms:`)처럼 **시안에
 > 없는 것을 더할지는 사람이 정합니다.**
 
-- [ ] **Step 3: 빌드와 시험이 통과하는지 확인한다**
+- [x] **Step 3: 빌드와 시험이 통과하는지 확인한다**
 
 ```bash
 cd src && npx vitest run && npm run build
@@ -1905,16 +1914,18 @@ cd src && npx vitest run && npm run build
 
 기대: 시험 전부 통과 · 빌드 exit 0
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add "src/app/c/[token]/page.tsx" src/app/start/page.tsx
 git commit -m "openCase·LinkHandoff 를 화면에 잇는다 — 첫 화면은 규칙이 고른다 (§3.10)"
 ```
 
-> **여전히 미접속인 것 하나** — `deadline-viewer` 의 `DeadlineList`·`DeadlineBadge` 는
-> `days_left` 확정 전이라 세우지 않습니다. [보여주는 셋 계획](08-22-layer-c-viewers.md)의
-> 「덮지 않는 것」 표가 그 자리를 지킵니다.
+> **여전히 미접속인 것 둘** — `deadline-viewer` 의 `DeadlineBadge`·`DeadlinePair` 와
+> `chat-handler` 의 `AnswerBubble` 입니다. 앞의 둘은 `days_left` 를 서버가 아직 안 주고,
+> `AnswerBubble` 은 S-06 의 말풍선이 아직 목업 문구라 `Turn` 이 없습니다.
+> (`DeadlineList` 는 2026-08-23 에 **만들지 않기로** 정해져 지웠습니다 —
+> [보여주는 셋 계획](08-22-layer-c-viewers.md).)
 
 ---
 
@@ -1925,7 +1936,7 @@ git commit -m "openCase·LinkHandoff 를 화면에 잇는다 — 첫 화면은 �
 | 층 C 구현 | 7 / 11 (보여주는 셋 뒤) | **11 / 11** |
 | 이 넷의 시험 | 0 | 약 44개 |
 | 라우트가 서면 | 화면을 새로 짜야 함 | **배선을 잇는다** — 규칙은 시험까지 서 있고, 픽스처 자리를 `fetch` 로 바꾸면 됩니다. `PendingBubble` 의 진행 단계 연결(§S-06)과 발화·파일이 실제로 이 모듈들을 지나게 하는 일이 남습니다 |
-| 계약 구멍 | 재시도 여부가 브라우저에 안 옴 | 정본에 초안이 올라가 사람이 볼 수 있음 |
+| 계약 구멍 | 재시도 여부가 브라우저에 안 옴 | **확정** — 에러 §3.1.1 에 `retryable`. 서버 구현만 남음 |
 
 **이 넷은 라우트가 없어도 완성됩니다.** 서버 응답을 가짜로 넣어 규칙을 전부
 검증했기 때문에, 라우트가 서는 날 붙이는 것은 `fetch` 한 줄씩입니다.
