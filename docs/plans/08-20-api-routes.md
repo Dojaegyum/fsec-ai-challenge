@@ -338,6 +338,7 @@ Server Function rather than relying on Proxy alone"* 라고 경고합니다 — 
 | **`steps[]` 의 선행 사슬** | ✅ **싣기로 확정** (2026-08-23) → §3.6. `body.step_key` + `body.after`(없으면 빈 배열). KB 가 이미 가진 값이고 `body` 는 JSONB 라 스키마 변경 없음 |
 | **기한의 잔여일** | ✅ **싣기로 확정** (2026-08-23) → §3.7. `days_left: number` 를 **아직 안 지난 기한에만**. 지난 것은 `status: "missed"` 하나로. ⚠️ `days_left` 계산과 `status` 전이를 **같은 자리에서** 하세요 |
 | **`unconfirmed` 의 화면 어휘** | ✅ **「증빙 대기」로 확정** (2026-08-23) → §S-07 표에 여섯째 행이 들어갔습니다. **서버가 할 일은 없습니다** |
+| **에러 본문의 `retryable`** | ✅ **넣기로 확정** (2026-08-23) → [10-errors.md](../../spec/backend/08-16-errors.md) §3.1.1. ⚠️ **§2 표의 값을 그대로 옮기면 안 됩니다** — 두 자리가 묻는 물음이 다르고, `KbCitationMissingError`·`IngestError` 둘이 뒤집힙니다 |
 | **대기 국면의 `starts_at`·`elapsed`** | ✅ **넣기로 확정** (2026-08-23) → §3.7 의 확정 블록. `kind: "info"` 에만. 없으면 공고 대기 카드가 「지금 어디쯤인가」를 못 그립니다 — **화면은 만들 수 없습니다**(기기 시계를 읽어야 함) |
 
 ## 계약 대조에서 나온 것 (major)
