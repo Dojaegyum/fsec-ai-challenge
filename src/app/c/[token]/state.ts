@@ -12,13 +12,15 @@
  * 정의는 spec/common/08-17-service-concept.md 「여정 — 여섯 국면」에 있습니다.
  */
 
-/** 본문이 무엇을 보여주나 — 화면 ID 로는 S-06 · S-07 · S-08 · S-10 */
-export type Focus = "chat" | "plan" | "evidence" | "doc";
+/**
+ * 두 축의 **정의는 `case-opener` 에 있습니다** — 첫 화면을 고르는 쪽이 주인입니다.
+ * 여기서 다시 정의하면 한쪽만 고친 날 조용히 갈라집니다.
+ *
+ * `Focus` 는 화면 ID 로 S-06 · S-07 · S-08 · S-10, `Side` 는 오른쪽 350px 열입니다.
+ */
+import type { ScreenState } from "@/modules/case-opener";
 
-/** 오른쪽 350px 열이 무엇을 보여주나 */
-export type Side = "casefile" | "work";
-
-export type ScreenState = { focus: Focus; side: Side };
+export type { Focus, Side, ScreenState } from "@/modules/case-opener";
 
 /**
  * 핸드오프 번들의 옛 `phase` 값 ↔ 두 축.

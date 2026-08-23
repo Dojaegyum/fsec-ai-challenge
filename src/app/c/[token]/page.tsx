@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { isCaseToken } from "@/modules/case-opener";
 import { CallPanel } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
@@ -47,11 +48,9 @@ import DocGuide from "./doc";
  * **`focus: "evidence"` 로는 열지 않습니다** — 증거함은 눌러서 가는 곳이지
  * 재진입의 도착지가 아닙니다. 시그널이 없는 것이 맞습니다
  *
- *  · ⬜ CASE_TOKEN 을 실제 경로 파라미터로. **`{case_id}` 와 URL 의 `{token}` 이 같은
- *    값인지가 아직 미정입니다** → ADR-021 「남은 것」 · §3.10 경고
+ *  · 링크 토큰은 **ADR-039 로 확정**됐습니다 — 128비트 · Crockford Base32 · 26자이고
+ *    `case_id` 와 **다른 칸**입니다. 모양 검사는 `case-opener` 가 합니다
  */
-
-const CASE_TOKEN = "7fK2p"; // TODO: params.token 으로 교체
 
 /** 유령을 띄워 두는 시간 — 흡수(1.5s)와 `.view-out`(0.3s 지연 + 0.7s) 중 긴 쪽 */
 const GHOST_MS = ABSORB_MS;
@@ -181,9 +180,15 @@ export default function CaseScreen() {
     sideAtChange.current = atWork;
   });
 
+  /** URL 의 토큰. **도메인을 하드코딩하지 않습니다** — 지금 열려 있는 주소가 곧 그 주소입니다 */
+  const token = String(useParams().token ?? "");
+  // 모양이 아니면 서버를 부르지 않습니다 — 열거 시도에 왕복을 태우지 않습니다.
+  // 라우트가 없는 지금은 쓰는 곳이 없어도 됩니다. fetch 가 붙는 날 그 앞의 관문이 됩니다
+  void isCaseToken(token);
+
   const copyUrl = async () => {
     try {
-      await navigator.clipboard.writeText(`https://finally.kr/c/${CASE_TOKEN}`);
+      await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -218,7 +223,7 @@ export default function CaseScreen() {
               className="inline-flex items-center gap-2 rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3"
             >
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
-              사건 {CASE_TOKEN}
+              사건 {token.slice(0, 5)}…
             </span>
             {/* 경유 서비스 유형 — CH-bank (spec/backend/08-14-channel-matrix.md) */}
             <span className="inline-flex items-center rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3">
@@ -282,7 +287,7 @@ export default function CaseScreen() {
           )}
           {focus === "plan" && <PlanView />}
           {focus === "evidence" && <EvidenceView />}
-          {focus === "doc" && <DocGuide caseId={CASE_TOKEN} />}
+          {focus === "doc" && <DocGuide caseToken={token} />}
         </section>
 
         {/* ── 오른쪽 열 — 자리는 하나, 내용이 바뀝니다 ──────
@@ -442,7 +447,7 @@ export default function CaseScreen() {
               )}
               {ghost.from === "plan" && <PlanView />}
               {ghost.from === "evidence" && <EvidenceView />}
-              {ghost.from === "doc" && <DocGuide caseId={CASE_TOKEN} />}
+              {ghost.from === "doc" && <DocGuide caseToken={token} />}
             </div>
           </div>
         </div>
