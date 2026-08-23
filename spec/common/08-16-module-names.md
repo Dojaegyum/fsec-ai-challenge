@@ -284,7 +284,7 @@ ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지�
 
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
-| `poll-checker` | `poll_after_ms`를 보고 다시 묻는다. 실패를 재시도·표시로 가른다 | 브라우저 | [08](08-14-api.md) §3.3 · [10](../backend/08-16-errors.md) §2 |
+| `poll-checker` | `poll_after_ms`를 보고 다시 묻는다. 실패는 **본문의 `retryable`** 로 「재시도 버튼을 띄울지」를 가른다 — **스스로 다시 부르지 않습니다** | 브라우저 | [08](08-14-api.md) §3.3 · [10](../backend/08-16-errors.md) §2 §3.1 §3.1.1 |
 
 **스트리밍·웹소켓을 쓰지 않습니다** → [ADR-022](../../decisions/022-chat-turn-boundaries.md).
 서버의 `retry-checker`와 짝이며, 같은 규칙(`retryable` 하나만 본다)을 따릅니다.
