@@ -56,8 +56,8 @@ class JobStore:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
-    def create(self, kind: str, job_id: str | None = None) -> Job:
-        """작업 하나를 연다.
+    def create(self, kind: str, job_id: str | None = None) -> tuple[Job, bool]:
+        """작업 하나를 연다. **`(작업, 이번에 열렸는가)`** 를 돌려준다.
 
         **부르는 쪽이 번호를 정할 수 있습니다.** 앱이 증거 번호를 그대로 넘기면,
         앱은 그 번호를 어디에도 저장하지 않고 나중에 다시 물어볼 수 있습니다 —
@@ -65,16 +65,34 @@ class JobStore:
 
         같은 번호로 다시 열면 **앞의 작업을 그대로 돌려줍니다.** 재시도가
         진행 중인 전사를 처음부터 다시 돌리면 안 됩니다.
+
+        ⚠️ **두 번째 값을 반드시 보세요.** 이 자리가 작업을 돌려주는 것만으로는
+        같은 파일을 두 번 돌리는 것을 못 막습니다 — 부르는 쪽이 「돌리기」를
+        따로 걸기 때문입니다. 여기서 「이번에 열렸는가」를 같은 잠금 안에서
+        답해야 두 요청이 동시에 와도 하나만 돌립니다. 밖에서 `get` 으로 미리
+        확인하면 그 사이에 둘 다 없다고 보고 둘 다 돌립니다.
+
+        **실패한 작업은 다시 엽니다.** 재시도 판단은 앱이 하고(`retry-checker`),
+        여기까지 온 것은 이미 다시 하기로 정해진 것입니다. 안 열어 주면 실패한
+        증거는 `KEEP_DONE_SECONDS` 가 지나기 전까지 영영 다시 못 읽습니다.
         """
         with self._lock:
             self._sweep()
             if job_id is not None:
                 existing = self._jobs.get(job_id)
                 if existing is not None:
-                    return existing
+                    if existing.status != "failed":
+                        return existing, False
+                    existing.status = "running"
+                    existing.percent = 0
+                    existing.engine = None
+                    existing.lines = []
+                    existing.reason = None
+                    existing.finished_at = None
+                    return existing, True
             job = Job(job_id=job_id or uuid.uuid4().hex, kind=kind)
             self._jobs[job.job_id] = job
-        return job
+        return job, True
 
     def get(self, job_id: str) -> Job | None:
         with self._lock:

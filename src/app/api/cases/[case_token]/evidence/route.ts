@@ -15,6 +15,12 @@
  * 주소에 오는 것은 링크 토큰이고 내부 식별자가 아닙니다 → ADR-039.
  * 둘은 규격이 같아(26자 Crockford Base32) **형식으로 못 가르므로**, 어느
  * 사건인지는 저장소 조회로 답합니다 → `caseIdOf`.
+ *
+ * ## 창으로 세지 않습니다 — `rate: 'none'`
+ *
+ * §1.3 의 증거 상한은 「사건당 파일 30개 · 합계 300MB」로 **누적 총량**이지
+ * 창이 아닙니다. 그 숫자는 `case-intake` 가 이미 갖고 있습니다 — 두 곳에 두면
+ * 한쪽만 고쳐집니다. **안 적으면 빠뜨린 것과 구분되지 않아** 밝혀 둡니다.
  */
 
 import { BadRequestError, readJsonObject } from '@/lib/http'
@@ -94,5 +100,5 @@ export async function POST(
         expires_at: slot.expiresAt,
       },
     }
-  })
+  }, { rate: 'none' })
 }

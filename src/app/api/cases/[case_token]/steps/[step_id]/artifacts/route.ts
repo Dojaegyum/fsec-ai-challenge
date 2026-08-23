@@ -14,6 +14,11 @@
  * ⬜ **접수번호 형식의 정본이 아직 없습니다** → 08-14-completion-hook.md
  * TODO(근거 필요). 그래서 지금 `receipt_no` 는 언제나 `format_unknown` 으로
  * 실패하고 다른 길을 냅니다. **아무 숫자나 통과시키지 않습니다.**
+ *
+ * ## 창으로 세지 않습니다 — `rate: 'none'`
+ *
+ * §1.3 표에 이 자리가 없습니다. 사람이 접수번호를 받아 적어 넣는 자리라 연타가
+ * 안 나옵니다. **안 적으면 빠뜨린 것과 구분되지 않아** 밝혀 둡니다.
  */
 
 import { BadRequestError, readJsonObject } from '@/lib/http'
@@ -113,5 +118,5 @@ export async function POST(
         unlocked_steps: [],
       },
     }
-  })
+  }, { rate: 'none' })
 }
