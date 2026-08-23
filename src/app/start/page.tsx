@@ -1,5 +1,7 @@
 "use client";
 
+import { LinkHandoff } from "@/modules/case-opener";
+
 import Image from "next/image";
 import { useState } from "react";
 
@@ -115,7 +117,6 @@ export default function Start() {
   const [agreed, setAgreed] = useState(false);
   const [checks, setChecks] = useState([false, false, false, false, false]);
   const [q1, setQ1] = useState(-1); // -1 = 아직 안 고름. 기본 선택을 두지 않습니다
-  const [copied, setCopied] = useState(false);
 
   const checkedCount = checks.filter(Boolean).length;
   const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
@@ -126,15 +127,7 @@ export default function Start() {
     setModalOpen(false);
   };
   const issue = () => setPhase("issued"); // TODO: POST /api/cases 후 전환
-  const copyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(`https://${CASE_URL}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard 미지원 — 주소가 화면에 전부 보이므로 수동 복사 가능 */
-    }
-  };
+  // 주소 복사는 `case-opener` 의 `LinkHandoff` 안으로 옮겼습니다
 
   const issued = phase === "issued";
 
@@ -375,27 +368,10 @@ export default function Start() {
                 이 주소로 들어오세요.
               </p>
 
-              <div
-                style={step(1)}
-                className="rise mt-4 rounded-[14px] border border-[oklch(0.697_0.16_258.2/40%)] bg-pii-bg p-[16px_18px]
-                           shadow-[0_0_50px_-14px_oklch(0.811_0.14_66.9/40%)]"
-              >
-                <div className="text-[13px] text-pii">내 사건 주소</div>
-                <div className="mt-2 flex items-center gap-3">
-                  <span
-                    data-numeric
-                    className="flex-1 break-all font-mono text-[19px] text-ink-1"
-                  >
-                    {CASE_URL}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={copyUrl}
-                    className="inline-flex min-h-[var(--size-touch)] shrink-0 items-center rounded-[10px] bg-ink-1 px-[18px] text-[14px] font-[660] text-ground transition-transform duration-200 hover:-translate-y-px"
-                  >
-                    {copied ? "복사됨 ✓" : "주소 복사"}
-                  </button>
-                </div>
+              {/* 주소 카드는 `case-opener` 가 그립니다 — 재발급 경로가 없어(ADR-039 ⑥)
+                  「이 순간에 확실히 넘기기」가 그 모듈의 규칙이기 때문입니다 */}
+              <div style={step(1)} className="rise mt-4">
+                <LinkHandoff url={`https://${CASE_URL}`} />
               </div>
 
               <div style={step(2)} className="rise mt-6 grid items-start gap-4 md:grid-cols-2">

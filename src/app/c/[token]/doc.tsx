@@ -204,7 +204,7 @@ function subscribeCopied(onChange: () => void) {
 }
 
 export default function DocGuide({
-  caseId = "7fK2p",
+  caseToken = "7fK2p",
   restored = true,
   orgName = "국민은행",
   // KB국민은 공식 안내가 **영업점 서면**입니다. 앱 경로는 「확인 실패」가 아니라
@@ -213,14 +213,15 @@ export default function DocGuide({
   submit = [{ how: "branch", text: "가까운 영업점에 서면 제출" }],
   submitNote = "은행 확인값입니다 (2026-08-20 확인) · 긴급 지급정지 전화와는 다른 단계입니다",
 }: {
-  caseId?: string;
+  /** URL 의 링크 토큰. **`case_id` 가 아닙니다** → ADR-039 */
+  caseToken?: string;
   restored?: boolean;
   orgName?: string;
   submit?: SubmitPath[];
   submitNote?: string;
 }) {
   /** 슬러그는 `fin-ally` 입니다 — `finally` 는 JS 예약어라 쓰지 않습니다 (CLAUDE.md) */
-  const storageKey = `fin-ally:doc-copied:${caseId}`;
+  const storageKey = `fin-ally:doc-copied:${caseToken}`;
   const copiedRaw = useSyncExternalStore(
     subscribeCopied,
     () => readCopied(storageKey),

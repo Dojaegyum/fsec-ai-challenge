@@ -76,7 +76,7 @@ assets/artifacts/handoff/08-19-s04-landing/
 | --- | --- | --- |
 | 색 | **도메인 토큰만.** 임의 hex·rgb 없음. **빨강 금지** | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「상태 색」 |
 | 글자 크기 | **실제 텍스트에 12.5px 미만 없음** (고령 사용자 기준 · 우리가 정한 선) | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「크기 사다리」 · [ADR-032](../decisions/032-text-floor.md) |
-| 장식 | 뜻을 싣지 않음. `--horizon`은 장식 전용이고 전부 `aria-hidden` | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「상태 색」 |
+| 장식 | 뜻을 싣지 않음. **`--horizon` 그래픽은 전부 `aria-hidden`** — 글자에 쓰는 것은 「제도가 흐르는 시간」 셋을 다 만족할 때만 | [tokens](../spec/frontend/design-system/08-16-tokens.md) 「상태 색」 · [ADR-048](../decisions/048-horizon-carries-meaning.md) |
 | 모션 | `prefers-reduced-motion`이 **전부** 멈춤. 새 keyframes도 포함 | [접근성](../spec/frontend/design-system/08-16-accessibility.md) 「모션」 |
 | 색만으로 구분 | 상태를 색 하나로 가르지 않음 (모양·글자를 함께) | [접근성](../spec/frontend/design-system/08-16-accessibility.md) |
 | 기한 | 화면이 날짜를 세지 않음 — 서버 계산값만 표시 | [기한 규칙](../spec/common/08-16-deadline-rules.md) |
@@ -159,3 +159,4 @@ assets/artifacts/handoff/08-19-s04-landing/
 | 2026-08-19 | 「한 작업의 끝」 5번을 화면 문서 하나에서 **spec 세 곳**으로 넓힘 — S-04 때 keyframes 넷과 새 컴포넌트가 디자인 시스템 문서에 한 줄도 안 남았습니다 | 커밋 메시지 |
 | 2026-08-20 | 검사기가 **핸드오프 `PR.md` 를 건너뜁니다** — 고칠 수 없는 원문인데 시안 설명의 괄호가 깨진 링크로 잡혔습니다 | 규칙 2 |
 | 2026-08-21 | 폴더 이름에서 **화면 ID 를 뺄 수 있게** 함 — 아이콘 34종처럼 전 화면 공용 자산이 들어왔고, 없는 화면 ID 를 지어내는 것보다 낫습니다 | 규칙 1 · `08-21-icons` |
+| 2026-08-23 | 수용 검사의 「`--horizon` 은 장식 전용」을 **그래픽에 한정**함 — 글자에 쓰는 길이 조건부로 열렸습니다 | [ADR-048](../decisions/048-horizon-carries-meaning.md) · `08-23-s07-wait-and-badges` |
