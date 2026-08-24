@@ -125,6 +125,7 @@
 | [047](047-one-step-shape.md) | 절차 단계의 응답 모양을 하나로 한다 | 채택 |
 | [048](048-horizon-carries-meaning.md) | `--horizon` 에 뜻을 싣는다 — 「제도가 흐르는 시간」 | 채택 |
 | [049](049-vault-in-postgres.md) | 볼트를 같은 Postgres 안 별도 스키마에 둔다 | 채택 |
+| [051](051-idempotent-ingest.md) | 읽기 접수는 멱등하고, 재시도는 막지 않는다 | 채택 |
 
 ## 아직 안 쓴 것
 
