@@ -12,6 +12,7 @@ import ChatView, { MiniChat } from "./chat";
 import { FIXTURE_BUNDLE } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
 import { useCaseBundle, type CaseBundle } from "./load";
+import { useChatSend } from "./send";
 import T0Rail from "./safety";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
@@ -117,8 +118,11 @@ function CaseScreen({
   // `?view=` 가 없으면 **규칙**이 첫 화면을 고릅니다 — 서버가 지목하지 않습니다 (§3.10)
   const opened = openCase(bundle.case);
 
-  /** 증거함이 §3.3 을 부를 때 쓰는 토큰. **개발 경로에서는 `null`** — 픽스처로 그립니다 */
+  /** 증거함·챗이 서버를 부를 때 쓰는 토큰. **개발 경로에서는 `null`** — 픽스처로 그립니다 */
   const dataToken = wanted === null ? token : null;
+
+  /** 대화는 **셸이 한 벌만** 들고 있습니다 — 전환 중 유령도 같은 것을 봐야 합니다 */
+  const chat = useChatSend(dataToken);
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
   const [side, setSide] = useState<Side>(
@@ -323,6 +327,8 @@ function CaseScreen({
             <ChatView
               atWork={atWork}
               question={bundle.question}
+              token={dataToken}
+              chat={chat}
               onPickChoice={() => setSide("work")}
             />
           )}
@@ -489,6 +495,8 @@ function CaseScreen({
                 <ChatView
                   atWork={ghost.atWork}
                   question={bundle.question}
+                  token={dataToken}
+                  chat={chat}
                   onPickChoice={() => undefined}
                 />
               )}

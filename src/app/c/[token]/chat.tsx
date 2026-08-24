@@ -1,7 +1,11 @@
 "use client";
 
-import { QuestionButtons } from "@/modules/chat-handler";
+import { useState } from "react";
+
+import { AnswerBubble, QuestionButtons } from "@/modules/chat-handler";
 import type { NextQuestion } from "@/modules/chat-handler";
+
+import type { ChatSend } from "./send";
 
 /**
  * `focus: "chat"` 일 때의 본문 — S-06.
@@ -17,6 +21,14 @@ import type { NextQuestion } from "@/modules/chat-handler";
  *  · **T0 안전 절차는 여기 없습니다** — 왼쪽 고정 레일(`safety.tsx`)로 나갔습니다.
  *    본문 안에 두면 플랜·증거함으로 갈 때 같이 사라집니다 (ADR-036)
  *  · 화면이 보여주는 값은 **원문**입니다 (ADR-034). 토큰은 경계를 넘을 때의 형태입니다
+ *
+ * ## 나가는 것은 `send.ts` 를 지납니다
+ *
+ * 컴포저가 `fetch` 를 직접 부르지 않습니다. **원문을 네트워크에 태우는 경로를
+ * 여기 만들지 마세요** — 불변 규칙 2 입니다. 순서(볼트 먼저, 발화 나중)도 그쪽에
+ * 있습니다.
+ *
+ * `token` 이 `null` 이면 **서버를 부르지 않고 예시 대화를 그립니다** (`?view=` 개발 경로).
  */
 
 
@@ -32,63 +44,113 @@ const step = (i: number) => ({ animationDelay: `${60 + i * 70}ms` });
 export default function ChatView({
   atWork,
   question,
+  token,
+  chat,
   onPickChoice,
 }: {
   atWork: boolean;
   /** §3.4 `next_question` — `page.tsx` 가 §3.10 에서 받아 내려줍니다. 없으면 `null` */
   question: NextQuestion | null;
+  /** 사건 링크 토큰. `null` 이면 개발 경로라 서버를 안 부릅니다 */
+  token: string | null;
+  /** 대화 한 벌. **셸이 들고 있습니다** — 유령까지 같은 것을 봐야 합니다 */
+  chat: ChatSend;
   onPickChoice: () => void;
 }) {
+  const { lines, sending, fail, send } = chat;
+  const [draft, setDraft] = useState("");
+  const dev = token === null;
+
+  const submit = () => {
+    if (dev || sending) return;
+    // **보낸 것이 확인되면 그때 비웁니다.** 실패했는데 지우면 사용자가 방금 쓴
+    // 글을 통째로 다시 타이핑해야 합니다
+    void send(draft).then((ok) => {
+      if (ok) setDraft("");
+    });
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-[700px] flex-1 flex-col">
       {/* 챗 스트림 */}
       <div className="flex flex-1 flex-col gap-3.5">
-        <Bubble who="ai" i={0}>
-          무슨 일이 있으셨는지 편하게 적어주세요. 문장이 아니어도 됩니다.
-        </Bubble>
-        <Bubble who="me" i={1}>
-          아까 검찰이라면서 전화가 와서 3백만원을 보냈어요
-        </Bubble>
-        <Bubble who="ai" i={2}>
-          <b className="font-[620] text-ink-1">300만원</b>을 보내셨군요. 밖으로 나갈 때는 이 값이
-          가려진 채로만 나갑니다.
-        </Bubble>
-
-        {atWork ? (
-          <>
-            <Bubble who="ai" i={3}>
-              접수 문자 잘 받았습니다. 다음은{" "}
-              <b className="font-[620] text-ink-1">국민은행에 지급정지 요청</b>입니다. 전화로 하실
-              수 있게 <b className="font-[620] text-ink-1">대본을 오른쪽에 준비했습니다.</b> 끊기
-              전에 접수번호만 받아적으시면 됩니다.
-            </Bubble>
-            <Bubble who="me" i={4}>
-              뭐라고 말해야 하죠?
-            </Bubble>
-            <Bubble who="ai" i={5}>
-              오른쪽 대본을 그대로 읽으시면 됩니다. 계좌번호도 그대로 적혀 있으니 보고 읽으시면
-              돼요.
-            </Bubble>
-          </>
+        {dev ? (
+          <DemoStream atWork={atWork} />
         ) : (
-          question && (
-            <>
-              {/* 질문 문구도 서버가 준 것입니다 — 화면이 다시 적지 않습니다 (§3.4) */}
-              <Bubble who="ai" i={3}>
-                바로 이어서 여쭐게요.{" "}
-                <b className="font-[640] text-ink-1">{question.text}</b>
-                <span className="mt-1.5 block text-[13px] text-ink-3">
-                  한 번에 하나만 여쭤봅니다
-                </span>
+          <>
+            {/* 첫 화면 — **지난 대화를 다시 읽어오지 않습니다.** §3.10 에 메시지
+                이력이 없어서입니다. 며칠 뒤 재진입은 `case-opener` 가 플랜으로
+                열기 때문에 빈 챗을 먼저 보게 되지는 않습니다 (⬜ QA 계획 Task 9) */}
+            {lines.length === 0 && (
+              <Bubble who="ai" i={0}>
+                무슨 일이 있으셨는지 편하게 적어주세요. 문장이 아니어도 됩니다.
               </Bubble>
+            )}
 
-              {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
-                  「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06) */}
-              <div style={step(4)} className="rise">
-                <QuestionButtons question={question} onPick={onPickChoice} />
-              </div>
-            </>
-          )
+            {lines.map((line, i) =>
+              line.who === "me" ? (
+                /* **원문 그대로입니다** — 나간 것은 가려진 형태였습니다 (ADR-034) */
+                <Bubble key={"me-" + i} who="me" i={i}>
+                  {line.text}
+                </Bubble>
+              ) : (
+                /* 근거 한 줄은 `chat-handler` 가 답니다 — `kb-` 만 세는 것이
+                   그쪽 규칙입니다 (§3.9) */
+                <div key={line.message_id} style={step(i)} className="rise">
+                  <AnswerBubble turn={line} />
+                </div>
+              ),
+            )}
+
+            {/* 기다리는 동안 **무엇을 하는지 문장으로** — 스트리밍을 안 쓰는 대가입니다 */}
+            {sending && <PendingBubble currentIndex={1} />}
+          </>
+        )}
+
+        {/* 실패는 앰버 카드로. **스스로 다시 보내지 않습니다** — 못 보낸 글은
+            입력칸에 그대로 남아 있고, 누르는 것은 사용자입니다 (에러 §3.1) */}
+        {fail && (
+          <div
+            role="alert"
+            className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px]"
+          >
+            <p className="text-[13.5px] leading-[1.6] text-ink-1">{fail.fail.message}</p>
+            {fail.stage === "vault" && (
+              <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-3">
+                <b className="font-[620] text-ink-2">발화는 보내지 않았습니다.</b> 가린 값을 이
+                기기에서 풀 수 있게 맡겨 두는 것이 먼저라, 그게 안 되면 보내지 않습니다.
+              </p>
+            )}
+            {fail.fail.retryAfterSec !== undefined && (
+              <p data-numeric className="mt-1.5 text-[12.5px] text-deadline-urgent">
+                {fail.fail.retryAfterSec}초 뒤 다시 보낼 수 있습니다
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 질문은 스트림 맨 아래에 붙습니다 — 한 번에 하나 (§3.4 · §S-06) */}
+        {!atWork && question && !sending && (
+          <>
+            {/* 질문 문구도 서버가 준 것입니다 — 화면이 다시 적지 않습니다 (§3.4) */}
+            <Bubble who="ai" i={lines.length}>
+              바로 이어서 여쭐게요. <b className="font-[640] text-ink-1">{question.text}</b>
+              <span className="mt-1.5 block text-[13px] text-ink-3">
+                한 번에 하나만 여쭤봅니다
+              </span>
+            </Bubble>
+
+            {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
+                「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06)
+
+                ⬜ **고른 답이 아직 서버로 안 갑니다.** §3.5 `PATCH …/slots/{slot_key}` 가
+                그 자리인데, 타이핑한 값이 그 경로로 나갈 때 `outgoing()` 을 지나야 하는지가
+                정본에 없습니다 — 응답에 `pii_confirm` 이 있어 **서버가 값을 본다**고 읽히기
+                때문입니다. 사람이 정할 일이라 지어내지 않았습니다 → QA 계획 Task 9 */}
+            <div style={step(lines.length + 1)} className="rise">
+              <QuestionButtons question={question} onPick={onPickChoice} />
+            </div>
+          </>
         )}
       </div>
 
@@ -96,8 +158,23 @@ export default function ChatView({
       <div className="mt-5 flex items-center gap-2 rounded-[14px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-[14px] shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
         <input
           aria-label="진술 입력"
-          placeholder={atWork ? "무엇이든 물어보세요" : "직접 적으셔도 됩니다"}
-          className="min-h-[52px] flex-1 bg-transparent text-[14.5px] text-ink-1 placeholder:text-ink-4 focus:outline-none"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            // 조합 중(한글 입력)에 Enter 를 먹으면 마지막 글자가 잘립니다
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+          }}
+          disabled={dev || sending}
+          placeholder={
+            dev
+              ? "예시 화면입니다"
+              : sending
+                ? "보내는 중입니다"
+                : atWork
+                  ? "무엇이든 물어보세요"
+                  : "직접 적으셔도 됩니다"
+          }
+          className="min-h-[52px] flex-1 bg-transparent text-[14.5px] text-ink-1 placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed"
         />
         {/* 원은 30px 그대로 두고 **히트 영역만** 44px 로 넓힙니다 — 크기를 키우면
             컴포저 밀도가 무너집니다 → design-system/08-16-components.md 「칩과 터치 목표」 */}
@@ -105,12 +182,55 @@ export default function ChatView({
           type="button"
           data-hit
           aria-label="보내기"
-          className="grid size-[30px] shrink-0 place-items-center rounded-full bg-ink-1 text-[14px] font-bold text-ground"
+          onClick={submit}
+          disabled={dev || sending || draft.trim().length === 0}
+          className="grid size-[30px] shrink-0 place-items-center rounded-full bg-ink-1 text-[14px] font-bold text-ground disabled:opacity-40"
         >
           <span aria-hidden>↑</span>
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * `?view=` 개발 경로가 그리는 예시 대화.
+ *
+ * **제품 경로가 아닙니다.** 시연·스크린샷에 사건을 DB 에 심어 둘 필요를 없애는
+ * 자리이고, 실제 대화는 위의 `lines` 가 그립니다.
+ */
+function DemoStream({ atWork }: { atWork: boolean }) {
+  return (
+    <>
+      <Bubble who="ai" i={0}>
+        무슨 일이 있으셨는지 편하게 적어주세요. 문장이 아니어도 됩니다.
+      </Bubble>
+      <Bubble who="me" i={1}>
+        아까 검찰이라면서 전화가 와서 3백만원을 보냈어요
+      </Bubble>
+      <Bubble who="ai" i={2}>
+        <b className="font-[620] text-ink-1">300만원</b>을 보내셨군요. 밖으로 나갈 때는 이 값이
+        가려진 채로만 나갑니다.
+      </Bubble>
+
+      {atWork && (
+        <>
+          <Bubble who="ai" i={3}>
+            접수 문자 잘 받았습니다. 다음은{" "}
+            <b className="font-[620] text-ink-1">국민은행에 지급정지 요청</b>입니다. 전화로 하실
+            수 있게 <b className="font-[620] text-ink-1">대본을 오른쪽에 준비했습니다.</b> 끊기
+            전에 접수번호만 받아적으시면 됩니다.
+          </Bubble>
+          <Bubble who="me" i={4}>
+            뭐라고 말해야 하죠?
+          </Bubble>
+          <Bubble who="ai" i={5}>
+            오른쪽 대본을 그대로 읽으시면 됩니다. 계좌번호도 그대로 적혀 있으니 보고 읽으시면
+            돼요.
+          </Bubble>
+        </>
+      )}
+    </>
   );
 }
 
