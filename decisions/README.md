@@ -118,6 +118,7 @@
 | [040](040-write-path-boundary.md) | 쓰기 경로도 경계를 지난다 — 다만 토큰화가 아니라 거부다 | 채택 |
 | [041](041-pii-confirm-with-user.md) | PII 판정을 기계가 혼자 하지 않는다 — 사용자가 보고 있는 자리에서는 물어본다 | 채택 |
 | [042](042-submit-paths.md) | 신청서를 내는 길은 하나가 아니다 — 앱과 영업점을 함께 내놓고, 순서는 KB가 정한다 | 채택 |
+| [043](043-gpu-hosting.md) | GPU 는 개발에선 빌리고, 운영에선 국내에서만 돈다 | 채택 |
 | [044](044-review-deferral.md) | 검수에서 「미룸」만 되돌아온다 — `deferred`의 뜻을 정한다 | 채택 |
 | [045](045-kb-release-pin.md) | 지금 쓰는 KB 릴리스는 배포 설정이 정한다 — `KB_VERSION` | 채택 |
 | [046](046-case-and-plan-together.md) | 사건과 플랜은 함께 저장된다 — 빈 사건을 만들지 않는다 | 채택 |
@@ -125,6 +126,7 @@
 | [048](048-horizon-carries-meaning.md) | `--horizon` 에 뜻을 싣는다 — 「제도가 흐르는 시간」 | 채택 |
 | [049](049-vault-in-postgres.md) | 볼트를 같은 Postgres 안 별도 스키마에 둔다 | 채택 |
 | [050](050-history-and-vault-read.md) | 대화 이력과 볼트를 되받는 경로를 만든다 | 채택 |
+| [051](051-idempotent-ingest.md) | 읽기 접수는 멱등하고, 재시도는 막지 않는다 | 채택 |
 
 ## 아직 안 쓴 것
 

@@ -1,6 +1,7 @@
 """작업 하나의 수명 — 접수하고, 돌리고, 물어보면 알려준다.
 
 정본: spec/common/08-14-api.md §3.2 3단계(`202 · processing`) · §3.3(폴링)
+근거: decisions/051-idempotent-ingest.md (접수는 멱등 · 재시도는 막지 않음)
 
 ## 왜 기다리게 하지 않나
 

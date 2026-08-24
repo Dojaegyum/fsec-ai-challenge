@@ -402,14 +402,16 @@ sequenceDiagram
 | 무엇 | 쓰임 | 선택 | 경계 |
 | --- | --- | --- | :---: |
 | LLM API | 수법 판별·절차 선택·플랜 문장·챗 | **Grok (xAI)** | 지남 — 토큰화 텍스트만 |
-| STT | 녹음 전사(화자 분리) | Whisper급 + 브라우저 Web Speech 폴백 | **경계 이전** ⚠️ |
-| OCR | 이미지 → 텍스트 | Vision 입력 | **경계 이전** ⚠️ |
-| NER | 2차 PII 스크러빙 | **미정** → §10 | 경계 그 자체 |
+| STT | 녹음 전사(화자 분리) | **whisper medium 이상** (브라우저 디코더는 폐기 → [ADR-038](decisions/038-transcript-confirm.md)) | **경계 이전** ⚠️ |
+| OCR | 이미지 → 텍스트 | **EasyOCR + 좌표 행 복원** → [research/11](docs/research/11-로컬OCR-PII인식-실측.md) | **경계 이전** ⚠️ |
+| NER | 2차 PII 스크러빙 | **로컬 4B (gemma3:4b 급)** → [research/09](docs/research/09-로컬모델-PII인식-실측.md) | 경계 그 자체 |
 | 법령 수집 | KB 파이프라인 | 국가법령정보 Open API · 법제처 입법예고 API | 해당 없음 |
 | 공지 수집 | KB 파이프라인 | 금융위 RSS + 게시판 목록 | 해당 없음 |
 
 > ⚠️ **STT·OCR은 `pii-tokenizer` 이전 단계라 외부 API를 쓰면 원문이 나갑니다.**
 > 선택 전에 [경계 정의](spec/common/08-14-pii-boundary.md)를 확인하세요 — 이 자리가 경계의 가장 약한 고리입니다.
+>
+> **어디서 도는지도 같은 이유로 걸립니다** — 운영에서는 국내 하드웨어에서만 돌립니다 → [ADR-043](decisions/043-gpu-hosting.md).
 
 **국가법령정보 API는 `efYd`(시행일) 파라미터로 과거 시점 조문을 재현합니다.** 조문마다 시행일이 따로 있어
 `CH-crypto`의 2026-10-01 분기가 **배포 없이** 동작합니다 → [ADR-012](decisions/012-kb-collection.md).
@@ -478,7 +480,8 @@ sequenceDiagram
 
 ### 채우면 되는 것
 
-- NER 모델·서비스 선택 (경계 그 자체라 우선순위가 높습니다)
+- ~~NER 모델·서비스 선택~~ → **로컬 4B 급으로 확정** ([research/09](docs/research/09-로컬모델-PII인식-실측.md) R-1). gemma3:4b + 정규식 + 허용목록이 깨끗한 텍스트에서 누출 0%·과차단 0%
+- **GPU 를 어디에 두나** → 개발은 해외 대여, 운영은 국내 ([ADR-043](decisions/043-gpu-hosting.md)). **운영 벤더는 국내 단가 확인 후** ([research/13](docs/research/13-GPU-클라우드-단가.md) G-02)
 - Grok 모델명과 단가
 - 환경 분리 · 시드 데이터 · 애플리케이션 로그
   (마이그레이션 방식은 2026-08-18 확정 → §3, `.env.example` 과 스키마 적용은 2026-08-20 완료 → §7)

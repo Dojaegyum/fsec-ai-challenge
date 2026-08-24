@@ -211,7 +211,7 @@ def submit(
     if req.kind not in ("audio", "image"):
         raise HTTPException(status_code=400, detail="unsupported_kind")
     job, opened = jobs.create(req.kind, req.job_id)
-    # ⚠️ **이미 돌고 있으면 다시 걸지 않습니다.** 접수는 멱등이어야 합니다 —
+    # ⚠️ **이미 돌고 있으면 다시 걸지 않습니다.** 접수는 멱등이어야 합니다 → ADR-051.
     # 앱이 같은 증거 번호로 다시 부르는 경로가 열려 있고(§3.2 3단계), 여기서
     # 무조건 걸면 같은 파일을 두 번 내려받아 모델을 두 번 돌립니다. 진행률도
     # 서로 덮어씁니다. 「열렸는가」는 `JobStore` 가 잠금 안에서 답합니다

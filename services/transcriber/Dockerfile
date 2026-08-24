@@ -5,13 +5,12 @@
 #
 # ## 왜 하나의 이미지로 x86 과 ARM 을 다 덮나
 #
-# 값싼 국내 서버는 x86 이고, 무료로 얻을 수 있는 자리는 ARM 입니다. 어느 쪽에
-# 올릴지가 아직 안 정해져서 **둘 다 되게** 만듭니다. 아키텍처마다 다른 것은
-# 딱 하나 — x86 은 torch 를 그냥 받으면 GPU 용(2GB 넘음)이 와서 CPU 판을
-# 따로 지정해야 합니다. ARM 은 애초에 CPU 판밖에 없습니다.
+# 값싼 국내 서버는 x86 이고, 무료로 얻은 자리는 ARM 입니다(오라클 애슈번
+# A1.Flex). 둘 다 되게 만들어 두면 옮겨 다닐 수 있습니다.
+#
+# **아키텍처로 갈리는 것은 이제 없습니다.** 예전에는 「x86 만 CPU 판을
+# 지정하면 된다」고 적혀 있었는데 틀렸습니다 → 아래 torch 설치 줄.
 FROM python:3.12-slim
-
-ARG TARGETARCH
 
 # libgomp1 — ctranslate2 가 병렬 처리에 씁니다. 없으면 import 에서 터집니다
 # libglib2.0-0 — easyocr 가 부르는 opencv 가 찾습니다
@@ -21,13 +20,18 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# x86 에서만 CPU 판을 먼저 못박습니다. 이걸 안 하면 easyocr 가 의존성으로
-# GPU 용 torch 를 끌어와 이미지가 2GB 넘게 붑니다
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-      pip install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu \
-        torch torchvision ; \
-    fi
+# **CPU 판 torch 를 먼저 못박습니다 — 아키텍처를 가리지 않습니다.**
+#
+# 이걸 안 하면 easyocr 가 의존성으로 GPU 용을 끌어옵니다. 예전에는 x86 에서만
+# 그런 줄 알고 조건을 걸었는데 **ARM 도 똑같았습니다** — 애슈번 A1.Flex 빌드
+# 로그에 `nvidia-cublas`·`nvidia-cudnn-cu13`·`nvidia-nccl` 이 전부 깔렸습니다.
+# PyTorch 가 Grace·Jetson 을 위해 aarch64 에도 CUDA 판을 내주기 때문입니다.
+#
+# 우리 서버에는 GPU 가 없어 **한 줄도 안 쓰입니다.** 그래도 받아서 굽느라
+# 이미지가 3.2GB 였고, 그중 2GB 가량이 그것이었습니다.
+RUN pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      torch torchvision
 
 COPY requirements.txt requirements-models.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-models.txt
