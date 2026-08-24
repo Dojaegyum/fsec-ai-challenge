@@ -47,8 +47,6 @@ export function configReport(container: Container): readonly PortStatus[] {
       '파일 업로드 자리를 못 냅니다'),
     row('언어모델', has(env, 'XAI_API_KEY'), ['XAI_API_KEY'],
       '챗이 답하지 못합니다'),
-    row('볼트', has(env, 'KV_URL', 'VAULT_MASTER_KEY'), ['KV_URL', 'VAULT_MASTER_KEY'],
-      '복원 매핑을 못 두고 파기가 한 층에서 멈춥니다 (⬜ 제품 미결)'),
     row('관리자 계정', has(env, 'ADMIN_USERNAME', 'ADMIN_PASSWORD_HASH'),
       ['ADMIN_USERNAME', 'ADMIN_PASSWORD_HASH'],
       '관리자 조회가 열리지 않습니다'),

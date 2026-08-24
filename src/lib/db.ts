@@ -35,6 +35,7 @@ import type {
   OpenedCase,
 } from '@/modules/case-intake'
 import type { KbQuery, KbRow, KbStore } from '@/modules/kb-finder'
+import type { VaultStore } from '@/modules/case-purger'
 
 export type Sql = ReturnType<typeof postgres>
 
@@ -777,6 +778,84 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
         }
       }
       return out
+    },
+  }
+}
+
+/**
+ * 복원 매핑 볼트 — 브라우저가 봉한 토큰↔원문 대응표를 맡는다 → 계약 §3.11.
+ *
+ * 같은 Postgres 의 `case_vault` 스키마입니다 → ADR-049.
+ * (`vault` 는 Supabase 확장이 이미 쓰는 이름이라 못 씁니다.)
+ *
+ * ## 서버는 이것을 열 수 없습니다
+ *
+ * `ciphertext` 는 **AES-GCM 결과**이고 복호화 키는 브라우저 IndexedDB 에
+ * `extractable: false` 로만 있습니다 (ADR-009 · ADR-027). 서버가 하는 일은
+ * **받아서 보관하고, 파기일에 지우는 것**뿐입니다.
+ *
+ * **여기에 원문을 받는 칸을 만들지 마세요.** `token` 만 평문이고, 그건
+ * 개인정보가 아니라 조회 키입니다.
+ */
+export interface VaultWriter {
+  /**
+   * 매핑을 맡는다. **`(사건, token)` 기준으로 덮어씁니다** → §3.11.
+   *
+   * AES-GCM 은 매번 다른 IV 를 쓰므로 같은 값이라도 암호문이 달라집니다 —
+   * **다르다고 해서 다른 값이 아닙니다.** 같은 값에는 같은 토큰이 붙으므로
+   * 덮어쓰기로 충분합니다.
+   */
+  put(
+    caseId: string,
+    entries: readonly { readonly token: string; readonly ciphertext: string }[],
+  ): Promise<number>
+}
+
+export function createVaultWriter(sql: Sql): VaultWriter {
+  return {
+    async put(caseId, entries) {
+      if (entries.length === 0) return 0
+
+      const rows = entries.map((one) => ({
+        case_id: caseId,
+        token: one.token,
+        ciphertext: one.ciphertext,
+      }))
+
+      // 한 문장으로 넣습니다 — 발화 하나에서 매핑이 여럿 생기는데
+      // 줄마다 왕복하면 서버 함수의 실행 시간을 그걸로 씁니다
+      await sql`
+        INSERT INTO case_case_vault.restore_mapping ${sql(rows, 'case_id', 'token', 'ciphertext')}
+        ON CONFLICT (case_id, token)
+        DO UPDATE SET ciphertext = EXCLUDED.ciphertext, stored_at = now()
+      `
+      return entries.length
+    },
+  }
+}
+
+/**
+ * 파기하는 쪽이 보는 볼트 → `case-purger`.
+ *
+ * **쓰기(`put`)가 여기 없습니다.** 지우는 것만 하는 모듈이 넣을 수도 있으면
+ * 「무엇이 볼트에 들어가나」를 볼 자리가 둘로 늘어납니다 —
+ * `case-purger/types.ts` 의 경고 그대로입니다. 맡기는 자리는 위 `VaultWriter` 입니다.
+ */
+export function createVaultStore(sql: Sql): VaultStore {
+  return {
+    async delete(caseId) {
+      await sql`DELETE FROM case_case_vault.restore_mapping WHERE case_id = ${caseId}`
+    },
+
+    /**
+     * **지운 뒤 확인용입니다** → ADR-016 「실제로 지워지는지 검증해야 합니다」.
+     * 지웠다고 믿지 않고 다시 봅니다.
+     */
+    async remains(caseId) {
+      const rows = await sql<{ one: number }[]>`
+        SELECT 1 AS one FROM case_case_vault.restore_mapping WHERE case_id = ${caseId} LIMIT 1
+      `
+      return rows.length > 0
     },
   }
 }

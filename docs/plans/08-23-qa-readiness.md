@@ -47,7 +47,7 @@
 | --- | --- | --- |
 | 데이터베이스 | `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` | 사건 생성·플랜·기한 전부 |
 | 저장소 | `BLOB_TOKEN` | 업로드 자리 발급·파일 읽기 |
-| 볼트 | `KV_URL` · `VAULT_MASTER_KEY` | PII 매핑 보관 |
+| 볼트 | (없음 — `DATABASE_URL` 을 같이 씁니다) | — → [ADR-049](../../decisions/049-vault-in-postgres.md) |
 | 언어모델 | `XAI_API_KEY` | 챗 한 턴 |
 | 전사 | `TRANSCRIBER_URL` · `TRANSCRIBER_TOKEN` | STT·OCR |
 | 관리자·크론 | `ADMIN_USERNAME` · `ADMIN_PASSWORD_HASH` · `CRON_SECRET` | 관리자 조회·파기 |
@@ -146,7 +146,8 @@
 - [ ] `nextStep()` 이 시키는 대로 `POST …/evidence` → `PUT`(직접) → `POST …/complete` 를 부른다
 - [ ] `decidePoll()` 로 `GET …/evidence/{id}` 를 다시 묻는다 —
       **간격은 서버가 준 `poll_after_ms` 만** 씁니다
-- [ ] 전사가 뜨면 `transcript-viewer` 가 원문으로 펼치는지 본다 (볼트 매핑 필요 — Task 1 의 `KV_URL`)
+- [ ] 전사가 뜨면 `transcript-viewer` 가 원문으로 펼치는지 본다
+      (볼트 매핑 필요 — `POST …/vault` 로 올려 둔 것을 브라우저가 풉니다)
 - [ ] 「＋ 올리기」 버튼에 파일 선택을 단다. **`screenName()` 을 지나게 합니다**
 
 > ⚠️ **파일 속 주민등록번호 검출은 여전히 미결입니다** ([ADR-026](../../decisions/026-raw-upload-retention.md)

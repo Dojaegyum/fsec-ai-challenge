@@ -49,6 +49,8 @@ import {
   createSlotReader,
   createSlotWriter,
   createSql,
+  createVaultStore,
+  createVaultWriter,
 } from './db'
 import type {
   ArtifactWriter,
@@ -60,6 +62,7 @@ import type {
   EvidenceWriter,
   SlotReader,
   SlotWriter,
+  VaultWriter,
 } from './db'
 import { createCasePlanStore } from './db-plan'
 import {
@@ -285,6 +288,12 @@ function slotWriter(env: Env): SlotWriter {
   return createSlotWriter(sql)
 }
 
+function vaultWriter(env: Env): VaultWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('VaultWriter', ['DATABASE_URL'])
+  return createVaultWriter(sql)
+}
+
 function artifactWriter(env: Env): ArtifactWriter {
   const sql = createSql(env)
   if (!sql) return unconfigured('ArtifactWriter', ['DATABASE_URL'])
@@ -325,8 +334,10 @@ export function unconfiguredPorts(env: Env): Ports {
     // 엉뚱한 것을 내려받으려다 실패하고, 원인이 두 단계 뒤에서 드러납니다
     mediaReader: createMediaReader(env) ?? unconfigured('MediaReader', storage),
     objects: createObjectStore(env) ?? unconfigured('ObjectStore', storage),
-    // ⬜ 볼트 제품 미결 → ADR-016 「남은 것」
-    vault: unconfigured('VaultStore', ['KV_URL', 'VAULT_MASTER_KEY']),
+    // 같은 Postgres 의 `vault` 스키마입니다 → ADR-049.
+    // **파기용 둘(`delete`·`remains`)뿐입니다** — 맡기는 자리는 `VaultWriter` 이고
+    // 라우트가 자기 것으로 씁니다 (`case-purger/types.ts` 의 경고)
+    vault: sql ? createVaultStore(sql) : unconfigured('VaultStore', db),
     // ⬜ 정본의 환경변수 표에 공휴일 API 키가 없습니다
     /**
      * ⚠️ **표로 답합니다. 임시공휴일이 안 들어옵니다** → holidays.ts.
@@ -408,6 +419,13 @@ export interface Container {
   readonly artifacts: ArtifactWriter
   /** 챗 기록 → §3.9. **토큰화된 것만 들어갑니다** */
   readonly messages: MessageStore
+  /**
+   * 복원 매핑 맡기 → §3.11. **서버는 이것을 열 수 없습니다** (ADR-009 · ADR-027).
+   *
+   * 파기용 볼트(`ports.vault`)와 **다른 포트입니다** — 지우는 쪽이 넣을 수도 있으면
+   * 「무엇이 볼트에 들어가나」를 볼 자리가 둘로 늘어납니다
+   */
+  readonly vaultWrite: VaultWriter
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -468,6 +486,7 @@ export function createContainer(
     slotWrite: slotWriter(env),
     artifacts: artifactWriter(env),
     messages: messageStore(env),
+    vaultWrite: vaultWriter(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,

@@ -123,6 +123,7 @@
 | [046](046-case-and-plan-together.md) | 사건과 플랜은 함께 저장된다 — 빈 사건을 만들지 않는다 | 채택 |
 | [047](047-one-step-shape.md) | 절차 단계의 응답 모양을 하나로 한다 | 채택 |
 | [048](048-horizon-carries-meaning.md) | `--horizon` 에 뜻을 싣는다 — 「제도가 흐르는 시간」 | 채택 |
+| [049](049-vault-in-postgres.md) | 볼트를 같은 Postgres 안 별도 스키마에 둔다 | 채택 |
 
 ## 아직 안 쓴 것
 

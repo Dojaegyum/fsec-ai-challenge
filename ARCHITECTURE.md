@@ -420,16 +420,15 @@ sequenceDiagram
 
 | 변수 | 무엇 | 필수 |
 | --- | --- | :---: |
-| `DATABASE_URL` | 관계형 DB 접속 | Y |
-| `KV_URL` | 볼트 저장소 접속 | Y |
-| `VAULT_MASTER_KEY` | 볼트 마스터 키 | Y |
+| `DATABASE_URL` | 관계형 DB 접속. **볼트도 여기입니다** — `case_vault` 스키마 | Y |
 | `BLOB_TOKEN` | 객체 저장소 접근 | Y |
 | `XAI_API_KEY` | Grok API 키 | Y |
 | `ADMIN_USERNAME` · `ADMIN_PASSWORD_HASH` | 관리자 1계정. **해시로만** | Y |
 | `CASE_PURGE_DAYS` | 사건 보관 기간. 기본 **180** (마지막 활동일 기준) | N |
 | `KB_FETCH_CRON` | 수집 주기. 기본 하루 1회 | N |
 
-- **`VAULT_MASTER_KEY`가 노출되면 볼트 암호문이 전부 풀립니다.** 다른 값보다 엄하게 취급합니다
+- **볼트를 여는 키는 이 표에 없습니다.** 복호화 키는 브라우저에만 있고 서버는 암호문을
+  보관만 합니다 → [ADR-049](decisions/049-vault-in-postgres.md)
 - **평문 비밀번호는 환경변수에도 넣지 않습니다**
 - **타임존은 `Asia/Seoul` 고정** → [기한 계산 규칙](spec/common/08-16-deadline-rules.md).
   DB는 `TIMESTAMPTZ`로 UTC 저장하고 세션 타임존으로 렌더합니다

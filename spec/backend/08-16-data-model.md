@@ -42,7 +42,7 @@ $$ LANGUAGE plpgsql;
 | 저장소 | 담는 것 | 원문 PII |
 | --- | --- | :---: |
 | 관계형 DB | 사건 상태 — 슬롯·플랜·부산물·기한·대화·감사 | **없음** |
-| 볼트 | 토큰↔원문 대응 (암호문) | 있음 (서버는 키 없음) |
+| 볼트 (`case_vault` 스키마 · [ADR-049](../../decisions/049-vault-in-postgres.md)) | 토큰↔원문 대응 (암호문) | 있음 (서버는 키 없음) |
 | 객체 저장소 | 업로드된 증거 원본 | 있음 |
 
 **관계형 DB의 어느 칼럼에도 원문 PII를 넣지 않습니다** → [04-pii-boundary.md](../common/08-14-pii-boundary.md) 규칙 1·2.
@@ -1615,6 +1615,6 @@ kind    | due_at                    | computed_from
 primary | 2026-08-20 23:59:59+09:00 | freeze_requested_at
 grace   | 2026-09-03 23:59:59+09:00 | freeze_requested_at
 
--- 볼트 (관계형 DB 아님)
-vault:01J8XKQZ...:[계좌-1] → AES-GCM 암호문 (서버는 키 없음)
+-- 볼트 (같은 Postgres · `case_vault` 스키마 → ADR-049)
+case_vault.restore_mapping (case_id, token) → ciphertext  -- AES-GCM. 서버는 키 없음
 ```

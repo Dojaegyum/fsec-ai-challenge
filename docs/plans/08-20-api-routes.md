@@ -311,7 +311,10 @@ Server Function rather than relying on Proxy alone"* 라고 경고합니다 — 
 > **`case-purger` 의 `VaultStore` 에 `put` 을 더하지 마세요.** 그건 파기하는 쪽이 보는
 > 뷰입니다. 쓰기 포트는 쓰는 쪽이 자기 것으로 선언합니다 — 코드에도 적어 뒀습니다.
 >
-> **DDL 은 안 바뀝니다.** 볼트는 `KV_URL` 쪽이고 ADR-016 의 세 층 중 하나입니다.
+> ~~**DDL 은 안 바뀝니다.** 볼트는 `KV_URL` 쪽이고 ADR-016 의 세 층 중 하나입니다.~~
+> → **바뀝니다.** 볼트가 같은 Postgres 의 `case_vault` 스키마로 들어갔습니다
+> ([ADR-049](../../decisions/049-vault-in-postgres.md) · `src/migrations/0004_vault_schema.sql`).
+> 층이 셋이라는 것은 그대로입니다 — 인스턴스를 나누지 않을 뿐입니다.
 
 ## 정본에 없어 채워야 하는 것
 
