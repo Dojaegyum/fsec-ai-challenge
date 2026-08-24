@@ -95,22 +95,30 @@ export default function CasePage() {
   const wanted = useSearchParams().get("view");
   const dev = wanted !== null;
 
-  const { state, reload } = useCaseBundle(token, !dev);
+  const { state, reload, refresh } = useCaseBundle(token, !dev);
 
-  if (dev) return <CaseScreen token={token} bundle={FIXTURE_BUNDLE} wanted={wanted} />;
+  if (dev)
+    return (
+      <CaseScreen token={token} bundle={FIXTURE_BUNDLE} wanted={wanted} onPlanChanged={refresh} />
+    );
   if (state.phase === "loading") return <CaseLoading />;
   if (state.phase === "failed") return <CaseFailed fail={state.fail} onRetry={reload} />;
-  return <CaseScreen token={token} bundle={state.bundle} wanted={null} />;
+  return (
+    <CaseScreen token={token} bundle={state.bundle} wanted={null} onPlanChanged={refresh} />
+  );
 }
 
 function CaseScreen({
   token,
   bundle,
   wanted,
+  onPlanChanged,
 }: {
   token: string;
   bundle: CaseBundle;
   wanted: string | null;
+  /** 슬롯에 답해 플랜이 다시 만들어졌을 때 — **화면을 비우지 않고** 값만 갈아끼웁니다 */
+  onPlanChanged: () => void;
 }) {
   // 효과에서 setState 하면 한 번 그린 뒤 다시 그리게 되므로 **처음부터 초기값**으로 씁니다
   const devFocus: Focus =
@@ -122,8 +130,12 @@ function CaseScreen({
   /** 증거함·챗이 서버를 부를 때 쓰는 토큰. **개발 경로에서는 `null`** — 픽스처로 그립니다 */
   const dataToken = wanted === null ? token : null;
 
-  /** 대화는 **셸이 한 벌만** 들고 있습니다 — 전환 중 유령도 같은 것을 봐야 합니다 */
-  const chat = useChatSend(dataToken);
+  /**
+   * 대화는 **셸이 한 벌만** 들고 있습니다 — 전환 중 유령도 같은 것을 봐야 합니다.
+   * 질문 자리도 여기 있습니다 — 슬롯 답과 발화가 **같은 매핑 목록**을 써야
+   * 같은 계좌에 같은 번호가 붙습니다 (PII 경계).
+   */
+  const chat = useChatSend(dataToken, bundle.question, onPlanChanged);
   /** 자료 레일도 같은 이유로 여기 있습니다. 개발 경로에서는 픽스처를 씨앗으로 둡니다 */
   const uploads = useUploads(dataToken, dataToken === null ? FIXTURE_EVIDENCE.files : []);
 
@@ -329,7 +341,6 @@ function CaseScreen({
           {focus === "chat" && (
             <ChatView
               atWork={atWork}
-              question={bundle.question}
               token={dataToken}
               chat={chat}
               onPickChoice={() => setSide("work")}
@@ -497,7 +508,6 @@ function CaseScreen({
               {ghost.from === "chat" && (
                 <ChatView
                   atWork={ghost.atWork}
-                  question={bundle.question}
                   token={dataToken}
                   chat={chat}
                   onPickChoice={() => undefined}

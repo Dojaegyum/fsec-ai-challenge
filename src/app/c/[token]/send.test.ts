@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { memoryKeyStore } from "@/modules/key-handler";
 
-import { sendUtterance } from "./send";
+import { answerSlot, sendUtterance } from "./send";
 
 const TOKEN = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 /** 시안·목업에서 쓰는 예시 값입니다 — 실제 계좌가 아닙니다 */
@@ -108,6 +108,127 @@ describe("순서가 계약이다", () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.url).toContain("/messages");
+  });
+});
+
+describe("질문에 답하는 것도 같은 경계를 지난다 — §3.5", () => {
+  const SLOT = "counterpart_account";
+  const url = `/api/cases/${TOKEN}/slots/${SLOT}`;
+
+  const slotOk = {
+    slot: { slot_key: SLOT, state: "confirmed", value: TOKENIZED },
+    plan_regenerated: true,
+    next_question: null,
+  };
+
+  const ask = (action: "answer" | "unknown" | "mask" | "keep", value?: string) =>
+    answerSlot({
+      caseToken: TOKEN,
+      slotKey: SLOT,
+      action,
+      ...(value === undefined ? {} : { value }),
+      mappings: [],
+      store: memoryKeyStore(),
+    });
+
+  it("볼트가 답보다 먼저 간다 — 발화와 같은 순서", async () => {
+    const calls = spyFetch(() => json(slotOk));
+    const result = await ask("answer", `상대 계좌는 ${ACCOUNT} 였어요`);
+
+    expect(result.ok).toBe(true);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.url).toContain("/vault");
+    expect(calls[1]?.url).toBe(url);
+  });
+
+  it("**원문이 답에 안 실린다** → 불변 규칙 2", async () => {
+    const calls = spyFetch(() => json(slotOk));
+    await ask("answer", `상대 계좌는 ${ACCOUNT} 였어요`);
+
+    const sent = calls.find((c) => c.url === url);
+    expect(sent?.body).not.toContain(ACCOUNT);
+    expect(sent?.body).toContain(TOKENIZED);
+  });
+
+  it("볼트가 실패하면 답을 아예 안 보낸다", async () => {
+    const calls = spyFetch((at) =>
+      at.includes("/vault") ? json({ error: { message: "맡기지 못했습니다" } }, 503) : json(slotOk),
+    );
+    const result = await ask("answer", `계좌는 ${ACCOUNT}`);
+
+    expect(calls).toHaveLength(1);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.stage).toBe("vault");
+  });
+
+  it("「모름」은 볼트도 값도 없이 간다 — **실패가 아니라 상태입니다**", async () => {
+    const calls = spyFetch(() =>
+      json({
+        slot: { slot_key: SLOT, state: "unknown", value: null },
+        plan_regenerated: false,
+        next_question: null,
+      }),
+    );
+    const result = await ask("unknown");
+
+    expect(result.ok).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe(url);
+    expect(JSON.parse(calls[0]!.body)).toEqual({ action: "unknown" });
+  });
+
+  it.each(["mask", "keep"] as const)(
+    "되묻기(`%s`)는 **다시 가리지 않는다** — 같은 값을 그대로 보낸다",
+    async (action) => {
+      // 다시 가리면 같은 값에 새 토큰이 붙어 **볼트에 쌍둥이**가 생깁니다.
+      // AES-GCM 이라 암호문도 달라져 무엇이 무엇인지 알 수 없게 됩니다
+      const calls = spyFetch(() => json(slotOk));
+      const result = await ask(action, `상대 계좌는 ${TOKENIZED} 였어요`);
+
+      expect(result.ok).toBe(true);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.url).toBe(url);
+      const body = JSON.parse(calls[0]!.body) as { action: string; value: string };
+      expect(body.action).toBe(action);
+      expect(body.value).toContain(TOKENIZED);
+    },
+  );
+
+  it("되묻기가 오면 그대로 돌려준다 — 화면이 카드를 그립니다", async () => {
+    spyFetch(() =>
+      json({
+        slot: { slot_key: SLOT, state: "pii_pending", value: null },
+        pii_confirm: {
+          found: [{ kind: "이름", text: "[이름-1]" }],
+          text: "여기에 개인정보가 들어 있는 것 같습니다.",
+          note: "가리면 이 값은 이 기기 밖으로 나가지 않습니다.",
+          options: [
+            { id: "mask", label: "맞아요 — 가릴게요" },
+            { id: "keep", label: "아니에요 — 개인정보가 아닙니다" },
+          ],
+        },
+        plan_regenerated: false,
+        next_question: null,
+      }),
+    );
+    const result = await ask("answer", "김철수 과장이라고 했어요");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.response.pii_confirm?.found[0]?.kind).toBe("이름");
+    // 다시 보낼 값을 들고 나옵니다 — 되묻기에 답할 때 **같은 것**을 보내야 합니다
+    expect(result.sent).toBe("김철수 과장이라고 했어요");
+    expect(result.response.plan_regenerated).toBe(false);
+  });
+
+  it("실패해도 스스로 다시 안 부른다 → 에러 §3.1", async () => {
+    const calls = spyFetch(() => json({ error: { message: "잠시 뒤에", retryable: true } }, 503));
+    const result = await ask("unknown");
+
+    expect(calls).toHaveLength(1);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.stage).toBe("answer");
+    expect(!result.ok && result.fail.retryable).toBe(true);
   });
 });
 

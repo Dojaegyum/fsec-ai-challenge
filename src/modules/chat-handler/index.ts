@@ -10,12 +10,14 @@
 
 import "client-only";
 
-export { outgoing, toTurn, sourceNote } from "./turn";
-export { AnswerBubble, QuestionButtons } from "./stream";
+export { outgoing, toTurn, sourceNote, isDontKnow } from "./turn";
+export { AnswerBubble, PiiConfirmCard, QuestionButtons, QuestionField } from "./stream";
 export type {
   ChatResponse,
   Citation,
   NextQuestion,
   OutgoingMessage,
+  PiiConfirm,
+  SlotAnswerResponse,
   Turn,
 } from "./types";

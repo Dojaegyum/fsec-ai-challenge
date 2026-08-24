@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 
-import { AnswerBubble, QuestionButtons } from "@/modules/chat-handler";
-import type { NextQuestion } from "@/modules/chat-handler";
+import {
+  AnswerBubble,
+  PiiConfirmCard,
+  QuestionButtons,
+  QuestionField,
+} from "@/modules/chat-handler";
 
 import type { ChatSend } from "./send";
 
@@ -49,23 +53,25 @@ const step = (i: number) => ({ animationDelay: `${60 + i * 70}ms` });
 
 export default function ChatView({
   atWork,
-  question,
   token,
   chat,
   onPickChoice,
 }: {
   atWork: boolean;
-  /** §3.4 `next_question` — `page.tsx` 가 §3.10 에서 받아 내려줍니다. 없으면 `null` */
-  question: NextQuestion | null;
   /** 사건 링크 토큰. `null` 이면 개발 경로라 서버를 안 부릅니다 */
   token: string | null;
   /** 대화 한 벌. **셸이 들고 있습니다** — 유령까지 같은 것을 봐야 합니다 */
   chat: ChatSend;
   onPickChoice: () => void;
 }) {
-  const { lines, sending, fail, send, loading, truncated, locked } = chat;
+  const { lines, sending, fail, send, loading, truncated, locked, ask } = chat;
   const [draft, setDraft] = useState("");
   const dev = token === null;
+  const question = ask.question;
+
+  /** 답하면 오른쪽 열이 할 일 패널로 넘어갑니다 — 보내기 전에 옮기지 않습니다 */
+  const answer = (value: string) => void ask.answer(value).then(onPickChoice);
+  const skip = () => void ask.skip().then(onPickChoice);
 
   const submit = () => {
     if (dev || sending) return;
@@ -179,15 +185,53 @@ export default function ChatView({
               </span>
             </Bubble>
 
-            {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
-                「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06)
+            {/* 답을 못 보냈을 때. **스스로 다시 보내지 않습니다** — 고른 것은
+                그대로 있고 누르는 것은 사용자입니다 (에러 §3.1) */}
+            {ask.fail && (
+              <div
+                role="alert"
+                className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px]"
+              >
+                <p className="text-[13.5px] leading-[1.6] text-ink-1">{ask.fail.fail.message}</p>
+                {ask.fail.stage === "vault" && (
+                  <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-3">
+                    <b className="font-[620] text-ink-2">답은 보내지 않았습니다.</b> 가린 값을 이
+                    기기에서 풀 수 있게 맡겨 두는 것이 먼저라, 그게 안 되면 보내지 않습니다.
+                  </p>
+                )}
+              </div>
+            )}
 
-                ⬜ **고른 답이 아직 서버로 안 갑니다.** §3.5 `PATCH …/slots/{slot_key}` 가
-                그 자리인데, 타이핑한 값이 그 경로로 나갈 때 `outgoing()` 을 지나야 하는지가
-                정본에 없습니다 — 응답에 `pii_confirm` 이 있어 **서버가 값을 본다**고 읽히기
-                때문입니다. 사람이 정할 일이라 지어내지 않았습니다 → QA 계획 Task 9 */}
+            {/* 되묻기가 오면 **선택지 대신** 이 카드입니다 — 아직 답한 것이
+                아니라서입니다 (ADR-041 · §3.5) */}
             <div style={step(lines.length + 1)} className="rise">
-              <QuestionButtons question={question} onPick={onPickChoice} />
+              {ask.confirm ? (
+                <PiiConfirmCard
+                  confirm={ask.confirm.card}
+                  typed={ask.confirm.typed}
+                  busy={ask.busy}
+                  onPick={(id) => void ask.resolve(id).then(onPickChoice)}
+                />
+              ) : (
+                <>
+                  {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
+                      「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06).
+                      **어느 것이 「모름」인지도 그쪽이 가릅니다** — 색과 `action` 이
+                      같은 판정을 써야 합니다 */}
+                  <QuestionButtons
+                    question={question}
+                    onAnswer={answer}
+                    onSkip={skip}
+                    busy={ask.busy}
+                  />
+                  <QuestionField
+                    question={question}
+                    onAnswer={answer}
+                    onSkip={skip}
+                    busy={ask.busy}
+                  />
+                </>
+              )}
             </div>
           </>
         )}

@@ -22,6 +22,30 @@ export interface NextQuestion {
   options?: readonly string[];
 }
 
+/**
+ * §3.5 되묻기 — **거부 대신 확인**입니다 (ADR-041).
+ *
+ * ⚠️ **`found[].text` 는 원문이 아니라 서버가 붙인 이름표**입니다
+ * (`flows/answer-slot.ts` 가 `one.token` 을 실어 보냅니다). 원문은 브라우저에
+ * 있으므로, 화면은 **사용자가 적은 값**을 보여주고 「이게 개인정보 맞나요」를
+ * 묻습니다. 서버가 원문을 되돌려 보내면 그때 원문이 한 번 더 왕복하게 됩니다.
+ */
+export interface PiiConfirm {
+  found: readonly { kind: string; text: string }[];
+  /** 문구는 **서버가 줍니다** — 화면이 다시 적지 않습니다 (§3.5) */
+  text: string;
+  note: string;
+  options: readonly { id: "mask" | "keep"; label: string }[];
+}
+
+/** §3.5 응답 */
+export interface SlotAnswerResponse {
+  slot: { slot_key: string; state: string; value: string | null };
+  pii_confirm?: PiiConfirm;
+  plan_regenerated: boolean;
+  next_question: NextQuestion | null;
+}
+
 /** §3.9 `citations[]` — `kb-` 만 법령 근거를 답니다 */
 export interface Citation {
   ref: string;

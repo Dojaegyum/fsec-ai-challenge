@@ -18,6 +18,21 @@ export function outgoing(utterance: string, ctx?: MaskContext): OutgoingMessage 
 }
 
 /**
+ * 「모름」 선택지인가 — **글자색만 내리는 자리**이자 **`unknown` 으로 보낼 자리**입니다
+ * (§S-06 「같은 크기·같은 자리」 · §3.5).
+ *
+ * ⬜ **계약에 표시가 없어 문구로 알아봅니다.** §3.4 의 `options` 는 문자열 배열이라
+ * 「어느 것이 모름인가」를 담을 칸이 없습니다. 못 알아봐도 **선택지가 사라지지는
+ * 않습니다** — 그 값이 `answer` 로 나갈 뿐입니다. 칸을 둘지는 사람이 정합니다.
+ *
+ * **판정이 여기 하나여야 합니다.** 렌더(색)와 전송(`action`)이 서로 다른 규칙을
+ * 쓰면 흐린 글씨로 그려 놓고 값으로 보내는 일이 생깁니다.
+ */
+export function isDontKnow(option: string): boolean {
+  return option.includes("모름") || option.includes("기억");
+}
+
+/**
  * 이 답변이 무엇을 보고 쓰였는지 한 줄.
  *
  * **`kb-` 만 셉니다** — 사건 정보(`case-`)와 전사(`t-`)는 지식베이스 항목이 아니라

@@ -112,12 +112,13 @@ function failUnreachable(message: string): LoadFail {
 }
 
 /**
- * 값을 보내는 자리들이 함께 쓰는 `POST`.
+ * 값을 보내는 자리들이 함께 쓰는 한 자리.
  *
  * **판정을 한 곳에 둡니다** — 보내는 자리마다 상태 코드를 해석하면
  * 「`retryable` 을 안 말했을 때 버튼을 띄우지 않는다」가 조용히 갈라집니다.
  */
-export async function postJson(
+export async function sendJson(
+  method: "POST" | "PATCH",
   url: string,
   body: unknown,
   signal?: AbortSignal,
@@ -126,7 +127,7 @@ export async function postJson(
   let res: Response;
   try {
     res = await fetch(url, {
-      method: "POST",
+      method,
       signal,
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify(body),
@@ -137,6 +138,16 @@ export async function postJson(
 
   if (!res.ok) return { ok: false, fail: await failFrom(res) };
   return { ok: true, json: await res.json() };
+}
+
+/** 위와 같습니다 — 보내는 자리 대부분이 `POST` 라 이름을 남겨 둡니다 */
+export function postJson(
+  url: string,
+  body: unknown,
+  signal?: AbortSignal,
+  unreachableMessage?: string,
+) {
+  return sendJson("POST", url, body, signal, unreachableMessage);
 }
 
 /**
@@ -265,8 +276,29 @@ export function useCaseBundle(token: string, enabled = true) {
   }, [token, enabled, key]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
+
+  /**
+   * **화면을 비우지 않고** 값만 갈아끼웁니다 — 슬롯에 답해 플랜이 다시 만들어졌을
+   * 때 부릅니다 (§3.5 `plan_regenerated`).
+   *
+   * `reload` 와 다릅니다. 그쪽은 「다시 시도」라 **기다리는 중으로 돌아가고**,
+   * 그러면 `CaseScreen` 이 통째로 다시 서면서 **방금 나눈 대화가 사라집니다.**
+   *
+   * **실패는 삼킵니다.** 화면에는 이미 읽어 둔 값이 있고, 갱신 한 번 못했다고
+   * 사건을 못 읽는 화면으로 돌아가면 방금 한 답까지 잃습니다.
+   */
+  const refresh = useCallback(() => {
+    void fetchCaseBundle(token).then((next) => {
+      if (next?.phase !== "ready") return;
+      // **들고 있던 열쇠를 그대로 씁니다** — 새 열쇠를 적으면 화면이 「기다리는
+      // 중」으로 돌아갑니다. 아직 첫 로드가 안 끝났으면 놔둡니다(그쪽이 새 값을
+      // 가져옵니다)
+      setGot((prev) => (prev === null ? prev : { key: prev.key, state: next }));
+    });
+  }, [token]);
+
   const state: LoadState = got?.key === key ? got.state : { phase: "loading" };
-  return { state, reload };
+  return { state, reload, refresh };
 }
 
 /* ── 증거 하나 — 다시 묻기 ─────────────────────────────────── */
