@@ -4,7 +4,7 @@
  * **공개 API 입니다.** 밖에서는 이 파일만 import 합니다 → RFC-001 「모듈 하나의 파일 골격」.
  */
 
-export { createSlotChecker, tierOf, valueTypeOf } from './check'
+export { createSlotChecker, isSlotKey, tierOf, valueTypeOf } from './check'
 export type {
   NextQuestion,
   QuestionForm,

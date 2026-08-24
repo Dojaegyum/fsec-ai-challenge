@@ -17,6 +17,12 @@
     "안내 문언이 달라지는 항목은 §11.3 대로 같은 step_key 로 항목을 하나 더 두고",
     "effective_until 로 닫아야 합니다. 무엇이 어떻게 바뀌는지는 아직 대조 전입니다.",
     "",
+    "⬜ body.actor 를 넣었습니다. §11.4 는 「칼럼으로 이미 있는 것(제목·주체·근거·",
+    "시행일)은 여기 넣지 않습니다」인데 kb_entry 에 actor 칼럼이 없고(§11.1 ·",
+    "마이그레이션 0001) planner 가 body.actor 를 읽습니다. 안 넣으면 사건 생성이",
+    "500 으로 터집니다 — 2026-08-24 실측. 돌아가는 코드에 맞췄고, 어느 쪽이",
+    "정본인지는 사람이 정해야 합니다.",
+    "",
     "_note 와 _todo 는 적재기가 무시합니다."
   ],
 
@@ -36,6 +42,7 @@
       "effective_until": null,
       "verified_at": "2026-08-24",
       "body": {
+        "actor": "victim",
         "requires_slots": [],
         "after": [],
         "conditional": null,
@@ -81,6 +88,7 @@
       "effective_until": null,
       "verified_at": "2026-08-24",
       "body": {
+        "actor": "victim",
         "requires_slots": [],
         "after": [],
         "conditional": null,
@@ -131,6 +139,7 @@
       "effective_until": null,
       "verified_at": "2026-08-24",
       "body": {
+        "actor": "victim",
         "requires_slots": [],
         "after": ["freeze-request"],
         "conditional": null,
@@ -181,6 +190,7 @@
       "effective_until": null,
       "verified_at": "2026-08-24",
       "body": {
+        "actor": "victim",
         "requires_slots": ["relief_applied_at"],
         "after": ["relief-apply"],
         "conditional": null,

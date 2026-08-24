@@ -215,6 +215,19 @@ export function valueTypeOf(slotKey: string): SlotValueType {
   return VALUE_TYPES[slotKey] ?? 'string'
 }
 
+/**
+ * §5.1 목록에 있는 이름인가 — **KB 적재 검증이 씁니다** (09-data-model.md §11.4.5).
+ *
+ * `valueTypeOf` 로는 못 가립니다. 그쪽은 목록 밖을 `string` 으로 받아 주는데,
+ * **저장할 때는 그게 맞고 적재할 때는 틀립니다** — 매뉴얼에 없는 슬롯 이름을
+ * 적어 두면 그 단계는 영영 안 채워지고, 그 사실이 실행 시점까지 안 드러납니다.
+ *
+ * 그래서 「받아 주는 자리」와 「거부하는 자리」가 같은 표를 다르게 씁니다.
+ */
+export function isSlotKey(name: string): boolean {
+  return Object.hasOwn(VALUE_TYPES, name)
+}
+
 /** 09-data-model.md §5.1 의 표를 그대로 */
 const VALUE_TYPES: Readonly<Record<string, SlotValueType>> = {
   transferred: 'bool',

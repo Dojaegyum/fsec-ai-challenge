@@ -141,6 +141,17 @@ export function createSql(env: Env): Sql | null {
 
   // 태그드 템플릿으로 부른 질의만 감쌉니다. `sql.begin`·`sql.json` 같은
   // 속성 접근과 조각 헬퍼는 그대로 지나갑니다
+  //
+  // ⛔ **질의를 다른 질의 안에 끼워 넣지 마세요.**
+  //
+  //     const select = (q) => sql`SELECT … WHERE track = ${q.track}`
+  //     await sql`${select(q)} AND org_id IS NULL`      // ← 터집니다
+  //
+  // 여기서 감싼 결과는 postgres.js 의 질의 객체가 아니라 **보통 Promise** 입니다.
+  // 템플릿 안에 넣으면 조각으로 펴지지 않고 **매개변수로 실려** 나가서
+  // `syntax error at or near "$1"` 이 됩니다 — 2026-08-24 에 `kb-finder` 조회
+  // 둘이 이것으로 죽어 있었고, 사건 생성이 통째로 503 이었습니다.
+  // 타입 검사도 시험도 못 잡습니다. **한 템플릿에 한 질의를 다 적으세요.**
   const guarded = new Proxy(made, {
     apply(target, thisArg, args: unknown[]) {
       const call = () => Reflect.apply(target, thisArg, args)
@@ -289,18 +300,22 @@ export function createAuditStore(sql: Sql): AuditStore {
  * **시행일이 지난 것만 봅니다.** 제도가 바뀌는 서비스라 `effective_from` 이
  * 미래인 항목이 KB 에 먼저 들어옵니다(예: 가상자산 환급 2026.10 시행).
  */
-export function createKbStore(sql: Sql): KbStore {
-  const select = (query: KbQuery) => sql`
-    SELECT kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id,
-           track, title, body, legal_basis, source_url,
-           effective_from, effective_until, verified_at
-    FROM kb_entry
-    WHERE kb_version = ${query.kbVersion}
-      AND track = ${query.track}
-      AND effective_from <= CURRENT_DATE
-      AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
-  `
+/**
+ * `DATE` 칼럼을 `YYYY-MM-DD` 로.
+ *
+ * ⚠️ **`String(값).slice(0, 10)` 으로 하지 마세요.** 드라이버가 `DATE` 를 JS `Date`
+ * 로 주기 때문에 `"Thu Jul 28"` 이 나오고, 그 문자열을 다시 날짜로 읽는 자리가
+ * 있으면 **연도가 2001 이 됩니다**(연도 없는 문자열의 기본값).
+ *
+ * 2026-08-24 에 실제로 그렇게 나갔습니다 — 시행일 `2016-07-28` 이 근거 표시에
+ * **`2001-07-27`** 로 실려 나갔습니다. 「2001년 시행」이라고 적힌 근거는 안 믿깁니다.
+ */
+function dateOnly(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value).slice(0, 10)
+}
 
+export function createKbStore(sql: Sql): KbStore {
   const toRow = (one: Record<string, unknown>): KbRow => ({
     kbEntryId: String(one.kb_entry_id),
     kbVersion: String(one.kb_version),
@@ -313,10 +328,10 @@ export function createKbStore(sql: Sql): KbStore {
     body: one.body as KbRow['body'],
     legalBasis: String(one.legal_basis),
     sourceUrl: String(one.source_url),
-    effectiveFrom: String(one.effective_from).slice(0, 10),
-    effectiveUntil: one.effective_until ? String(one.effective_until).slice(0, 10) : null,
+    effectiveFrom: dateOnly(one.effective_from),
+    effectiveUntil: one.effective_until ? dateOnly(one.effective_until) : null,
     // 사람이 마지막으로 근거를 확인한 날. 「언제 기준 정보인가」를 답에 붙입니다
-    verifiedAt: String(one.verified_at).slice(0, 10),
+    verifiedAt: dateOnly(one.verified_at),
   })
 
   return {
@@ -324,12 +339,19 @@ export function createKbStore(sql: Sql): KbStore {
       // 기관 전용 · 유형 기본 · 전 유형 공통을 한 번에.
       // 셋을 따로 부르면 왕복이 세 번이고, 서버 함수에서 그 값이 큽니다
       const rows = await sql<Record<string, unknown>[]>`
-        ${select(query)}
-        AND (
-          (org_id = ${query.orgId ?? null} AND channel_id = ${query.channelId ?? null})
-          OR (org_id IS NULL AND channel_id = ${query.channelId ?? null})
-          OR (org_id IS NULL AND channel_id IS NULL)
-        )
+        SELECT kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id,
+               track, title, body, legal_basis, source_url,
+               effective_from, effective_until, verified_at
+        FROM kb_entry
+        WHERE kb_version = ${query.kbVersion}
+          AND track = ${query.track}
+          AND effective_from <= CURRENT_DATE
+          AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
+          AND (
+            (org_id = ${query.orgId ?? null} AND channel_id = ${query.channelId ?? null})
+            OR (org_id IS NULL AND channel_id = ${query.channelId ?? null})
+            OR (org_id IS NULL AND channel_id IS NULL)
+          )
         ORDER BY step_seq
       `
       return rows.map(toRow)
@@ -338,10 +360,17 @@ export function createKbStore(sql: Sql): KbStore {
     async findReference(query: KbQuery): Promise<readonly KbRow[]> {
       // 다른 유형의 기본 항목만 — 「이 경우엔 이렇습니다」로 곁들이는 것입니다
       const rows = await sql<Record<string, unknown>[]>`
-        ${select(query)}
-        AND org_id IS NULL
-        AND channel_id IS NOT NULL
-        AND channel_id IS DISTINCT FROM ${query.channelId ?? null}
+        SELECT kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id,
+               track, title, body, legal_basis, source_url,
+               effective_from, effective_until, verified_at
+        FROM kb_entry
+        WHERE kb_version = ${query.kbVersion}
+          AND track = ${query.track}
+          AND effective_from <= CURRENT_DATE
+          AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
+          AND org_id IS NULL
+          AND channel_id IS NOT NULL
+          AND channel_id IS DISTINCT FROM ${query.channelId ?? null}
         ORDER BY channel_id, step_seq
       `
       return rows.map(toRow)

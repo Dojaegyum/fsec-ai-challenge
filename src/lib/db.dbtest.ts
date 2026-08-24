@@ -43,6 +43,7 @@ import {
   createCaseTokenResolver,
   createEvidenceReader,
   createEvidenceWriter,
+  createKbStore,
   createMessageStore,
   createSlotReader,
   createSlotWriter,
@@ -91,6 +92,10 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
   const evidenceReader = createEvidenceReader(sql)
   const vault = createVaultMappings(sql)
   const vaultStore = createVaultStore(sql)
+  const kb = createKbStore(sql)
+
+  /** 이 시험만 쓰는 KB 릴리스. 실제 릴리스와 안 섞이게 이름을 따로 둡니다 */
+  const KB_VERSION = 'dbtest.0'
 
   // 이 시험이 쓰는 사건 둘. `other` 는 **경계를 확인하는 쪽**입니다 —
   // 남의 사건 증거가 안 읽히는지, 빈 사건의 합계가 0 인지
@@ -124,6 +129,7 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
     for (const id of [caseId, otherId]) await vaultStore.delete(id)
     // 나머지(증거·슬롯·대화·단계·기한)는 `ON DELETE CASCADE` 로 따라 지워집니다
     await sql`DELETE FROM "case" WHERE case_id IN (${caseId}, ${otherId})`
+    await sql`DELETE FROM kb_entry WHERE kb_version = ${KB_VERSION}`
     await sql.end({ timeout: 5 })
   })
 
@@ -384,6 +390,123 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
       const lines = await messages.transcript(caseId)
       expect(lines.length).toBeGreaterThan(0)
       expect(lines[0]?.text).toContain('[계좌-1]')
+    })
+  })
+
+  describe('KB 조회 — **2026-08-24 에 이것이 통째로 죽어 있었습니다**', () => {
+    // 조각을 다른 질의에 끼워 넣고 있었는데(`${select(q)}`), 재시도 Proxy 가
+    // 그 조각을 보통 Promise 로 바꿔 **매개변수로 실려** 나갔습니다 —
+    // `syntax error at or near "$1"`. 사건 생성이 전부 503 이었고,
+    // 타입 검사도 시험 1110건도 못 잡았습니다. **질의를 실제로 보내야 보입니다.**
+    const seed = (over: Record<string, unknown>) => ({
+      kb_entry_id: `dbtest-${String(over.step_key ?? 'x')}`,
+      kb_version: KB_VERSION,
+      step_key: 'x',
+      step_seq: 10,
+      channel_id: null,
+      org_id: null,
+      track: 'victim',
+      title: '무언가',
+      legal_basis: '어느 조문',
+      source_url: 'https://www.law.go.kr/',
+      effective_from: '2016-07-28',
+      effective_until: null,
+      verified_at: '2026-08-24',
+      ...over,
+    })
+
+    beforeAll(async () => {
+      const rows = [
+        seed({ step_key: 'common', step_seq: 10 }),
+        seed({ step_key: 'bank', step_seq: 20, channel_id: 'CH-bank' }),
+        seed({ step_key: 'crypto', step_seq: 30, channel_id: 'CH-crypto' }),
+        // 아직 시행 전 — 오늘 조회에는 안 나와야 합니다
+        seed({ step_key: 'future', step_seq: 40, effective_from: '2099-01-01' }),
+        // 이미 닫힌 항목
+        seed({ step_key: 'closed', step_seq: 50, effective_until: '2020-01-01' }),
+      ]
+      for (const row of rows) {
+        await sql`
+          INSERT INTO kb_entry
+            (kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id, track,
+             title, body, legal_basis, source_url, effective_from, effective_until,
+             verified_at, released_at)
+          VALUES
+            (${row.kb_entry_id}, ${row.kb_version}, ${row.step_key}, ${row.step_seq},
+             ${row.channel_id}, ${row.org_id}, ${row.track}, ${row.title},
+             ${sql.json({ steps: [] } as never)}, ${row.legal_basis}, ${row.source_url},
+             ${row.effective_from}, ${row.effective_until}, ${row.verified_at}, now())
+          ON CONFLICT (kb_entry_id, kb_version) DO NOTHING
+        `
+      }
+    })
+
+    it('유형 기본과 전 유형 공통을 한 번에 가져온다', async () => {
+      const rows = await kb.findApplied({
+        kbVersion: KB_VERSION,
+        track: 'victim',
+        channelId: 'CH-bank',
+        orgId: null,
+        asOf: '2026-08-24',
+      })
+      expect(rows.map((r) => r.stepKey)).toEqual(['common', 'bank'])
+    })
+
+    it('**시행 전 항목은 안 나온다** — 제도가 바뀌는 서비스라 미래 항목이 먼저 들어옵니다', async () => {
+      const rows = await kb.findApplied({
+        kbVersion: KB_VERSION,
+        track: 'victim',
+        channelId: null,
+        orgId: null,
+        asOf: '2026-08-24',
+      })
+      expect(rows.map((r) => r.stepKey)).not.toContain('future')
+    })
+
+    it('닫힌 항목도 안 나온다', async () => {
+      const rows = await kb.findApplied({
+        kbVersion: KB_VERSION,
+        track: 'victim',
+        channelId: null,
+        orgId: null,
+        asOf: '2026-08-24',
+      })
+      expect(rows.map((r) => r.stepKey)).not.toContain('closed')
+    })
+
+    it('버전을 못 박아 읽는다 — 다른 버전은 안 섞인다 (ADR-045)', async () => {
+      const rows = await kb.findApplied({
+        kbVersion: 'dbtest.없는버전',
+        track: 'victim',
+        channelId: null,
+        orgId: null,
+        asOf: '2026-08-24',
+      })
+      expect(rows).toEqual([])
+    })
+
+    it('곁들이는 항목은 **다른 유형**만 낸다', async () => {
+      const rows = await kb.findReference({
+        kbVersion: KB_VERSION,
+        track: 'victim',
+        channelId: 'CH-bank',
+        orgId: null,
+        asOf: '2026-08-24',
+      })
+      // 내 유형(CH-bank)도, 전 유형 공통(channel_id NULL)도 아닌 것만
+      expect(rows.map((r) => r.stepKey)).toEqual(['crypto'])
+    })
+
+    it('날짜가 하루 어긋나지 않는다', async () => {
+      const rows = await kb.findApplied({
+        kbVersion: KB_VERSION,
+        track: 'victim',
+        channelId: null,
+        orgId: null,
+        asOf: '2026-08-24',
+      })
+      expect(rows[0]?.effectiveFrom).toBe('2016-07-28')
+      expect(rows[0]?.verifiedAt).toBe('2026-08-24')
     })
   })
 
