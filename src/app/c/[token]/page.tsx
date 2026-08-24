@@ -9,10 +9,11 @@ import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
 import { ABSORB_MS, absorbKeyframes, fadeKeyframes, prefersReducedMotion, rectOf } from "./absorb";
 import ChatView, { MiniChat } from "./chat";
-import { FIXTURE_BUNDLE } from "./fixtures";
+import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
 import { useCaseBundle, type CaseBundle } from "./load";
 import { useChatSend } from "./send";
+import { useUploads } from "./upload";
 import T0Rail from "./safety";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
@@ -123,6 +124,8 @@ function CaseScreen({
 
   /** 대화는 **셸이 한 벌만** 들고 있습니다 — 전환 중 유령도 같은 것을 봐야 합니다 */
   const chat = useChatSend(dataToken);
+  /** 자료 레일도 같은 이유로 여기 있습니다. 개발 경로에서는 픽스처를 씨앗으로 둡니다 */
+  const uploads = useUploads(dataToken, dataToken === null ? FIXTURE_EVIDENCE.files : []);
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
   const [side, setSide] = useState<Side>(
@@ -335,7 +338,7 @@ function CaseScreen({
           {focus === "plan" && (
             <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
           )}
-          {focus === "evidence" && <EvidenceView token={dataToken} />}
+          {focus === "evidence" && <EvidenceView token={dataToken} uploads={uploads} />}
           {focus === "doc" && <DocGuide caseToken={token} />}
         </section>
 
@@ -503,7 +506,7 @@ function CaseScreen({
               {ghost.from === "plan" && (
                 <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
               )}
-              {ghost.from === "evidence" && <EvidenceView token={dataToken} />}
+              {ghost.from === "evidence" && <EvidenceView token={dataToken} uploads={uploads} />}
               {ghost.from === "doc" && <DocGuide caseToken={token} />}
             </div>
           </div>

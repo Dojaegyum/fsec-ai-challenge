@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef } from "react";
 
 import { FileRail } from "@/modules/file-sender";
 import { countTokens, TranscriptView } from "@/modules/transcript-viewer";
 
 import { FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { useEvidence } from "./load";
+import type { Uploads } from "./upload";
 
 /**
  * S-08 증거함 — `/c/{token}` 의 `focus: "evidence"` 일 때의 본문.
@@ -33,9 +34,8 @@ import { useEvidence } from "./load";
  *
  *  · **전사·토큰** — `GET …/evidence/{id}` (§3.3). 서버가 준 `poll_after_ms` 로만
  *    다시 묻습니다 (`load.ts` 의 `useEvidence`). 간격을 화면이 지어내지 않습니다
- *  · **자료 레일** — 아직 브라우저가 들고 있는 목록입니다. 올리는 경로가 서면
- *    거기서 채워집니다 (QA 계획 Task 6) — 못 가려서 **안 올린 파일도 남아야** 해서
- *    서버 응답만으로는 못 만듭니다
+ *  · **자료 레일** — 브라우저가 들고 있는 목록입니다(`useUploads`). 못 가려서
+ *    **안 올린 파일도 남아야** 해서 서버 응답만으로는 못 만듭니다 (ADR-026)
  *  · **복원 매핑** — 볼트를 여는 것은 `key-handler` 이고 아직 안 붙었습니다.
  *    ⬜ 그때까지 `FIXTURE_MAPPINGS` 입니다 — **원문이 서버에서 오지 않는다**는
  *    사실은 그대로입니다 (ADR-009 · ADR-027)
@@ -46,9 +46,17 @@ import { useEvidence } from "./load";
 /** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작합니다 */
 const step = (i: number) => ({ animationDelay: `${520 + i * 80}ms` });
 
-export default function EvidenceView({ token }: { token: string | null }) {
-  const [selected, setSelected] = useState<string>("a");
-  const files = FIXTURE_EVIDENCE.files;
+export default function EvidenceView({
+  token,
+  uploads,
+}: {
+  token: string | null;
+  /** 자료 레일 한 벌. **셸이 들고 있습니다** — 유령까지 같은 것을 봐야 합니다 */
+  uploads: Uploads;
+}) {
+  const pick = useRef<HTMLInputElement>(null);
+  const files = uploads.files;
+  const selected = uploads.selectedId;
   const file = files.find((f) => f.id === selected) ?? files[0];
 
   // 올라간 파일만 서버에 물을 것이 있습니다 — `evidence_id` 가 없으면 안 부릅니다
@@ -69,17 +77,43 @@ export default function EvidenceView({ token }: { token: string | null }) {
       <aside style={step(0)} className="rise min-w-0">
         <div className="flex items-baseline justify-between px-1.5">
           <h3 className="text-[12.5px] tracking-[0.12em] text-ink-4">자료 {files.length}</h3>
+          {/* 종류를 계약의 셋으로 좁혀 받습니다 — PDF 는 어디에 넣을지가
+              정본에 없어 안 받습니다 (`kindOf` 참고) */}
+          <input
+            ref={pick}
+            type="file"
+            accept="audio/*,image/*,text/*"
+            className="hidden"
+            onChange={(e) => {
+              const chosen = e.target.files?.[0];
+              // 같은 파일을 다시 골라도 이벤트가 나게 비웁니다
+              e.target.value = "";
+              if (chosen) void uploads.add(chosen);
+            }}
+          />
           <button
             type="button"
-            className="inline-flex min-h-[var(--size-touch)] items-center text-[13px] text-pii"
+            onClick={() => pick.current?.click()}
+            disabled={token === null || uploads.busy}
+            className="inline-flex min-h-[var(--size-touch)] items-center text-[13px] text-pii disabled:opacity-45"
           >
-            ＋ 올리기
+            {uploads.busy ? "올리는 중" : "＋ 올리기"}
           </button>
         </div>
 
         {/* 자료 레일은 `file-sender` 가 그립니다 — 상태 점과 갈림길이
             그쪽 규칙이기 때문입니다(경계 표: 「업로드 + 처리 상태」). 레일은 선택 UI 를 겸합니다 */}
-        <FileRail files={files} selectedId={selected} onSelect={setSelected} />
+        <FileRail files={files} selectedId={selected} onSelect={uploads.select} />
+
+        {/* 못 올렸으면 앰버로. **스스로 다시 올리지 않습니다** (에러 §3.1) */}
+        {uploads.fail && (
+          <p
+            role="alert"
+            className="mt-3 rounded-[10px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-3 text-[12.5px] leading-[1.6] text-ink-2"
+          >
+            {uploads.fail.message}
+          </p>
+        )}
 
         <p className="mt-3 rounded-[10px] border border-dashed border-hairline p-3 text-[12.5px] leading-[1.6] text-ink-3">
           증거가 없어도 사건은 진행됩니다.{" "}
@@ -89,6 +123,15 @@ export default function EvidenceView({ token }: { token: string | null }) {
 
       {/* ── 전사 본문 ──────────────────────────────────── */}
       <section className="min-w-0 rounded-[14px] border border-hairline bg-surface-low">
+        {/* **증거는 관문이 아닙니다** — 없어도 사건은 그대로 진행됩니다 */}
+        {!file && (
+          <p className="p-[18px_16px] text-[14px] leading-[1.65] text-ink-3">
+            아직 올리신 자료가 없습니다. <b className="font-[620] text-ink-2">없어도 사건은
+            진행됩니다</b> — 있으면 절차가 더 정확해질 뿐입니다.
+          </p>
+        )}
+        {file && (
+        <>
         <header
           style={step(2)}
           className="rise flex flex-wrap items-center justify-between gap-3 border-b border-hairline p-[13px_16px]"
@@ -184,6 +227,8 @@ export default function EvidenceView({ token }: { token: string | null }) {
               않습니다.
             </footer>
           </>
+        )}
+        </>
         )}
       </section>
     </div>
