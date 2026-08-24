@@ -29,6 +29,12 @@ import type { ChatSend } from "./send";
  * 있습니다.
  *
  * `token` 이 `null` 이면 **서버를 부르지 않고 예시 대화를 그립니다** (`?view=` 개발 경로).
+ *
+ * ## 지난 대화를 되살립니다 → ADR-050
+ *
+ * 첫 로드에 볼트를 열고(§3.11 `GET`) 그 매핑으로 이력을 되살립니다(§3.12).
+ * **가족이 링크를 받아 열면 열쇠가 없어** `[계좌-1]` 이 그대로 보이는데,
+ * 그게 맞는 동작이라 **화면이 그 이유를 말합니다.**
  */
 
 
@@ -57,7 +63,7 @@ export default function ChatView({
   chat: ChatSend;
   onPickChoice: () => void;
 }) {
-  const { lines, sending, fail, send } = chat;
+  const { lines, sending, fail, send, loading, truncated, locked } = chat;
   const [draft, setDraft] = useState("");
   const dev = token === null;
 
@@ -78,10 +84,43 @@ export default function ChatView({
           <DemoStream atWork={atWork} />
         ) : (
           <>
-            {/* 첫 화면 — **지난 대화를 다시 읽어오지 않습니다.** §3.10 에 메시지
-                이력이 없어서입니다. 며칠 뒤 재진입은 `case-opener` 가 플랜으로
-                열기 때문에 빈 챗을 먼저 보게 되지는 않습니다 (⬜ QA 계획 Task 9) */}
-            {lines.length === 0 && (
+            {/* 지난 대화를 읽는 중 — 볼트를 먼저 열고 그 매핑으로 되살립니다
+                (ADR-050). 스켈레톤을 쓰지 않고 무엇을 하는지 말합니다 */}
+            {loading && (
+              <p className="flex items-center gap-2 text-[13px] text-ink-3">
+                지난 대화를 불러오고 있습니다
+                <span
+                  aria-hidden
+                  className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
+                />
+              </p>
+            )}
+
+            {/* **열쇠가 없는 기기입니다** — 가족이 링크를 받아 연 경우입니다.
+                아무 말 없이 `[계좌-1]` 이 보이면 고장으로 읽힙니다 (ADR-050) */}
+            {locked && (
+              <div className="rounded-[13px] border border-hairline bg-surface p-[13px_15px]">
+                <p className="text-[13.5px] leading-[1.65] text-ink-2">
+                  <b className="font-[620] text-ink-1">이 기기에는 여는 열쇠가 없습니다.</b>{" "}
+                  계좌번호·이름은 <b className="font-[620] text-pii">[계좌-1]</b> 처럼 가려진
+                  채로 보입니다 — 절차와 기한은 그대로 보입니다.
+                </p>
+                <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-3">
+                  열쇠는 처음 시작한 기기에만 있습니다. 그래야 링크가 새어도 그 값들이
+                  함께 새지 않습니다.
+                </p>
+              </div>
+            )}
+
+            {/* 앞부분이 잘렸으면 **말합니다** — 조용히 자르면 사용자는 대화가
+                그것뿐이었다고 읽습니다 (§3.12) */}
+            {truncated && (
+              <p className="text-[12.5px] text-ink-3">
+                앞부분은 줄였습니다. 최근 대화만 보여드립니다.
+              </p>
+            )}
+
+            {!loading && lines.length === 0 && (
               <Bubble who="ai" i={0}>
                 무슨 일이 있으셨는지 편하게 적어주세요. 문장이 아니어도 됩니다.
               </Bubble>

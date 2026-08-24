@@ -708,6 +708,33 @@ export interface MessageStore {
 
   /** 전사문 — **이미 토큰화된 것만** */
   transcript(caseId: string): Promise<readonly { speaker: string; text: string }[]>
+
+  /**
+   * 화면에 그릴 대화 → §3.12 · ADR-050.
+   *
+   * ⚠️ **`history()` 를 재사용하지 않습니다.** 그건 프롬프트용이라 20턴으로
+   * 자르고 `speaker`·`text` 만 냅니다. 화면은 `message_id`(키) ·`citations`
+   * (근거 한 줄) · `created_at` 이 필요하고, 상한도 다른 이유로 정합니다.
+   *
+   * **`prompt_masked`·`reasoning_masked` 는 내지 않습니다** — 프롬프트와 판단
+   * 근거는 사용자 응답에 넣지 않습니다 (ADR-022 · §5.4).
+   *
+   * 오래된 것부터 자릅니다. `truncated` 가 잘렸는지를 말합니다.
+   */
+  turns(
+    caseId: string,
+    limit: number,
+  ): Promise<{
+    readonly turns: readonly {
+      readonly messageId: string
+      readonly role: string
+      readonly contentMasked: string
+      readonly citations: readonly unknown[]
+      readonly insufficient: boolean
+      readonly createdAt: string
+    }[]
+    readonly truncated: boolean
+  }>
 }
 
 /** 맥락에 넣을 앞 대화의 최대 턴 수 */
@@ -779,6 +806,44 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
       }
       return out
     },
+
+    async turns(caseId, limit) {
+      // **오래된 것부터 자릅니다** — 최근 대화가 남아야 합니다. 그래서 최근 것부터
+      // 한 줄 더 받아 「더 있었나」를 봅니다(따로 COUNT 를 돌리지 않습니다)
+      const rows = await sql<
+        {
+          message_id: string
+          role: string
+          content_masked: string
+          citations: unknown
+          insufficient: boolean
+          created_at: Date
+        }[]
+      >`
+        SELECT message_id, role, content_masked, citations, insufficient, created_at
+        FROM message
+        WHERE case_id = ${caseId}
+        ORDER BY turn_no DESC, created_at DESC
+        LIMIT ${limit + 1}
+      `
+
+      const truncated = rows.length > limit
+      // 한 줄 더 받은 것은 판정용이라 버립니다
+      const kept = truncated ? rows.slice(0, limit) : rows
+
+      return {
+        // 모델에는 최근 것부터 잘라 왔지만 화면에는 시간순으로 줍니다
+        turns: kept.reverse().map((one) => ({
+          messageId: one.message_id,
+          role: one.role,
+          contentMasked: one.content_masked,
+          citations: Array.isArray(one.citations) ? one.citations : [],
+          insufficient: one.insufficient,
+          createdAt: one.created_at.toISOString(),
+        })),
+        truncated,
+      }
+    },
   }
 }
 
@@ -797,7 +862,12 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
  * **여기에 원문을 받는 칸을 만들지 마세요.** `token` 만 평문이고, 그건
  * 개인정보가 아니라 조회 키입니다.
  */
-export interface VaultWriter {
+export interface VaultEntryRow {
+  readonly token: string
+  readonly ciphertext: string
+}
+
+export interface VaultMappings {
   /**
    * 매핑을 맡는다. **`(사건, token)` 기준으로 덮어씁니다** → §3.11.
    *
@@ -805,13 +875,19 @@ export interface VaultWriter {
    * **다르다고 해서 다른 값이 아닙니다.** 같은 값에는 같은 토큰이 붙으므로
    * 덮어쓰기로 충분합니다.
    */
-  put(
-    caseId: string,
-    entries: readonly { readonly token: string; readonly ciphertext: string }[],
-  ): Promise<number>
+  put(caseId: string, entries: readonly VaultEntryRow[]): Promise<number>
+
+  /**
+   * 맡긴 것을 되받는다 → §3.11 `GET` · ADR-050.
+   *
+   * **암호문 그대로 나갑니다.** 서버는 열 수 없고, 여는 것은 브라우저의
+   * `key-handler` 입니다. 이 자리가 없으면 **본인이 다시 들어와도 `[계좌-1]` 을
+   * 못 풀고** 서류 기재 안내가 통째로 빈칸이 됩니다.
+   */
+  list(caseId: string): Promise<readonly VaultEntryRow[]>
 }
 
-export function createVaultWriter(sql: Sql): VaultWriter {
+export function createVaultMappings(sql: Sql): VaultMappings {
   return {
     async put(caseId, entries) {
       if (entries.length === 0) return 0
@@ -825,11 +901,22 @@ export function createVaultWriter(sql: Sql): VaultWriter {
       // 한 문장으로 넣습니다 — 발화 하나에서 매핑이 여럿 생기는데
       // 줄마다 왕복하면 서버 함수의 실행 시간을 그걸로 씁니다
       await sql`
-        INSERT INTO case_case_vault.restore_mapping ${sql(rows, 'case_id', 'token', 'ciphertext')}
+        INSERT INTO case_vault.restore_mapping ${sql(rows, 'case_id', 'token', 'ciphertext')}
         ON CONFLICT (case_id, token)
         DO UPDATE SET ciphertext = EXCLUDED.ciphertext, stored_at = now()
       `
       return entries.length
+    },
+
+    async list(caseId) {
+      // 맡긴 순서로 냅니다 — 화면이 순서에 의존하지는 않지만, 같은 요청에
+      // 같은 순서가 나와야 무엇이 달라졌는지 볼 수 있습니다
+      const rows = await sql<{ token: string; ciphertext: string }[]>`
+        SELECT token, ciphertext FROM case_vault.restore_mapping
+        WHERE case_id = ${caseId}
+        ORDER BY stored_at, token
+      `
+      return rows.map((one) => ({ token: one.token, ciphertext: one.ciphertext }))
     },
   }
 }
@@ -839,12 +926,12 @@ export function createVaultWriter(sql: Sql): VaultWriter {
  *
  * **쓰기(`put`)가 여기 없습니다.** 지우는 것만 하는 모듈이 넣을 수도 있으면
  * 「무엇이 볼트에 들어가나」를 볼 자리가 둘로 늘어납니다 —
- * `case-purger/types.ts` 의 경고 그대로입니다. 맡기는 자리는 위 `VaultWriter` 입니다.
+ * `case-purger/types.ts` 의 경고 그대로입니다. 맡기고 되받는 자리는 위 `VaultMappings` 입니다.
  */
 export function createVaultStore(sql: Sql): VaultStore {
   return {
     async delete(caseId) {
-      await sql`DELETE FROM case_case_vault.restore_mapping WHERE case_id = ${caseId}`
+      await sql`DELETE FROM case_vault.restore_mapping WHERE case_id = ${caseId}`
     },
 
     /**
@@ -853,7 +940,7 @@ export function createVaultStore(sql: Sql): VaultStore {
      */
     async remains(caseId) {
       const rows = await sql<{ one: number }[]>`
-        SELECT 1 AS one FROM case_case_vault.restore_mapping WHERE case_id = ${caseId} LIMIT 1
+        SELECT 1 AS one FROM case_vault.restore_mapping WHERE case_id = ${caseId} LIMIT 1
       `
       return rows.length > 0
     },

@@ -26,7 +26,7 @@
  * 화면에 그리는 것은 원문이고(ADR-034), 나가는 것은 토큰입니다. 둘은 다른 값입니다.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { outgoing, toTurn } from "@/modules/chat-handler";
 import type { ChatResponse, Turn } from "@/modules/chat-handler";
@@ -39,6 +39,7 @@ import {
 import type { KeyStore } from "@/modules/key-handler";
 import type { PiiMapping } from "@/modules/pii-masker";
 
+import { fetchHistory, openVault } from "./history";
 import { postJson } from "./load";
 import type { LoadFail } from "./load";
 
@@ -122,6 +123,15 @@ export interface ChatSend {
   readonly sending: boolean;
   readonly fail: { readonly stage: SendStage; readonly fail: LoadFail } | null;
   readonly send: (text: string) => Promise<boolean>;
+  /** 지난 대화를 아직 읽는 중인가 */
+  readonly loading: boolean;
+  /** 앞부분이 잘렸나 → §3.12 */
+  readonly truncated: boolean;
+  /**
+   * 이 기기에 볼트를 열 열쇠가 없나 — **가족이 링크를 받아 연 경우**입니다.
+   * 그러면 `[계좌-1]` 이 그대로 보이고, 화면이 그 이유를 말해야 합니다 (ADR-050).
+   */
+  readonly locked: boolean;
 }
 
 /**
@@ -140,6 +150,42 @@ export function useChatSend(caseToken: string | null): ChatSend {
   const [mappings, setMappings] = useState<PiiMapping[]>([]);
   const [sending, setSending] = useState(false);
   const [fail, setFail] = useState<{ stage: SendStage; fail: LoadFail } | null>(null);
+  const [loading, setLoading] = useState(caseToken !== null);
+  const [truncated, setTruncated] = useState(false);
+  const [locked, setLocked] = useState(false);
+
+  /**
+   * 첫 로드 — **볼트를 먼저 열고** 그 매핑으로 이력을 되살립니다 (ADR-050).
+   *
+   * 매핑을 `mappings` 에 심어 두는 것이 중요합니다. 안 심으면 같은 계좌가
+   * 다시 나올 때 번호가 1부터 다시 붙어 **서로 다른 값이 같은 토큰**을
+   * 갖게 됩니다 → PII 경계 「같은 값이 다시 나오면 같은 번호」.
+   */
+  useEffect(() => {
+    if (!caseToken) return;
+    const ac = new AbortController();
+    let alive = true;
+
+    void (async () => {
+      const vault = await openVault(caseToken, store, ac.signal);
+      if (!alive) return;
+      setMappings(vault.maskContext);
+      // 볼트에 맡긴 것이 있는데 열쇠가 없을 때만 잠긴 것입니다 —
+      // 아직 아무것도 안 맡긴 새 사건은 잠긴 것이 아닙니다
+      setLocked(!vault.hasKey && vault.stored > 0);
+
+      const past = await fetchHistory(caseToken, vault.restorable, ac.signal);
+      if (!alive) return;
+      setLines(past.lines);
+      setTruncated(past.truncated);
+      setLoading(false);
+    })();
+
+    return () => {
+      alive = false;
+      ac.abort();
+    };
+  }, [caseToken, store]);
 
   /** 보냈나 — **부른 쪽이 입력칸을 비울지 정하는 데 씁니다.** 실패했는데 비우면
    *  사용자가 방금 쓴 글을 통째로 다시 타이핑해야 합니다 */
@@ -170,5 +216,5 @@ export function useChatSend(caseToken: string | null): ChatSend {
     [caseToken, mappings, sending, store],
   );
 
-  return { lines, sending, fail, send };
+  return { lines, sending, fail, send, loading, truncated, locked };
 }
