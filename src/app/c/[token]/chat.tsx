@@ -1,8 +1,7 @@
 "use client";
 
 import { QuestionButtons } from "@/modules/chat-handler";
-
-import { FIXTURE_QUESTION } from "./fixtures";
+import type { NextQuestion } from "@/modules/chat-handler";
 
 /**
  * `focus: "chat"` 일 때의 본문 — S-06.
@@ -32,9 +31,12 @@ const step = (i: number) => ({ animationDelay: `${60 + i * 70}ms` });
 
 export default function ChatView({
   atWork,
+  question,
   onPickChoice,
 }: {
   atWork: boolean;
+  /** §3.4 `next_question` — `page.tsx` 가 §3.10 에서 받아 내려줍니다. 없으면 `null` */
+  question: NextQuestion | null;
   onPickChoice: () => void;
 }) {
   return (
@@ -69,19 +71,24 @@ export default function ChatView({
             </Bubble>
           </>
         ) : (
-          <>
-            <Bubble who="ai" i={3}>
-              바로 이어서 여쭐게요.{" "}
-              <b className="font-[640] text-ink-1">돈이 어떻게 나갔나요?</b>
-              <span className="mt-1.5 block text-[13px] text-ink-3">한 번에 하나만 여쭤봅니다</span>
-            </Bubble>
+          question && (
+            <>
+              {/* 질문 문구도 서버가 준 것입니다 — 화면이 다시 적지 않습니다 (§3.4) */}
+              <Bubble who="ai" i={3}>
+                바로 이어서 여쭐게요.{" "}
+                <b className="font-[640] text-ink-1">{question.text}</b>
+                <span className="mt-1.5 block text-[13px] text-ink-3">
+                  한 번에 하나만 여쭤봅니다
+                </span>
+              </Bubble>
 
-            {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
-                「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06) */}
-            <div style={step(4)} className="rise">
-              <QuestionButtons question={FIXTURE_QUESTION} onPick={onPickChoice} />
-            </div>
-          </>
+              {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
+                  「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06) */}
+              <div style={step(4)} className="rise">
+                <QuestionButtons question={question} onPick={onPickChoice} />
+              </div>
+            </>
+          )
         )}
       </div>
 

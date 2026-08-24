@@ -3,13 +3,15 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { isCaseToken, openCase } from "@/modules/case-opener";
+import { openCase } from "@/modules/case-opener";
 import { CallPanel } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
 import { ABSORB_MS, absorbKeyframes, fadeKeyframes, prefersReducedMotion, rectOf } from "./absorb";
 import ChatView, { MiniChat } from "./chat";
-import { FIXTURE_CASE } from "./fixtures";
+import { FIXTURE_BUNDLE } from "./fixtures";
+import { CaseFailed, CaseLoading } from "./gate";
+import { useCaseBundle, type CaseBundle } from "./load";
 import T0Rail from "./safety";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
@@ -51,8 +53,8 @@ import DocGuide from "./doc";
  *
  *  · 링크 토큰은 **ADR-039 로 확정**됐습니다 — 128비트 · Crockford Base32 · 26자이고
  *    `case_id` 와 **다른 칸**입니다. 모양 검사는 `case-opener` 가 합니다
- *  · **첫 화면은 `case-opener` 가 고릅니다** — 남은 것은 `fetch` 뿐입니다.
- *    지금은 `fixtures.ts` 의 `FIXTURE_CASE` 를 먹습니다
+ *  · **첫 화면은 `case-opener` 가 고릅니다.** 값은 `load.ts` 가 §3.10 을
+ *    **한 번** 불러 가져옵니다 — `?view=` 가 붙어 있을 때만 픽스처로 그립니다
  */
 
 /** 유령을 띄워 두는 시간 — 흡수(1.5s)와 `.view-out`(0.3s 지연 + 0.7s) 중 긴 쪽 */
@@ -74,17 +76,46 @@ const DEV_VIEWS: readonly [Focus, string][] = [
   ["doc", "기재 안내"],
 ];
 
-export default function CaseScreen() {
+/**
+ * 문 — 사건을 **한 번** 읽고, 읽히면 화면을 세웁니다.
+ *
+ * 셋으로 갈라 두는 이유는 아래 `CaseScreen` 이 **첫 렌더에 값을 다 갖고 있어야**
+ * 하기 때문입니다. 상태 기계의 초기값이 `openCase()` 의 결과라, 값이 나중에
+ * 오면 「챗으로 열었다가 플랜으로 튀는」 화면이 됩니다.
+ */
+export default function CasePage() {
+  /** URL 의 토큰. **도메인을 하드코딩하지 않습니다** — 지금 열려 있는 주소가 곧 그 주소입니다 */
+  const token = String(useParams().token ?? "");
+
   // 개발용 — `?view=plan` 처럼 주소로 열 수 있습니다 (스크린샷·시연용).
-  // 효과에서 setState 하면 한 번 그린 뒤 다시 그리게 되므로 **처음부터 초기값**으로 씁니다.
-  // 서버 시그널이 붙으면 이 세 줄은 통째로 지웁니다.
+  // **이때는 서버를 부르지 않고 픽스처로 그립니다** — 시연에 DB 에 사건을 심어
+  // 둘 필요가 없습니다. 제품 경로는 아래 `fetch` 뿐입니다
   const wanted = useSearchParams().get("view");
+  const dev = wanted !== null;
+
+  const { state, reload } = useCaseBundle(token, !dev);
+
+  if (dev) return <CaseScreen token={token} bundle={FIXTURE_BUNDLE} wanted={wanted} />;
+  if (state.phase === "loading") return <CaseLoading />;
+  if (state.phase === "failed") return <CaseFailed fail={state.fail} onRetry={reload} />;
+  return <CaseScreen token={token} bundle={state.bundle} wanted={null} />;
+}
+
+function CaseScreen({
+  token,
+  bundle,
+  wanted,
+}: {
+  token: string;
+  bundle: CaseBundle;
+  wanted: string | null;
+}) {
+  // 효과에서 setState 하면 한 번 그린 뒤 다시 그리게 되므로 **처음부터 초기값**으로 씁니다
   const devFocus: Focus =
     wanted === "plan" || wanted === "evidence" || wanted === "doc" ? wanted : "chat";
 
-  // `?view=` 가 없으면 **규칙**이 첫 화면을 고릅니다 — 서버가 지목하지 않습니다 (§3.10).
-  // 라우트가 서면 `FIXTURE_CASE` 자리가 `GET /api/cases/{token}` 응답이 됩니다
-  const opened = openCase(FIXTURE_CASE);
+  // `?view=` 가 없으면 **규칙**이 첫 화면을 고릅니다 — 서버가 지목하지 않습니다 (§3.10)
+  const opened = openCase(bundle.case);
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
   const [side, setSide] = useState<Side>(
@@ -189,12 +220,6 @@ export default function CaseScreen() {
     sideAtChange.current = atWork;
   });
 
-  /** URL 의 토큰. **도메인을 하드코딩하지 않습니다** — 지금 열려 있는 주소가 곧 그 주소입니다 */
-  const token = String(useParams().token ?? "");
-  // 모양이 아니면 서버를 부르지 않습니다 — 열거 시도에 왕복을 태우지 않습니다.
-  // 라우트가 없는 지금은 쓰는 곳이 없어도 됩니다. fetch 가 붙는 날 그 앞의 관문이 됩니다
-  void isCaseToken(token);
-
   const copyUrl = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -292,9 +317,15 @@ export default function CaseScreen() {
           }`}
         >
           {focus === "chat" && (
-            <ChatView atWork={atWork} onPickChoice={() => setSide("work")} />
+            <ChatView
+              atWork={atWork}
+              question={bundle.question}
+              onPickChoice={() => setSide("work")}
+            />
           )}
-          {focus === "plan" && <PlanView />}
+          {focus === "plan" && (
+            <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
+          )}
           {focus === "evidence" && <EvidenceView />}
           {focus === "doc" && <DocGuide caseToken={token} />}
         </section>
@@ -452,9 +483,15 @@ export default function CaseScreen() {
             {/* `[&_.rise]:animate-none` — 나가는 중인데 내용이 새로 등장하면 안 됩니다 */}
             <div className="flex h-full flex-col overflow-hidden px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] [&_.rise]:animate-none">
               {ghost.from === "chat" && (
-                <ChatView atWork={ghost.atWork} onPickChoice={() => undefined} />
+                <ChatView
+                  atWork={ghost.atWork}
+                  question={bundle.question}
+                  onPickChoice={() => undefined}
+                />
               )}
-              {ghost.from === "plan" && <PlanView />}
+              {ghost.from === "plan" && (
+                <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
+              )}
               {ghost.from === "evidence" && <EvidenceView />}
               {ghost.from === "doc" && <DocGuide caseToken={token} />}
             </div>

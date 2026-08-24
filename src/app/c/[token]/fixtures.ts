@@ -23,6 +23,7 @@ import type { CaseResponse } from "@/modules/case-opener";
 import type { NextQuestion } from "@/modules/chat-handler";
 import type { RailFile } from "@/modules/file-sender";
 import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
+import type { CaseBundle } from "./load";
 
 /** §3.6 `GET /api/cases/{case_token}/plan` — 지금 `plan.tsx` 의 `STEPS` 여섯 줄 */
 export const FIXTURE_PLAN: { steps: PlanStep[] } = {
@@ -34,6 +35,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       state: "done_verified",
       conditional: null,
       body: { step_key: "bank-freeze-request" },
+      required_artifact: { kind: "call_receipt", label: "통화 접수번호" },
     },
     {
       step_id: "m2",
@@ -42,6 +44,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       state: "done_verified",
       conditional: null,
       body: { step_key: "report-112" },
+      required_artifact: { kind: "report_number", label: "사건접수번호" },
     },
     {
       step_id: "m3",
@@ -227,4 +230,18 @@ export const FIXTURE_CASE: CaseResponse = {
   plan: {
     steps: FIXTURE_PLAN.steps.map((s) => ({ step_id: s.step_id, state: s.state })),
   },
+};
+
+/**
+ * `?view=` 개발 경로가 먹는 한 벌 — 위의 조각들을 §3.10 이 내리는 모양으로 묶은 것.
+ *
+ * **픽스처를 지우지 않는 이유가 이것입니다.** 라우트가 서도 시연·스크린샷은
+ * 사건 하나를 DB 에 심어 두는 것보다 이 경로가 쌉니다. `?view=` 가 붙어 있으면
+ * 서버를 부르지 않고 이 값으로 그립니다 (→ `page.tsx`).
+ */
+export const FIXTURE_BUNDLE: CaseBundle = {
+  case: FIXTURE_CASE,
+  steps: FIXTURE_PLAN.steps,
+  deadlines: FIXTURE_DEADLINES.deadlines,
+  question: FIXTURE_QUESTION,
 };
