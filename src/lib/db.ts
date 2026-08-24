@@ -24,6 +24,7 @@ import 'server-only'
 import postgres from 'postgres'
 
 import type { Env } from './env'
+import { StoreError } from './errors'
 
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
 import type {
@@ -56,6 +57,70 @@ export type Sql = ReturnType<typeof postgres>
  */
 const pool = new Map<string, Sql>()
 
+/**
+ * 질의가 **서버에 닿기도 전에** 실패한 것들.
+ *
+ * 2026-08-24 실측: 찬 연결을 열 번 열었더니 **네 번이 `08006`** 으로 떨어졌고,
+ * 다른 창에서는 스물넷이 전부 붙었습니다. DNS 는 멀쩡했고(10/10 · 1ms) 붙을
+ * 때는 120~150ms 로 빨랐습니다 — **몰려서 터지는 간헐 장애**입니다.
+ * 풀러가 낸 원문이 `{:error, :nxdomain}`(Elixir 형식)이라, 우리가 이름을 못 푼
+ * 것이 아니라 **풀러가 자기 뒤의 DB 를 못 찾은 것**으로 보입니다.
+ *
+ * ⚠️ **여기 있는 것만 다시 보냅니다.** 전부 「보내지도 못했다」는 뜻이라
+ * 같은 질의를 또 보내도 두 번 실행될 수 없습니다 — 쓰기에도 안전한 이유입니다.
+ * 서버가 받은 뒤 실패한 것(제약 위반·타임아웃)을 여기 넣지 마세요.
+ */
+const NEVER_SENT: ReadonlySet<string> = new Set([
+  '08006', // connection_failure — 풀러가 뒤를 못 찾음
+  '08001', // sqlclient_unable_to_establish_sqlconnection
+  'CONNECT_TIMEOUT',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EAI_AGAIN', // 이름 풀이 일시 실패
+])
+
+function neverSent(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' && NEVER_SENT.has(code)
+}
+
+/** 한 번만 쉬었다 다시 갑니다. 실패가 몰릴 때도 대부분 두 번째에 붙었습니다 */
+const RETRY_AFTER_MS = 250
+
+/**
+ * 템플릿 태그로 부른 것인가 — `sql\`SELECT …\`` 인지, `sql(rows, 'a')` 같은
+ * **조각 헬퍼**인지 가릅니다. 조각은 질의가 아니라 다시 보낼 것이 없습니다.
+ */
+function isTaggedCall(args: readonly unknown[]): boolean {
+  const first = args[0] as { raw?: unknown } | undefined
+  return Array.isArray(first) && Array.isArray(first?.raw)
+}
+
+/**
+ * 찬 연결이 한 번 튀는 것을 사용자에게 넘기지 않습니다.
+ *
+ * 재시도해도 안 되면 **`StoreError`(503)** 로 바꿉니다. 그대로 두면 `INTERNAL`
+ * 500 이 되고, 그건 계약상 **`Retry-After` 도 `retryable` 도 안 붙는 코드**라
+ * 화면이 「다시 시도」 버튼조차 못 띄웁니다 → 08-16-errors.md §3.1.
+ *
+ * ⚠️ **`sql.begin`(트랜잭션) 안은 감싸지 않습니다.** 그 안의 질의는 이미
+ * 시작된 트랜잭션에 속해서, 하나만 다시 보내면 나머지와 어긋납니다.
+ */
+function retryOnce<T>(run: () => Promise<T>): Promise<T> {
+  return run().catch(async (first: unknown) => {
+    if (!neverSent(first)) throw first
+
+    await new Promise((resolve) => setTimeout(resolve, RETRY_AFTER_MS))
+
+    return run().catch((again: unknown) => {
+      if (!neverSent(again)) throw again
+      // 원문 메시지를 사용자에게 넘기지 않습니다 — 접속 문자열이 섞여 나옵니다
+      throw new StoreError('저장소에 연결하지 못했습니다')
+    })
+  })
+}
+
 export function createSql(env: Env): Sql | null {
   const url = env.values.DATABASE_URL
   if (!url) return null
@@ -74,8 +139,18 @@ export function createSql(env: Env): Sql | null {
     onnotice: () => {},
   })
 
-  pool.set(url, made)
-  return made
+  // 태그드 템플릿으로 부른 질의만 감쌉니다. `sql.begin`·`sql.json` 같은
+  // 속성 접근과 조각 헬퍼는 그대로 지나갑니다
+  const guarded = new Proxy(made, {
+    apply(target, thisArg, args: unknown[]) {
+      const call = () => Reflect.apply(target, thisArg, args)
+      if (!isTaggedCall(args)) return call()
+      return retryOnce(() => Promise.resolve(call() as Promise<unknown>))
+    },
+  }) as Sql
+
+  pool.set(url, guarded)
+  return guarded
 }
 
 /**

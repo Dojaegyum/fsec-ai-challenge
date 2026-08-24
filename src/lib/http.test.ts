@@ -13,6 +13,7 @@ import {
   KbUnavailableError,
   RateLimitedError,
   SlotNotConfirmedError,
+  StoreError,
 } from './errors'
 import { BadRequestError, fail, ok, readJson, readJsonObject } from './http'
 import { TELEMETRY_HEADER_NAMES } from './telemetry'
@@ -226,5 +227,55 @@ describe('요청 본문 읽기', () => {
 
     await expect(readJson(req)).rejects.toBeInstanceOf(BadRequestError)
     expect(fail(new BadRequestError('x')).status).toBe(400)
+  })
+})
+
+describe('본문의 retryable — 08-16-errors.md §3.1.1', () => {
+  const bodyOf = async (res: Response) =>
+    (await res.json()) as { error: { code: string; retryable?: boolean } }
+
+  it('503 은 true — 상대 서비스가 아픕니다', async () => {
+    const res = fail(new StoreError('저장소에 연결하지 못했습니다'))
+    expect(res.status).toBe(503)
+    expect(res.headers.get('Retry-After')).not.toBeNull()
+    expect((await bodyOf(res)).error.retryable).toBe(true)
+  })
+
+  it('창이 있는 429 는 true', async () => {
+    const res = fail(new RateLimitedError('너무 잦습니다', { retryAfterSeconds: 7 }), {
+      retryAfterSeconds: 7,
+    })
+    expect(res.status).toBe(429)
+    expect((await bodyOf(res)).error.retryable).toBe(true)
+  })
+
+  /**
+   * **여기가 「그대로 옮기면 틀리는」 자리입니다.**
+   *
+   * 예외의 `retryable` 필드는 「서버가 자기 안에서 다시 시도할까」(§2)이고
+   * `KbCitationMissingError` 는 거기서 `true` 입니다. 그런데 응답이 브라우저에
+   * 닿았다는 것은 **서버가 이미 두 번 해보고 실패했다**는 뜻이라, 사용자가 다시
+   * 눌러도 같은 결과입니다.
+   */
+  it('502 는 false — 예외의 필드가 true 여도', async () => {
+    const thrown = new KbCitationMissingError('근거를 못 붙였습니다')
+    expect(thrown.retryable).toBe(true) // §2 의 뜻으로는 true 입니다
+    const res = fail(thrown)
+    expect(res.status).toBe(502)
+    expect(res.headers.get('Retry-After')).toBeNull()
+    expect((await bodyOf(res)).error.retryable).toBe(false)
+  })
+
+  it('4xx 는 false — 시간이 안 고칩니다', async () => {
+    const res = fail(new BadRequestError('track 값이 목록 밖입니다'))
+    expect((await bodyOf(res)).error.retryable).toBe(false)
+  })
+
+  it('칸이 늘 있습니다 — 브라우저가 헤더로 추론하지 않게', async () => {
+    const res = fail(new Error('알 수 없는 것'))
+    const body = await bodyOf(res)
+    expect(res.status).toBe(500)
+    expect('retryable' in body.error).toBe(true)
+    expect(body.error.retryable).toBe(false)
   })
 })
