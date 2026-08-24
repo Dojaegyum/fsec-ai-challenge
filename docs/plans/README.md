@@ -10,7 +10,7 @@
 | [08-22-layer-c-viewers.md](08-22-layer-c-viewers.md) | 층 C **보여주는 셋** — `plan-viewer`·`deadline-viewer`·`transcript-viewer`. 태스크 9개 **전부 끝남**(2026-08-23) (`doc-filler` 는 막혀 있어 뺐습니다) |
 | [08-22-layer-c-transport.md](08-22-layer-c-transport.md) | 층 C **서버와 이야기하는 넷** — `case-opener`·`poll-checker`·`file-sender`·`chat-handler`. 태스크 10개 **전부 끝남**(2026-08-23). 라우트가 없어도 규칙이 시험까지 서 있습니다 |
 | [08-23-qa-readiness.md](08-23-qa-readiness.md) | **QA 까지 남은 일** — 태스크 8개와 순서. 막혀서 범위 밖인 것 셋. **세션이 바뀌면 여기부터.** **일시 문서** |
-| [08-24-oracle-account-handoff.md](08-24-oracle-account-handoff.md) | **팀원에게 그대로 넘기는 안내.** 무료 서버 계정을 하나 더 여는 절차 — 가입·네트워크·접속 열쇠. 지역을 **가용성 도메인 3개인 곳**으로 고르는 이유와, 실제로 막혔던 함정 일곱 |
+| [08-24-oracle-account-handoff.md](08-24-oracle-account-handoff.md) | **팀원에게 그대로 넘기는 안내.** 가입부터 서버가 뜰 때까지 — 가입·네트워크·**서버 만들기**·접속 열쇠. 지역을 **가용성 도메인 3개인 곳**으로 고르는 이유(자리는 도메인마다 따로 있습니다)와 실제로 막혔던 함정 일곱 |
 
 ## 여기가 아닌 것
 
