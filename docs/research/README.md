@@ -43,6 +43,7 @@ research/  →  KB 릴리스  →  kb_entry · org 테이블  →  LLM 이 인�
 | [10-PII인식-실측-방법론.md](10-PII인식-실측-방법론.md) | 09를 **다시 재는 법.** 평가셋 설계·프롬프트 전문·채점 규칙. 원본 데이터는 `assets/datasets/08-21-local-llm-pii/` | 09의 재현 · `pii-tokenizer` 회귀 테스트 |
 | [11-로컬OCR-PII인식-실측.md](11-로컬OCR-PII인식-실측.md) | **우리가 직접 잰 값.** 증거 화면 OCR 의 누출률·필드 짝짓기. **숫자는 OCR 이 압도적** | `transcriber` OCR 선택 · `slot-extractor` |
 | [12-OCR-실측-방법론.md](12-OCR-실측-방법론.md) | 11을 **다시 재는 법.** 화면 합성·좌표 행 복원·짝짓기 채점. 원본은 `assets/datasets/08-21-local-ocr-pii/` | 11의 재현 |
+| [13-GPU-클라우드-단가.md](13-GPU-클라우드-단가.md) | GPU 공급자 시간당 단가와 **개인정보 국외 이전 요건**. 정지 중 볼륨이 더 비싼 함정 | [ADR-043](../../decisions/043-gpu-hosting.md) |
 
 ## 기록 규칙
 

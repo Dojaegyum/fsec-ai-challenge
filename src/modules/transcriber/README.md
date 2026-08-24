@@ -12,9 +12,6 @@
 | 근거 | [ADR-014](../../../decisions/014-module-names.md) · [ADR-028](../../../decisions/028-runtime-and-module-shape.md) · [ADR-026](../../../decisions/026-raw-upload-retention.md) · [ADR-038](../../../decisions/038-transcript-confirm.md) |
 | 실측 | `docs/research/09-로컬모델-PII인식-실측.md` |
 
-> ⚠️ **실측 문서는 아직 `main` 에 없습니다.** `docs/local-llm-pii-poc` 브랜치에 있고,
-> 병합 전에는 위 링크가 열리지 않습니다.
-
 ## 이 자리가 왜 위험한가
 
 ```
