@@ -343,6 +343,9 @@ python .github/scripts/schema-names.py
 python -m unittest discover -s services/transcriber -t .
 ```
 
+**게이트 밖에 하나가 더 있습니다** — `npm run test:db`. CI 에서 안 돌아서 게이트가
+아니고, 그래서 더 잊기 쉽습니다. 스키마나 `lib/db.ts` 를 건드렸으면 돌리세요 (→ 아래).
+
 ### 폴더 구조 (→ [ADR-008](../decisions/008-structure-gate-ci.md))
 
 **폴더가 생기거나 사라지거나 이름이 바뀌면, 같은 변경에 `rfc/` 수정이 없으면 CI가 막습니다**
@@ -464,6 +467,28 @@ cd src && npm run typecheck && npm test
 - 마이그레이션이 정본이 아닙니다 — **정본은 `spec/backend/08-16-data-model.md`의 DDL**이고,
   마이그레이션은 그것을 옮긴 것입니다(→ ADR-019). 이 게이트는 「옮긴 것과 코드가 맞는가」만 봅니다.
 
+### DB 통합시험 — **유일하게 CI 밖에 있습니다**
+
+```
+cd src && npm run test:db
+```
+
+바로 위 게이트는 **이름만** 봅니다. 그 위 칸 — 한 턴 안의 정렬 순서, `ON CONFLICT`가
+실제로 갈아끼우는지, `GREATEST`가 파기일을 뒤로 못 당기게 하는지, `AND case_id =`가
+남의 사건을 막는지 — 는 **문장을 실제로 보내 봐야** 압니다 (`src/lib/db.dbtest.ts` · 27건).
+
+**CI에서 안 돕니다.** 풀러가 몰려서 터지는 구간이 있어서(2026-08-24 실측: 찬 연결
+10개 중 4개가 `08006`), PR 게이트에 넣으면 남의 인프라 사정으로 빨간불이 켜집니다.
+**게이트가 랜덤하게 깨지면 사람이 게이트를 안 봅니다** — 게이트 하나를 잃는 것보다 나쁩니다.
+
+- 파일 이름이 **`.dbtest.ts`** 라 기본 `npm test`의 include에 안 걸립니다. 설정도 따로입니다
+  (`vitest.db.config.mts` — 별칭은 기본 설정을 그대로 씁니다).
+- 붙을 DB가 없으면 **조용히 건너뜁니다**(실패가 아닙니다). 접속 문자열은
+  `DATABASE_URL` → `src/.env.local` 순으로 찾습니다.
+- **개발 DB를 함께 씁니다.** 사건을 새로 만들어 그 안에서만 놀고 끝에 지웁니다.
+  남의 행을 읽지도 고치지도 않습니다.
+- **스키마나 `lib/db.ts`를 고쳤으면 이것까지 돌리는 것이 한 작업입니다.**
+
 ## 개정 이력
 
 **이 규약을 고칠 때마다 여기에 한 줄 적습니다.** 대부분의 개정은 이 줄과 커밋 메시지로 끝이고,
@@ -488,3 +513,4 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-23 | 라우트 게이트(`route-contract`) 신설 — 껍데기를 비껴간 라우트를 막습니다. 규약이 문서에만 있으면 다음 라우트에서 샙니다 | [ADR-028](../decisions/028-runtime-and-module-shape.md) · [ADR-039](../decisions/039-link-token.md) |
 | 2026-08-23 | 서비스 게이트(`services-check`) 신설 — 「서비스 안의 규칙은 사람이 지켜야 합니다」를 되돌림. 그 틈에서 전사 접수 멱등성이 실제로 깨져 있었습니다 | 커밋 메시지 |
 | 2026-08-24 | 표·칸 이름 게이트(`schema-names`) 신설 — `case_case_vault` 가 다섯 게이트를 다 지나갔습니다. SQL 문자열은 타입 검사가 안 봅니다 | [ADR-019](../decisions/019-module-code-sync.md) · [ADR-049](../decisions/049-vault-in-postgres.md) |
+| 2026-08-24 | DB 통합시험(`npm run test:db`) 신설 — **CI 밖에 두는 첫 검사입니다.** 이름 대조로는 정렬 순서·`ON CONFLICT`·`GREATEST` 를 못 봅니다 | 커밋 메시지 |
