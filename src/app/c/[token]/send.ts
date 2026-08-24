@@ -38,8 +38,8 @@ import {
 } from "@/modules/key-handler";
 import type { KeyStore } from "@/modules/key-handler";
 import type { PiiMapping } from "@/modules/pii-masker";
-import { decidePoll, type PollVerdict } from "@/modules/poll-checker";
 
+import { postJson } from "./load";
 import type { LoadFail } from "./load";
 
 /** 어느 걸음에서 멈췄나 — 화면이 무엇을 말할지가 갈립니다 */
@@ -56,62 +56,6 @@ export interface Said {
 }
 
 export type Line = Said | ({ readonly who: "ai" } & Turn);
-
-async function post(
-  url: string,
-  body: unknown,
-  signal?: AbortSignal,
-): Promise<{ ok: true; json: unknown } | { ok: false; fail: LoadFail }> {
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      signal,
-      headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    return {
-      ok: false,
-      fail: {
-        ...(decidePoll({ status: 0, done: false, retryable: true }) as Extract<
-          PollVerdict,
-          { poll: false }
-        >),
-        message: "보내지 못했습니다. 연결을 확인해 주세요.",
-      },
-    };
-  }
-
-  if (!res.ok) {
-    let parsed: { error?: { message?: string; retryable?: boolean } } = {};
-    try {
-      parsed = (await res.json()) as typeof parsed;
-    } catch {
-      /* 상태 코드로 판정합니다 */
-    }
-    const after = res.headers.get("Retry-After");
-    const seconds = after === null ? undefined : Number(after);
-    return {
-      ok: false,
-      fail: {
-        ...(decidePoll({
-          status: res.status,
-          done: false,
-          ...(typeof parsed.error?.retryable === "boolean"
-            ? { retryable: parsed.error.retryable }
-            : {}),
-          ...(seconds !== undefined && Number.isFinite(seconds)
-            ? { retryAfterSec: seconds }
-            : {}),
-        }) as Extract<PollVerdict, { poll: false }>),
-        message: parsed.error?.message ?? "보내지 못했습니다.",
-      },
-    };
-  }
-
-  return { ok: true, json: await res.json() };
-}
 
 export async function sendUtterance(input: {
   caseToken: string;
@@ -147,7 +91,7 @@ export async function sendUtterance(input: {
       };
     }
 
-    const kept = await post(
+    const kept = await postJson(
       `/api/cases/${encodeURIComponent(caseToken)}/vault`,
       { entries },
       signal,
@@ -156,7 +100,7 @@ export async function sendUtterance(input: {
   }
 
   // ③ 이제 보냅니다. 태우는 것은 `content` 뿐입니다
-  const said = await post(
+  const said = await postJson(
     `/api/cases/${encodeURIComponent(caseToken)}/messages`,
     { content: out.content },
     signal,

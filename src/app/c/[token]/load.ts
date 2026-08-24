@@ -80,6 +80,65 @@ function retryAfterOf(res: Response): number | undefined {
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
+/** 에러 응답 하나를 화면이 쓰는 판정으로. **서버가 말한 것만 씁니다** */
+async function failFrom(res: Response): Promise<LoadFail> {
+  let body: ErrorBody = {};
+  try {
+    body = (await res.json()) as ErrorBody;
+  } catch {
+    /* 본문이 JSON 이 아니어도 상태 코드로 판정합니다 */
+  }
+  const verdict = decidePoll({
+    status: res.status,
+    done: false,
+    ...(typeof body.error?.retryable === "boolean"
+      ? { retryable: body.error.retryable }
+      : {}),
+    ...(retryAfterOf(res) === undefined ? {} : { retryAfterSec: retryAfterOf(res) }),
+  }) as Extract<PollVerdict, { poll: false }>;
+
+  return { ...verdict, message: body.error?.message ?? FALLBACK_MESSAGE };
+}
+
+/** 못 갔을 때. **이때만 화면이 `retryable` 을 만듭니다** — 서버가 아무 말도 못 한 경우입니다 */
+function failUnreachable(message: string): LoadFail {
+  return {
+    ...(decidePoll({ status: 0, done: false, retryable: true }) as Extract<
+      PollVerdict,
+      { poll: false }
+    >),
+    message,
+  };
+}
+
+/**
+ * 값을 보내는 자리들이 함께 쓰는 `POST`.
+ *
+ * **판정을 한 곳에 둡니다** — 보내는 자리마다 상태 코드를 해석하면
+ * 「`retryable` 을 안 말했을 때 버튼을 띄우지 않는다」가 조용히 갈라집니다.
+ */
+export async function postJson(
+  url: string,
+  body: unknown,
+  signal?: AbortSignal,
+  unreachableMessage = "보내지 못했습니다. 연결을 확인해 주세요.",
+): Promise<{ ok: true; json: unknown } | { ok: false; fail: LoadFail }> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      signal,
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, fail: failUnreachable(unreachableMessage) };
+  }
+
+  if (!res.ok) return { ok: false, fail: await failFrom(res) };
+  return { ok: true, json: await res.json() };
+}
+
 /**
  * 응답을 화면이 쓰는 모양으로.
  *
