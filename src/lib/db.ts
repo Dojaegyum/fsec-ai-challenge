@@ -740,6 +740,7 @@ export interface MessageStore {
 /** 맥락에 넣을 앞 대화의 최대 턴 수 */
 const HISTORY_TURNS = 20
 
+
 export function createMessageStore(sql: Sql, newId: () => string): MessageStore {
   return {
     async write(input) {
@@ -766,7 +767,14 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
       const rows = await sql<{ role: string; content_masked: string }[]>`
         SELECT role, content_masked FROM message
         WHERE case_id = ${caseId}
-        ORDER BY turn_no DESC, created_at DESC
+
+        -- **한 턴 안의 순서를 못 박습니다.** write() 가 사용자 줄과 비서 줄을
+        -- 한 문장으로 넣어 created_at 이 같습니다. 그러면 둘 사이 순서가
+        -- 정해지지 않고, 실제로 **비서 답이 사용자 발화보다 먼저** 나왔습니다
+        -- (2026-08-24 실측). 아래는 역순 기준이라 비서를 앞에 두어야
+        -- 뒤집은 뒤에 사용자가 앞에 옵니다
+        ORDER BY turn_no DESC, created_at DESC,
+                 CASE WHEN role = 'assistant' THEN 0 ELSE 1 END
         LIMIT ${HISTORY_TURNS * 2}
       `
       return rows
@@ -823,7 +831,14 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
         SELECT message_id, role, content_masked, citations, insufficient, created_at
         FROM message
         WHERE case_id = ${caseId}
-        ORDER BY turn_no DESC, created_at DESC
+
+        -- **한 턴 안의 순서를 못 박습니다.** write() 가 사용자 줄과 비서 줄을
+        -- 한 문장으로 넣어 created_at 이 같습니다. 그러면 둘 사이 순서가
+        -- 정해지지 않고, 실제로 **비서 답이 사용자 발화보다 먼저** 나왔습니다
+        -- (2026-08-24 실측). 아래는 역순 기준이라 비서를 앞에 두어야
+        -- 뒤집은 뒤에 사용자가 앞에 옵니다
+        ORDER BY turn_no DESC, created_at DESC,
+                 CASE WHEN role = 'assistant' THEN 0 ELSE 1 END
         LIMIT ${limit + 1}
       `
 
