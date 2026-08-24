@@ -38,6 +38,26 @@ describe("카드", () => {
     const r = maskText("4111-1111-1111-1112");
     expect(r.mappings.some((m) => m.kind === "카드")).toBe(false);
   });
+
+  /**
+   * 2026-08-24. 하한을 13 → 14 로 올린 이유가 이 한 줄입니다.
+   *
+   * 목업이 계좌로 쓰는 값인데 13자리이고 Luhn 을 통과해서 `[카드-1]` 이 됐습니다.
+   * 카드가 계좌보다 먼저 오기 때문입니다.
+   */
+  it("13자리 계좌번호를 카드로 집지 않는다", () => {
+    expect(passesLuhn("110-2345-678901")).toBe(true);
+    const r = maskText("110-2345-678901 로 보냈어요");
+    expect(r.mappings.some((m) => m.kind === "카드")).toBe(false);
+    // **가려지는 것은 그대로입니다** — 이름표만 제자리로 옵니다
+    expect(r.masked).toBe("[계좌-1] 로 보냈어요");
+  });
+
+  it("실제 카드 자릿수(15·16)는 그대로 잡는다", () => {
+    expect(maskText("4111-1111-1111-1111").masked).toBe("[카드-1]");
+    // 아멕스 15자리
+    expect(maskText("3782 822463 10005").masked).toBe("[카드-1]");
+  });
 });
 
 describe("전화", () => {

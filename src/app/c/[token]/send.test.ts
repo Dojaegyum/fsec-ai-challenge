@@ -18,15 +18,11 @@ const TOKEN = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const ACCOUNT = "110-2345-678901";
 
 /**
- * 무엇으로 분류됐는지는 **여기서 묻지 않습니다.**
- *
- * 이 값은 13자리이고 Luhn 을 통과해서 `pii-masker` 가 「카드」로 집습니다
- * (`CARD` 가 13~19자리이고 계좌보다 먼저 옵니다). 목업이 계좌로 쓰는 값이라
- * 어긋나지만, **그 판단은 `pii-masker` 의 것**이고 어느 쪽이든 **가려져 나가는
- * 것은 같습니다.** 이 파일이 지키는 것은 경계이지 분류가 아닙니다
- * → QA 계획 Task 9 에 올려 뒀습니다.
+ * 나가는 토큰. 「계좌」로 단정할 수 있습니다 — `CARD` 하한을 14로 올린 뒤부터입니다
+ * (2026-08-24 · `pii-masker/patterns.ts`). 그 전에는 13자리 + Luhn 통과라
+ * `[카드-1]` 로 나갔습니다.
  */
-const ANY_TOKEN = /\[(계좌|카드)-1\]/;
+const TOKENIZED = "[계좌-1]";
 
 const answer = {
   message_id: "01J8XKRE000000000000000000",
@@ -66,7 +62,7 @@ describe("원문은 네트워크에 나가지 않는다", () => {
     expect(said).toBeDefined();
     // **이 한 줄이 이 파일의 존재 이유입니다**
     expect(said?.body).not.toContain(ACCOUNT);
-    expect(said?.body).toMatch(ANY_TOKEN);
+    expect(said?.body).toContain(TOKENIZED);
   });
 
   it("볼트에도 원문이 안 들어간다 — 봉한 것만 갑니다", async () => {
@@ -76,7 +72,7 @@ describe("원문은 네트워크에 나가지 않는다", () => {
     const kept = calls.find((c) => c.url.includes("/vault"));
     expect(kept?.body).not.toContain(ACCOUNT);
     // 토큰은 평문입니다 — 조회 키로 써야 하고 그 자체는 개인정보가 아닙니다
-    expect(kept?.body).toMatch(ANY_TOKEN);
+    expect(kept?.body).toContain(TOKENIZED);
     expect(kept?.body).toContain("ciphertext");
   });
 });
