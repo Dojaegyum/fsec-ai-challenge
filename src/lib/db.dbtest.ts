@@ -41,6 +41,7 @@ import {
   createCaseReader,
   createCaseStore,
   createCaseTokenResolver,
+  createDeadlineReader,
   createEvidenceReader,
   createEvidenceWriter,
   createKbStore,
@@ -93,6 +94,7 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
   const vault = createVaultMappings(sql)
   const vaultStore = createVaultStore(sql)
   const kb = createKbStore(sql)
+  const deadlines = createDeadlineReader(sql)
 
   /** 이 시험만 쓰는 KB 릴리스. 실제 릴리스와 안 섞이게 이름을 따로 둡니다 */
   const KB_VERSION = 'dbtest.0'
@@ -507,6 +509,77 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
       })
       expect(rows[0]?.effectiveFrom).toBe('2016-07-28')
       expect(rows[0]?.verifiedAt).toBe('2026-08-24')
+    })
+  })
+
+  describe('기한 — 계산 근거에서 꺼내 오는 값들', () => {
+    // ⛔ **아직 아무도 `deadline` 에 쓰지 않습니다.** `date-checker` 모듈은 서 있지만
+    // 부르는 자리가 없어서, 실제 사건에는 기한이 한 줄도 안 생깁니다.
+    // 여기서는 손으로 심어 **읽는 쪽이 계약대로 내주는지**만 봅니다
+    const seed = async (over: Record<string, unknown>) => {
+      const row = {
+        deadline_id: newUlid(),
+        kind: 'primary',
+        due_at: '2026-08-20T23:59:59+09:00',
+        computed_from: 'relief_applied_at',
+        snapshot: {},
+        ...over,
+      }
+      await sql`
+        INSERT INTO deadline
+          (deadline_id, case_id, plan_step_id, kind, due_at, computed_from,
+           computed_at, rule_snapshot, kb_version, status)
+        VALUES
+          (${row.deadline_id as string}, ${caseId}, NULL, ${row.kind as string},
+           ${row.due_at as string}, ${row.computed_from as string}, now(),
+           ${sql.json(row.snapshot as never)}, ${'dbtest.0'}, 'open')
+      `
+      return row.deadline_id as string
+    }
+
+    it('`starts_at`·`condition` 이 `rule_snapshot` 에서 나온다', async () => {
+      const id = await seed({
+        kind: 'info',
+        due_at: '2026-10-20T23:59:59+09:00',
+        snapshot: {
+          starts_at: '2026-08-20T00:00:00+09:00',
+          note: '금융감독원이 진행합니다. 사용자가 할 일은 없습니다',
+        },
+      })
+      const graceId = await seed({
+        kind: 'grace',
+        due_at: '2026-09-03T23:59:59+09:00',
+        snapshot: { condition: '3영업일을 넘겼을 때 주어지는 기간입니다' },
+      })
+
+      const rows = await deadlines.read(caseId)
+      const info = rows.find((r) => r.deadlineId === id)
+      const grace = rows.find((r) => r.deadlineId === graceId)
+
+      expect(info?.startsAt).toBe('2026-08-20T00:00:00+09:00')
+      expect(info?.note).toContain('금융감독원')
+      expect(grace?.condition).toContain('3영업일')
+      // 없는 것은 `null` — 빈 문자열로 채우면 화면이 빈 칸을 그립니다
+      expect(info?.condition).toBeNull()
+      expect(grace?.startsAt).toBeNull()
+    })
+
+    it('**`due_at` 이 서울 표기로 나온다** — `Z` 로 찍으면 자정 근처가 하루 앞으로', async () => {
+      // 공고 시작 `00:00+09:00` 은 UTC 로 전날 15:00 입니다.
+      // `toISOString()` 을 쓰면 화면의 달력 앵커가 하루 당겨집니다
+      await seed({ kind: 'info', due_at: '2026-10-20T00:30:00+09:00', snapshot: {} })
+
+      const rows = await deadlines.read(caseId)
+      for (const row of rows) {
+        expect(row.dueAt).toContain('+09:00')
+        expect(row.dueAt).not.toContain('Z')
+      }
+      const midnight = rows.find((r) => r.dueAt.startsWith('2026-10-20T00:30'))
+      expect(midnight).toBeDefined()
+    })
+
+    it('기한이 없는 사건은 빈 목록', async () => {
+      expect(await deadlines.read(otherId)).toEqual([])
     })
   })
 

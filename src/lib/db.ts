@@ -23,6 +23,7 @@ import 'server-only'
 
 import postgres from 'postgres'
 
+import { seoulIso } from './clock'
 import type { Env } from './env'
 import { StoreError } from './errors'
 
@@ -572,6 +573,21 @@ export interface DeadlineView {
   readonly computedFrom: string | null
   /** 넘겼을 때 무슨 일이 생기나. 없으면 `null` */
   readonly onMiss: string | null
+  /**
+   * 그 기간이 **시작된** 시점 — `kind: "info"` 의 달력 앵커 왼쪽 끝 (§3.7 · ADR-048).
+   *
+   * 응답에는 만료 시점밖에 없어서, 이게 없으면 「8월 30일 시작 · 지금 · 10월 30일
+   * 만료」의 왼쪽을 못 그립니다. **화면이 만들 수 없습니다** — 만들려면 기기
+   * 시계를 읽어야 하고 그건 기한 규칙 「기준 시계는 서버」를 어깁니다.
+   */
+  readonly startsAt: string | null
+  /**
+   * 유예가 **어떤 조건에서 주어지나** — `kind: "grace"` (§3.7).
+   *
+   * 없으면 사용자가 **추가 기간을 본 기한으로 착각**합니다. 3영업일과 14일은
+   * 성격이 다릅니다 → 09-data-model.md §8.1.
+   */
+  readonly condition: string | null
   /** 사용자가 할 일이 없는 기한(`kind: info`)에 붙습니다 */
   readonly note: string | null
 }
@@ -606,11 +622,17 @@ export function createDeadlineReader(sql: Sql): DeadlineReader {
           // 단계가 지워졌으면 제목이 없습니다. 빈 문자열보다 그렇다고 말합니다
           title: one.title ?? '(단계를 찾지 못했습니다)',
           kind: one.kind,
-          dueAt: one.due_at.toISOString(),
+          // **`toISOString()` 을 쓰지 않습니다** — `Z` 로 찍히면 정본 표기와
+          // 어긋나고, 자정 근처 값이 하루 앞으로 보입니다 → `lib/clock.ts`
+          dueAt: seoulIso(one.due_at),
           status: one.status,
           computedFrom: one.computed_from,
           onMiss: typeof snap.on_miss === 'string' ? snap.on_miss : null,
           note: typeof snap.note === 'string' ? snap.note : null,
+          // 계산 근거 안에 있습니다 — 계산 시점의 KB 항목 전체를 담아 두므로(§8.2)
+          // KB 가 개정돼도 「그때 무엇을 근거로 이 날짜가 나왔나」가 남습니다
+          startsAt: typeof snap.starts_at === 'string' ? snap.starts_at : null,
+          condition: typeof snap.condition === 'string' ? snap.condition : null,
         }
       })
     },
