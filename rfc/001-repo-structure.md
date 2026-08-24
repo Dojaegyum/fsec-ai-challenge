@@ -333,12 +333,13 @@ src/modules/{모듈 이름}/
 
 ## CI가 강제합니다
 
-게이트는 넷입니다. **커밋 전에 로컬에서 먼저 돌려보세요** — CI는 문지기가 아니라 안전망입니다.
+게이트는 다섯입니다. **커밋 전에 로컬에서 먼저 돌려보세요** — CI는 문지기가 아니라 안전망입니다.
 
 ```
 python .github/scripts/doc-integrity.py
 python .claude/skills/module-inventory/scripts/inventory.py --check
 python .github/scripts/route-contract.py
+python .github/scripts/schema-names.py
 python -m unittest discover -s services/transcriber -t .
 ```
 
@@ -437,6 +438,32 @@ cd src && npm run typecheck && npm test
 - 검사기는 **주석과 문자열을 걷어내고 봅니다.** 타입 자리(`params: Promise<{ case_token: string }>`)는
   값을 읽는 것이 아니므로 R4에서 제외합니다.
 
+### 표·칸 이름 (→ [ADR-019](../decisions/019-module-code-sync.md) · [ADR-049](../decisions/049-vault-in-postgres.md))
+
+**마이그레이션에 없는 표·칸 이름으로 SQL을 쓰면 CI가 막습니다**
+(`.github/workflows/schema-names.yml` · `.github/scripts/schema-names.py`).
+
+`case_vault` 를 `case_case_vault` 로 적은 채 **다섯 게이트를 전부 통과했습니다**(2026-08-24).
+타입 검사·테스트·빌드가 모두 초록이었습니다 — **SQL 문자열은 TypeScript에게 그냥 문자열**이고,
+그 문장을 실제로 돌리는 시험이 하나도 없었기 때문입니다. 서버를 띄워 손으로 눌러 보고서야 나왔습니다.
+
+| 검사 | 무엇을 막나 |
+| --- | --- |
+| **M1** 마이그레이션이 `schema_migrations`에 자기를 기록하는가 | **매번 다시 적용되는 파일** — 0002가 실제로 그랬습니다 |
+| **M2** `BEGIN;` … `COMMIT;` 로 감쌌는가 | 절반만 적용된 스키마 |
+| **M3** `ALTER TABLE`이 있는 표를 고치는가 | 마이그레이션 자체의 표 이름 오타 |
+| **S1** `FROM`·`JOIN`·`INTO`·`UPDATE` 뒤의 이름이 마이그레이션에 있는가 | `case_case_vault` — 실행할 때만 터지는 오타 |
+| **S2** 칸 이름이 그 표에 있는가 | `SELECT`·`WHERE`·`INSERT` 목록·`EXCLUDED.x`·`sql(rows, 'x')` |
+
+- **이름만 봅니다. 문장의 뜻은 안 봅니다.** 정렬 순서가 틀린 것, `WHERE`가 빠진 것,
+  타입이 안 맞는 것은 **못 잡습니다** — 그건 DB를 붙여 실제로 돌려 보는 시험의 몫입니다.
+  같은 날 `ORDER BY` 때문에 대화가 거꾸로 나온 버그는 이 게이트로 안 잡혔을 것입니다.
+- **조각을 이어 붙인 문장은 건너뜁니다.** `` sql`${select(q)} AND org_id …` `` 처럼
+  `FROM`이 다른 조각에 있으면 어느 표인지 알 수 없습니다. 조각 쪽이 그 자체로 하나의
+  템플릿이라 거기서 검사됩니다.
+- 마이그레이션이 정본이 아닙니다 — **정본은 `spec/backend/08-16-data-model.md`의 DDL**이고,
+  마이그레이션은 그것을 옮긴 것입니다(→ ADR-019). 이 게이트는 「옮긴 것과 코드가 맞는가」만 봅니다.
+
 ## 개정 이력
 
 **이 규약을 고칠 때마다 여기에 한 줄 적습니다.** 대부분의 개정은 이 줄과 커밋 메시지로 끝이고,
@@ -460,3 +487,4 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-21 | `assets/artifacts/research/` 신설 — `docs/research/` 의 HTML 짝. 「성격은 양쪽에서 같은 이름으로 반복된다」던 자리에 research 만 비어 있었습니다 | 커밋 메시지 |
 | 2026-08-23 | 라우트 게이트(`route-contract`) 신설 — 껍데기를 비껴간 라우트를 막습니다. 규약이 문서에만 있으면 다음 라우트에서 샙니다 | [ADR-028](../decisions/028-runtime-and-module-shape.md) · [ADR-039](../decisions/039-link-token.md) |
 | 2026-08-23 | 서비스 게이트(`services-check`) 신설 — 「서비스 안의 규칙은 사람이 지켜야 합니다」를 되돌림. 그 틈에서 전사 접수 멱등성이 실제로 깨져 있었습니다 | 커밋 메시지 |
+| 2026-08-24 | 표·칸 이름 게이트(`schema-names`) 신설 — `case_case_vault` 가 다섯 게이트를 다 지나갔습니다. SQL 문자열은 타입 검사가 안 봅니다 | [ADR-019](../decisions/019-module-code-sync.md) · [ADR-049](../decisions/049-vault-in-postgres.md) |

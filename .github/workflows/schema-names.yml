@@ -1,0 +1,41 @@
+name: schema-names
+
+# 마이그레이션에 없는 표·칸 이름으로 SQL 을 쓰는 자리를 막습니다.
+# 검사기는 사람이 손으로 돌리는 것과 같은 스크립트입니다 — 명령이 같아야
+# 게이트가 문지기가 아니라 안전망이 됩니다.
+#   python .github/scripts/schema-names.py
+# 근거: ADR-019 「정본을 먼저 고치고 새 마이그레이션을 더한다」 ·
+#       ADR-049 「볼트를 같은 Postgres 의 case_vault 스키마로」 ·
+#       RFC-001 「CI가 강제합니다」
+#
+# ⚠️ 방아쇠가 `src/**.ts` 로 넓은 것은 일부러입니다 — SQL 은 `lib/` 밖에서도
+#    쓸 수 있고, 안 도는 게이트는 없는 것과 같습니다. 몇 초짜리 검사입니다.
+on:
+  pull_request:
+    paths:
+      - "src/migrations/**"
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - ".github/scripts/schema-names.py"
+      - ".github/workflows/schema-names.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/migrations/**"
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - ".github/scripts/schema-names.py"
+      - ".github/workflows/schema-names.yml"
+
+jobs:
+  names:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 표·칸 이름 검사
+        run: python .github/scripts/schema-names.py
