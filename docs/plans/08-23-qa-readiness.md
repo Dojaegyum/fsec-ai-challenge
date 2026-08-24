@@ -76,7 +76,7 @@
 | ~~`plan.tsx` 단계~~ | ✅ `bundle.steps` (§3.6) | |
 | ~~`plan.tsx` 기한~~ | ✅ `bundle.deadlines` (§3.7) | |
 | `plan.tsx` 공고 카드 | `FIXTURE_NOTICE` | 같은 응답의 `starts_at`·`elapsed` (**Task 4 대기**) |
-| `evidence.tsx:148` | `FIXTURE_EVIDENCE` | `GET …/evidence/{id}` (§3.3) |
+| ~~`evidence.tsx`~~ | ✅ `useEvidence()` → §3.3 + `decidePoll` | 자료 레일·복원 매핑은 아직 브라우저 몫 |
 | ~~`chat.tsx`~~ | ✅ `bundle.question` (§3.4) | |
 
 - [x] 사건 하나를 한 번에 읽는 자리를 만든다 — `src/app/c/[token]/load.ts`.
@@ -85,7 +85,9 @@
       (폴링이 아니어도 **같은 물음**이라서). 자동 재시도는 없습니다
 - [x] 픽스처를 지우지 말고 **개발용으로 남긴다** — `?view=` 가 붙어 있으면
       서버를 부르지 않고 `FIXTURE_BUNDLE` 로 그립니다
-- [ ] 증거함을 잇는다 — `GET …/evidence/{id}` + `decidePoll` 로 다시 묻기
+- [x] 증거함을 잇는다 — `GET …/evidence/{id}` + `decidePoll`.
+      **간격은 서버가 준 `poll_after_ms` 만** 쓰고, `ingest_status: "failed"` 는
+      200 이라 실패 화면으로 보내지 않습니다 (갈림길이지 막는 자리가 아닙니다)
 
 > **히어로 스트립도 함께 이었습니다** — 계획서 표에 없던 자리입니다. 그냥 두면
 > **살아 있는 보드 위에 죽은 첫 줄**(「8월 20일」·「D-2」가 박힌 채)이 남습니다.
@@ -155,8 +157,8 @@
 `file-sender` 가 **다음에 무엇을 할지**만 정하고 있습니다. 실제 세 단계를 잇습니다.
 
 - [ ] `nextStep()` 이 시키는 대로 `POST …/evidence` → `PUT`(직접) → `POST …/complete` 를 부른다
-- [ ] `decidePoll()` 로 `GET …/evidence/{id}` 를 다시 묻는다 —
-      **간격은 서버가 준 `poll_after_ms` 만** 씁니다
+- [x] `decidePoll()` 로 `GET …/evidence/{id}` 를 다시 묻는다 —
+      **간격은 서버가 준 `poll_after_ms` 만** 씁니다 (Task 2 에서 함께 붙였습니다)
 - [ ] 전사가 뜨면 `transcript-viewer` 가 원문으로 펼치는지 본다
       (볼트 매핑 필요 — `POST …/vault` 로 올려 둔 것을 브라우저가 풉니다)
 - [ ] 「＋ 올리기」 버튼에 파일 선택을 단다. **`screenName()` 을 지나게 합니다**

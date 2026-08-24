@@ -117,6 +117,9 @@ function CaseScreen({
   // `?view=` 가 없으면 **규칙**이 첫 화면을 고릅니다 — 서버가 지목하지 않습니다 (§3.10)
   const opened = openCase(bundle.case);
 
+  /** 증거함이 §3.3 을 부를 때 쓰는 토큰. **개발 경로에서는 `null`** — 픽스처로 그립니다 */
+  const dataToken = wanted === null ? token : null;
+
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
   const [side, setSide] = useState<Side>(
     wanted ? (devFocus === "chat" ? "casefile" : "work") : opened.side,
@@ -326,7 +329,7 @@ function CaseScreen({
           {focus === "plan" && (
             <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
           )}
-          {focus === "evidence" && <EvidenceView />}
+          {focus === "evidence" && <EvidenceView token={dataToken} />}
           {focus === "doc" && <DocGuide caseToken={token} />}
         </section>
 
@@ -492,7 +495,7 @@ function CaseScreen({
               {ghost.from === "plan" && (
                 <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
               )}
-              {ghost.from === "evidence" && <EvidenceView />}
+              {ghost.from === "evidence" && <EvidenceView token={dataToken} />}
               {ghost.from === "doc" && <DocGuide caseToken={token} />}
             </div>
           </div>

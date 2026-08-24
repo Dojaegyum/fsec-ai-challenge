@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchCaseBundle } from "./load";
+import { fetchCaseBundle, fetchEvidence } from "./load";
 
 /** 26자 Crockford Base32 — ADR-039 */
 const TOKEN = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
@@ -133,5 +133,63 @@ describe("서버까지 못 갔을 때", () => {
 
     // 아무 상태도 남기지 않습니다 — 실패 화면이 깜빡이면 안 됩니다
     expect(await fetchCaseBundle(TOKEN, ac.signal)).toBeNull();
+  });
+});
+
+/* ── 증거 하나 — 다시 묻기 ─────────────────────────────────── */
+
+describe("간격은 서버가 정한다", () => {
+  it("처리 중이면 서버가 준 간격으로 다시 묻는다", async () => {
+    stubFetch(json({ evidence_id: "e1", ingest_status: "processing", progress: { phase: "stt", percent: 40 }, poll_after_ms: 1500 }));
+    const state = await fetchEvidence(TOKEN, "e1");
+
+    expect(state?.phase).toBe("ready");
+    if (state?.phase !== "ready") return;
+    expect(state.verdict).toEqual({ poll: true, delayMs: 1500 });
+  });
+
+  it("간격을 안 주면 다시 묻지 않는다 — 화면이 지어내지 않는다", async () => {
+    stubFetch(json({ evidence_id: "e1", ingest_status: "processing" }));
+    const state = await fetchEvidence(TOKEN, "e1");
+    expect(state?.phase === "ready" && state.verdict).toEqual({ poll: false, reason: "no_interval" });
+  });
+
+  it("끝나면 멈추고 전사가 실려 온다", async () => {
+    stubFetch(
+      json({
+        evidence_id: "e1",
+        ingest_status: "done",
+        transcript: [{ speaker: "A", text: "[계좌-1] 로 보내세요", start_ms: 12000 }],
+        pii_tokens: [{ token: "[계좌-1]", kind: "account" }],
+      }),
+    );
+    const state = await fetchEvidence(TOKEN, "e1");
+
+    expect(state?.phase).toBe("ready");
+    if (state?.phase !== "ready") return;
+    expect(state.verdict).toEqual({ poll: false, reason: "done" });
+    expect(state.read.transcript).toHaveLength(1);
+    // 내려온 전사는 **토큰화된 상태**입니다 — 원문 복원은 브라우저에서만
+    expect(state.read.transcript?.[0]?.text).toContain("[계좌-1]");
+  });
+});
+
+describe("못 읽은 것은 에러가 아니다", () => {
+  it("failed 는 200 이라 실패 화면으로 보내지 않는다 → 불변 규칙 5", async () => {
+    stubFetch(json({ evidence_id: "e1", ingest_status: "failed", reason: "resident_id_left" }));
+    const state = await fetchEvidence(TOKEN, "e1");
+
+    // 갈림길이지 막는 자리가 아닙니다 — 화면은 「이 파일 하나만 빠집니다」를 그립니다
+    expect(state?.phase).toBe("ready");
+    expect(state?.phase === "ready" && state.read.ingest_status).toBe("failed");
+    expect(state?.phase === "ready" && state.verdict.poll).toBe(false);
+  });
+
+  it("진짜 5xx 는 실패로 다룬다", async () => {
+    stubFetch(json({ error: { code: "STORAGE_UNAVAILABLE", message: "잠시 뒤에", retryable: true } }, { status: 503 }));
+    const state = await fetchEvidence(TOKEN, "e1");
+
+    expect(state?.phase).toBe("failed");
+    expect(state?.phase === "failed" && state.fail.retryable).toBe(true);
   });
 });

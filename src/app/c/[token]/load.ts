@@ -30,8 +30,10 @@ import { useCallback, useEffect, useState } from "react";
 import { isCaseToken, type CaseResponse } from "@/modules/case-opener";
 import type { NextQuestion } from "@/modules/chat-handler";
 import type { Deadline } from "@/modules/deadline-viewer";
+import type { EvidenceStatus } from "@/modules/file-sender";
 import type { PlanStep } from "@/modules/plan-viewer";
 import { decidePoll, type PollVerdict } from "@/modules/poll-checker";
+import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
 
 /** 화면 셋이 나눠 쓰는 한 응답 → §3.10 */
 export interface CaseBundle {
@@ -206,4 +208,127 @@ export function useCaseBundle(token: string, enabled = true) {
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
   const state: LoadState = got?.key === key ? got.state : { phase: "loading" };
   return { state, reload };
+}
+
+/* ── 증거 하나 — 다시 묻기 ─────────────────────────────────── */
+
+/** §3.3 응답. 상태마다 실리는 칸이 다릅니다 */
+export interface EvidenceRead {
+  readonly evidence_id: string;
+  readonly ingest_status: EvidenceStatus | string;
+  /** `processing` 일 때만 */
+  readonly progress?: { phase: string; percent: number };
+  /** `done` 일 때만. **토큰화된 상태로 내려옵니다** — 원문 복원은 브라우저에서 */
+  readonly transcript?: readonly RawLine[];
+  readonly pii_tokens?: readonly PiiToken[];
+  /** 기계가 못 읽은 것 — 화면이 「직접 확인해 주세요」로 씁니다 */
+  readonly shortfalls?: readonly unknown[];
+  /** `failed` 일 때만 */
+  readonly reason?: string;
+}
+
+export type EvidenceState =
+  | { readonly phase: "loading" }
+  | { readonly phase: "ready"; readonly read: EvidenceRead; readonly verdict: PollVerdict }
+  | { readonly phase: "failed"; readonly fail: LoadFail };
+
+export async function fetchEvidence(
+  caseToken: string,
+  evidenceId: string,
+  signal?: AbortSignal,
+): Promise<EvidenceState | null> {
+  let res: Response;
+  try {
+    res = await fetch(
+      `/api/cases/${encodeURIComponent(caseToken)}/evidence/${encodeURIComponent(evidenceId)}`,
+      { signal, headers: { accept: "application/json" } },
+    );
+  } catch {
+    if (signal?.aborted) return null;
+    return {
+      phase: "failed",
+      fail: {
+        ...(decidePoll({ status: 0, done: false, retryable: true }) as Extract<
+          PollVerdict,
+          { poll: false }
+        >),
+        message: "전사 상태를 확인하지 못했습니다.",
+      },
+    };
+  }
+
+  if (!res.ok) {
+    let body: ErrorBody = {};
+    try {
+      body = (await res.json()) as ErrorBody;
+    } catch {
+      /* 상태 코드로 판정합니다 */
+    }
+    return {
+      phase: "failed",
+      fail: {
+        ...(decidePoll({
+          status: res.status,
+          done: false,
+          ...(typeof body.error?.retryable === "boolean"
+            ? { retryable: body.error.retryable }
+            : {}),
+          ...(retryAfterOf(res) === undefined ? {} : { retryAfterSec: retryAfterOf(res) }),
+        }) as Extract<PollVerdict, { poll: false }>),
+        message: body.error?.message ?? FALLBACK_MESSAGE,
+      },
+    };
+  }
+
+  const read = (await res.json()) as EvidenceRead & { poll_after_ms?: number };
+
+  /**
+   * **못 읽은 것(`failed`)도 200 입니다** — 정상 상태이고, 서버가 500 을 내면
+   * 화면이 「다시 시도」를 띄우게 됩니다 (불변 규칙 5 · 에러 §2). 그래서
+   * 여기서도 에러로 다루지 않고, 다음 간격이 없으니 `no_interval` 로 멈춥니다.
+   */
+  const verdict = decidePoll({
+    status: res.status,
+    done: read.ingest_status === "done",
+    ...(typeof read.poll_after_ms === "number" ? { pollAfterMs: read.poll_after_ms } : {}),
+  });
+
+  return { phase: "ready", read, verdict };
+}
+
+/**
+ * 서버가 지시한 간격으로만 다시 묻습니다.
+ *
+ * **이건 자동 재시도가 아닙니다.** 에러 §3.1 이 금지한 것은 「에러 응답을 스스로
+ * 다시 부르는 것」이고, 여기서 되풀이하는 것은 **서버가 `poll_after_ms` 로 시킨**
+ * 정상 진행입니다. 간격을 화면이 지어내면 그때 부하 조절이 무의미해집니다 (§3.3).
+ */
+export function useEvidence(caseToken: string | null, evidenceId: string | undefined) {
+  const key = `${caseToken}/${evidenceId}`;
+  const [got, setGot] = useState<{ key: string; state: EvidenceState } | null>(null);
+
+  useEffect(() => {
+    if (!caseToken || !evidenceId) return;
+    const ac = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let alive = true;
+
+    const ask = async () => {
+      const next = await fetchEvidence(caseToken, evidenceId, ac.signal);
+      if (!next || !alive) return;
+      setGot({ key, state: next });
+      if (next.phase === "ready" && next.verdict.poll) {
+        timer = setTimeout(() => void ask(), next.verdict.delayMs);
+      }
+    };
+    void ask();
+
+    return () => {
+      alive = false;
+      ac.abort();
+      clearTimeout(timer);
+    };
+  }, [caseToken, evidenceId, key]);
+
+  return got?.key === key ? got.state : ({ phase: "loading" } as EvidenceState);
 }
