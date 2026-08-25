@@ -25,7 +25,7 @@
 
 import 'server-only'
 
-import type { PlanSnapshot, StoredStep } from './regenerate-plan'
+import type { PlanChannel, PlanSnapshot, StoredStep } from './regenerate-plan'
 
 /** 계약의 `steps[]` 한 칸 → §3.1 · §3.6 (같은 모양입니다) */
 export interface ApiPlanStep {
@@ -55,6 +55,17 @@ export interface ApiPlanStep {
     readonly kind: string
     readonly label: string
   } | null
+}
+
+/** 계약의 `channels[]` 한 칸 → §3.6 */
+export interface ApiPlanChannel {
+  readonly channel_id: string
+  /** `null` 이면 미특정 — 화면이 「어느 은행인지」를 되물을 수 있습니다 */
+  readonly org_id: string | null
+  readonly org_name: string | null
+  /** 원 단위. 모르면 `null` */
+  readonly amount: number | null
+  readonly confidence: number | null
 }
 
 /** 계약의 `plan` */
@@ -107,6 +118,22 @@ export function toApiStep(step: StoredStep): ApiPlanStep {
     required_artifact: step.requiredArtifact
       ? { kind: step.requiredArtifact.kind, label: step.requiredArtifact.label }
       : null,
+  }
+}
+
+/**
+ * 경유 서비스 하나를 계약의 모양으로 → §3.6.
+ *
+ * **`amount`·`confidence` 는 숫자로 나갑니다.** 드라이버가 `NUMERIC` 을
+ * 문자열로 주는 것을 읽는 자리에서 이미 바꿔 둡니다 → `lib/db-plan.ts`.
+ */
+export function toApiChannel(channel: PlanChannel): ApiPlanChannel {
+  return {
+    channel_id: channel.channelId,
+    org_id: channel.orgId,
+    org_name: channel.orgName,
+    amount: channel.amount,
+    confidence: channel.confidence,
   }
 }
 

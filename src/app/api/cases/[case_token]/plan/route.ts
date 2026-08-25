@@ -12,7 +12,7 @@
  * → `flows/regenerate-plan.ts` 의 `readCasePlan`.
  */
 
-import { toApiStep } from '@/flows/api-plan'
+import { toApiChannel, toApiStep } from '@/flows/api-plan'
 import { readCasePlan } from '@/flows/regenerate-plan'
 import { caseIdOf, handleRoute } from '@/lib/request'
 
@@ -38,10 +38,7 @@ export async function GET(
         // 「방금 갱신됨」으로 보입니다
         generated_at: null,
         kb_version: snapshot.kbVersion,
-        // ⬜ **경유 서비스 목록이 아직 안 나갑니다.** §3.6 의 `channels` 는
-        // `case_channel` 의 여러 줄인데 `CasePlanStore.readChannel` 은 하나만
-        // 돌려줍니다. 여럿을 읽는 자리를 만들기 전에는 빈 배열이 정직합니다
-        channels: [],
+        channels: snapshot.channels.map(toApiChannel),
         steps: snapshot.steps.map(toApiStep),
       },
     }

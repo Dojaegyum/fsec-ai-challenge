@@ -35,12 +35,13 @@
 
 import { readFileSync } from 'node:fs'
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   createCaseReader,
   createCaseStore,
   createCaseTokenResolver,
+  createChannelWriter,
   createDeadlineReader,
   createDeadlineWriter,
   createEvidenceReader,
@@ -53,6 +54,7 @@ import {
   createVaultMappings,
   createVaultStore,
 } from './db'
+import { createCasePlanStore } from './db-plan'
 import { readEnv } from './env'
 import { newLinkToken, newUlid } from './ids'
 
@@ -97,6 +99,8 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
   const kb = createKbStore(sql)
   const deadlines = createDeadlineReader(sql)
   const deadlineWriter = createDeadlineWriter(sql)
+  const channelWriter = createChannelWriter(sql)
+  const plans = createCasePlanStore(sql, newUlid)
 
   /** 이 시험만 쓰는 KB 릴리스. 실제 릴리스와 안 섞이게 이름을 따로 둡니다 */
   const KB_VERSION = 'dbtest.0'
@@ -690,6 +694,87 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
     it('빈 목록을 주면 전부 내려간다 — 기산 슬롯을 지웠을 때가 그 경우다', async () => {
       expect(await deadlineWriter.apply(otherId, [])).toEqual([])
       expect(await deadlines.read(otherId)).toEqual([])
+    })
+  })
+
+  describe('경유 서비스 — 쌓인 줄이 화면이 읽을 목록으로 접힌다', () => {
+    beforeEach(async () => {
+      await sql`DELETE FROM case_channel WHERE case_id = ${caseId}`
+    })
+
+    it('금액과 확신도가 **숫자**로 온다 — 드라이버는 `NUMERIC` 을 문자열로 줍니다', async () => {
+      // 문자열로 새어 나가면 화면이 `"3000000"` 을 받습니다. 눈으로는 멀쩡해
+      // 보이고 합계를 낼 때 `"3000000500000"` 이 됩니다
+      await channelWriter.write({
+        caseId,
+        channelId: 'CH-bank',
+        orgId: 'kb-bank',
+        orgNameRaw: '국민은행',
+        source: 'auto',
+        confidence: 0.94,
+      })
+      await sql`
+        UPDATE case_channel SET amount = 3000000 WHERE case_id = ${caseId}
+      `
+
+      const rows = await plans.readChannels(caseId)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.amount).toBe(3_000_000)
+      expect(rows[0]!.confidence).toBe(0.94)
+    })
+
+    it('유형만 답한 줄은 기관이 붙은 줄에 흡수된다 — 문진을 순서대로 답하면 늘 생깁니다', async () => {
+      // 실제 순서 그대로입니다: 「시중은행 계좌이체」 뒤에 「국민은행이요」.
+      // 둘 다 문진 답이라 확신도가 같고, 그때 갈리는 것은 적힌 시각뿐입니다
+      await channelWriter.write({
+        caseId,
+        channelId: 'CH-bank',
+        orgId: null,
+        orgNameRaw: null,
+        source: 'user',
+      })
+      await channelWriter.write({
+        caseId,
+        channelId: 'CH-bank',
+        orgId: 'kb-bank',
+        orgNameRaw: '국민은행',
+        source: 'user',
+      })
+
+      const rows = await plans.readChannels(caseId)
+      expect(rows).toEqual([
+        {
+          channelId: 'CH-bank',
+          orgId: 'kb-bank',
+          orgNameRaw: '국민은행',
+          amount: null,
+          confidence: 1,
+        },
+      ])
+    })
+
+    it('유형이 다르면 두 줄로 남는다 — 계좌이체 뒤 상품권을 산 사건이 있습니다', async () => {
+      await channelWriter.write({
+        caseId,
+        channelId: 'CH-bank',
+        orgId: 'kb-bank',
+        orgNameRaw: '국민은행',
+        source: 'user',
+      })
+      await channelWriter.write({
+        caseId,
+        channelId: 'CH-giftcard',
+        orgId: null,
+        orgNameRaw: null,
+        source: 'user',
+      })
+
+      const rows = await plans.readChannels(caseId)
+      expect(rows.map((one) => one.channelId).sort()).toEqual(['CH-bank', 'CH-giftcard'])
+    })
+
+    it('한 줄도 없으면 빈 배열이다 — 유형을 아직 안 물은 사건이 정상입니다', async () => {
+      expect(await plans.readChannels(otherId)).toEqual([])
     })
   })
 

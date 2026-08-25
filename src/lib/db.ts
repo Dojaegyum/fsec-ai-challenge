@@ -726,14 +726,14 @@ export function createDeadlineWriter(sql: Sql): DeadlineWriter {
         FROM deadline WHERE case_id = ${caseId} AND status <> 'void'
       `
       const priorOf = new Map(
-        before.map((one) => [`${one.plan_step_id ?? ''} ${one.kind}`, one]),
+        before.map((one) => [`${one.plan_step_id ?? ''}\u0000${one.kind}`, one]),
       )
 
       const changes: DeadlineChange[] = []
       const kept: string[] = []
 
       for (const row of rows) {
-        const prior = priorOf.get(`${row.planStepId} ${row.kind}`)
+        const prior = priorOf.get(`${row.planStepId}\u0000${row.kind}`)
         // **줄이 이미 있으면 그 식별자를 지킵니다.** 화면이 기한을 식별자로
         // 잡고 있어서(§3.7), 다시 계산할 때마다 번호가 바뀌면 같은 기한이
         // 매번 새 기한으로 보입니다

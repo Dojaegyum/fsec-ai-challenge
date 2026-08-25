@@ -88,6 +88,9 @@ function planStoreOf(
     async readChannel() {
       return null
     },
+    async readChannels() {
+      return []
+    },
     async readSteps() {
       return existingSteps
     },
