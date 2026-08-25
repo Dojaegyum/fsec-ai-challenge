@@ -62,6 +62,40 @@ const DEFAULT_MODEL = 'grok-4.5'
 const TIMEOUT_MS = 45_000
 
 /**
+ * **다시 보내면 될 수도 있는 것들.**
+ *
+ * 전부 「이 요청이 처리되지 않았다」는 뜻이라 같은 것을 또 보내도 두 번
+ * 실행될 수 없습니다 — `lib/db.ts` 의 `NEVER_SENT` 와 같은 논리입니다.
+ * 400·401·403·404 는 다시 보내도 같은 답이 오므로 여기 넣지 않습니다.
+ *
+ * ⚠️ **무료 한도에서는 503 이 상시로 옵니다.** 2026-08-25 실측: 같은
+ * 프롬프트를 다섯 모델에 보냈더니 둘이 `503 UNAVAILABLE`(과부하)이었고,
+ * 잠시 뒤에는 다른 둘이 그랬습니다. 재시도가 없으면 그때마다 사용자는
+ * 500 을 받고 **대화가 그 자리에서 끊깁니다.**
+ */
+const AGAIN_LATER: ReadonlySet<number> = new Set([429, 500, 502, 503, 504])
+
+/**
+ * 후보를 몇 바퀴 돌지.
+ *
+ * 한 바퀴는 `LLM_MODEL` 에 적힌 모델을 차례로 한 번씩 시도하는 것입니다.
+ * 한 번 왕복이 10~30초라 예산(45초) 안에서 실제로 도는 것은 두세 번입니다.
+ */
+const MAX_ROUNDS = 2
+
+/** 한 바퀴를 다 돌고 다시 시작하기 전에 쉬는 시간. 과부하는 대개 짧게 지나갑니다 */
+const ROUND_BACKOFF_MS = 1_000
+
+/**
+ * 남은 예산이 이보다 적으면 더 시도하지 않습니다.
+ *
+ * 5초는 **가장 빨랐던 응답(5초)** 에서 온 값입니다. 이보다 적게 남았는데
+ * 또 보내면 거의 확실히 중간에 잘리고, 그때 사용자는 「제때 답하지
+ * 않았습니다」 대신 애매한 실패를 봅니다.
+ */
+const MIN_ATTEMPT_MS = 5_000
+
+/**
  * 모델이 돌려준 글에서 JSON 을 꺼낸다.
  *
  * 지시문이 *"JSON 하나만 출력한다"* 로 못 박았지만(§55-57), 모델이 앞뒤에
@@ -118,41 +152,85 @@ export function createLlmClient(env: Env): LlmClient | null {
   // 끝의 빗금을 지웁니다 — 붙여 놓고 오는 주소가 흔하고, 그러면 `//v1` 이 됩니다
   const base = (env.values.LLM_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
   const endpoint = `${base}/chat/completions`
-  const model = env.values.LLM_MODEL ?? DEFAULT_MODEL
+
+  /**
+   * **쉼표로 여러 개를 적을 수 있습니다** — 앞엣것이 막히면 뒤엣것으로 넘어갑니다.
+   *
+   * 무료 한도에서 필요합니다. 2026-08-25 실측: 같은 프롬프트를 다섯 모델에
+   * 보냈더니 어느 순간엔 둘이, 잠시 뒤엔 다른 둘이 `503`(과부하)이었습니다.
+   * **모델 하나만 박아 두면 그때그때 챗이 통째로 멈춥니다.**
+   *
+   * ⚠️ **모델이 다르면 답도 다릅니다.** 같은 물음에 다른 모델이 답하면 재현이
+   * 안 됩니다 — **개발·시연용 설정입니다.** 제출본에서 무엇을 쓸지는 사람이
+   * 정하고, 그때는 하나만 적습니다.
+   */
+  const models = (env.values.LLM_MODEL ?? DEFAULT_MODEL)
+    .split(',')
+    .map((one) => one.trim())
+    .filter((one) => one.length > 0)
+
+  /** 보낼 것. **글은 그대로 두고 모델만 바뀝니다** */
+  const requestBody = (model: string, prompt: { system: string; user: string }) =>
+    JSON.stringify({
+      model,
+      // **0 입니다.** 절차 안내는 같은 물음에 같은 답이 나와야 하고,
+      // 정본이 이 값으로 재서 확인했습니다 → 08-17-system-prompt.md
+      temperature: 0,
+      messages: [
+        { role: 'system', content: prompt.system },
+        { role: 'user', content: prompt.user },
+      ],
+    })
 
   return {
     async complete(prompt: { system: string; user: string }): Promise<ModelReply> {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+      // **예산은 통틀어 하나입니다.** 시도마다 45초씩 주면 재시도 두 번에
+      // 함수 상한(60초)을 넘겨 버립니다 → 라우트의 `maxDuration`
+      const deadline = Date.now() + TIMEOUT_MS
+      const tries = models.length * MAX_ROUNDS
 
-      let res: Response
-      try {
-        res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${key}`,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            // **0 입니다.** 절차 안내는 같은 물음에 같은 답이 나와야 하고,
-            // 정본이 이 값으로 재서 확인했습니다 → 08-17-system-prompt.md
-            temperature: 0,
-            messages: [
-              { role: 'system', content: prompt.system },
-              { role: 'user', content: prompt.user },
-            ],
-          }),
-          signal: controller.signal,
-          cache: 'no-store',
-        })
-      } catch (error) {
-        // ⚠️ **열쇠도 프롬프트도 메시지에 담지 않습니다.** 프롬프트에는 사건
-        // 내용이 들어 있고, 이 메시지는 로그와 감사 기록으로 갑니다
-        const timedOut = error instanceof Error && error.name === 'AbortError'
-        throw new Error(timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다')
-      } finally {
-        clearTimeout(timer)
+      let res: Response | null = null
+
+      for (let attempt = 0; ; attempt += 1) {
+        const left = deadline - Date.now()
+        // 남은 시간이 한 번 왕복도 못 할 만큼이면 더 시도하지 않습니다
+        if (left < MIN_ATTEMPT_MS) throw new Error('모델이 제때 답하지 않았습니다')
+
+        const sent = requestBody(models[attempt % models.length]!, prompt)
+
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), left)
+
+        try {
+          res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              authorization: `Bearer ${key}`,
+              'content-type': 'application/json',
+            },
+            body: sent,
+            signal: controller.signal,
+            cache: 'no-store',
+          })
+        } catch (error) {
+          // ⚠️ **열쇠도 프롬프트도 메시지에 담지 않습니다.** 프롬프트에는 사건
+          // 내용이 들어 있고, 이 메시지는 로그와 감사 기록으로 갑니다
+          const timedOut = error instanceof Error && error.name === 'AbortError'
+          throw new Error(timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다')
+        } finally {
+          clearTimeout(timer)
+        }
+
+        if (res.ok) break
+        // 형식·권한 문제는 다시 보내도 같습니다. 그 자리에서 멈춥니다
+        if (!AGAIN_LATER.has(res.status) || attempt >= tries - 1) break
+
+        // **다음 후보로 넘어갈 때는 안 쉽니다** — 다른 모델이라 지금 바로
+        // 될 수 있습니다. 한 바퀴를 다 돌았을 때만 쉬었다 갑니다
+        const roundDone = (attempt + 1) % models.length === 0
+        if (roundDone) {
+          await new Promise((resolve) => setTimeout(resolve, ROUND_BACKOFF_MS))
+        }
       }
 
       if (!res.ok) throw new Error(`모델이 거절했습니다 (${res.status})`)

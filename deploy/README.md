@@ -59,11 +59,25 @@ Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으�
 
 ```
 LLM_BASE_URL   https://generativelanguage.googleapis.com/v1beta/openai
-LLM_MODEL      gemini-2.5-flash
+LLM_MODEL      gemini-3-flash-preview,gemini-3.6-flash,gemini-3.7-flash
 LLM_API_KEY    (그 제공자의 열쇠)
 ```
 
-보기는 `src/.env.local` 주석에 있습니다(Gemini · Groq · OpenRouter · Ollama).
+**`LLM_MODEL` 은 쉼표로 여럿을 적을 수 있습니다.** 앞엣것이 막히면 뒤엣것으로
+넘어갑니다 — 무료 한도에서 필요합니다.
+
+> ⛔ **무료 한도에서는 `503`(과부하)이 상시로 옵니다.** 2026-08-25 실측에서
+> 어느 모델이 막히는지가 **몇 분 만에 바뀌었습니다** — 한 번은 `3.5`·`3.7` 이,
+> 잠시 뒤엔 `3-flash-preview` 가 막혔습니다. 하나만 박아 두면 그때그때 챗이
+> 통째로 멈춥니다. 재시도와 후보 순회는 45초 예산 안에서 두 바퀴까지 돕니다.
+
+> ⚠️ **모델이 다르면 답도 다릅니다.** 같은 물음에 다른 모델이 답하면 재현이
+> 안 됩니다 — **개발·시연용 설정입니다.** 제출본에서는 하나만 적으세요.
+
+**형식을 못 지키는 모델은 200 을 받고도 `KB_CITATION_MISSING`(502) 이 됩니다.**
+`gemini-2.5-flash` 가 그랬습니다 — 인용 번호로 프롬프트 안의 블록 이름(`history`)을
+냈습니다. **모델을 바꾸면 챗 한 턴을 끝까지 돌려 보세요.** 재 본 값은
+`src/.env.local` 주석에 있습니다.
 
 ⚠️ **바꾸면 토큰화된 사건 진술이 그 사업자에게 갑니다.** 개발 중에는 무료 제공자를
 쓰더라도, **제출·시연에 무엇을 쓸지는 사람이 정합니다** → `CLAUDE.md` 불변 규칙 2.
@@ -114,8 +128,13 @@ curl -s -X POST "$B/api/cases" -H 'content-type: application/json' -d '{"track":
 돌려받은 `link_token` 으로 `GET $B/api/cases/{t}` · `/plan` · `/deadlines` 가
 200 이면 표와 환경변수가 붙은 것입니다.
 
-**챗은 따로 봅니다** — `POST $B/api/cases/{t}/messages` 가 500 이면 열쇠 문제이고,
-서버 로그에 `모델이 거절했습니다 (403)` 이 남습니다(잔액 없음).
+**챗은 따로 봅니다** — `POST $B/api/cases/{t}/messages` 의 서버 로그를 보세요.
+
+| 로그 | 뜻 |
+| --- | --- |
+| `모델이 거절했습니다 (403)` | 열쇠는 살아 있는데 **잔액이 없습니다** |
+| `모델이 거절했습니다 (503)` | 과부하. 후보를 다 돌고도 안 됐다는 뜻입니다 |
+| `KB_CITATION_MISSING` | 모델이 답은 했는데 **인용 형식을 어겼습니다** — 모델을 바꾸세요 |
 
 ---
 
