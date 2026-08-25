@@ -58,8 +58,17 @@ const DEFAULT_MODEL = 'grok-4.5'
  *
  * 서버 함수 자체가 오래 못 삽니다. 여기서 안 끊으면 함수가 먼저 죽고,
  * 사용자는 「응답 없음」만 봅니다 — 무엇이 늦었는지 안 남습니다.
+ *
+ * **함수 상한보다 짧아야 합니다** — 라우트의 `maxDuration` 이 60초라
+ * 여유 5초를 둡니다. 우리가 먼저 끊어야 「제때 답하지 않았습니다」가 남고,
+ * 함수가 먼저 죽으면 아무것도 안 남습니다.
+ *
+ * ⚠️ 2026-08-25: 45초로는 **배포 환경에서 세 번 다 넘겼습니다.** 같은 순간
+ * 같은 열쇠로 이 컴퓨터에서는 8~10초에 답했습니다 — 무료 한도 때문이 아니라
+ * 실행 환경 차이로 보입니다(무료 한도의 거절은 2초 만에 오는 503 입니다).
+ * 아래 `logAttempt` 가 실제로 몇 초 걸렸는지 남깁니다.
  */
-const TIMEOUT_MS = 45_000
+const TIMEOUT_MS = 55_000
 
 /**
  * **다시 보내면 될 수도 있는 것들.**
@@ -94,6 +103,20 @@ const ROUND_BACKOFF_MS = 1_000
  * 않았습니다」 대신 애매한 실패를 봅니다.
  */
 const MIN_ATTEMPT_MS = 5_000
+
+/**
+ * 한 번의 시도가 어떻게 끝났는지 남긴다.
+ *
+ * ⚠️ **열쇠도 프롬프트도 안 담습니다.** 프롬프트에는 사건 내용이 들어 있고
+ * 이 줄은 로그로 갑니다 → 04-pii-boundary.md 규칙 2. 모델 이름과 상태와
+ * 걸린 시간만 남깁니다 — 셋 다 개인정보가 아닙니다.
+ *
+ * **이게 없으면 「늦었다」와 「거절당했다」를 구분할 수 없습니다.** 앞엣것은
+ * 예산·환경 문제이고 뒤엣것은 한도·잔액 문제라, 고치는 자리가 다릅니다.
+ */
+function logAttempt(model: string, outcome: string, ms: number): void {
+  console.info(`[llm] ${model} · ${outcome} · ${Math.round(ms)}ms`)
+}
 
 /**
  * 모델이 돌려준 글에서 JSON 을 꺼낸다.
@@ -198,6 +221,8 @@ export function createLlmClient(env: Env): LlmClient | null {
 
         const sent = requestBody(models[attempt % models.length]!, prompt)
 
+        const model = models[attempt % models.length]!
+        const startedAt = Date.now()
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), left)
 
@@ -216,11 +241,13 @@ export function createLlmClient(env: Env): LlmClient | null {
           // ⚠️ **열쇠도 프롬프트도 메시지에 담지 않습니다.** 프롬프트에는 사건
           // 내용이 들어 있고, 이 메시지는 로그와 감사 기록으로 갑니다
           const timedOut = error instanceof Error && error.name === 'AbortError'
+          logAttempt(model, timedOut ? '시간 초과' : '닿지 못함', Date.now() - startedAt)
           throw new Error(timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다')
         } finally {
           clearTimeout(timer)
         }
 
+        logAttempt(model, `HTTP ${res.status}`, Date.now() - startedAt)
         if (res.ok) break
         // 형식·권한 문제는 다시 보내도 같습니다. 그 자리에서 멈춥니다
         if (!AGAIN_LATER.has(res.status) || attempt >= tries - 1) break
