@@ -117,7 +117,8 @@ whisper 는 30초 창을 통째로 인코딩하고, 그 비용은 **오디오 �
 - **GPU 에서 얼마나 빨라지나** — 오라클로는 못 쟀습니다. 이 계정의 GPU 형상 한도가
   전부 0 이라, 자리 문제가 아니라 권한 문제입니다(종량제 전환 + 한도 증액 심사가
   필요). [ADR-043](../../decisions/043-gpu-hosting.md) 이 개발용으로 RunPod 을 고른
-  이유가 이것입니다. **하네스는 그대로 돌아갑니다** — 조건 목록만 바꾸면 됩니다.
+  이유가 이것입니다. **하네스에는 GPU 조건 `E`~`H` 를 이미 넣어 뒀습니다**(§6) —
+  GPU 가 없는 곳에서 부르면 돌리지 않고 건너뜁니다.
 - **실제 통화 녹음에서도 같은가** — 합성음으로만 쟀습니다. 침묵 비율을 37% 까지
   올려 구조는 확인했지만, 실제 통화의 말겹침·끊김은 재현하지 못했습니다.
 - **`keep` 손상이 왜 이렇게 큰가** — 조건 A 에서 80건 중 20건이 전사에서 사라집니다.
@@ -136,4 +137,17 @@ python assets/datasets/08-25-stt-preprocess/make_audio.py \
 # 재기 (전사 서비스가 있는 곳에서)
 python services/transcriber/bench_stt.py audio eval-set.json results.json
 python services/transcriber/bench_stt.py audio-gap eval-set.json results-gap.json A,B
+
+# GPU 에서 (RunPod 등)
+python services/transcriber/bench_stt.py audio eval-set.json results-gpu.json E,F,G,H
 ```
+
+GPU 조건은 넷입니다. **`E` 가 다리입니다** — 위 표의 `A` 와 모델·빔·무음이 같고
+장치만 다르니, 두 값을 나란히 놓으면 GPU 자체의 몫이 나옵니다.
+
+| | 무엇을 가르나 |
+| --- | --- |
+| `E` cuda · medium · batch=1 | **`A` 와 장치만 다름** — GPU 로 옮긴 몫 |
+| `F` cuda · medium · batch=16 | **`E` 와 배치만 다름** — 배치의 몫 |
+| `G` cuda · large-v3-turbo · batch=16 | 1순위 후보. 디코더가 4층이라 빠른 대신 긴 숫자열에서 문맥이 약할 수 있어, 속도가 아니라 **이 채점으로** 봐야 합니다 |
+| `H` cuda · large-v3 · batch=16 | 정확도 상한 — `G` 가 무엇을 잃고 빠른지 재는 자 |
