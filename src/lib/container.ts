@@ -44,6 +44,8 @@ import {
   createMessageStore,
   createDeadlineReader,
   createDeadlineWriter,
+  createChannelWriter,
+  createOrgReader,
   createEvidenceReader,
   createEvidenceWriter,
   createKbStore,
@@ -60,6 +62,8 @@ import type {
   CaseTokenResolver,
   DeadlineReader,
   DeadlineWriter,
+  ChannelWriter,
+  OrgReader,
   EvidenceReader,
   EvidenceWriter,
   SlotReader,
@@ -290,6 +294,18 @@ function caseReader(env: Env): CaseReader {
   return createCaseReader(sql)
 }
 
+function orgReader(env: Env): OrgReader {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('OrgReader', ['DATABASE_URL'])
+  return createOrgReader(sql)
+}
+
+function channelWriter(env: Env): ChannelWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('ChannelWriter', ['DATABASE_URL'])
+  return createChannelWriter(sql)
+}
+
 function slotWriter(env: Env): SlotWriter {
   const sql = createSql(env)
   if (!sql) return unconfigured('SlotWriter', ['DATABASE_URL'])
@@ -428,6 +444,20 @@ export interface Container {
   readonly deadlineWrite: DeadlineWriter
   /** 사건 자체의 값 → §3.10 */
   readonly caseRead: CaseReader
+  /**
+   * 기관 — **`contact_ref` 를 실제 번호로 바꾸는 자리** → §11.4.1 · §11.4.4.
+   *
+   * 못 찾으면 `null` 이고 **그때도 절차는 나갑니다** — 연락처는 절차의
+   * 부속이지 절차 자체가 아닙니다 (§11.4.3).
+   */
+  readonly orgs: OrgReader
+  /**
+   * 경유 서비스를 적는 자리 → §4.
+   *
+   * ⚠️ **이 표에 쓰는 코드가 2026-08-25 까지 없었습니다.** 그래서 유형을
+   * 골라도 유형별 KB 가 안 붙고 번호도 안 붙었습니다.
+   */
+  readonly channelWrite: ChannelWriter
   /** 슬롯 쓰기 → §3.5. **토큰화된 값만 넣습니다** (ADR-040) */
   readonly slotWrite: SlotWriter
   /** 단계 부산물 → §3.8. **완료는 부산물로 판정합니다**(불변 규칙 6) */
@@ -501,6 +531,8 @@ export function createContainer(
     deadlines: deadlineReader(env),
     deadlineWrite: deadlineWriter(env),
     caseRead: caseReader(env),
+    orgs: orgReader(env),
+    channelWrite: channelWriter(env),
     slotWrite: slotWriter(env),
     artifacts: artifactWriter(env),
     messages: messageStore(env),

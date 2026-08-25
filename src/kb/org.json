@@ -1,0 +1,229 @@
+{
+  "_note": [
+    "기관 마스터 — 연락처·별칭. spec/backend/08-16-data-model.md §11.1 의 `org` 표로 갑니다.",
+    "작성 규약: rfc/002-kb-authoring.md",
+    "",
+    "**이 파일이 있어야 `contact_ref` 가 뜻을 갖습니다.** KB 본문은 번호를 직접 쓰지 않고",
+    "`org.contact.report_tel` 처럼 가리키기만 합니다(§11.4.1) — 번호가 바뀔 때 절차 항목까지",
+    "새 버전을 내지 않으려는 것이고, 같은 유형 절차를 열아홉 은행이 공유하기 때문입니다.",
+    "",
+    "## 확인 못 한 것은 칸을 아예 안 넣습니다 → §11.1 ①",
+    "",
+    "`null` 이나 빈 문자열을 두면 「없다」로 읽히고, 코드가 **「확인 못 함」과 「해당 없음」을",
+    "한 분기로 뭉갭니다.** 그래서 24시간 여부(`report_hours`)와 제출 경로(`submit`)는",
+    "**공식 안내로 확인된 곳에만** 붙어 있습니다. 나머지는 칸이 없습니다.",
+    "",
+    "## 출처",
+    "",
+    "번호는 은행연합회 소비자포털 한 페이지에서 옮겼습니다(2026-08-25 확인).",
+    "은행 공동 기관이라 개별 은행 사이트를 도는 것보다 낫고, 먼저 확인해 둔 일곱 곳과",
+    "번호가 전부 일치했습니다 → docs/research/04-기관정보.md §1.",
+    "",
+    "⚠️ **그 페이지를 요약해 읽으면 이름이 밀립니다.** 자동 요약이 「한국산업은행」을",
+    "「국민은행」으로, 「신한은행」을 「우리은행」으로 붙여 놨습니다. 갱신할 때는 원문의",
+    "`<li><span class=\"bankName\">이름</span>번호</li>` 구조를 그대로 읽으세요.",
+    "",
+    "## 아직 없는 것",
+    "",
+    "간편송금(`CH-easypay`)·증권·가상자산·통신사·상품권 발행사는 여기 없습니다.",
+    "은행연합회 페이지에 없고, 각 사 공식 창구를 아직 확인하지 못했습니다 →",
+    "docs/research/04-기관정보.md §3~§7. **없으면 절차만 안내합니다** (§11.4.3)."
+  ],
+  "orgs": [
+    {
+      "org_id": "kb-bank",
+      "channel_id": "CH-bank",
+      "name": "KB국민은행",
+      "aliases": ["국민은행", "국민", "KB", "KB국민", "국민銀"],
+      "contact": {
+        "report_tel": "1588-9999",
+        "report_hours": "24시간",
+        "submit": [
+          { "how": "branch", "text": "가까운 영업점에 피해구제 신청서를 서면으로 제출합니다" }
+        ],
+        "caution": "앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다"
+      },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "shinhan-bank",
+      "channel_id": "CH-bank",
+      "name": "신한은행",
+      "aliases": ["신한", "신한銀"],
+      "contact": { "report_tel": "1577-8000" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "woori-bank",
+      "channel_id": "CH-bank",
+      "name": "우리은행",
+      "aliases": ["우리", "우리銀"],
+      "contact": {
+        "report_tel": "1588-5000",
+        "report_hours": "24시간"
+      },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "hana-bank",
+      "channel_id": "CH-bank",
+      "name": "하나은행",
+      "aliases": ["하나", "KEB하나", "하나銀"],
+      "contact": { "report_tel": "1588-1111" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "nh-bank",
+      "channel_id": "CH-bank",
+      "name": "NH농협은행",
+      "aliases": ["농협", "농협은행", "NH", "NH농협"],
+      "contact": {
+        "report_tel": "1661-3000",
+        "report_hours": "365일",
+        "submit": [
+          { "how": "branch", "text": "가까운 영업점에 피해구제 신청서를 서면으로 제출합니다" }
+        ]
+      },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "ibk-bank",
+      "channel_id": "CH-bank",
+      "name": "IBK기업은행",
+      "aliases": ["기업은행", "기업", "IBK"],
+      "contact": { "report_tel": "1566-2566" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "sc-bank",
+      "channel_id": "CH-bank",
+      "name": "SC제일은행",
+      "aliases": ["제일은행", "SC", "SC제일"],
+      "contact": { "report_tel": "1588-1599" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "citi-bank",
+      "channel_id": "CH-bank",
+      "name": "한국씨티은행",
+      "aliases": ["씨티은행", "씨티", "시티", "시티은행"],
+      "contact": { "report_tel": "1588-7000" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "suhyup-bank",
+      "channel_id": "CH-bank",
+      "name": "Sh수협은행",
+      "aliases": ["수협", "수협은행", "Sh수협"],
+      "contact": { "report_tel": "1588-1515" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "kdb-bank",
+      "channel_id": "CH-bank",
+      "name": "한국산업은행",
+      "aliases": ["산업은행", "산은", "KDB"],
+      "contact": { "report_tel": "1588-1500" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "busan-bank",
+      "channel_id": "CH-bank",
+      "name": "BNK부산은행",
+      "aliases": ["부산은행", "부산", "BNK부산"],
+      "contact": { "report_tel": "1544-6200" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "im-bank",
+      "channel_id": "CH-bank",
+      "name": "iM뱅크",
+      "aliases": ["대구은행", "대구", "DGB", "iM", "아이엠뱅크"],
+      "contact": { "report_tel": "1566-5050" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "kyongnam-bank",
+      "channel_id": "CH-bank",
+      "name": "BNK경남은행",
+      "aliases": ["경남은행", "경남", "BNK경남"],
+      "contact": { "report_tel": "1600-8585" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "kwangju-bank",
+      "channel_id": "CH-bank",
+      "name": "광주은행",
+      "aliases": ["광주", "JB광주"],
+      "contact": { "report_tel": "1588-3388" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "jeonbuk-bank",
+      "channel_id": "CH-bank",
+      "name": "전북은행",
+      "aliases": ["전북", "JB전북"],
+      "contact": { "report_tel": "1588-4477" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "jeju-bank",
+      "channel_id": "CH-bank",
+      "name": "제주은행",
+      "aliases": ["제주"],
+      "contact": { "report_tel": "1588-0079" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "kakao-bank",
+      "channel_id": "CH-neobank",
+      "name": "카카오뱅크",
+      "aliases": ["카뱅", "카카오은행"],
+      "contact": {
+        "report_tel": "1599-3333",
+        "report_steps": "연결되면 8번(보이스피싱)을 누릅니다",
+        "report_hours": "24시간"
+      },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "k-bank",
+      "channel_id": "CH-neobank",
+      "name": "케이뱅크",
+      "aliases": ["K뱅크", "케뱅", "케이뱅"],
+      "contact": { "report_tel": "1522-1000" },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "toss-bank",
+      "channel_id": "CH-neobank",
+      "name": "토스뱅크",
+      "aliases": ["토스은행"],
+      "contact": {
+        "report_tel": "1661-7654",
+        "report_hours": "연중무휴",
+        "caution": "「토스」로만 보내셨다면 토스뱅크가 아니라 간편송금일 수 있습니다. 어느 쪽인지에 따라 절차가 갈립니다"
+      },
+      "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+      "verified_at": "2026-08-25"
+    }
+  ]
+}
