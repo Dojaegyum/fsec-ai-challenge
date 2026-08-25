@@ -28,7 +28,10 @@ import { BadRequestError } from '@/lib/http'
 
 import { tierOf, valueTypeOf } from '@/modules/slot-checker'
 
-import { readCasePlan } from './regenerate-plan'
+import { readCasePlan, regeneratePlan } from './regenerate-plan'
+
+import type { DeadlineChange } from '@/lib/db'
+import type { NextQuestion } from '@/modules/slot-checker'
 
 /** 사용자가 할 수 있는 것 → §3.5 */
 export type SlotAction = 'answer' | 'unknown' | 'mask' | 'keep'
@@ -174,7 +177,39 @@ export async function answerSlot(
   }
 }
 
-/** 답한 뒤의 상태 — 다음 질문과 플랜 갱신 여부를 화면에 알려줍니다 */
-export async function afterAnswer(caseId: string, container: Container) {
-  return readCasePlan(caseId, { container, store: container.ports.casePlan })
+/** 답한 뒤에 화면이 받아야 하는 것 → §3.5 */
+export interface AfterAnswer {
+  readonly nextQuestion: NextQuestion | null
+  /** 이번 답으로 옮겨졌거나 새로 생긴 기한. 없으면 빈 배열 */
+  readonly changedDeadlines: readonly DeadlineChange[]
+}
+
+/**
+ * 답한 뒤의 상태 — **값이 들어갔으면 플랜을 다시 만듭니다** → §3.5
+ * *"슬롯이 채워지면 플랜을 자동 재생성합니다"*.
+ *
+ * ⚠️ 2026-08-25 까지 이 자리가 **읽기만 했습니다.** `plan_regenerated: true` 를
+ * 내보내면서 실제로는 아무것도 안 만들고 있었습니다 — 경유 서비스를 답해도
+ * 그 유형의 절차가 안 붙고 T0 공통 넷만 남았습니다. `regeneratePlan` 을 부르는
+ * 자리가 코드 어디에도 없었습니다.
+ *
+ * **저장이 안 된 답에는 안 돕니다.** `pii_pending` 은 확인 전이라 없는 값과
+ * 같고(ADR-041), 그 상태로 플랜을 다시 만들면 감사 기록만 쌓입니다.
+ */
+export async function afterAnswer(
+  caseId: string,
+  container: Container,
+  stored: boolean,
+): Promise<AfterAnswer> {
+  if (!stored) {
+    const read = await readCasePlan(caseId, { container, store: container.ports.casePlan })
+    return { nextQuestion: read.nextQuestion, changedDeadlines: [] }
+  }
+
+  const made = await regeneratePlan(caseId, {
+    container,
+    store: container.ports.casePlan,
+    kbVersion: container.ports.kbVersion,
+  })
+  return { nextQuestion: made.nextQuestion, changedDeadlines: made.changedDeadlines }
 }

@@ -114,6 +114,7 @@ const casePlan: CasePlanStore = {
             kind: 'sms_capture',
             verifyLevel: 'L2',
             verifyResult: 'passed',
+            createdAt: '2026-08-20T10:00:00+09:00',
           },
         ],
         requiredArtifact: { kind: 'sms_capture', label: '은행 접수 문자 캡처' },
@@ -148,8 +149,25 @@ vi.mock('@/lib/wire', () => ({
   },
 }))
 
+/**
+ * 사건을 만들면 **기한도 함께 계산됩니다** → flows/compute-deadlines.ts.
+ *
+ * 그 둘은 포트가 아니라 조립부가 직접 만드는 자리(`container.slots` ·
+ * `container.deadlineWrite`)라 포트로 못 갈아끼웁니다. 여기서 덮습니다.
+ *
+ * **새 사건에는 기산점이 될 슬롯이 없어 기한이 안 생기는 것이 실제
+ * 동작입니다.** 기한 자체는 `flows/compute-deadlines.test.ts` 가 봅니다.
+ */
+function wiredContainer(over: Partial<Ports> = {}) {
+  return {
+    ...createContainer(readEnv({}), { ...wiredPorts(), ...over } as Ports),
+    slots: { read: async () => [] },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+  }
+}
+
 beforeEach(() => {
-  holder.container = createContainer(readEnv({}), wiredPorts())
+  holder.container = wiredContainer()
 })
 
 function ask(body: unknown, headers: Record<string, string> = {}) {
@@ -273,10 +291,7 @@ describe('사건을 만든다 — §3.1', () => {
     // openCase 말고 다른 자리에서 사건을 저장하면 원자성이 깨집니다.
     // caseIntake.open() 으로 되돌아가는 회귀가 여기서 걸립니다
     const cases = caseStoreOf()
-    holder.container = createContainer(readEnv({}), {
-      ...wiredPorts(),
-      caseStore: cases.store,
-    } as Ports)
+    holder.container = wiredContainer({ caseStore: cases.store })
 
     await POST(ask({ track: 'victim' }))
 
@@ -305,10 +320,7 @@ describe('사건을 만든다 — §3.1', () => {
         throw new Error('저장 실패')
       },
     }
-    holder.container = createContainer(readEnv({}), {
-      ...wiredPorts(),
-      casePlan: broken,
-    } as Ports)
+    holder.container = wiredContainer({ casePlan: broken })
 
     const res = await POST(ask({ track: 'victim' }))
 

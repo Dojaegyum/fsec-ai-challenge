@@ -42,6 +42,7 @@ import {
   createCaseStore,
   createCaseTokenResolver,
   createDeadlineReader,
+  createDeadlineWriter,
   createEvidenceReader,
   createEvidenceWriter,
   createKbStore,
@@ -95,6 +96,7 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
   const vaultStore = createVaultStore(sql)
   const kb = createKbStore(sql)
   const deadlines = createDeadlineReader(sql)
+  const deadlineWriter = createDeadlineWriter(sql)
 
   /** 이 시험만 쓰는 KB 릴리스. 실제 릴리스와 안 섞이게 이름을 따로 둡니다 */
   const KB_VERSION = 'dbtest.0'
@@ -513,12 +515,15 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
   })
 
   describe('기한 — 계산 근거에서 꺼내 오는 값들', () => {
-    // ⛔ **아직 아무도 `deadline` 에 쓰지 않습니다.** `date-checker` 모듈은 서 있지만
-    // 부르는 자리가 없어서, 실제 사건에는 기한이 한 줄도 안 생깁니다.
-    // 여기서는 손으로 심어 **읽는 쪽이 계약대로 내주는지**만 봅니다
+    // 읽는 쪽만 보는 시험이라 손으로 심습니다. 쓰는 쪽은 아래 묶음이 봅니다.
+    //
+    // **단계 번호를 매번 새로 뽑습니다** — 0005 의 열쇠가
+    // `(case_id, plan_step_id, kind)` 라, 같은 자리에 두 줄을 심으면 거부됩니다.
+    // 그게 이 열쇠가 하려는 일입니다
     const seed = async (over: Record<string, unknown>) => {
       const row = {
         deadline_id: newUlid(),
+        plan_step_id: newUlid(),
         kind: 'primary',
         due_at: '2026-08-20T23:59:59+09:00',
         computed_from: 'relief_applied_at',
@@ -530,7 +535,8 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
           (deadline_id, case_id, plan_step_id, kind, due_at, computed_from,
            computed_at, rule_snapshot, kb_version, status)
         VALUES
-          (${row.deadline_id as string}, ${caseId}, NULL, ${row.kind as string},
+          (${row.deadline_id as string}, ${caseId}, ${row.plan_step_id as string},
+           ${row.kind as string},
            ${row.due_at as string}, ${row.computed_from as string}, now(),
            ${sql.json(row.snapshot as never)}, ${'dbtest.0'}, 'open')
       `
@@ -579,6 +585,110 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
     })
 
     it('기한이 없는 사건은 빈 목록', async () => {
+      expect(await deadlines.read(otherId)).toEqual([])
+    })
+  })
+
+  /**
+   * 쓰는 쪽 — **여기가 2026-08-25 까지 통째로 없던 자리입니다.**
+   *
+   * `otherId` 를 씁니다. 위 묶음이 `caseId` 에 손으로 심어 둔 줄들이 있어서,
+   * 「목록이 곧 전부」인 `apply` 가 그것들까지 내려 버립니다.
+   */
+  describe('기한을 적는다 — 다시 계산해도 줄이 안 는다', () => {
+    const stepA = newUlid()
+    const stepB = newUlid()
+
+    const row = (over: Record<string, unknown> = {}) => ({
+      deadlineId: newUlid(),
+      planStepId: stepA,
+      kind: 'primary',
+      dueAt: '2026-08-20T23:59:59+09:00',
+      computedFrom: 'relief_applied_at',
+      ruleSnapshot: { kb_entry_id: 'common-relief-documents', estimated: false },
+      kbVersion: KB_VERSION,
+      ...over,
+    })
+
+    it('처음 적으면 새로 생긴 것으로 나온다 — 옮겨지기 전 날짜가 없다', async () => {
+      const changes = await deadlineWriter.apply(otherId, [row()])
+      expect(changes).toHaveLength(1)
+      expect(changes[0]?.changedFrom).toBeNull()
+      expect(await deadlines.read(otherId)).toHaveLength(1)
+    })
+
+    it('**같은 값을 다시 적어도 줄이 안 늘고, 바뀐 것도 없다**', async () => {
+      const changes = await deadlineWriter.apply(otherId, [row()])
+      expect(changes).toEqual([])
+      expect(await deadlines.read(otherId)).toHaveLength(1)
+    })
+
+    it('날짜가 옮겨지면 옮겨지기 전 날짜를 함께 낸다 — §3.5', async () => {
+      const changes = await deadlineWriter.apply(otherId, [
+        row({ dueAt: '2026-08-21T23:59:59+09:00' }),
+      ])
+      expect(changes).toHaveLength(1)
+      // 표에서 읽어 온 값이라 밀리초가 붙습니다 — 칼럼이 `TIMESTAMPTZ(3)` 입니다.
+      // **글자로 견주면 매번 바뀐 것이 됩니다** → createDeadlineWriter 의 경고
+      expect(changes[0]?.changedFrom).toBe('2026-08-20T23:59:59.000+09:00')
+      expect(changes[0]?.dueAt).toBe('2026-08-21T23:59:59+09:00')
+    })
+
+    it('식별자를 지킨다 — 다시 계산할 때마다 번호가 바뀌면 새 기한으로 보인다', async () => {
+      const before = (await deadlines.read(otherId))[0]!.deadlineId
+      await deadlineWriter.apply(otherId, [row({ dueAt: '2026-08-24T23:59:59+09:00' })])
+      expect((await deadlines.read(otherId))[0]?.deadlineId).toBe(before)
+    })
+
+    it('한 단계에 본 기한과 유예가 나란히 선다 — §8.1', async () => {
+      await deadlineWriter.apply(otherId, [
+        row({ dueAt: '2026-08-20T23:59:59+09:00' }),
+        row({ kind: 'grace', dueAt: '2026-09-03T23:59:59+09:00' }),
+      ])
+      const rows = await deadlines.read(otherId)
+      expect(rows.map((one) => one.kind)).toEqual(['primary', 'grace'])
+    })
+
+    it('목록에서 빠진 기한은 내려간다 — 근거가 사라진 것이다', async () => {
+      await deadlineWriter.apply(otherId, [row({ dueAt: '2026-08-20T23:59:59+09:00' })])
+      const rows = await deadlines.read(otherId)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]?.kind).toBe('primary')
+    })
+
+    it('내렸던 자리에 새 기한이 다시 들어간다 — 부분 열쇠가 막지 않는다', async () => {
+      await deadlineWriter.apply(otherId, [
+        row({ dueAt: '2026-08-20T23:59:59+09:00' }),
+        row({ kind: 'grace', dueAt: '2026-09-03T23:59:59+09:00' }),
+      ])
+      expect(await deadlines.read(otherId)).toHaveLength(2)
+    })
+
+    it('지난 기한은 `missed` 로 옮긴다 — 화면이 알아챌 신호가 그것뿐이다', async () => {
+      await deadlineWriter.apply(otherId, [
+        row({ planStepId: stepB, dueAt: '2020-01-01T23:59:59+09:00' }),
+      ])
+      const moved = await deadlineWriter.sweepOverdue(otherId, '2026-08-25T10:00:00+09:00')
+      expect(moved).toBe(1)
+
+      const rows = await deadlines.read(otherId)
+      expect(rows.find((one) => one.stepId === stepB)?.status).toBe('missed')
+    })
+
+    it('두 번 쓸어도 다시 안 센다 — `open` 인 것만 옮깁니다', async () => {
+      expect(await deadlineWriter.sweepOverdue(otherId, '2026-08-25T10:00:00+09:00')).toBe(0)
+    })
+
+    it('지난 기한의 기산점이 뒤로 밀리면 다시 `open` 이다', async () => {
+      await deadlineWriter.apply(otherId, [
+        row({ planStepId: stepB, dueAt: '2027-01-01T23:59:59+09:00' }),
+      ])
+      const rows = await deadlines.read(otherId)
+      expect(rows.find((one) => one.stepId === stepB)?.status).toBe('open')
+    })
+
+    it('빈 목록을 주면 전부 내려간다 — 기산 슬롯을 지웠을 때가 그 경우다', async () => {
+      expect(await deadlineWriter.apply(otherId, [])).toEqual([])
       expect(await deadlines.read(otherId)).toEqual([])
     })
   })

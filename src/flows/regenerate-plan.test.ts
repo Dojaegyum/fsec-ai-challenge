@@ -153,6 +153,27 @@ function portsWith(over: Partial<Ports>): Ports {
   } as Ports
 }
 
+/**
+ * 플랜을 만들면 **기한도 함께 계산됩니다** → compute-deadlines.ts.
+ *
+ * 그 둘은 포트가 아니라 조립부가 직접 만드는 자리(`container.slots` ·
+ * `container.deadlineWrite`)라 `portsWith` 로 못 갈아끼웁니다. 여기서 덮습니다.
+ *
+ * **빈 대역이 아닙니다** — 슬롯이 없으면 기산점이 없어 기한이 안 생기는 것이
+ * 실제 동작이고, 이 파일이 보는 것은 플랜 쪽입니다. 기한 자체는
+ * `compute-deadlines.test.ts` 와 `db.dbtest.ts` 가 봅니다.
+ */
+function containerFor(kbStore: Ports['kbStore']) {
+  return {
+    ...createContainer(readEnv({}), portsWith({ kbStore })),
+    slots: { read: async () => [] },
+    deadlineWrite: {
+      apply: async () => [],
+      sweepOverdue: async () => 0,
+    },
+  }
+}
+
 let deps: Parameters<typeof regeneratePlan>[1]
 let seenQueries: KbQuery[]
 let appliedResults: PlanResult[]
@@ -164,7 +185,7 @@ beforeEach(() => {
   appliedResults = plans.applied
 
   deps = {
-    container: createContainer(readEnv({}), portsWith({ kbStore: kb.store })),
+    container: containerFor(kb.store),
     store: plans.store,
     kbVersion,
   }
@@ -241,7 +262,7 @@ describe('근거 없는 단계를 만들지 않는다 — 불변 규칙 1', () =
 
     await expect(
       regeneratePlan(CASE_ID, {
-        container: createContainer(readEnv({}), portsWith({ kbStore: kb.store })),
+        container: containerFor(kb.store),
         store: plans.store,
         kbVersion,
       }),
@@ -275,7 +296,7 @@ describe('삭제 후 삽입이 아니다 — §6.1', () => {
     return {
       plans,
       deps: {
-        container: createContainer(readEnv({}), portsWith({ kbStore: kb.store })),
+        container: containerFor(kb.store),
         store: plans.store,
         kbVersion,
       },
@@ -326,7 +347,7 @@ describe('없는 사건', () => {
     })
 
     const thrown = await regeneratePlan(CASE_ID, {
-      container: createContainer(readEnv({}), portsWith({ kbStore: kb.store })),
+      container: containerFor(kb.store),
       store: plans.store,
       kbVersion,
     }).catch((error: unknown) => error)

@@ -68,15 +68,10 @@ describe('근거 없는 단계를 만들지 않는다 — 불변 규칙 1', () =
 
 describe('§3.1 과 §3.6 이 같은 모양을 쓴다 — ADR-047', () => {
   it('플랜 전체도 같은 옮김을 지난다', () => {
+    // 이 옮김이 보는 것은 둘뿐입니다 — 스냅샷의 나머지 칸은 §3.6 응답에 안 나갑니다
     const plan = toApiPlan({
-      caseId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
       isSuperset: true,
-      kbVersion: '2026.08.1',
       steps: [step(), step({ planStepId: 'b', stepKey: 'relief-apply', seq: 30 })],
-      nextQuestion: null,
-      t1: 'satisfied',
-      t2: 'satisfied',
-      auditId: '01J8AUDIT00000000000000000',
     })
     expect(plan.is_superset).toBe(true)
     expect(plan.steps.map((one) => one.body.step_key)).toEqual([

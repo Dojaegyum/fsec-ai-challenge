@@ -25,6 +25,8 @@ import { BadRequestError, readJsonObject } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
 import { newUlid } from '@/lib/ids'
 
+import { computeDeadlines } from '@/flows/compute-deadlines'
+
 import type { ArtifactSubmission } from '@/modules/completion-checker'
 
 interface ArtifactBody {
@@ -102,6 +104,20 @@ export async function POST(
 
     // 단계가 이 사건 것이 아니면 안 옮겨집니다 — 남의 단계를 완료 처리할 수 없습니다
     await container.artifacts.markStep(caseId, stepId, verdict.stepState)
+
+    // ── 기한을 다시 셉니다 → 08-16-deadline-rules.md 「기산점은 부산물」 ──
+    //
+    // **부산물이 곧 기산점입니다.** `deadline.from` 이 `artifact:{kind}` 인
+    // 단계는 이 줄이 생기는 순간 날짜가 확정됩니다 — 그전까지는 셀 것이
+    // 없어 기한이 아예 없었습니다.
+    //
+    // 실패해도 부산물 접수를 되돌리지 않습니다. 사용자가 한 일은 이미
+    // 표에 남았고, 기한은 다음 재계산 때 따라옵니다
+    const steps = await container.ports.casePlan.readSteps(caseId)
+    await computeDeadlines(
+      { caseId, steps, kbVersion: steps[0]?.kbVersion ?? '' },
+      container,
+    ).catch(() => [])
 
     return {
       body: {

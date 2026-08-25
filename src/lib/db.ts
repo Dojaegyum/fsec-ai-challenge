@@ -511,6 +511,14 @@ export interface SlotView {
   /** **토큰화된 값.** 복원은 브라우저가 합니다 */
   readonly valueMasked: string | null
   readonly valueType: string | null
+  /**
+   * 어디서 온 값인가 — `auto`(증거에서 뽑음) · `user`(사용자가 말함) ·
+   * `system`(부산물이 채움).
+   *
+   * **기한의 기산점을 가르는 값입니다** → 08-16-deadline-rules.md
+   * 「기산점은 부산물」. 사용자가 기억으로 댄 날짜는 추정으로 표시해야 합니다.
+   */
+  readonly source: string | null
   readonly confidence: number | null
   /** 어느 증거에서 나왔나 → 09-data-model.md §5 */
   readonly sourceRef: string | null
@@ -527,10 +535,12 @@ export function createSlotReader(sql: Sql): SlotReader {
           value_masked: string | null
           value_type: string | null
           confidence: string | number | null
+          source: string | null
           source_ref: string | null
         }[]
       >`
-        SELECT slot_key, tier, state, value_masked, value_type, confidence, source_ref
+        SELECT slot_key, tier, state, value_masked, value_type, confidence,
+               source, source_ref
         FROM case_slot WHERE case_id = ${caseId} ORDER BY tier, slot_key
       `
       return rows.map((one) => ({
@@ -539,6 +549,7 @@ export function createSlotReader(sql: Sql): SlotReader {
         state: one.state,
         valueMasked: one.value_masked,
         valueType: one.value_type,
+        source: one.source,
         // NUMERIC 은 드라이버가 문자열로 줍니다. 그대로 내보내면 화면이
         // `"0.91" > 0.9` 를 문자열로 비교합니다
         confidence: one.confidence === null ? null : Number(one.confidence),
@@ -607,11 +618,14 @@ export function createDeadlineReader(sql: Sql): DeadlineReader {
           title: string | null
         }[]
       >`
+        -- **void 는 안 읽습니다.** 근거가 사라진 기한입니다 — 기산 슬롯이
+        -- 지워졌거나 그 단계가 플랜에서 빠진 것이라, 화면에 남으면 사용자가
+        -- 이미 무효가 된 날짜를 계속 지킵니다 → createDeadlineWriter
         SELECT d.deadline_id, d.plan_step_id, d.kind, d.due_at, d.status,
                d.computed_from, d.rule_snapshot, s.title
         FROM deadline d
         LEFT JOIN plan_step s ON s.plan_step_id = d.plan_step_id
-        WHERE d.case_id = ${caseId}
+        WHERE d.case_id = ${caseId} AND d.status <> 'void'
         ORDER BY d.due_at
       `
       return rows.map((one) => {
@@ -635,6 +649,165 @@ export function createDeadlineReader(sql: Sql): DeadlineReader {
           condition: typeof snap.condition === 'string' ? snap.condition : null,
         }
       })
+    },
+  }
+}
+
+/**
+ * 계산한 기한을 적는다 → 계약 §3.5 `changed_deadlines` · 09-data-model.md §8.
+ *
+ * **여기서 날짜를 세지 않습니다.** 세는 것은 `date-checker` 고, 이 자리는
+ * 나온 값을 표에 얹기만 합니다 → CLAUDE.md 불변 규칙 7.
+ *
+ * ## 지우지 않고 `void` 로 둡니다
+ *
+ * 근거가 사라진 기한(기산 슬롯이 지워졌거나 그 단계가 플랜에서 빠짐)을
+ * `DELETE` 하면 **그 날짜를 한때 안내했다는 사실이 함께 사라집니다.**
+ * 사용자는 그 날짜를 보고 움직였는데 우리 쪽에는 아무 흔적이 없게 됩니다.
+ *
+ * ## 늦게 붙는 `missed` 가 화면을 속입니다
+ *
+ * §3.7 이 경고한 자리입니다 — 「`days_left` 계산과 `status` 전이를 **같은
+ * 자리에서** 하세요」. 라우트가 `days_left` 를 세면서 `status` 는 표에 적힌
+ * 옛 값을 그대로 내보내면, 지난 기한이 **아직 안 지난 것처럼** 보입니다.
+ * `sweepOverdue` 가 읽기 직전에 그 전이를 맞춥니다.
+ */
+export interface DeadlineWriter {
+  /**
+   * 한 사건의 기한을 지금 계산 결과에 맞춥니다.
+   *
+   * **주는 목록이 전부입니다** — 여기 없는 `open` 기한은 근거가 사라진 것으로
+   * 보고 `void` 가 됩니다. 부분 갱신용이 아닙니다.
+   */
+  apply(
+    caseId: string,
+    rows: readonly DeadlineWrite[],
+  ): Promise<readonly DeadlineChange[]>
+  /** 지난 `open` 기한을 `missed` 로 옮긴다. 옮긴 줄 수 */
+  sweepOverdue(caseId: string, nowIso: string): Promise<number>
+}
+
+export interface DeadlineWrite {
+  readonly deadlineId: string
+  readonly planStepId: string
+  /** `primary` · `grace` · `info` */
+  readonly kind: string
+  /** ISO 8601 · **시간대 포함** (`2026-08-20T23:59:59+09:00`) → §1 */
+  readonly dueAt: string
+  /** 기산점이 된 slot_key 또는 `artifact:{kind}` → §11.4 */
+  readonly computedFrom: string
+  /** 계산에 쓴 KB 항목 전체 + 반영한 공휴일 → §8.2 */
+  readonly ruleSnapshot: Readonly<Record<string, unknown>>
+  readonly kbVersion: string
+}
+
+/** §3.5 의 `changed_deadlines` 한 줄 */
+export interface DeadlineChange {
+  readonly deadlineId: string
+  readonly kind: string
+  readonly dueAt: string
+  /**
+   * 옮겨지기 전 날짜. **새로 생긴 기한이면 `null`** 입니다.
+   *
+   * 안내한 날짜가 조용히 바뀌면 사용자가 이전 날짜를 계속 믿습니다 → §3.5.
+   */
+  readonly changedFrom: string | null
+}
+
+export function createDeadlineWriter(sql: Sql): DeadlineWriter {
+  return {
+    async apply(caseId, rows) {
+      // **먼저 읽습니다.** `changed_from` 을 내려면 옮겨지기 전 날짜가 필요한데,
+      // upsert 의 `RETURNING` 은 갱신 **뒤** 값만 줍니다
+      const before = await sql<
+        { deadline_id: string; plan_step_id: string | null; kind: string; due_at: Date }[]
+      >`
+        SELECT deadline_id, plan_step_id, kind, due_at
+        FROM deadline WHERE case_id = ${caseId} AND status <> 'void'
+      `
+      const priorOf = new Map(
+        before.map((one) => [`${one.plan_step_id ?? ''} ${one.kind}`, one]),
+      )
+
+      const changes: DeadlineChange[] = []
+      const kept: string[] = []
+
+      for (const row of rows) {
+        const prior = priorOf.get(`${row.planStepId} ${row.kind}`)
+        // **줄이 이미 있으면 그 식별자를 지킵니다.** 화면이 기한을 식별자로
+        // 잡고 있어서(§3.7), 다시 계산할 때마다 번호가 바뀌면 같은 기한이
+        // 매번 새 기한으로 보입니다
+        const deadlineId = prior?.deadline_id ?? row.deadlineId
+        kept.push(deadlineId)
+
+        // ⛔ `sql``` 결과를 조각으로 겹쳐 쓰지 않습니다 → createSql 의 경고.
+        // 한 줄씩 씁니다 — 기한은 한 사건에 몇 줄뿐이라 묶을 이유가 없습니다
+        await sql`
+          INSERT INTO deadline
+            (deadline_id, case_id, plan_step_id, kind, due_at,
+             computed_from, computed_at, rule_snapshot, kb_version, status)
+          VALUES (${deadlineId}, ${caseId}, ${row.planStepId}, ${row.kind}, ${row.dueAt},
+                  ${row.computedFrom}, now(), ${sql.json(row.ruleSnapshot as never)},
+                  ${row.kbVersion}, 'open')
+          ON CONFLICT (case_id, COALESCE(plan_step_id, ''), kind)
+            WHERE status <> 'void' DO UPDATE SET
+            due_at = EXCLUDED.due_at,
+            computed_from = EXCLUDED.computed_from,
+            computed_at = EXCLUDED.computed_at,
+            rule_snapshot = EXCLUDED.rule_snapshot,
+            kb_version = EXCLUDED.kb_version,
+            -- **날짜가 옮겨졌으면 다시 open 입니다.** 지났다고 표시된 기한의
+            -- 기산점이 뒤로 밀리면 아직 안 지난 기한이 됩니다
+            status = CASE
+              WHEN deadline.due_at IS DISTINCT FROM EXCLUDED.due_at
+                   AND deadline.status = 'missed' THEN 'open'
+              ELSE deadline.status
+            END,
+            updated_at = now()
+        `
+
+        const priorIso = prior ? seoulIso(prior.due_at) : null
+        // 안 바뀐 기한은 「바뀐 기한」이 아닙니다 — 매번 실으면 화면이
+        // 아무 일도 없었는데 「날짜가 바뀌었습니다」를 띄웁니다.
+        //
+        // ⚠️ **글자로 견주면 안 됩니다.** 칼럼이 `TIMESTAMPTZ(3)` 이라 읽어 온
+        // 값에는 밀리초가 붙고(`…59.000+09:00`), 계산기가 내는 값에는 안
+        // 붙습니다(`…59+09:00`) — 같은 순간인데 글자가 달라 **매번 바뀐 것으로
+        // 나갑니다.** 2026-08-25 DB 통합시험이 잡았습니다
+        const moved = !prior || prior.due_at.getTime() !== Date.parse(row.dueAt)
+        if (moved) {
+          changes.push({
+            deadlineId,
+            kind: row.kind,
+            dueAt: row.dueAt,
+            changedFrom: priorIso,
+          })
+        }
+      }
+
+      // 근거가 사라진 것을 내립니다. **목록이 비면 전부 내려갑니다** — 기산
+      // 슬롯을 지웠을 때가 그 경우이고, 그때는 남아 있으면 안 됩니다.
+      //
+      // **`met` 은 건드리지 않습니다.** 사용자가 실제로 지킨 기한이고, 그건
+      // 근거가 사라져도 사라지지 않는 사실입니다 — 부산물이 남아 있습니다.
+      // 지난 것(`missed`)은 내립니다: 근거가 없어진 기한을 「놓쳤다」고
+      // 계속 보여주면 사용자가 없는 잘못을 자기 것으로 답니다
+      await sql`
+        UPDATE deadline SET status = 'void', updated_at = now()
+        WHERE case_id = ${caseId} AND status IN ('open', 'missed')
+          AND deadline_id <> ALL(${kept}::char(26)[])
+      `
+
+      return changes
+    },
+
+    async sweepOverdue(caseId, nowIso) {
+      const rows = await sql<{ deadline_id: string }[]>`
+        UPDATE deadline SET status = 'missed', updated_at = now()
+        WHERE case_id = ${caseId} AND status = 'open' AND due_at < ${nowIso}
+        RETURNING deadline_id
+      `
+      return rows.length
     },
   }
 }
