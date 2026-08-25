@@ -26,8 +26,10 @@
 `long_bench.py` 셋은 경로가 `/poc` 로 박혀 있습니다. POC 팟에서 돌린 그대로 남깁니다.
 **`notation.py` 만 저장소 경로로 돕니다** — GPU 없이 저장된 전사문만 보기 때문입니다.
 
-`notation.py` 는 **참조 구현이지 정본이 아닙니다.** 실제로 붙일 자리는 `pii-tokenizer`
-앞이고 그 모듈은 아직 없습니다 → [ADR-052](../../../decisions/052-stt-configuration.md).
+`notation.py` 는 **분석 도구이지 붙일 코드가 아닙니다.** 「값이 살아 있는데 모양만
+바뀐 것」과 「아예 없는 것」을 가르려고 되돌려 보는 것입니다. 실제 경계는
+`src/modules/pii-tokenizer/transcript-digits.ts` 가 **가리는 쪽을 기본값으로** 두어
+지킵니다 → [ADR-052](../../../decisions/052-stt-configuration.md).
 
 ## ⚠️ 셋
 

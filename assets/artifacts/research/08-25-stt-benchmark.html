@@ -249,21 +249,22 @@
     <p class="lede">
       전사가 오래 걸려서 <strong>전처리로 줄일 수 있는지</strong>부터 쟀습니다. 못 줄인다는 답이 나와
       GPU를 빌려 다시 쟀고, <strong>22배</strong>가 나왔습니다. 그런데 모델을 좋게 하니
-      <strong>개인정보가 새어 나갈 위험이 되레 커지는 자리</strong>가 드러났습니다 — 이 문서의 핵심은
-      속도가 아니라 그쪽입니다.
+      <strong>계좌번호가 날짜로 둔갑하는 일이 두 배</strong>가 됐습니다 — 값이 사라지는 것보다 나쁜
+      상태입니다. 그게 실제로 경계를 넘는지까지 쟀습니다.
     </p>
     <div class="verdict">
       <span class="vpill good"><span class="k">GPU로 옮긴 몫</span><span class="v">22배</span></span>
       <span class="vpill good"><span class="k">6.8분 통화</span><span class="v">7.6초</span></span>
       <span class="vpill bad"><span class="k">자리표기 변형</span><span class="v">2 → 4건</span></span>
-      <span class="vpill good"><span class="k">되돌린 뒤 PII 보존</span><span class="v">97.0%</span></span>
+      <span class="vpill good"><span class="k">숫자류 실제 누출</span><span class="v">0건</span></span>
       <span class="vpill"><span class="k">측정 비용</span><span class="v">$0.07</span></span>
     </div>
     <p class="note">
-      결론부터 — <strong>속도는 켜기만 하면 됩니다.</strong> 정작 손이 가는 것은
-      <strong>whisper가 계좌번호를 날짜로 적는 것</strong>이고, 그건 값이 사라지는 것보다 나쁩니다.
-      사라진 값은 확인 화면에서 사용자가 채우지만, <strong>날짜로 둔갑한 값은 아무도 이상함을 못 느낀 채
-      경계를 넘습니다.</strong>
+      결론부터 — <strong>속도는 켜기만 하면 됩니다.</strong> 위험해 보였던 쪽은
+      <strong>경계가 이미 막고 있었습니다</strong>. 다만 한 곳이 샜습니다: 전사가 하이픈을
+      <span class="num">마이너스</span>로 읽으면 <strong>계좌번호 뒷자리 7개가 그대로 나갔습니다.</strong>
+      숫자 규칙의 이음 거리를 <span class="num">5 → 8</span>로 넓혀 막았고,
+      <strong>과차단은 그대로 0건</strong>입니다.
     </p>
   </div>
 </header>
@@ -305,10 +306,11 @@
         </p>
       </div>
       <div class="step">
-        <div class="step-label"><span class="t">+ 자리표기 되돌리기</span><span class="s">코드 20줄 · GPU 무관</span></div>
+        <div class="step-label"><span class="t">경계를 지난 뒤</span><span class="s">transcript-digits 규칙</span></div>
         <p class="utter">
           카카오뱅크 계좌
-          <span class="acct"><mark class="ok">3333012345678</mark></span>로 보냈고요.
+          <span class="acct"><mark class="ok">▓▓▓▓</mark>년 <mark class="ok">▓</mark>월
+          <mark class="ok">▓▓</mark>일 <mark class="ok">▓▓▓▓▓</mark></span>로 보냈고요.
           받은 사람이 <mark class="ok">정우성</mark>이라는데 대포통장 같아요.
         </p>
       </div>
@@ -320,11 +322,12 @@
         <div class="outcome"><span class="dot l"></span>
           <span><strong>22배를 벌어도, 모델을 올려도 이 계좌번호는 여전히 날짜입니다.</strong>
           속도와 모델로는 안 풀리는 종류의 문제입니다.</span></div>
-        <div class="outcome"><span class="dot l"></span>
-          <span>탐지기가 <span class="num">3333년 1월 23일 45678</span>을 날짜로 읽고 지나치면
-          <strong>원문 계좌번호가 그대로 외부 LLM으로 나갑니다</strong> — 불변 규칙 2 위반입니다.</span></div>
         <div class="outcome"><span class="dot m"></span>
-          <span>되돌리기는 <strong>GPU와 무관하게</strong> 지금 CPU에서 돌고 있는 것에도 그대로 먹힙니다.</span></div>
+          <span>그런데 경계는 <strong>날짜 표시를 안 믿습니다.</strong> 뒤에 정체불명 숫자가 이어지면
+          안전을 거두고 가립니다 — <strong>가리는 쪽이 기본값</strong>이기 때문입니다.</span></div>
+        <div class="outcome"><span class="dot m"></span>
+          <span><span class="num">850만원</span>·<span class="num">8월 17일</span> 같은 진짜 금액·일시는
+          그대로 남습니다. <strong>과차단 0건</strong> — 8유형 분기가 안 무너집니다.</span></div>
       </div>
     </div>
   </div>
@@ -334,10 +337,11 @@
   <div class="wrap">
     <div class="s-head">
       <div class="eyebrow">발견 ①</div>
-      <h2>모델을 좋게 하면 위험이 옮겨 갑니다</h2>
+      <h2>모델을 좋게 하면 위험이 옮겨 갑니다 — 그런데 경계가 잡습니다</h2>
       <p class="note" style="max-width:var(--prose)">
         지금까지 「PII 손상」은 <strong>값이 살아남았나</strong>만 셌습니다. 못 살아남은 것을 열어 보니
-        성격이 둘로 갈립니다 — 그리고 <strong>둘의 위험이 다릅니다.</strong>
+        성격이 둘로 갈리고, <strong>둘의 위험이 다릅니다.</strong> 그래서 셋으로 갈라 센 뒤,
+        <strong>그게 실제로 경계를 넘는지</strong>까지 쟀습니다.
       </p>
     </div>
 
@@ -357,7 +361,7 @@
             <th class="n">보존</th>
             <th class="n">변형</th>
             <th class="n">소실</th>
-            <th class="n">되돌린 뒤</th>
+            <th class="n">값이 살아 있는 것</th>
           </tr>
         </thead>
         <tbody>
@@ -399,25 +403,68 @@
 880312-2345678   →  "<i>88만 312-2345678</i>"
         </div>
         <p class="note">
-          <strong>그래서 <span class="num">large-v3</span>와 되돌리기는 묶음입니다.</strong>
-          모델만 올리면 놓치는 값은 줄지만 경계를 넘을 위험은 커집니다.
+          여기까지가 <strong>형태</strong>입니다. 「그러니 위험하다」고 말하기 전에
+          <strong>실제로 새는지</strong>를 봐야 합니다 — 아래.
         </p>
       </div>
       <div class="card">
-        <div class="idx">되돌리기의 함정</div>
-        <h3>되돌리기가 멀쩡한 값을 깨뜨릴 수 있습니다</h3>
+        <div class="idx">재 보니</div>
+        <h3>경계는 이미 막고 있었습니다 — 한 곳만 빼고</h3>
         <p>
-          첫 판에서 <span class="num">110-234-567890</span>이 깨졌습니다.
-          전사문의 <span class="num">"56만 7,890"</span>에서 <strong>자리쉼표</strong> 때문에
-          「만」 뒤가 <span class="num">7</span>로 잘렸기 때문입니다.
+          <span class="num">pii-tokenizer</span>의 숫자 규칙은 <strong>가리는 쪽이 기본값</strong>입니다.
+          날짜 표시를 믿지 않고, 뒤에 정체불명 숫자가 이어지면 안전을 거둡니다.
+          저장된 전사문 40발화를 그대로 넣고 <strong>가리고 남은 글에 뭐가 보이나</strong>로 셌습니다.
+        </p>
+        <div class="scroll">
+          <table>
+            <caption>숫자류 실제 누출 — 남아 있어야 맞는 것(대표번호·금액·일시·사원번호)은 뺐습니다</caption>
+            <thead><tr><th>전사</th><th class="n">이음 거리 5 (기존)</th><th class="n">이음 거리 8</th><th class="n">과차단</th></tr></thead>
+            <tbody>
+              <tr><td class="cfg">medium · CPU</td><td class="n">2건</td><td class="n">1건</td><td class="n">0건</td></tr>
+              <tr><td class="cfg">medium · GPU</td><td class="n">2건</td><td class="n"><strong>0건</strong></td><td class="n">0건</td></tr>
+              <tr><td class="cfg">large-v3-turbo</td><td class="n">1건</td><td class="n"><strong>0건</strong></td><td class="n">0건</td></tr>
+              <tr class="hi"><td class="cfg">large-v3</td><td class="n">1건</td><td class="n"><strong>0건</strong></td><td class="n">0건</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top:16px">
+          <strong>변형 4건은 전부 가려집니다.</strong> 모델을 좋게 해서 늘어난 위험을 경계가 감당합니다.
+        </p>
+      </div>
+      <div class="card">
+        <div class="idx">샜던 한 곳</div>
+        <h3>「마이너스」가 이음 거리를 넘습니다</h3>
+        <p>
+          규칙에는 <strong>「단위가 붙었어도 바로 뒤에 정체불명 숫자가 이어지면 안전을 거두는」</strong>
+          장치가 있는데, 보는 거리가 <strong>5자</strong>였습니다. 전사가 하이픈을
+          <span class="num">마이너스</span>로 읽으면 그 거리를 못 건넙니다.
         </p>
         <div class="evidence">
-"56만 7,890"  →  56 + <i>0007</i> + ",890"   <b>110234560007890</b>  ✗<br>
-쉼표를 먼저 떼면  →  56 + <b>7890</b>         <b>110234567890</b>    ✓
+7777-01-9988776  →  "7777년 1월 <i>마이너스</i> 9988776"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ "월 마이너스 " = <b>7자</b> &gt; 5   →  안전이 안 거둬짐<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <i>9988776</i> 이 홀로 남고 7자리는 최소 자릿수(9) 미만이라 안 가려짐
         </div>
         <p class="note">
-          그래서 되돌리기는 <strong>「잃은 것만 다시 보기」로 하면 안 됩니다</strong> —
-          전체에 적용한 뒤 처음부터 다시 세야 합니다. 지금은 깨뜨리는 것이 0건입니다.
+          <strong>계좌번호 뒷자리 7개가 그대로 나갔습니다.</strong>
+          <span class="num">8</span>로 넓히면 잡히고 <strong>과차단은 그대로 0</strong>입니다.
+          10·12도 결과가 같아 8이 하한입니다.
+        </p>
+      </div>
+      <div class="card">
+        <div class="idx">세는 법이 함정</div>
+        <h3>가려진 것을 누출로 오인할 뻔했습니다</h3>
+        <p>
+          「가려진 숫자가 원래 값과 같은가」로 세면 안 됩니다 — <strong>자리표기가 깨졌으니 애초에 다릅니다.</strong>
+          그렇게 세면 <strong>잘 가려진 것까지 누출로 집힙니다.</strong> 처음에 실제로 그렇게 셌고,
+          남은 글을 눈으로 보고서야 알았습니다.
+        </p>
+        <div class="evidence">
+잘못 센 기준  가려진 숫자 <i>333312345678</i> ≠ 원래 값 3333012345678  →  "못 잡음"  ✗<br>
+바른 기준    남은 글 "카카오뱅크 계좌 ▓▓▓▓년 ▓월 ▓▓일 ▓▓▓▓▓로"  →  <b>안 샜음</b>  ✓
+        </div>
+        <p class="note">
+          그리고 <strong>남아 있어야 맞는 숫자</strong>를 빼야 합니다 — 대표번호(<span class="num">1588-5000</span>)·
+          금액·일시·사원번호는 제외 목록입니다. 이걸 안 빼면 또 부풀려집니다.
         </p>
       </div>
     </div>
@@ -565,15 +612,16 @@
     <div class="evidence" style="font-family:var(--mono); font-size:0.9375rem; line-height:1.9; background:var(--surface-low); border:1px solid var(--hairline); border-radius:10px; padding:20px 22px; margin-bottom:32px; color:var(--ink-2); overflow-x:auto">
 FINALLY_DEVICE=cuda&nbsp;&nbsp;FINALLY_STT=<b style="color:var(--masked)">large-v3</b>&nbsp;&nbsp;FINALLY_COMPUTE=float16&nbsp;&nbsp;FINALLY_VAD=1<br>
 + batch_size=16 · word_timestamps=True<br>
-+ <b style="color:var(--masked)">토큰화 앞에 자리표기 되돌리기</b><br>
++ <b style="color:var(--masked)">DEFAULT_DIGIT_RULE.gapJoin 5 → 8</b><br>
 <br>
-&nbsp;&nbsp;→ 6.8분 통화를 <b>7.6초</b>에 · PII 보존 <b>32/33 (97.0%)</b>
+&nbsp;&nbsp;→ 6.8분 통화를 <b>7.6초</b>에 · 숫자류 누출 <b>0건</b> · 과차단 <b>0건</b>
     </div>
 
     <div class="recs">
       <div class="rec"><span class="tag">필수</span>
-        <p><strong>자리표기 되돌리기</strong> — 변형 4건을 전부 회수합니다(28 → 32/33).
-        GPU와 무관하게 지금 CPU에서도 먹히고, <strong>가장 싼 한 걸음</strong>입니다.</p></div>
+        <p><strong>숫자 규칙의 이음 거리 5 → 8</strong> — 전사가 하이픈을
+        <span class="num">마이너스</span>로 읽을 때 새던 계좌 뒷자리 7개를 막습니다.
+        <strong>누출 0 · 과차단 0.</strong> GPU와 무관하게 지금 CPU에서도 먹힙니다.</p></div>
       <div class="rec"><span class="tag">채택</span>
         <p><strong>large-v3</strong> — <span class="num">medium</span>과 <strong>같은 시간에</strong>
         절반 이하로 잃습니다(32.2 vs 33.3초). GPU에서 <span class="num">medium</span>을 쓸 이유가 없습니다.</p></div>
@@ -605,10 +653,15 @@ FINALLY_DEVICE=cuda&nbsp;&nbsp;FINALLY_STT=<b style="color:var(--masked)">large-
     </div>
     <div class="caveat">
       <p>
-        <strong>⚠️ 탐지기가 「자리표기 변형」을 실제로 놓치는지는 안 쟀습니다.</strong>
-        <span class="num">3333년 1월 23일 45678</span>이 날짜처럼 보이니 놓칠 수 있다고
-        <strong>형태만 보고</strong> 말한 것입니다. 앞선 실측의 하네스와 평가셋이 그대로 있으니
-        <strong>변형 4건을 넣어 보면 바로 답이 나옵니다</strong> — 이 문서의 가장 중요한 미결입니다.
+        <strong>⚠️ 이름 누출은 안 쟀습니다.</strong> 이번 측정은 <strong>숫자류만</strong>입니다 —
+        숫자 규칙이 이름을 안 잡기 때문입니다(형태가 없어 NER 모델 몫). <span class="num">large-v3</span>에서
+        이름 보존이 13/13으로 올랐으니 <strong>탐지기에 들어가는 이름 수 자체가 달라졌습니다</strong> —
+        따로 재야 합니다.
+      </p>
+      <p>
+        <strong>⚠️ 이음 거리 8이 옳은 값이라는 근거는 없습니다.</strong> 이 평가셋에서 10·12와 결과가
+        같아 <strong>하한으로 고른 것</strong>입니다. 실제 통화에는 <span class="num">마이너스</span>보다
+        긴 삽입이 있을 수 있습니다.
       </p>
       <p>
         <strong>음성이 전부 합성입니다.</strong> 계좌·주민번호·전화·이름은 실존하지 않는 임의값이고
@@ -654,7 +707,9 @@ GPU&nbsp;&nbsp;RunPod 커뮤니티 · RTX 4090 24GB · 드라이버 570.133.20 �
       <div class="file"><span class="p">services/transcriber/bench_stt.py</span><span class="d">하네스. CPU A~D · GPU E~H</span></div>
       <div class="file"><span class="p">assets/datasets/08-25-stt-preprocess/</span><span class="d">CPU 측정 원본 · 음성 만드는 스크립트</span></div>
       <div class="file"><span class="p">assets/datasets/08-25-stt-gpu/</span><span class="d">GPU 측정 원본 · 전사문 전문 포함</span></div>
-      <div class="file"><span class="p">assets/datasets/08-25-stt-gpu/notation.py</span><span class="d">자리표기 되돌리기 참조 구현 · 위험 분류</span></div>
+      <div class="file"><span class="p">assets/datasets/08-25-stt-gpu/notation.py</span><span class="d">보존·변형·소실 분류 (분석 도구)</span></div>
+      <div class="file"><span class="p">src/modules/pii-tokenizer/transcript-digits.ts</span><span class="d">경계의 숫자 규칙 — 이음 거리를 여기서 고쳤습니다</span></div>
+      <div class="file"><span class="p">src/modules/pii-tokenizer/transcript-digits.leak.test.ts</span><span class="d">전사문 40발화 회귀 — 누출 0 · 과차단 0</span></div>
     </div>
   </div>
 </section>
