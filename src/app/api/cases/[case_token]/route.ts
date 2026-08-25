@@ -16,7 +16,7 @@
  * 같은 것을 두 번 구현합니다 → §3.10 「구조를 다시 정의하지 않습니다」.
  */
 
-import { toApiStep } from '@/flows/api-plan'
+import { toApiChannel, toApiStep } from '@/flows/api-plan'
 import { readCasePlan } from '@/flows/regenerate-plan'
 import { CaseNotFoundError } from '@/lib/http'
 import { caseIdOf, handleRoute } from '@/lib/request'
@@ -78,8 +78,7 @@ export async function GET(
           is_superset: snapshot.isSuperset,
           generated_at: null,
           kb_version: snapshot.kbVersion,
-          // ⬜ 경유 서비스 여럿을 읽는 자리가 아직 없습니다 → plan/route.ts
-          channels: [],
+          channels: snapshot.channels.map(toApiChannel),
           steps: snapshot.steps.map(toApiStep),
         },
 

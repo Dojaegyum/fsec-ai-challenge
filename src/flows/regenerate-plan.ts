@@ -44,6 +44,7 @@
 import 'server-only'
 
 import { kbRowToPlanStep } from '@/lib/adapters'
+import type { ChannelRow } from '@/lib/channels'
 import { serverClock } from '@/lib/clock'
 import { CaseNotFoundError } from '@/lib/http'
 import type { Container } from '@/lib/container'
@@ -141,6 +142,17 @@ export interface CasePlanStore {
     caseId: string,
   ): Promise<{ readonly channelId: string; readonly orgId: string | null } | null>
   /**
+   * 경유 서비스 **전부** — 화면이 「어디로 얼마가 나갔나」를 보여줍니다 → 계약 §3.6.
+   *
+   * `readChannel` 과 나눈 이유는 **쓰는 데가 달라서**입니다. 플랜을 만들 때는
+   * 어느 유형의 KB 를 집을지 하나만 정하면 되지만(§11.2), 화면은 여러 건을
+   * 함께 보여줘야 합니다 — 은행에 보내고 상품권도 산 사건이 있습니다.
+   *
+   * **접힌 뒤의 목록입니다** → `lib/channels.ts`. 하나도 없으면 빈 배열이고,
+   * 유형을 아직 안 물은 사건이 그 경우입니다.
+   */
+  readChannels(caseId: string): Promise<readonly ChannelRow[]>
+  /**
    * 이미 저장된 단계. 처음이면 빈 배열.
    *
    * **`kb_entry` 와 `artifact` 를 함께 읽어야 합니다** → ADR-047.
@@ -189,12 +201,34 @@ export interface KbVersionSource {
 }
 
 /** 이 흐름이 내놓는 것 */
+/**
+ * 화면이 받는 경유 서비스 한 건 → 계약 §3.6 `channels[]`.
+ *
+ * `ChannelRow` 와 다른 점은 **이름이 풀려 있다는 것 하나**입니다.
+ */
+export interface PlanChannel {
+  readonly channelId: string
+  /** 서버가 해석한 기관. `null` 이면 미특정 — 화면이 「어느 은행인지」를 되물을 수 있습니다 */
+  readonly orgId: string | null
+  /**
+   * 표시용 이름. 기관이 풀리면 정식 표기, 아니면 **사용자가 말한 그대로**입니다.
+   *
+   * 둘 다 없으면 `null`. **`org_name` 만으로는 서버가 표기를 어떻게 해석했는지
+   * 알 수 없어** 화면은 `org_id` 로 판단합니다 → 계약 §3.6.
+   */
+  readonly orgName: string | null
+  readonly amount: number | null
+  readonly confidence: number | null
+}
+
 export interface PlanSnapshot {
   readonly caseId: string
   /** 조건부 단계가 섞인 넓은 플랜인가 → 08-14-slot-tiering.md */
   readonly isSuperset: boolean
   readonly kbVersion: string
   readonly steps: readonly StoredStep[]
+  /** 어디로 얼마가 나갔나 → 계약 §3.6. 아직 안 물었으면 빈 배열 */
+  readonly channels: readonly PlanChannel[]
   /** 다음에 물을 한 문항. 없으면 `null` — **그래도 실행 보드는 열립니다** */
   readonly nextQuestion: NextQuestion | null
   readonly t1: TierStatus
@@ -241,9 +275,10 @@ export async function regeneratePlan(
     throw new CaseNotFoundError('그 사건을 찾지 못했습니다', { caseId })
   }
 
-  const [slots, channel, existing, version] = await Promise.all([
+  const [slots, channel, channelRows, existing, version] = await Promise.all([
     store.readSlots(caseId),
     store.readChannel(caseId),
+    store.readChannels(caseId),
     store.readSteps(caseId),
     kbVersion.current(),
   ])
@@ -297,6 +332,7 @@ export async function regeneratePlan(
     isSuperset: check.needsSupersetPlan,
     kbVersion: version,
     steps,
+    channels: await dressChannels(channelRows, version, container),
     nextQuestion: check.nextQuestion,
     t1: check.t1,
     t2: check.t2,
@@ -338,6 +374,43 @@ async function dressContacts(
 }
 
 /**
+ * 경유 서비스에 표시용 이름을 붙인다 → 계약 §3.6 `channels[].org_name`.
+ *
+ * **정식 표기를 먼저 씁니다.** 사용자는 「국민」이라고 말하지만 화면에는
+ * 「KB국민은행」이 떠야 어디에 전화할지가 분명합니다.
+ *
+ * **못 풀면 사용자가 말한 표기를 그대로 씁니다.** 빈칸으로 두면 자기가 답한
+ * 것조차 화면에서 사라지고, 무엇을 더 알려줘야 하는지도 알 수 없습니다 —
+ * 그 표기는 개인정보가 아닙니다(§4.1 · ADR-011).
+ *
+ * `kbVersion` 이 `null` 인 것은 단계가 아직 없다는 뜻이라 그때는 이름을
+ * 풀지 않습니다. 기관 표는 릴리스마다 따로 있어 읽을 기준이 없습니다.
+ */
+async function dressChannels(
+  rows: readonly ChannelRow[],
+  kbVersion: string | null,
+  container: RegeneratePlanDeps['container'],
+): Promise<readonly PlanChannel[]> {
+  return Promise.all(
+    rows.map(async (one) => {
+      const org =
+        one.orgId && kbVersion
+          ? // 기관을 못 찾는 것은 목록을 못 내보낼 이유가 아닙니다
+            await container.orgs.read(one.orgId, kbVersion).catch(() => null)
+          : null
+
+      return {
+        channelId: one.channelId,
+        orgId: one.orgId,
+        orgName: org?.name ?? one.orgNameRaw,
+        amount: one.amount,
+        confidence: one.confidence,
+      }
+    }),
+  )
+}
+
+/**
  * 그 사건이 없다.
  *
  * 08-16-errors.md §3 — 404.
@@ -376,23 +449,27 @@ export async function readCasePlan(
     throw new CaseNotFoundError('그 사건을 찾지 못했습니다', { caseId })
   }
 
-  const [slots, stored] = await Promise.all([
+  const [slots, stored, channelRows] = await Promise.all([
     store.readSlots(caseId),
     store.readSteps(caseId),
+    store.readChannels(caseId),
   ])
   const steps = await dressContacts(caseId, stored, { container, store })
 
   // 슬롯이 하나도 없어도 판정합니다 — T1 미충족이고, 그것이 정상입니다
   const check = container.slotChecker.check({ slots })
 
+  // **저장된 단계가 어느 릴리스로 만들어졌는지**를 그대로 씁니다.
+  // 지금 릴리스를 쓰면 「이 안내가 어느 기준인가」가 실제와 어긋납니다 —
+  // 플랜은 옛 릴리스로 만들어졌는데 새 번호가 붙습니다
+  const kbVersion = steps[0]?.kbVersion ?? null
+
   return {
     caseId,
     isSuperset: check.needsSupersetPlan,
-    // **저장된 단계가 어느 릴리스로 만들어졌는지**를 그대로 씁니다.
-    // 지금 릴리스를 쓰면 「이 안내가 어느 기준인가」가 실제와 어긋납니다 —
-    // 플랜은 옛 릴리스로 만들어졌는데 새 번호가 붙습니다
-    kbVersion: steps[0]?.kbVersion ?? null,
+    kbVersion,
     steps,
+    channels: await dressChannels(channelRows, kbVersion, container),
     nextQuestion: check.nextQuestion,
     t1: check.t1,
     t2: check.t2,
@@ -485,6 +562,9 @@ export async function openCaseWithPlan(
       isSuperset: check.needsSupersetPlan,
       kbVersion: version,
       steps,
+      // **막 열린 사건에는 경유 서비스가 없습니다.** 진술은 아직 안 받았고,
+      // 유형은 문진에서 정해집니다 → §3.5
+      channels: [],
       nextQuestion: check.nextQuestion,
       t1: check.t1,
       t2: check.t2,

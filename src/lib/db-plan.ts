@@ -18,6 +18,7 @@
 
 import 'server-only'
 
+import { foldChannels } from './channels'
 import { seoulIso } from './clock'
 import type { Sql } from './db'
 
@@ -51,6 +52,20 @@ interface StepRow {
 
 const day = (value: string | Date): string =>
   typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10)
+
+/**
+ * `NUMERIC` 을 숫자로 → 계약 §3.6 의 `amount`·`confidence` 는 숫자입니다.
+ *
+ * **드라이버는 문자열로 줍니다.** `NUMERIC` 은 자바스크립트 `number` 보다 넓어
+ * 그대로 바꾸면 정밀도를 잃을 수 있어서입니다. 여기 두 칸은 원 단위 금액과
+ * 0.00~1.00 이라 안전한 범위이고, **문자열로 내보내면 화면이 `"3000000"` 을
+ * 받아 계산에 쓰지 못합니다.**
+ */
+const numeric = (value: string | number | null): number | null => {
+  if (value === null) return null
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStore {
   /**
@@ -221,6 +236,35 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
       `
       const row = rows[0]
       return row ? { channelId: row.channel_id, orgId: row.org_id } : null
+    },
+
+    async readChannels(caseId) {
+      // **접기 전의 줄 전부입니다** → `lib/channels.ts`. 여기서 골라내지 않는
+      // 이유는 규칙이 「가장 확신 높은 하나」보다 복잡해서입니다 — 같은 유형의
+      // 미특정 줄은 흡수하고, 기관이 다르면 남겨야 합니다
+      const rows = await sql<
+        {
+          channel_id: string
+          org_id: string | null
+          org_name_raw: string | null
+          amount: string | number | null
+          confidence: string | number | null
+        }[]
+      >`
+        SELECT channel_id, org_id, org_name_raw, amount, confidence
+        FROM case_channel
+        WHERE case_id = ${caseId}
+        ORDER BY confidence DESC NULLS LAST, created_at DESC
+      `
+      return foldChannels(
+        rows.map((one) => ({
+          channelId: one.channel_id,
+          orgId: one.org_id,
+          orgNameRaw: one.org_name_raw,
+          amount: numeric(one.amount),
+          confidence: numeric(one.confidence),
+        })),
+      )
     },
 
     readSteps,
