@@ -25,6 +25,8 @@ import { BadRequestError, readJsonObject } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
 import { newUlid } from '@/lib/ids'
 
+import { regeneratePlan } from '@/flows/regenerate-plan'
+
 import type { ArtifactSubmission } from '@/modules/completion-checker'
 
 interface ArtifactBody {
@@ -103,6 +105,42 @@ export async function POST(
     // 단계가 이 사건 것이 아니면 안 옮겨집니다 — 남의 단계를 완료 처리할 수 없습니다
     await container.artifacts.markStep(caseId, stepId, verdict.stepState)
 
+    // ── 증거 연쇄 → 05-completion-hook.md ① ───────────────────────────
+    //
+    // **부산물이 다음 단계의 입력입니다.** KB 가 `after` 로 「저 단계가
+    // 끝나야 이 단계가 열린다」를 적어 두는데, 그 판정을 하는 것이 플랜
+    // 생성기입니다 — 다시 만들지 않으면 방금 열린 단계가 안 나타납니다.
+    //
+    // 2026-08-25 실측: 지급정지를 `done_verified` 로 만들어도 피해구제
+    // 신청 단계가 플랜에 안 붙었습니다. **그 뒤에 붙는 3영업일 기한도
+    // 따라서 영영 안 생깁니다** — 이 서비스가 막으려는 바로 그 실패입니다.
+    //
+    // 기한도 여기서 함께 다시 계산됩니다(`regeneratePlan` 안).
+    const before = new Set(
+      (await container.ports.casePlan.readSteps(caseId)).map((one) => one.stepKey),
+    )
+
+    const unlocked =
+      // **완료로 판정됐을 때만 돕니다.** L3 자기신고(`unconfirmed`)는 「했다」의
+      // 근거가 아니라, 그것으로 다음 단계를 열면 증거 연쇄가 무너집니다
+      verdict.stepState === 'done_verified'
+        ? (await regeneratePlan(caseId, {
+            container,
+            store: container.ports.casePlan,
+            kbVersion: container.ports.kbVersion,
+          }).catch(() => null))
+        : null
+
+    const unlockedSteps = (unlocked?.steps ?? [])
+      .filter((one) => !before.has(one.stepKey))
+      .map((one) => ({
+        step_id: one.planStepId,
+        title: one.title,
+        // **왜 열렸는지**를 말합니다 — 증거 연쇄를 사용자가 이해하게 만드는 것이
+        // 이 칸의 목적입니다 (§3.8). 근거는 KB 가 적어 둔 요약입니다
+        reason: typeof one.body.summary === 'string' ? one.body.summary : one.title,
+      }))
+
     return {
       body: {
         artifact_id: artifactId,
@@ -112,10 +150,9 @@ export async function POST(
         ...(verdict.verifyDetail ? { verify_detail: verdict.verifyDetail } : {}),
         // **막히지 않게 다음 길을 함께 냅니다** → 08-14-completion-hook.md
         ...(verdict.nextOptions ? { next_options: verdict.nextOptions } : {}),
-        // ⬜ **잠금 해제된 단계가 아직 안 나갑니다.** 부산물 하나가 다음 단계를
-        // 열려면 KB 가 「이 단계는 저 부산물을 요구한다」를 적어 둬야 하는데,
-        // 그 연쇄를 읽는 자리를 아직 안 붙였습니다 → §3.8 `unlocked_steps`
-        unlocked_steps: [],
+        // **증거 연쇄를 보여줍니다** → §3.8. 부산물이 다음 단계의 입력이
+        // 되는 구조를 사용자가 이해하게 만드는 칸입니다
+        unlocked_steps: unlockedSteps,
       },
     }
   }, { rate: 'none' })

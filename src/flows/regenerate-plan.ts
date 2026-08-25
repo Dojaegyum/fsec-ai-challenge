@@ -30,11 +30,15 @@
  * **근거 없는 단계는 만들지 않습니다** → 불변 규칙 1. 플랜 생성기가 근거 네 칸이
  * 빈 KB 항목을 받으면 던집니다 — 여기서 삼키지 않습니다.
  *
- * ## 기한은 여기서 안 셉니다
+ * ## 기한은 단계가 정해진 뒤에 셉니다
  *
- * §3.5 가 슬롯 응답에 `changed_deadlines` 를 요구하는데, 그 계산은 확정된 슬롯을
- * 기산점으로 삼습니다 → 08-16-deadline-rules.md. **플랜 단계가 정해진 뒤에 도는
- * 별개의 일**이라, 슬롯 라우트를 만들 때 이 자리 뒤에 붙입니다.
+ * 기한은 **플랜 단계에 딸립니다** — 단계가 없으면 기한도 없습니다. 그래서
+ * `applyPlan` 뒤에 [compute-deadlines](./compute-deadlines.ts) 가 돕니다.
+ * 여기서 세지 않고 그 파일에 맡기는 이유는 부르는 자리가 셋이기 때문입니다 —
+ * 플랜 재생성 · 슬롯 답변 · 부산물 제출. 셋이 같은 코드를 지나야 결과가 안 갈립니다.
+ *
+ * **기산 슬롯이 안 채워졌으면 아무 줄도 안 생깁니다.** 그것이 정상입니다 —
+ * 「3영업일」은 무엇으로부터인지가 정해져야 날짜가 됩니다.
  */
 
 import 'server-only'
@@ -43,10 +47,13 @@ import { kbRowToPlanStep } from '@/lib/adapters'
 import { serverClock } from '@/lib/clock'
 import { CaseNotFoundError } from '@/lib/http'
 import type { Container } from '@/lib/container'
+import type { DeadlineChange } from '@/lib/db'
 
 import type { OpenedCase, Track } from '@/modules/case-intake'
 import type { Actor, PlanResult, StepState } from '@/modules/planner'
 import type { NextQuestion, SlotKey, SlotState, SlotTier, TierStatus } from '@/modules/slot-checker'
+
+import { computeDeadlines } from './compute-deadlines'
 
 /** `case_slot` 한 행 중 이 흐름이 보는 것 → 09-data-model.md §5 */
 export interface StoredSlot {
@@ -67,6 +74,13 @@ export interface StoredArtifact {
   readonly kind: string
   readonly verifyLevel: string
   readonly verifyResult: string
+  /**
+   * ISO 8601 · **시간대 포함**.
+   *
+   * **기한의 기산점이 될 수 있습니다** → 08-16-deadline-rules.md
+   * 「기산점은 부산물」. `deadline.from` 이 `artifact:{kind}` 인 단계가 씁니다.
+   */
+  readonly createdAt: string
 }
 
 /** 이 단계를 끝내려면 무엇이 필요한가 → §11.4 */
@@ -185,6 +199,13 @@ export interface PlanSnapshot {
   readonly t1: TierStatus
   readonly t2: TierStatus
   /**
+   * 이번에 날짜가 옮겨졌거나 새로 생긴 기한 → §3.5 `changed_deadlines`.
+   *
+   * **안 바뀐 기한은 안 실립니다.** 매번 전부 실으면 화면이 아무 일도 없었는데
+   * 「날짜가 바뀌었습니다」를 띄웁니다.
+   */
+  readonly changedDeadlines: readonly DeadlineChange[]
+  /**
    * **플랜 생성** 기록의 식별자 — `plan.generated` 한 줄.
    *
    * 사건 생성 경로에서는 이 값이 계측 헤더에 안 실립니다. 그 응답의
@@ -254,6 +275,13 @@ export async function regeneratePlan(
 
   const steps = await store.applyPlan(caseId, result)
 
+  // **단계가 정해진 뒤입니다.** 기한은 단계에 딸리므로 순서가 뒤집히면
+  // 방금 생긴 단계의 기한이 한 박자 늦게 생깁니다
+  const changedDeadlines = await computeDeadlines(
+    { caseId, steps, kbVersion: version },
+    container,
+  )
+
   // 09-data-model.md §10.2 — detail 에 건수와 버전만 담습니다. 원문도 토큰도 안 넣습니다
   const record = await auditLogger.record({
     eventType: 'plan.generated',
@@ -270,6 +298,7 @@ export async function regeneratePlan(
     nextQuestion: check.nextQuestion,
     t1: check.t1,
     t2: check.t2,
+    changedDeadlines,
     auditId: record.auditId,
   }
 }
@@ -301,7 +330,11 @@ export async function regeneratePlan(
 export async function readCasePlan(
   caseId: string,
   deps: { container: RegeneratePlanDeps['container']; store: CasePlanStore },
-): Promise<Omit<PlanSnapshot, 'auditId'> & { readonly kbVersion: string | null }> {
+): Promise<
+  Omit<PlanSnapshot, 'auditId' | 'changedDeadlines'> & {
+    readonly kbVersion: string | null
+  }
+> {
   const { container, store } = deps
 
   const found = await store.readCase(caseId)
@@ -394,6 +427,14 @@ export async function openCaseWithPlan(
   // **여기서 처음 저장합니다.** 사건과 플랜이 한 트랜잭션으로 들어갑니다
   const steps = await store.openCase(opened, result)
 
+  // 새 사건에는 기산점이 될 슬롯이 아직 없어 **보통 빈 배열입니다.** 그래도
+  // 같은 코드를 지나게 둡니다 — 생성과 재생성이 갈리면 어느 쪽이 맞는지
+  // 알 수 없게 됩니다
+  const changedDeadlines = await computeDeadlines(
+    { caseId: opened.caseId, steps, kbVersion: version },
+    container,
+  )
+
   const record = await auditLogger.record({
     eventType: 'case.opened',
     actorType: 'user',
@@ -412,6 +453,7 @@ export async function openCaseWithPlan(
       nextQuestion: check.nextQuestion,
       t1: check.t1,
       t2: check.t2,
+      changedDeadlines,
       auditId: record.auditId,
     },
   }

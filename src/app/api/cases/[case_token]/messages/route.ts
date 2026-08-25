@@ -53,6 +53,16 @@ const MAX_TURNS = 60
  * **`prompt_masked`·`reasoning_masked` 를 내리지 마세요** — 프롬프트와 판단
  * 근거는 사용자 응답에 넣지 않습니다 (ADR-022 · §5.4).
  */
+/**
+ * **10초에 안 끝납니다.** 모델을 45초까지 기다리는데(`lib/llm.ts`), Vercel 의
+ * 기본 상한이 그보다 짧아 함수가 먼저 죽습니다 — 사용자는 「응답 없음」만 보고
+ * **무엇이 늦었는지 아무 데도 안 남습니다.**
+ *
+ * 60 은 Hobby 플랜의 상한입니다. 모델 대기(45초)에 경계 검사와 저장을 더한
+ * 여유입니다.
+ */
+export const maxDuration = 60
+
 export async function GET(
   request: Request,
   route: { params: Promise<{ case_token: string }> },

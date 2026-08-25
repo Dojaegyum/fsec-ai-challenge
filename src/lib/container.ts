@@ -43,6 +43,7 @@ import {
   createCaseReader,
   createMessageStore,
   createDeadlineReader,
+  createDeadlineWriter,
   createEvidenceReader,
   createEvidenceWriter,
   createKbStore,
@@ -58,6 +59,7 @@ import type {
   MessageStore,
   CaseTokenResolver,
   DeadlineReader,
+  DeadlineWriter,
   EvidenceReader,
   EvidenceWriter,
   SlotReader,
@@ -276,6 +278,12 @@ function deadlineReader(env: Env): DeadlineReader {
   return createDeadlineReader(sql)
 }
 
+function deadlineWriter(env: Env): DeadlineWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('DeadlineWriter', ['DATABASE_URL'])
+  return createDeadlineWriter(sql)
+}
+
 function caseReader(env: Env): CaseReader {
   const sql = createSql(env)
   if (!sql) return unconfigured('CaseReader', ['DATABASE_URL'])
@@ -411,6 +419,13 @@ export interface Container {
   readonly slots: SlotReader
   /** 계산해 둔 기한 → §3.7 */
   readonly deadlines: DeadlineReader
+  /**
+   * 계산한 기한을 적는 자리 → §3.5 · `flows/compute-deadlines.ts`.
+   *
+   * **읽기와 나뉘어 있습니다** — 조회가 쓰기를 하면 폴링 한 번에 기한이
+   * 갈아엎힙니다(§3.6 의 같은 이유).
+   */
+  readonly deadlineWrite: DeadlineWriter
   /** 사건 자체의 값 → §3.10 */
   readonly caseRead: CaseReader
   /** 슬롯 쓰기 → §3.5. **토큰화된 값만 넣습니다** (ADR-040) */
@@ -484,6 +499,7 @@ export function createContainer(
     evidenceWrite: evidenceWriter(env),
     slots: slotReader(env),
     deadlines: deadlineReader(env),
+    deadlineWrite: deadlineWriter(env),
     caseRead: caseReader(env),
     slotWrite: slotWriter(env),
     artifacts: artifactWriter(env),

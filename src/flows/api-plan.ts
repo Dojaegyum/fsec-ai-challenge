@@ -110,7 +110,13 @@ export function toApiStep(step: StoredStep): ApiPlanStep {
   }
 }
 
-export function toApiPlan(snapshot: PlanSnapshot): ApiPlan {
+/**
+ * **쓰는 두 칸만 받습니다.** 스냅샷 전체를 요구하면 `changedDeadlines` 처럼
+ * 이 응답과 무관한 칸이 늘 때마다 부르는 자리와 시험이 함께 늘어납니다.
+ */
+export function toApiPlan(
+  snapshot: Pick<PlanSnapshot, 'isSuperset' | 'steps'>,
+): ApiPlan {
   return {
     is_superset: snapshot.isSuperset,
     steps: snapshot.steps.map(toApiStep),

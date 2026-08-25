@@ -50,6 +50,73 @@ const file = (entries: unknown[]): KbFile => ({
 const run = (entries: unknown[]) => planLoad([file(entries)], OPTS)
 const rulesOf = (entries: unknown[]) => run(entries).problems.map((p) => p.rule)
 
+/** 시행령 제3조제2항 — 신청한 날부터 3영업일, 넘기면 14일 추가 */
+const DEADLINE = {
+  kind: 'business_days',
+  amount: 3,
+  from: 'relief_applied_at',
+  owner: 'user',
+  grace: {
+    kind: 'calendar_days',
+    amount: 14,
+    condition: '3영업일을 넘기면 금융회사가 14일의 추가 기간을 정해 통지합니다',
+  },
+  on_miss: '추가 기간까지 제출하지 않으면 신청이 없었던 것으로 봅니다',
+}
+
+/**
+ * 기한 — **여기서 안 잡으면 조용히 사라집니다.**
+ *
+ * 계산기가 못 읽는 규칙은 그 기한을 안 만들고 지나가므로, 피해자는 3영업일
+ * 기한을 한 번도 못 보고 권리를 잃습니다. 터지지도 않습니다.
+ */
+describe('기한 규칙 — §11.4.2', () => {
+  const withDeadline = (over: Record<string, unknown>) =>
+    rulesOf([good({}, { deadline: { ...DEADLINE, ...over } })])
+
+  it('멀쩡한 기한은 통과한다', () => {
+    expect(rulesOf([good({}, { deadline: DEADLINE })])).toEqual([])
+  })
+
+  it('기한이 없는 단계가 정상이다', () => {
+    expect(rulesOf([good({}, { deadline: null })])).toEqual([])
+  })
+
+  it('주인이 없으면 거부한다 — 사용자 기한인지 아닌지를 못 정한다', () => {
+    expect(withDeadline({ owner: undefined })).toContain('DEADLINE')
+    expect(withDeadline({ owner: 'victim' })).toContain('DEADLINE')
+  })
+
+  it('단위가 둘 밖이면 거부한다', () => {
+    // ⬜ `months`(채권소멸공고 2개월)는 계산기에 아직 없습니다
+    expect(withDeadline({ kind: 'months' })).toContain('DEADLINE')
+  })
+
+  it('일수가 1 이상의 정수가 아니면 거부한다', () => {
+    expect(withDeadline({ amount: 0 })).toContain('DEADLINE')
+    expect(withDeadline({ amount: '3' })).toContain('DEADLINE')
+  })
+
+  it('기산점이 §5.1 목록 밖이면 거부한다 — 그 슬롯은 영영 안 채워진다', () => {
+    expect(withDeadline({ from: 'relief_date' })).toContain('DEADLINE')
+    expect(withDeadline({ from: undefined })).toContain('DEADLINE')
+  })
+
+  it('부산물을 기산점으로 쓰는 것은 통과한다 — §11.4', () => {
+    expect(withDeadline({ from: 'artifact:receipt_no' })).toEqual([])
+  })
+
+  it('유예에 조건이 없으면 거부한다 — 본 기한으로 착각한다 (§8.1)', () => {
+    const grace = { kind: 'calendar_days', amount: 14 }
+    expect(withDeadline({ grace })).toContain('DEADLINE')
+  })
+
+  it('유예의 단위도 본다', () => {
+    const grace = { ...DEADLINE.grace, kind: 'weeks' }
+    expect(withDeadline({ grace })).toContain('DEADLINE')
+  })
+})
+
 describe('통과하는 것은 통과한다', () => {
   it('멀쩡한 항목 하나는 행 하나가 된다', () => {
     const { rows, problems } = run([good()])
@@ -248,6 +315,67 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
     for (const row of plan.rows) {
       expect(row.effective_from).toMatch(/^\d{4}-\d{2}-\d{2}$/)
       expect(row.source_url).toContain('http')
+    }
+  })
+})
+
+/**
+ * 유형 파일 — **적재기는 파일 하나가 아니라 폴더 전부를 봅니다.**
+ *
+ * `after` 가 파일을 넘어 가리키고(§11.2 우선순위 병합), 하나라도 어기면 통째로
+ * 거부되므로 **함께 실어야 의미가 있습니다.**
+ */
+describe('⚠️ 유형 파일도 함께 실린다', () => {
+  const read = (name: string) => ({
+    name,
+    ...(JSON.parse(
+      readFileSync(new URL(`../kb/${name}`, import.meta.url), 'utf8'),
+    ) as Record<string, unknown>),
+  })
+
+  const plan = planLoad(
+    [read('common.json'), read('ch-facetoface.json'), read('ch-crypto.json')] as KbFile[],
+    OPTS,
+  )
+
+  it('폴더 전부가 검증을 통과한다', () => {
+    expect(plan.problems).toEqual([])
+  })
+
+  it('대면편취가 공통의 두 단계를 덮는다 — 순서가 뒤집히는 유형이다', () => {
+    const mine = plan.rows.filter((r) => r.channel_id === 'CH-facetoface')
+    expect(mine.map((r) => r.step_key)).toEqual(['report-112', 'freeze-request'])
+    // **지급정지를 하는 것이 피해자가 아닙니다.** victim 으로 두면 화면이
+    // 「당신이 해야 할 것」으로 그립니다
+    const freeze = mine.find((r) => r.step_key === 'freeze-request')
+    expect(freeze?.body.actor).toBe('police')
+  })
+
+  it('**가상자산은 같은 step_key 가 시행일로 갈린다** — 배포 없이 10월 1일에 바뀐다', () => {
+    const mine = plan.rows.filter((r) => r.step_key === 'crypto-status')
+    expect(mine).toHaveLength(2)
+
+    const before = mine.find((r) => r.effective_until !== null)
+    const after = mine.find((r) => r.effective_until === null)
+
+    expect(before?.effective_until).toBe('2026-09-30')
+    expect(after?.effective_from).toBe('2026-10-01')
+    // 구간이 안 겹칩니다 — 겹치면 같은 날 두 답이 나갑니다
+    expect(before!.effective_until! < after!.effective_from).toBe(true)
+  })
+
+  it('확인 못 한 기한을 지어내지 않았다 — 가상자산에는 기한이 없다', () => {
+    for (const row of plan.rows.filter((r) => r.channel_id === 'CH-crypto')) {
+      expect(row.body.deadline).toBeNull()
+    }
+  })
+
+  it('유형 파일도 근거 네 칸이 차 있다', () => {
+    for (const row of plan.rows.filter((r) => r.channel_id !== null)) {
+      expect(row.effective_from).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(row.source_url).toContain('http')
+      expect(row.legal_basis.length).toBeGreaterThan(10)
+      expect(row.verified_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     }
   })
 })

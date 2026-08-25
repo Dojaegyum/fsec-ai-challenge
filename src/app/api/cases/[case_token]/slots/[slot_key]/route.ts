@@ -65,7 +65,7 @@ export async function PATCH(
 
     // **확인이 플랜을 막지 않습니다** → ADR-041. `pii_pending` 으로 남아도
     // 다음 질문은 나가고 T0 와 유형 기본은 그대로입니다
-    const after = await afterAnswer(caseId, container)
+    const after = await afterAnswer(caseId, container, result.planRegenerated)
 
     return {
       body: {
@@ -98,11 +98,18 @@ export async function PATCH(
               options: [...(after.nextQuestion.options ?? [])],
             }
           : null,
-        // ⬜ **기한 변화가 아직 안 나갑니다.** 답 하나가 기한을 옮기려면
-        // `date-checker` 가 답 뒤에 다시 돌아야 하는데, 그 자리를 아직
-        // 안 붙였습니다. 빈 배열이 「안 바뀌었다」로 읽히는 것은 맞습니다 —
-        // 실제로 지금은 아무것도 안 바뀝니다
-        changed_deadlines: [],
+        // **안 바뀐 기한은 안 실립니다** → §3.5. 매번 전부 실으면 화면이
+        // 아무 일도 없었는데 「날짜가 바뀌었습니다」를 띄웁니다.
+        //
+        // 기산 슬롯이 아직 안 채워졌으면 빈 배열이고, 그것이 정상입니다 —
+        // 「3영업일」은 무엇으로부터인지가 정해져야 날짜가 됩니다
+        changed_deadlines: after.changedDeadlines.map((one) => ({
+          deadline_id: one.deadlineId,
+          kind: one.kind,
+          due_at: one.dueAt,
+          // 새로 생긴 기한에는 옮겨지기 전 날짜가 없습니다
+          ...(one.changedFrom === null ? {} : { changed_from: one.changedFrom }),
+        })),
       },
     }
   })

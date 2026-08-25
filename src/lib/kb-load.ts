@@ -43,8 +43,17 @@ const CHANNEL_ACTIONS: ReadonlySet<string> = new Set(['call', 'visit'])
 /** §11.4 「`steps[].channel`」 */
 const CHANNELS: ReadonlySet<string> = new Set(['app', 'phone', 'visit', 'web'])
 
-/** §11.4.2 — 기한의 주인 */
+/**
+ * §11.4.2 — 기한의 주인.
+ *
+ * **이 값이 `deadline.kind` 를 정합니다** — `user` 면 사용자가 지켜야 하는
+ * `primary`·`grace` 고, `bank`·`agency` 는 안내용 `info` 입니다.
+ * 없으면 통장묶기 5영업일이 사용자 기한으로 나가 불필요한 불안을 줍니다.
+ */
 const DEADLINE_OWNERS: ReadonlySet<string> = new Set(['user', 'bank', 'agency'])
+
+/** `date-checker` 가 아는 두 단위 → 08-16-deadline-rules.md */
+const DEADLINE_PERIODS: ReadonlySet<string> = new Set(['business_days', 'calendar_days'])
 
 /**
  * 이 단계를 **누가 하나** — `plan_step.actor` 의 `CHECK` 와 같은 여섯.
@@ -263,6 +272,14 @@ export function planLoad(
         }
       }
 
+      // ── 기한 ────────────────────────────────────────────────────
+      //
+      // **여기서 안 잡으면 조용히 사라집니다.** 계산기가 못 읽는 규칙은 그
+      // 기한을 안 만들고 지나가므로(flows/compute-deadlines.ts), 피해자는
+      // 3영업일 기한을 **한 번도 못 보고** 권리를 잃습니다. 터지지도 않습니다
+      checkDeadline(body.deadline, 'deadline', where, false)
+
+
       // ── 선행 참조 ───────────────────────────────────────────────
       const after = Array.isArray(body.after) ? (body.after as unknown[]) : []
       const afterKeys: string[] = []
@@ -322,21 +339,6 @@ export function planLoad(
         }
       })
 
-      // ── 기한 ────────────────────────────────────────────────────
-      const deadline = body.deadline as KbDeadline | null | undefined
-      if (deadline !== null && deadline !== undefined) {
-        if (!isText(deadline.owner) || !DEADLINE_OWNERS.has(deadline.owner)) {
-          where('DEADLINE', `\`deadline.owner\` 가 없거나 셋 밖입니다 — \`${String(deadline.owner)}\``)
-        }
-        const from = deadline.from
-        if (typeof from !== 'string' || !(isSlotKey(from) || ARTIFACT_FROM.test(from))) {
-          where(
-            'DEADLINE',
-            `\`deadline.from\` 이 슬롯 이름도 \`artifact:{kind}\` 도 아닙니다 — \`${String(from)}\``,
-          )
-        }
-      }
-
       // **어긴 것이 하나라도 있으면 그 항목은 안 옮깁니다.** 반쯤 맞는 절차가
       // 나가는 것이 안 나가는 것보다 나쁩니다
       if (problems.length > before) continue
@@ -370,6 +372,58 @@ export function planLoad(
 }
 
 /** `_` 로 시작하는 칸은 사람이 보는 메모입니다 — 적재기가 무시합니다 (RFC-002) */
+/**
+ * 기한 규칙 한 덩이를 본다 → §11.4 · §11.4.2.
+ *
+ * `null` 은 정상입니다 — 기한이 없는 단계가 대부분입니다.
+ * 유예(`grace`)에는 주인이 없습니다. 본 기한의 주인을 그대로 따릅니다.
+ */
+function checkDeadline(
+  value: unknown,
+  at: string,
+  where: (rule: string, message: string) => void,
+  isGrace: boolean,
+): void {
+  if (value === null || value === undefined) return
+  if (typeof value !== 'object') {
+    where('DEADLINE', at + ' 가 객체가 아닙니다')
+    return
+  }
+
+  const one = value as Record<string, unknown>
+
+  if (typeof one.kind !== 'string' || !DEADLINE_PERIODS.has(one.kind)) {
+    where('DEADLINE', at + '.kind 가 둘 밖입니다 — ' + String(one.kind))
+  }
+  if (typeof one.amount !== 'number' || !Number.isInteger(one.amount) || one.amount <= 0) {
+    where('DEADLINE', at + '.amount 가 1 이상의 정수가 아닙니다')
+  }
+
+  if (isGrace) {
+    // 유예가 **어떤 조건에서** 주어지나 — 없으면 사용자가 추가 기간을
+    // 본 기한으로 착각합니다 (§8.1)
+    if (!isText(one.condition)) {
+      where('DEADLINE', at + '.condition 이 비었습니다 (§8.1)')
+    }
+    return
+  }
+
+  if (typeof one.owner !== 'string' || !DEADLINE_OWNERS.has(one.owner)) {
+    where('DEADLINE', at + '.owner 가 셋 밖입니다 — ' + String(one.owner) + ' (§11.4.2)')
+  }
+
+  // 기산점이 없으면 「3영업일」이 무엇으로부터인지가 없어 날짜가 안 됩니다.
+  // §5.1 슬롯 이름이거나 artifact:{kind} 여야 합니다
+  const from = one.from
+  if (typeof from !== 'string' || from.length === 0) {
+    where('DEADLINE', at + '.from 이 없습니다')
+  } else if (!isSlotKey(from) && !ARTIFACT_FROM.test(from)) {
+    where('DEADLINE', at + '.from 이 목록 밖 이름입니다 — ' + from + ' (§5.1)')
+  }
+
+  checkDeadline(one.grace, at + '.grace', where, true)
+}
+
 function strip(body: KbBody): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(body)) {

@@ -37,6 +37,15 @@ export async function GET(
     const { container } = ctx
     const caseId = await caseIdOf(route, container.caseTokens)
 
+    // **`days_left` 와 `status` 를 같은 자리에서 맞춥니다** → §3.7 의 경고.
+    // 서버가 `missed` 를 늦게 붙이면 그 사이 지난 기한이 **아직 안 지난
+    // 것처럼** 보이고, 화면에는 알아챌 신호가 없습니다.
+    //
+    // 조회가 쓰기를 하는 셈이지만 **계산이 아닙니다** — 이미 적힌 날짜와
+    // 지금 시각을 견주기만 하는 상태 전이라, 부를 때마다 기한이 달라지지
+    // 않습니다(§3.6 이 막으려던 것은 그쪽입니다)
+    await container.deadlineWrite.sweepOverdue(caseId, serverClock.now())
+
     const rows = await container.deadlines.read(caseId)
 
     // **한 번만 읽습니다.** 줄마다 시계를 보면 목록 안에서 날짜가 갈릴 수 있습니다 —

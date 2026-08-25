@@ -19,6 +19,10 @@ export const ENV_KEYS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'BLOB_TOKEN',
   'XAI_API_KEY',
+  // 언어모델을 갈아끼우는 셋 → llm.ts. 셋 다 없어도 기본(xAI)으로 섭니다
+  'LLM_BASE_URL',
+  'LLM_MODEL',
+  'LLM_API_KEY',
   'ADMIN_USERNAME',
   'ADMIN_PASSWORD_HASH',
   'CRON_SECRET',
