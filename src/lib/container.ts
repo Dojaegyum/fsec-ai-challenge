@@ -50,7 +50,7 @@ import {
   createSlotWriter,
   createSql,
   createVaultStore,
-  createVaultWriter,
+  createVaultMappings,
 } from './db'
 import type {
   ArtifactWriter,
@@ -62,7 +62,7 @@ import type {
   EvidenceWriter,
   SlotReader,
   SlotWriter,
-  VaultWriter,
+  VaultMappings,
 } from './db'
 import { createCasePlanStore } from './db-plan'
 import {
@@ -288,10 +288,10 @@ function slotWriter(env: Env): SlotWriter {
   return createSlotWriter(sql)
 }
 
-function vaultWriter(env: Env): VaultWriter {
+function vaultMappings(env: Env): VaultMappings {
   const sql = createSql(env)
-  if (!sql) return unconfigured('VaultWriter', ['DATABASE_URL'])
-  return createVaultWriter(sql)
+  if (!sql) return unconfigured('VaultMappings', ['DATABASE_URL'])
+  return createVaultMappings(sql)
 }
 
 function artifactWriter(env: Env): ArtifactWriter {
@@ -335,7 +335,7 @@ export function unconfiguredPorts(env: Env): Ports {
     mediaReader: createMediaReader(env) ?? unconfigured('MediaReader', storage),
     objects: createObjectStore(env) ?? unconfigured('ObjectStore', storage),
     // 같은 Postgres 의 `vault` 스키마입니다 → ADR-049.
-    // **파기용 둘(`delete`·`remains`)뿐입니다** — 맡기는 자리는 `VaultWriter` 이고
+    // **파기용 둘(`delete`·`remains`)뿐입니다** — 맡기고 되받는 자리는 `VaultMappings` 이고
     // 라우트가 자기 것으로 씁니다 (`case-purger/types.ts` 의 경고)
     vault: sql ? createVaultStore(sql) : unconfigured('VaultStore', db),
     // ⬜ 정본의 환경변수 표에 공휴일 API 키가 없습니다
@@ -423,9 +423,11 @@ export interface Container {
    * 복원 매핑 맡기 → §3.11. **서버는 이것을 열 수 없습니다** (ADR-009 · ADR-027).
    *
    * 파기용 볼트(`ports.vault`)와 **다른 포트입니다** — 지우는 쪽이 넣을 수도 있으면
-   * 「무엇이 볼트에 들어가나」를 볼 자리가 둘로 늘어납니다
+   * 「무엇이 볼트에 들어가나」를 볼 자리가 둘로 늘어납니다.
+   *
+   * **맡기고 되받는 것은 한 관심사라 포트도 하나입니다**(`put`·`list`) → ADR-050
    */
-  readonly vaultWrite: VaultWriter
+  readonly vaultWrite: VaultMappings
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -486,7 +488,7 @@ export function createContainer(
     slotWrite: slotWriter(env),
     artifacts: artifactWriter(env),
     messages: messageStore(env),
-    vaultWrite: vaultWriter(env),
+    vaultWrite: vaultMappings(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,

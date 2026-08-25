@@ -9,7 +9,10 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:db": "vitest run --config vitest.db.config.mts",
+    "kb:load": "tsx scripts/load-kb.ts",
+    "seed:deadline": "tsx scripts/seed-deadline.ts"
   },
   "dependencies": {
     "border-beam": "^1.3.0",
@@ -36,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }

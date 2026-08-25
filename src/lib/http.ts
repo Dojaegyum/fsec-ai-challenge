@@ -96,6 +96,17 @@ export function fail(
         // 사용자를 탓하지 않고, 할 수 있는 다음 행동을 함께 줍니다 → §3.2
         message: userMessageFor(code),
         ...(auditId ? { audit_id: auditId } : {}),
+        // **`Retry-After` 를 붙였나가 곧 이 값입니다** → 08-16-errors.md §3.1.1 「값」.
+        //
+        // ⚠️ **예외의 `retryable` 필드를 그대로 옮기면 틀립니다.** 그 칸은
+        // 「서버가 자기 안에서 다시 시도할까」(§2)이고, 여기는 「사용자가 같은
+        // 요청을 다시 보내면 달라질까」입니다. 응답이 여기 왔다는 것은 서버의
+        // 재시도가 **이미 끝났다**는 뜻이라, 둘이 뒤집히는 자리가 있습니다
+        // (`KbCitationMissingError` 502 · `IngestError` 422).
+        //
+        // 헤더 유무로 브라우저가 **추론**하게 두지 않는 것이 이 칸의 뜻입니다 —
+        // 나중에 둘이 갈릴 때 조용히 틀립니다
+        retryable: headers['Retry-After'] !== undefined,
       },
     },
     { status, headers },

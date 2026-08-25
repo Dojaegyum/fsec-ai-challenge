@@ -23,7 +23,9 @@ import 'server-only'
 
 import postgres from 'postgres'
 
+import { seoulIso } from './clock'
 import type { Env } from './env'
+import { StoreError } from './errors'
 
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
 import type {
@@ -56,6 +58,70 @@ export type Sql = ReturnType<typeof postgres>
  */
 const pool = new Map<string, Sql>()
 
+/**
+ * 질의가 **서버에 닿기도 전에** 실패한 것들.
+ *
+ * 2026-08-24 실측: 찬 연결을 열 번 열었더니 **네 번이 `08006`** 으로 떨어졌고,
+ * 다른 창에서는 스물넷이 전부 붙었습니다. DNS 는 멀쩡했고(10/10 · 1ms) 붙을
+ * 때는 120~150ms 로 빨랐습니다 — **몰려서 터지는 간헐 장애**입니다.
+ * 풀러가 낸 원문이 `{:error, :nxdomain}`(Elixir 형식)이라, 우리가 이름을 못 푼
+ * 것이 아니라 **풀러가 자기 뒤의 DB 를 못 찾은 것**으로 보입니다.
+ *
+ * ⚠️ **여기 있는 것만 다시 보냅니다.** 전부 「보내지도 못했다」는 뜻이라
+ * 같은 질의를 또 보내도 두 번 실행될 수 없습니다 — 쓰기에도 안전한 이유입니다.
+ * 서버가 받은 뒤 실패한 것(제약 위반·타임아웃)을 여기 넣지 마세요.
+ */
+const NEVER_SENT: ReadonlySet<string> = new Set([
+  '08006', // connection_failure — 풀러가 뒤를 못 찾음
+  '08001', // sqlclient_unable_to_establish_sqlconnection
+  'CONNECT_TIMEOUT',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EAI_AGAIN', // 이름 풀이 일시 실패
+])
+
+function neverSent(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' && NEVER_SENT.has(code)
+}
+
+/** 한 번만 쉬었다 다시 갑니다. 실패가 몰릴 때도 대부분 두 번째에 붙었습니다 */
+const RETRY_AFTER_MS = 250
+
+/**
+ * 템플릿 태그로 부른 것인가 — `sql\`SELECT …\`` 인지, `sql(rows, 'a')` 같은
+ * **조각 헬퍼**인지 가릅니다. 조각은 질의가 아니라 다시 보낼 것이 없습니다.
+ */
+function isTaggedCall(args: readonly unknown[]): boolean {
+  const first = args[0] as { raw?: unknown } | undefined
+  return Array.isArray(first) && Array.isArray(first?.raw)
+}
+
+/**
+ * 찬 연결이 한 번 튀는 것을 사용자에게 넘기지 않습니다.
+ *
+ * 재시도해도 안 되면 **`StoreError`(503)** 로 바꿉니다. 그대로 두면 `INTERNAL`
+ * 500 이 되고, 그건 계약상 **`Retry-After` 도 `retryable` 도 안 붙는 코드**라
+ * 화면이 「다시 시도」 버튼조차 못 띄웁니다 → 08-16-errors.md §3.1.
+ *
+ * ⚠️ **`sql.begin`(트랜잭션) 안은 감싸지 않습니다.** 그 안의 질의는 이미
+ * 시작된 트랜잭션에 속해서, 하나만 다시 보내면 나머지와 어긋납니다.
+ */
+function retryOnce<T>(run: () => Promise<T>): Promise<T> {
+  return run().catch(async (first: unknown) => {
+    if (!neverSent(first)) throw first
+
+    await new Promise((resolve) => setTimeout(resolve, RETRY_AFTER_MS))
+
+    return run().catch((again: unknown) => {
+      if (!neverSent(again)) throw again
+      // 원문 메시지를 사용자에게 넘기지 않습니다 — 접속 문자열이 섞여 나옵니다
+      throw new StoreError('저장소에 연결하지 못했습니다')
+    })
+  })
+}
+
 export function createSql(env: Env): Sql | null {
   const url = env.values.DATABASE_URL
   if (!url) return null
@@ -74,8 +140,29 @@ export function createSql(env: Env): Sql | null {
     onnotice: () => {},
   })
 
-  pool.set(url, made)
-  return made
+  // 태그드 템플릿으로 부른 질의만 감쌉니다. `sql.begin`·`sql.json` 같은
+  // 속성 접근과 조각 헬퍼는 그대로 지나갑니다
+  //
+  // ⛔ **질의를 다른 질의 안에 끼워 넣지 마세요.**
+  //
+  //     const select = (q) => sql`SELECT … WHERE track = ${q.track}`
+  //     await sql`${select(q)} AND org_id IS NULL`      // ← 터집니다
+  //
+  // 여기서 감싼 결과는 postgres.js 의 질의 객체가 아니라 **보통 Promise** 입니다.
+  // 템플릿 안에 넣으면 조각으로 펴지지 않고 **매개변수로 실려** 나가서
+  // `syntax error at or near "$1"` 이 됩니다 — 2026-08-24 에 `kb-finder` 조회
+  // 둘이 이것으로 죽어 있었고, 사건 생성이 통째로 503 이었습니다.
+  // 타입 검사도 시험도 못 잡습니다. **한 템플릿에 한 질의를 다 적으세요.**
+  const guarded = new Proxy(made, {
+    apply(target, thisArg, args: unknown[]) {
+      const call = () => Reflect.apply(target, thisArg, args)
+      if (!isTaggedCall(args)) return call()
+      return retryOnce(() => Promise.resolve(call() as Promise<unknown>))
+    },
+  }) as Sql
+
+  pool.set(url, guarded)
+  return guarded
 }
 
 /**
@@ -214,18 +301,22 @@ export function createAuditStore(sql: Sql): AuditStore {
  * **시행일이 지난 것만 봅니다.** 제도가 바뀌는 서비스라 `effective_from` 이
  * 미래인 항목이 KB 에 먼저 들어옵니다(예: 가상자산 환급 2026.10 시행).
  */
-export function createKbStore(sql: Sql): KbStore {
-  const select = (query: KbQuery) => sql`
-    SELECT kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id,
-           track, title, body, legal_basis, source_url,
-           effective_from, effective_until, verified_at
-    FROM kb_entry
-    WHERE kb_version = ${query.kbVersion}
-      AND track = ${query.track}
-      AND effective_from <= CURRENT_DATE
-      AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
-  `
+/**
+ * `DATE` 칼럼을 `YYYY-MM-DD` 로.
+ *
+ * ⚠️ **`String(값).slice(0, 10)` 으로 하지 마세요.** 드라이버가 `DATE` 를 JS `Date`
+ * 로 주기 때문에 `"Thu Jul 28"` 이 나오고, 그 문자열을 다시 날짜로 읽는 자리가
+ * 있으면 **연도가 2001 이 됩니다**(연도 없는 문자열의 기본값).
+ *
+ * 2026-08-24 에 실제로 그렇게 나갔습니다 — 시행일 `2016-07-28` 이 근거 표시에
+ * **`2001-07-27`** 로 실려 나갔습니다. 「2001년 시행」이라고 적힌 근거는 안 믿깁니다.
+ */
+function dateOnly(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value).slice(0, 10)
+}
 
+export function createKbStore(sql: Sql): KbStore {
   const toRow = (one: Record<string, unknown>): KbRow => ({
     kbEntryId: String(one.kb_entry_id),
     kbVersion: String(one.kb_version),
@@ -238,10 +329,10 @@ export function createKbStore(sql: Sql): KbStore {
     body: one.body as KbRow['body'],
     legalBasis: String(one.legal_basis),
     sourceUrl: String(one.source_url),
-    effectiveFrom: String(one.effective_from).slice(0, 10),
-    effectiveUntil: one.effective_until ? String(one.effective_until).slice(0, 10) : null,
+    effectiveFrom: dateOnly(one.effective_from),
+    effectiveUntil: one.effective_until ? dateOnly(one.effective_until) : null,
     // 사람이 마지막으로 근거를 확인한 날. 「언제 기준 정보인가」를 답에 붙입니다
-    verifiedAt: String(one.verified_at).slice(0, 10),
+    verifiedAt: dateOnly(one.verified_at),
   })
 
   return {
@@ -249,12 +340,19 @@ export function createKbStore(sql: Sql): KbStore {
       // 기관 전용 · 유형 기본 · 전 유형 공통을 한 번에.
       // 셋을 따로 부르면 왕복이 세 번이고, 서버 함수에서 그 값이 큽니다
       const rows = await sql<Record<string, unknown>[]>`
-        ${select(query)}
-        AND (
-          (org_id = ${query.orgId ?? null} AND channel_id = ${query.channelId ?? null})
-          OR (org_id IS NULL AND channel_id = ${query.channelId ?? null})
-          OR (org_id IS NULL AND channel_id IS NULL)
-        )
+        SELECT kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id,
+               track, title, body, legal_basis, source_url,
+               effective_from, effective_until, verified_at
+        FROM kb_entry
+        WHERE kb_version = ${query.kbVersion}
+          AND track = ${query.track}
+          AND effective_from <= CURRENT_DATE
+          AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
+          AND (
+            (org_id = ${query.orgId ?? null} AND channel_id = ${query.channelId ?? null})
+            OR (org_id IS NULL AND channel_id = ${query.channelId ?? null})
+            OR (org_id IS NULL AND channel_id IS NULL)
+          )
         ORDER BY step_seq
       `
       return rows.map(toRow)
@@ -263,10 +361,17 @@ export function createKbStore(sql: Sql): KbStore {
     async findReference(query: KbQuery): Promise<readonly KbRow[]> {
       // 다른 유형의 기본 항목만 — 「이 경우엔 이렇습니다」로 곁들이는 것입니다
       const rows = await sql<Record<string, unknown>[]>`
-        ${select(query)}
-        AND org_id IS NULL
-        AND channel_id IS NOT NULL
-        AND channel_id IS DISTINCT FROM ${query.channelId ?? null}
+        SELECT kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id,
+               track, title, body, legal_basis, source_url,
+               effective_from, effective_until, verified_at
+        FROM kb_entry
+        WHERE kb_version = ${query.kbVersion}
+          AND track = ${query.track}
+          AND effective_from <= CURRENT_DATE
+          AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
+          AND org_id IS NULL
+          AND channel_id IS NOT NULL
+          AND channel_id IS DISTINCT FROM ${query.channelId ?? null}
         ORDER BY channel_id, step_seq
       `
       return rows.map(toRow)
@@ -468,6 +573,21 @@ export interface DeadlineView {
   readonly computedFrom: string | null
   /** 넘겼을 때 무슨 일이 생기나. 없으면 `null` */
   readonly onMiss: string | null
+  /**
+   * 그 기간이 **시작된** 시점 — `kind: "info"` 의 달력 앵커 왼쪽 끝 (§3.7 · ADR-048).
+   *
+   * 응답에는 만료 시점밖에 없어서, 이게 없으면 「8월 30일 시작 · 지금 · 10월 30일
+   * 만료」의 왼쪽을 못 그립니다. **화면이 만들 수 없습니다** — 만들려면 기기
+   * 시계를 읽어야 하고 그건 기한 규칙 「기준 시계는 서버」를 어깁니다.
+   */
+  readonly startsAt: string | null
+  /**
+   * 유예가 **어떤 조건에서 주어지나** — `kind: "grace"` (§3.7).
+   *
+   * 없으면 사용자가 **추가 기간을 본 기한으로 착각**합니다. 3영업일과 14일은
+   * 성격이 다릅니다 → 09-data-model.md §8.1.
+   */
+  readonly condition: string | null
   /** 사용자가 할 일이 없는 기한(`kind: info`)에 붙습니다 */
   readonly note: string | null
 }
@@ -502,11 +622,17 @@ export function createDeadlineReader(sql: Sql): DeadlineReader {
           // 단계가 지워졌으면 제목이 없습니다. 빈 문자열보다 그렇다고 말합니다
           title: one.title ?? '(단계를 찾지 못했습니다)',
           kind: one.kind,
-          dueAt: one.due_at.toISOString(),
+          // **`toISOString()` 을 쓰지 않습니다** — `Z` 로 찍히면 정본 표기와
+          // 어긋나고, 자정 근처 값이 하루 앞으로 보입니다 → `lib/clock.ts`
+          dueAt: seoulIso(one.due_at),
           status: one.status,
           computedFrom: one.computed_from,
           onMiss: typeof snap.on_miss === 'string' ? snap.on_miss : null,
           note: typeof snap.note === 'string' ? snap.note : null,
+          // 계산 근거 안에 있습니다 — 계산 시점의 KB 항목 전체를 담아 두므로(§8.2)
+          // KB 가 개정돼도 「그때 무엇을 근거로 이 날짜가 나왔나」가 남습니다
+          startsAt: typeof snap.starts_at === 'string' ? snap.starts_at : null,
+          condition: typeof snap.condition === 'string' ? snap.condition : null,
         }
       })
     },
@@ -708,10 +834,38 @@ export interface MessageStore {
 
   /** 전사문 — **이미 토큰화된 것만** */
   transcript(caseId: string): Promise<readonly { speaker: string; text: string }[]>
+
+  /**
+   * 화면에 그릴 대화 → §3.12 · ADR-050.
+   *
+   * ⚠️ **`history()` 를 재사용하지 않습니다.** 그건 프롬프트용이라 20턴으로
+   * 자르고 `speaker`·`text` 만 냅니다. 화면은 `message_id`(키) ·`citations`
+   * (근거 한 줄) · `created_at` 이 필요하고, 상한도 다른 이유로 정합니다.
+   *
+   * **`prompt_masked`·`reasoning_masked` 는 내지 않습니다** — 프롬프트와 판단
+   * 근거는 사용자 응답에 넣지 않습니다 (ADR-022 · §5.4).
+   *
+   * 오래된 것부터 자릅니다. `truncated` 가 잘렸는지를 말합니다.
+   */
+  turns(
+    caseId: string,
+    limit: number,
+  ): Promise<{
+    readonly turns: readonly {
+      readonly messageId: string
+      readonly role: string
+      readonly contentMasked: string
+      readonly citations: readonly unknown[]
+      readonly insufficient: boolean
+      readonly createdAt: string
+    }[]
+    readonly truncated: boolean
+  }>
 }
 
 /** 맥락에 넣을 앞 대화의 최대 턴 수 */
 const HISTORY_TURNS = 20
+
 
 export function createMessageStore(sql: Sql, newId: () => string): MessageStore {
   return {
@@ -739,7 +893,14 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
       const rows = await sql<{ role: string; content_masked: string }[]>`
         SELECT role, content_masked FROM message
         WHERE case_id = ${caseId}
-        ORDER BY turn_no DESC, created_at DESC
+
+        -- **한 턴 안의 순서를 못 박습니다.** write() 가 사용자 줄과 비서 줄을
+        -- 한 문장으로 넣어 created_at 이 같습니다. 그러면 둘 사이 순서가
+        -- 정해지지 않고, 실제로 **비서 답이 사용자 발화보다 먼저** 나왔습니다
+        -- (2026-08-24 실측). 아래는 역순 기준이라 비서를 앞에 두어야
+        -- 뒤집은 뒤에 사용자가 앞에 옵니다
+        ORDER BY turn_no DESC, created_at DESC,
+                 CASE WHEN role = 'assistant' THEN 0 ELSE 1 END
         LIMIT ${HISTORY_TURNS * 2}
       `
       return rows
@@ -779,6 +940,51 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
       }
       return out
     },
+
+    async turns(caseId, limit) {
+      // **오래된 것부터 자릅니다** — 최근 대화가 남아야 합니다. 그래서 최근 것부터
+      // 한 줄 더 받아 「더 있었나」를 봅니다(따로 COUNT 를 돌리지 않습니다)
+      const rows = await sql<
+        {
+          message_id: string
+          role: string
+          content_masked: string
+          citations: unknown
+          insufficient: boolean
+          created_at: Date
+        }[]
+      >`
+        SELECT message_id, role, content_masked, citations, insufficient, created_at
+        FROM message
+        WHERE case_id = ${caseId}
+
+        -- **한 턴 안의 순서를 못 박습니다.** write() 가 사용자 줄과 비서 줄을
+        -- 한 문장으로 넣어 created_at 이 같습니다. 그러면 둘 사이 순서가
+        -- 정해지지 않고, 실제로 **비서 답이 사용자 발화보다 먼저** 나왔습니다
+        -- (2026-08-24 실측). 아래는 역순 기준이라 비서를 앞에 두어야
+        -- 뒤집은 뒤에 사용자가 앞에 옵니다
+        ORDER BY turn_no DESC, created_at DESC,
+                 CASE WHEN role = 'assistant' THEN 0 ELSE 1 END
+        LIMIT ${limit + 1}
+      `
+
+      const truncated = rows.length > limit
+      // 한 줄 더 받은 것은 판정용이라 버립니다
+      const kept = truncated ? rows.slice(0, limit) : rows
+
+      return {
+        // 모델에는 최근 것부터 잘라 왔지만 화면에는 시간순으로 줍니다
+        turns: kept.reverse().map((one) => ({
+          messageId: one.message_id,
+          role: one.role,
+          contentMasked: one.content_masked,
+          citations: Array.isArray(one.citations) ? one.citations : [],
+          insufficient: one.insufficient,
+          createdAt: one.created_at.toISOString(),
+        })),
+        truncated,
+      }
+    },
   }
 }
 
@@ -797,7 +1003,12 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
  * **여기에 원문을 받는 칸을 만들지 마세요.** `token` 만 평문이고, 그건
  * 개인정보가 아니라 조회 키입니다.
  */
-export interface VaultWriter {
+export interface VaultEntryRow {
+  readonly token: string
+  readonly ciphertext: string
+}
+
+export interface VaultMappings {
   /**
    * 매핑을 맡는다. **`(사건, token)` 기준으로 덮어씁니다** → §3.11.
    *
@@ -805,13 +1016,19 @@ export interface VaultWriter {
    * **다르다고 해서 다른 값이 아닙니다.** 같은 값에는 같은 토큰이 붙으므로
    * 덮어쓰기로 충분합니다.
    */
-  put(
-    caseId: string,
-    entries: readonly { readonly token: string; readonly ciphertext: string }[],
-  ): Promise<number>
+  put(caseId: string, entries: readonly VaultEntryRow[]): Promise<number>
+
+  /**
+   * 맡긴 것을 되받는다 → §3.11 `GET` · ADR-050.
+   *
+   * **암호문 그대로 나갑니다.** 서버는 열 수 없고, 여는 것은 브라우저의
+   * `key-handler` 입니다. 이 자리가 없으면 **본인이 다시 들어와도 `[계좌-1]` 을
+   * 못 풀고** 서류 기재 안내가 통째로 빈칸이 됩니다.
+   */
+  list(caseId: string): Promise<readonly VaultEntryRow[]>
 }
 
-export function createVaultWriter(sql: Sql): VaultWriter {
+export function createVaultMappings(sql: Sql): VaultMappings {
   return {
     async put(caseId, entries) {
       if (entries.length === 0) return 0
@@ -825,11 +1042,22 @@ export function createVaultWriter(sql: Sql): VaultWriter {
       // 한 문장으로 넣습니다 — 발화 하나에서 매핑이 여럿 생기는데
       // 줄마다 왕복하면 서버 함수의 실행 시간을 그걸로 씁니다
       await sql`
-        INSERT INTO case_case_vault.restore_mapping ${sql(rows, 'case_id', 'token', 'ciphertext')}
+        INSERT INTO case_vault.restore_mapping ${sql(rows, 'case_id', 'token', 'ciphertext')}
         ON CONFLICT (case_id, token)
         DO UPDATE SET ciphertext = EXCLUDED.ciphertext, stored_at = now()
       `
       return entries.length
+    },
+
+    async list(caseId) {
+      // 맡긴 순서로 냅니다 — 화면이 순서에 의존하지는 않지만, 같은 요청에
+      // 같은 순서가 나와야 무엇이 달라졌는지 볼 수 있습니다
+      const rows = await sql<{ token: string; ciphertext: string }[]>`
+        SELECT token, ciphertext FROM case_vault.restore_mapping
+        WHERE case_id = ${caseId}
+        ORDER BY stored_at, token
+      `
+      return rows.map((one) => ({ token: one.token, ciphertext: one.ciphertext }))
     },
   }
 }
@@ -839,12 +1067,12 @@ export function createVaultWriter(sql: Sql): VaultWriter {
  *
  * **쓰기(`put`)가 여기 없습니다.** 지우는 것만 하는 모듈이 넣을 수도 있으면
  * 「무엇이 볼트에 들어가나」를 볼 자리가 둘로 늘어납니다 —
- * `case-purger/types.ts` 의 경고 그대로입니다. 맡기는 자리는 위 `VaultWriter` 입니다.
+ * `case-purger/types.ts` 의 경고 그대로입니다. 맡기고 되받는 자리는 위 `VaultMappings` 입니다.
  */
 export function createVaultStore(sql: Sql): VaultStore {
   return {
     async delete(caseId) {
-      await sql`DELETE FROM case_case_vault.restore_mapping WHERE case_id = ${caseId}`
+      await sql`DELETE FROM case_vault.restore_mapping WHERE case_id = ${caseId}`
     },
 
     /**
@@ -853,7 +1081,7 @@ export function createVaultStore(sql: Sql): VaultStore {
      */
     async remains(caseId) {
       const rows = await sql<{ one: number }[]>`
-        SELECT 1 AS one FROM case_case_vault.restore_mapping WHERE case_id = ${caseId} LIMIT 1
+        SELECT 1 AS one FROM case_vault.restore_mapping WHERE case_id = ${caseId} LIMIT 1
       `
       return rows.length > 0
     },

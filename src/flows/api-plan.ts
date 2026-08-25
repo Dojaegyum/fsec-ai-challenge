@@ -79,8 +79,18 @@ export function toApiStep(step: StoredStep): ApiPlanStep {
     state: step.state,
     actor: step.actor,
     conditional: step.conditional,
-    // 손대지 않고 옮깁니다 — 안에 무엇이 있는지는 KB 가 정합니다
-    body: step.body,
+    /**
+     * KB 가 담은 것을 그대로 옮기되 **`step_key` 하나만 더합니다.**
+     *
+     * 계약이 `body.step_key` 로 정했는데(§3.6 「사슬을 잇는 열쇠」) 그 값은
+     * `body` 가 아니라 **`plan_step.step_key` 칼럼**에 있습니다. KB 파일에
+     * 같이 적어 두면 칼럼과 둘이 되어 어긋납니다.
+     *
+     * **없으면 화면이 번호를 하나도 못 붙입니다** — `plan-viewer` 의
+     * `numberSteps` 가 이 열쇠로 `after` 사슬을 잇습니다. 안 오면 전부 점으로
+     * 그리고 「번호가 붙은 것만 순서대로」 안내 줄도 안 뜹니다.
+     */
+    body: { ...step.body, step_key: step.stepKey },
     citation: {
       kb_entry_id: step.kbEntryId,
       kb_version: step.kbVersion,

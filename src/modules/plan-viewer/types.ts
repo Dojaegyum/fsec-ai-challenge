@@ -38,4 +38,12 @@ export interface PlanStep {
     /** 선행 사슬. **§3.6 예시에 없어 없을 수 있습니다** → 계획 Task 1 */
     after?: readonly string[];
   };
+  /**
+   * 이 단계를 **판정하는 부산물** — §3.6 `required_artifact`. 없으면 `null`.
+   *
+   * **완료는 사용자의 체크가 아니라 이것이 판정합니다** (불변 규칙 6 ·
+   * spec/backend/08-14-completion-hook.md). 그래서 화면은 이걸 「◆ 통화 접수번호」로
+   * 드러냅니다 — 무엇이 있어야 이 단계가 끝나는지 미리 보이게 하는 것입니다.
+   */
+  required_artifact?: { kind: string; label: string } | null;
 }

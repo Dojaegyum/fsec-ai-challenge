@@ -79,3 +79,25 @@ export function createServerClock(source: () => Date = () => new Date()): Server
 
 /** 앱이 쓰는 것 하나 */
 export const serverClock: ServerClock = createServerClock()
+
+/**
+ * 어느 순간의 `Asia/Seoul` 날짜 `YYYY-MM-DD`.
+ *
+ * **기한이 며칠 남았나를 셀 때 씁니다** → §3.7 `days_left`. `due_at` 은 시각인데
+ * 세는 것은 날이라, 먼저 같은 시간대의 날짜로 내려야 합니다. UTC 로 세면
+ * **한국 시각 아침 8시가 전날로** 잡혀 하루가 어긋납니다.
+ */
+export function seoulDay(at: Date): string {
+  return DATE_PARTS.format(at)
+}
+
+/**
+ * 어느 순간을 `2026-08-20T23:59:59.000+09:00` 로.
+ *
+ * **저장소에서 읽은 시각을 응답에 실을 때 씁니다.** `toISOString()` 을 쓰면
+ * `Z` 가 붙어 정본 표기와 어긋나고, 자정 근처 값에서 **날짜가 하루 앞으로**
+ * 보입니다 — 공고 시작 `00:00+09:00` 이 전날 `15:00Z` 가 됩니다.
+ */
+export function seoulIso(at: Date): string {
+  return toSeoulIso(at)
+}

@@ -3,7 +3,11 @@
 import { LinkHandoff } from "@/modules/case-opener";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+import type { LoadFail } from "@/app/c/[token]/load";
+import { openCase, trackOf } from "./open";
 
 /**
  * S-05 동의 · 선택 제공 — `/start` (시안 2c + 발급 1a 확정본)
@@ -25,14 +29,20 @@ import { useState } from "react";
  *  · 이메일 검증 없음 — 오타는 알림이 안 갈 뿐 사용자가 막히지 않습니다
  *  · 빨강 없음 — 미완·경고는 앰버(--deadline-urgent)
  *
- * TODO(연결)
- *  · Q1 선택 → POST /api/cases (§3.1) — 지금은 UI 상태만
- *  · CASE_URL — 발급 응답의 실제 토큰으로 교체
- *  · [저장하고 시작하기]/[이메일 없이 시작하기] → /c/{token} 라우팅
- *  · 업로드 슬롯 채택 시 POST …/evidence 에 kind 필드 협의
+ * ## 서버에 붙은 것
+ *
+ *  · [다음]·[건너뛰고 바로 시작] → `POST /api/cases` (§3.1). 주소에 실리는 것은
+ *    응답의 **`link_token`** 입니다 — `case_id` 를 쓰면 조회가 언제나 빕니다 (ADR-039)
+ *  · [저장하고 시작하기]·[이메일 없이 시작하기] → `/c/{token}` 으로 이동
+ *
+ * ## 아직 안 붙은 것
+ *
+ *  · ⬜ **이메일이 갈 곳이 없습니다.** `case` 표에 칸도, 라우트도, §3 계약도
+ *    없습니다. 화면은 「기한이 다가오면 알려드립니다」라고 적어 두었지만
+ *    **지금은 아무 데도 안 갑니다** → QA 계획 Task 9 ⑤
+ *  · ⬜ **「잘 모르겠어요」가 갈 `track` 이 없습니다** — `open.ts` 의 `trackOf` 참고
+ *  · 업로드 슬롯 채택 시 POST …/evidence 에 kind 필드 협의 (Task 6)
  */
-
-const CASE_URL = "finally.kr/c/7fK2p-Qx9mR4"; // TODO: 발급 응답으로 교체
 
 const 자료종류 = [
   ["통화 녹음", "사기범과의 통화 파일"],
@@ -112,11 +122,16 @@ function Clause({
 }
 
 export default function Start() {
+  const router = useRouter();
   const [phase, setPhase] = useState<"intake" | "issued">("intake");
   const [modalOpen, setModalOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [checks, setChecks] = useState([false, false, false, false, false]);
   const [q1, setQ1] = useState(-1); // -1 = 아직 안 고름. 기본 선택을 두지 않습니다
+  /** 발급된 링크 토큰 — **주소에 실리는 값**입니다 (ADR-039) */
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [fail, setFail] = useState<LoadFail | null>(null);
 
   const checkedCount = checks.filter(Boolean).length;
   const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
@@ -126,8 +141,29 @@ export default function Start() {
     setAgreed(true);
     setModalOpen(false);
   };
-  const issue = () => setPhase("issued"); // TODO: POST /api/cases 후 전환
+  /**
+   * 사건을 만듭니다. **성공한 뒤에만 국면을 넘깁니다** — 먼저 넘기면
+   * 주소 없는 발급 화면이 뜨고, 사용자는 무엇을 보관해야 할지 모릅니다.
+   */
+  const issue = async () => {
+    if (opening) return;
+    setOpening(true);
+    setFail(null);
+    const made = await openCase(trackOf(q1));
+    setOpening(false);
+    if (!made.ok) {
+      setFail(made.fail);
+      return;
+    }
+    setLinkToken(made.linkToken);
+    setPhase("issued");
+  };
   // 주소 복사는 `case-opener` 의 `LinkHandoff` 안으로 옮겼습니다
+
+  /** 사건 화면으로. **링크 토큰이 없으면 가지 않습니다** — 갈 곳이 없습니다 */
+  const enter = () => {
+    if (linkToken) router.push(`/c/${linkToken}`);
+  };
 
   const issued = phase === "issued";
 
@@ -151,7 +187,7 @@ export default function Start() {
           {issued ? (
             <span className="inline-flex items-center gap-2 text-[13px] text-ink-3">
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
-              사건 7fK2p
+              사건 {linkToken?.slice(0, 5) ?? ""}
             </span>
           ) : (
             <span className="inline-flex items-center gap-2 text-[13px] text-pii">
@@ -326,10 +362,35 @@ export default function Start() {
                 </div>
               </div>
 
-              <div style={step(4)} className="rise mt-7 flex gap-[11px]">
+              {/* 못 만들었으면 앰버로. **스스로 다시 부르지 않습니다** — 누르는 것은
+                  사용자입니다 (에러 §3.1) */}
+              {fail && (
+                <div
+                  role="alert"
+                  style={step(4)}
+                  className="rise mt-6 rounded-[12px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px]"
+                >
+                  <p className="text-[14px] leading-[1.6] text-ink-1">{fail.message}</p>
+                  {fail.retryAfterSec !== undefined && (
+                    <p data-numeric className="mt-1.5 text-[13px] text-deadline-urgent">
+                      {fail.retryAfterSec}초 뒤 다시 시도할 수 있습니다
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-[13px] leading-[1.6] text-ink-3">
+                    아직 아무것도 저장되지 않았습니다. 다시 눌러 주세요.
+                  </p>
+                </div>
+              )}
+
+              <div style={step(5)} className="rise mt-7 flex gap-[11px]">
                 {agreed ? (
-                  <button type="button" onClick={issue} className={`${btnPrimary} flex-1`}>
-                    다음
+                  <button
+                    type="button"
+                    onClick={() => void issue()}
+                    disabled={opening}
+                    className={`${btnPrimary} flex-1 disabled:opacity-60`}
+                  >
+                    {opening ? "사건을 만들고 있습니다" : "다음"}
                   </button>
                 ) : (
                   <button
@@ -341,7 +402,14 @@ export default function Start() {
                     <span className="text-[13px] font-[560]">동의가 필요합니다</span>
                   </button>
                 )}
-                <button type="button" className={`${btnGhost} flex-1`}>
+                {/* 관문은 동의 하나입니다 (ADR-031) — 이 버튼도 **동의 뒤에는 바로
+                    사건을 만듭니다.** Q1 을 안 고른 채로 갑니다 */}
+                <button
+                  type="button"
+                  onClick={() => (agreed ? void issue() : setModalOpen(true))}
+                  disabled={opening}
+                  className={`${btnGhost} flex-1 disabled:opacity-60`}
+                >
                   건너뛰고 바로 시작
                 </button>
               </div>
@@ -370,8 +438,16 @@ export default function Start() {
 
               {/* 주소 카드는 `case-opener` 가 그립니다 — 재발급 경로가 없어(ADR-039 ⑥)
                   「이 순간에 확실히 넘기기」가 그 모듈의 규칙이기 때문입니다 */}
+              {/* 주소는 **지금 열려 있는 곳**을 기준으로 만듭니다 — 도메인을
+                  하드코딩하면 배포 주소가 바뀔 때 조용히 틀립니다 */}
               <div style={step(1)} className="rise mt-4">
-                <LinkHandoff url={`https://${CASE_URL}`} />
+                <LinkHandoff
+                  url={
+                    linkToken
+                      ? `${typeof window === "undefined" ? "" : window.location.origin}/c/${linkToken}`
+                      : ""
+                  }
+                />
               </div>
 
               <div style={step(2)} className="rise mt-6 grid items-start gap-4 md:grid-cols-2">
@@ -397,12 +473,14 @@ export default function Start() {
                 </div>
               </div>
 
+              {/* ⚠️ **이메일은 아직 아무 데도 안 갑니다** — 보낼 곳이 없습니다
+                  (`case` 표에 칸도, 라우트도, §3 계약도 없음 → Task 9 ⑤).
+                  버튼 둘은 같은 곳으로 갑니다 */}
               <div style={step(3)} className="rise mt-6 flex gap-[11px]">
-                {/* TODO: /c/{token} 라우팅 */}
-                <button type="button" className={`${btnPrimary} flex-1`}>
+                <button type="button" onClick={enter} className={`${btnPrimary} flex-1`}>
                   저장하고 시작하기
                 </button>
-                <button type="button" className={`${btnGhost} flex-1`}>
+                <button type="button" onClick={enter} className={`${btnGhost} flex-1`}>
                   이메일 없이 시작하기
                 </button>
               </div>

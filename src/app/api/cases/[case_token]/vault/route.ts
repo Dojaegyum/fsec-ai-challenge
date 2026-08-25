@@ -57,6 +57,30 @@ function readEntries(body: VaultBody): Entry[] {
   })
 }
 
+/**
+ * 맡긴 것을 되받습니다 — §3.11 `GET` · ADR-050.
+ *
+ * **이 자리가 없으면 본인이 다시 들어와도 `[계좌-1]` 을 못 풉니다.** 매핑은 그
+ * 세션의 메모리에만 있고, 키는 IndexedDB 에 남아 있는데 열 암호문을 가져올
+ * 방법이 없었습니다 — 서류 기재 안내가 통째로 빈칸이 됩니다.
+ *
+ * **암호문 그대로 나갑니다.** 여는 것은 브라우저의 `key-handler` 이고,
+ * 키가 없는 기기(가족이 링크를 받아 연 경우)에서는 **안 풀리는 것이 맞습니다.**
+ */
+export async function GET(
+  request: Request,
+  route: { params: Promise<{ case_token: string }> },
+) {
+  return handleRoute(request, async (ctx) => {
+    const { container } = ctx
+    const caseId = await caseIdOf(route, container.caseTokens)
+
+    const entries = await container.vaultWrite.list(caseId)
+
+    return { body: { entries } }
+  })
+}
+
 export async function POST(
   request: Request,
   route: { params: Promise<{ case_token: string }> },
