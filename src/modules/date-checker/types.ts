@@ -13,11 +13,12 @@
  *
  * `rule_snapshot.rule.kind` 가 이 값을 갖습니다 → 09-data-model.md §8.2.
  *
- * ⬜ `months`(채권소멸공고 2개월)는 아직 없습니다. 민법의 역법적 계산이라
- * 「다음 달 같은 날의 전날」인데, 말일 처리(1/31 + 1개월)의 근거를 정본에서
- * 찾지 못했습니다. 지어내면 하루가 틀립니다.
+ * `months` 는 **일수가 아닙니다** — 민법 제160조 「역에 의한 계산」입니다.
+ * 2개월을 60일로 세면 달마다 하루씩 어긋납니다. 채권소멸공고가 그 경우이고
+ * (통신사기피해환급법 제9조 *"공고일부터 2개월이 경과하면"*), 말일 처리의
+ * 근거는 같은 조 ③항입니다 → `compute.ts` 의 `addMonths`.
  */
-export type PeriodKind = 'business_days' | 'calendar_days'
+export type PeriodKind = 'business_days' | 'calendar_days' | 'months'
 
 /** 기한 하나를 세는 규칙. 값의 정본은 경유 서비스 매트릭스입니다 */
 export interface PeriodRule {

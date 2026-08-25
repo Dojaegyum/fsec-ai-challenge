@@ -72,7 +72,12 @@ interface KbDeadline {
 }
 
 /** `date-checker` 가 아는 두 단위 → 08-16-deadline-rules.md */
-const PERIODS: ReadonlySet<string> = new Set(['business_days', 'calendar_days'])
+const PERIODS: ReadonlySet<string> = new Set([
+  'business_days',
+  'calendar_days',
+  // 채권소멸공고 2개월 — 민법 제160조 「역에 의한 계산」 → date-checker/compute.ts
+  'months',
+])
 
 /**
  * 기한의 주인이 종류를 정합니다 → §11.4.2.

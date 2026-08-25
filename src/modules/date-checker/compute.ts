@@ -43,7 +43,9 @@ export function createDateChecker(deps: {
         input.rule.kind === 'business_days'
           ? addBusinessDays(input.anchor.date, input.rule.amount, holidays, used)
           : rollToNextOpenDay(
-              addDays(input.anchor.date, input.rule.amount),
+              input.rule.kind === 'months'
+                ? addMonths(input.anchor.date, input.rule.amount)
+                : addDays(input.anchor.date, input.rule.amount),
               holidays,
               used,
             )
@@ -157,6 +159,49 @@ function rollToNextOpenDay(
   }
 
   throw new Error(`말일을 정할 수 없습니다: ${date}`)
+}
+
+/**
+ * 달을 더한다 — **민법 제160조 「역에 의한 계산」.**
+ *
+ * **60일이 아닙니다.** 2개월을 60일로 세면 8월에 시작한 공고가 이틀 일찍
+ * 끝난 것으로 보입니다. 조문이 정한 것은 날수가 아니라 **달력의 같은 날**입니다.
+ *
+ * | 근거 | 무엇 |
+ * | --- | --- |
+ * | 제157조 | **초일 불산입.** 기산일은 공고일 다음 날입니다 |
+ * | 제160조 ② | 최후의 월에서 **그 기산일에 해당한 날의 전일**로 만료 |
+ * | 제160조 ③ | 최종의 월에 **해당일이 없으면 그 월의 말일**로 만료 |
+ *
+ * 그래서 8월 20일 공고는 10월 20일에 만료합니다(기산일 8/21 → 10/21 의 전일).
+ * 12월 30일 공고는 2월 31일이 없으므로 **2월 말일**입니다.
+ *
+ * 왜 이 자리가 오래 비어 있었나 — 말일 처리의 근거를 `spec/` 안에서 찾다
+ * 못 찾았기 때문입니다. **조문에 있습니다**(제160조 ③). 지어낼 것이 아니라
+ * 법령을 찾을 일이었습니다.
+ *
+ * 근거: 민법 제157조·제160조 · 통신사기피해환급법 제9조
+ * https://www.law.go.kr/법령/민법/제160조
+ */
+function addMonths(from: string, amount: number): string {
+  // 제157조 — 초일은 세지 않습니다
+  const start = utc(addDays(from, 1))
+  const year = start.getUTCFullYear()
+  const month = start.getUTCMonth() + amount
+  const day = start.getUTCDate()
+
+  // `day 0` 은 그 달의 전날, 곧 앞 달의 말일입니다
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+
+  // 제160조 ③ — 2월 31일 같은 날은 그 달 말일로 내려앉습니다
+  if (day > lastDay) {
+    return new Date(Date.UTC(year, month, lastDay)).toISOString().slice(0, 10)
+  }
+
+  // 제160조 ② — 기산일에 해당한 날의 **전일**.
+  // `day - 1` 이 0 이 되면 위와 같은 규칙으로 앞 달 말일이 됩니다.
+  // 1월 31일 공고 + 1개월이 그 경우이고, 조문대로 2월 말일이 나옵니다
+  return new Date(Date.UTC(year, month, day - 1)).toISOString().slice(0, 10)
 }
 
 /**

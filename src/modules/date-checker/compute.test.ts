@@ -195,6 +195,66 @@ describe('시간대에 흔들리지 않는다', () => {
   })
 })
 
+describe('달은 날수가 아니라 달력으로 센다 — 민법 제160조', () => {
+  /** 채권소멸공고를 세는 규칙 — 통신사기피해환급법 제9조 「공고일부터 2개월」 */
+  const notice = (date: string) =>
+    checker().compute({
+      anchor: { source: 'notice_started_at', date, confirmed: true },
+      rule: { kind: 'months', amount: 2 },
+      kind: 'info',
+    })
+
+  it('공고일과 **같은 날짜**에 만료한다 — 계약 §3.7 의 예가 그것이다', () => {
+    // 8/20 공고 → 기산일 8/21 → 10/21 의 전일 (제160조 ②)
+    expect(notice('2026-08-20').dueDate).toBe('2026-10-20')
+  })
+
+  it('60일로 세면 안 된다 — 달마다 길이가 다르다', () => {
+    // 8/20 + 60일이면 10/19 라 하루 이릅니다. 9월이 30일이기 때문입니다
+    const naive = checker().compute({
+      anchor: { source: 'notice_started_at', date: '2026-08-20', confirmed: true },
+      rule: { kind: 'calendar_days', amount: 60 },
+      kind: 'info',
+    })
+    expect(naive.dueDate).not.toBe(notice('2026-08-20').dueDate)
+  })
+
+  it('윤년이면 하루 더 간다 — 제160조 ③ 이 그대로 보이는 자리', () => {
+    // 2027-12-30 공고 → 기산일 12/31 → 2028-02-31 은 없으니 말일.
+    // 2028 은 윤년이라 2/29 이고, 그날이 화요일이라 이월도 없습니다
+    expect(notice('2027-12-30').dueDate).toBe('2028-02-29')
+  })
+
+  it('말일이 휴일이면 **두 번** 옮겨진다 — 제160조 ③ 뒤에 제161조', () => {
+    // 2026-12-30 공고 → 기산일 12/31 → 2027-02-31 은 없으니 말일 2/28.
+    // 그런데 그날이 일요일이라 제161조로 3/1(월)로 다시 밀립니다.
+    // **두 조문이 이어서 걸리는 유일한 모양**이라 따로 봅니다
+    expect(notice('2026-12-30').dueDate).toBe('2027-03-01')
+  })
+
+  it('기산일이 1일이면 앞 달 말일로 내려앉는다', () => {
+    // 1/31 공고 → 기산일 2/1 → 4/1 의 전일 = 3/31
+    expect(notice('2027-01-31').dueDate).toBe('2027-03-31')
+  })
+
+  it('해를 넘겨도 맞는다', () => {
+    // 11/15 공고 → 기산일 11/16 → 1/16 의 전일 = 1/15
+    expect(notice('2026-11-15').dueDate).toBe('2027-01-15')
+  })
+
+  it('말일이 휴일이면 달도 미룬다 — 제161조는 같이 적용된다', () => {
+    // 8/22 공고 → 기산일 8/23 → 10/23 의 전일 = 10/22(목).
+    // 그날이 공휴일이면 다음 열린 날로 밀립니다
+    const r = checker(holidaysOn('2026-10-22')).compute({
+      anchor: { source: 'notice_started_at', date: '2026-08-22', confirmed: true },
+      rule: { kind: 'months', amount: 2 },
+      kind: 'info',
+    })
+    expect(r.dueDate).toBe('2026-10-23')
+    expect(r.holidaysUsed).toContain('2026-10-22')
+  })
+})
+
 describe('말일이 휴일이면 다음 날 — 민법 제161조', () => {
   it('달력일의 말일이 토요일이면 미룬다', () => {
     // 2026-08-08 은 토요일

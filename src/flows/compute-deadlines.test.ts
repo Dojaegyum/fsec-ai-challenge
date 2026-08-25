@@ -252,7 +252,7 @@ describe('계산 근거를 통째로 남긴다 — §8.2', () => {
 
 describe('KB 가 깨져 있어도 사건 전체를 멈추지 않는다', () => {
   it('단위가 목록 밖이면 그 기한만 건너뛴다', () => {
-    const bad = { ...RELIEF_DEADLINE, kind: 'months' }
+    const bad = { ...RELIEF_DEADLINE, kind: 'weeks' }
     expect(plan([step({ body: { deadline: bad } })], [slot()])).toEqual([])
   })
 
