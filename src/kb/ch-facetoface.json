@@ -1,0 +1,128 @@
+{
+  "_note": [
+    "CH-facetoface — 대면편취(현금을 직접 건넨 경우). 조회 2순위(channel_id 일치 · org_id NULL).",
+    "작성 규약: rfc/002-kb-authoring.md · 필드 구조: spec/backend/08-16-data-model.md §11.4",
+    "",
+    "이 파일이 있는 이유는 **순서가 뒤집히기 때문**입니다.",
+    "계좌이체형은 「은행에 전화해 지급정지」가 출발점인데, 대면편취는 건네받은 쪽의",
+    "계좌를 아무도 모릅니다. 수사기관이 특정해야 지급정지가 걸립니다 —",
+    "그래서 112 신고가 절차의 출발점이고, 피해자가 은행에 직접 거는 경로가 아닙니다.",
+    "",
+    "spec/backend/08-14-channel-matrix.md 가 못 박은 것: 「CH-facetoface 는 단계 순서",
+    "자체가 다릅니다. 표준 트리에 조건문을 붙이는 방식으로 구현하면 안내 순서가",
+    "틀어집니다.」 §11.2 우선순위 병합으로 같은 step_key 를 덮습니다.",
+    "",
+    "⚠️ **덮지 않은 것이 있습니다.** relief-apply(피해구제 신청)·relief-documents",
+    "(서류 3영업일)는 공통 항목 그대로 둡니다. 대면편취에서 그 신청을 누가 언제",
+    "하는지를 확인하지 못했고, 확인 안 된 것을 덮으면 **지금보다 나쁜 안내**가",
+    "됩니다. 아래 _todo 를 보세요."
+  ],
+  "channel_id": "CH-facetoface",
+  "track": "victim",
+  "entries": [
+    {
+      "kb_entry_id": "facetoface-report-112",
+      "step_key": "report-112",
+      "step_seq": 10,
+      "org_id": null,
+      "title": "112에 신고합니다 — 이 유형은 여기서 시작합니다",
+      "legal_basis": "통신사기피해환급법 개정(2023. 11. 17. 시행)으로 대면편취형이 피해구제 대상에 포함됐습니다. 다만 사기이용계좌를 피해자가 알 수 없어, 수사기관이 계좌를 특정한 뒤 지급정지가 이뤄집니다 — 금융위원회 보도자료.",
+      "source_url": "https://www.fsc.go.kr/no010101/81090",
+      "effective_from": "2023-11-17",
+      "effective_until": null,
+      "verified_at": "2026-08-25",
+      "body": {
+        "actor": "victim",
+        "requires_slots": [],
+        "after": [],
+        "conditional": null,
+        "summary": "현금을 직접 건넨 경우에는 은행에 전화해도 막을 계좌가 없습니다. 수사기관이 상대 계좌를 특정해야 지급정지가 걸립니다. 그래서 112 신고가 첫 단계입니다.",
+        "steps": [
+          {
+            "text": "112로 전화해 현금을 직접 건넸다는 사실을 그대로 말합니다. 365일 24시간 받습니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "건넨 장소·시각·상대의 인상착의와 받은 사람이 말한 소속을 기억나는 대로 전합니다. 계좌를 특정하는 단서가 됩니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "끊기 전에 사건접수번호를 받아 적으세요. 이후 절차에서 계속 쓰입니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_no",
+          "label": "사건접수번호"
+        },
+        "caveat": null
+      },
+      "_todo": [
+        "⬜ 30영업일 통지 절차 — 조사에서 언급됐으나 시행령 조문 번호를 직접 확인하지",
+        "못했습니다. 확인 전까지 넣지 않습니다 → docs/research/02-경유서비스-8유형.md §2.6.",
+        "",
+        "⬜ legal_basis 의 조문 번호 대조가 남았습니다. 지금 근거는 금융위 보도자료(1차)이고,",
+        "법 제2조제2호 다목·제3조제1항의 문언 대조는 아직입니다 → docs/research/05-미확인-목록.md."
+      ]
+    },
+    {
+      "kb_entry_id": "facetoface-freeze-request",
+      "step_key": "freeze-request",
+      "step_seq": 20,
+      "org_id": null,
+      "title": "지급정지는 수사기관이 계좌를 특정한 뒤에 걸립니다",
+      "legal_basis": "통신사기피해환급법 개정(2023. 11. 17. 시행) — 대면편취형은 수사기관이 사기이용계좌를 특정해 금융회사에 지급정지를 요청하는 구조입니다. 금융위원회 보도자료.",
+      "source_url": "https://www.fsc.go.kr/no010101/81090",
+      "effective_from": "2023-11-17",
+      "effective_until": null,
+      "verified_at": "2026-08-25",
+      "body": {
+        "actor": "police",
+        "requires_slots": [],
+        "after": ["report-112"],
+        "conditional": null,
+        "summary": "은행 콜센터에 전화해도 막을 계좌 번호가 없습니다. 이 단계는 수사기관이 합니다. 사용자가 할 일은 수사에 필요한 것을 대는 것입니다.",
+        "steps": [
+          {
+            "text": "수사기관이 상대 계좌를 특정하면 금융회사에 지급정지를 요청합니다. 이 단계는 기다리는 단계입니다.",
+            "action": "wait",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "담당 수사관에게 연락처를 받아 두고, 추가로 요청받는 자료가 있으면 그때 냅니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": null,
+        "caveat": "이 유형은 계좌이체와 절차가 다릅니다. 은행에 먼저 전화하는 안내를 보셨더라도, 현금을 직접 건넨 경우에는 112 신고가 먼저입니다."
+      },
+      "_todo": [
+        "⬜ **피해구제 신청(relief-apply)과 서류 3영업일(relief-documents)을 이 파일에서",
+        "덮지 않았습니다.** 대면편취에서 그 신청을 누가 언제 하는지 — 피해자가 직접",
+        "하는지, 수사기관의 지급정지 뒤에 하는지, 기산점이 무엇인지 — 를 확인하지",
+        "못했습니다. 공통 항목이 그대로 붙으므로 **지금은 계좌이체형과 같은 안내가",
+        "나갑니다.** 확인되면 여기서 덮어야 합니다.",
+        "",
+        "⬜ actor 를 police 로 뒀습니다. plan_step.actor 의 여섯 중 하나여야 하는데,",
+        "이 유형에서 「누가 하나」가 곧 이 항목의 요점입니다 — victim 으로 두면 화면이",
+        "「당신이 해야 할 것」으로 그립니다."
+      ]
+    }
+  ]
+}

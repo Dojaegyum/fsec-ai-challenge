@@ -1,0 +1,140 @@
+{
+  "_note": [
+    "CH-crypto — 가상자산(거래소를 거쳐 코인으로 보낸 경우). 조회 2순위.",
+    "작성 규약: rfc/002-kb-authoring.md · 필드 구조: spec/backend/08-16-data-model.md §11.4",
+    "",
+    "**이 파일이 시행일 분기가 실제로 도는지 보여주는 자리입니다.**",
+    "spec/backend/08-14-channel-matrix.md: 「CH-crypto 는 2026.10.1 을 기준으로 같은",
+    "질문에 다른 답이 나가야 합니다 — 이 동작이 KB 설계의 살아있는 증거입니다.」",
+    "",
+    "같은 step_key 를 effective 구간으로 두 벌 둡니다. §11.2 의 조회가",
+    "effective_from <= 오늘 <= effective_until 로 거르므로 **배포 없이** 10월 1일에",
+    "안내가 갈립니다 → ADR-012.",
+    "",
+    "  crypto-status   2026-08-04 ~ 2026-09-30   대상이 아닙니다",
+    "  crypto-status   2026-10-01 ~              대상입니다",
+    "",
+    "⚠️ **단계 내용은 아직 못 씁니다.** 시행령 세부 절차가 입법예고 단계라",
+    "「거래소에 무엇을 어떻게 요청하는가」를 확인하지 못했습니다 (U-09).",
+    "지어내지 않고, 확인된 것만 말합니다 — 무엇이 대상이고 무엇이 아직인지."
+  ],
+  "channel_id": "CH-crypto",
+  "track": "victim",
+  "entries": [
+    {
+      "kb_entry_id": "crypto-status-until-2026-09",
+      "step_key": "crypto-status",
+      "step_seq": 5,
+      "org_id": null,
+      "title": "지금은 가상자산이 피해금 환급 대상이 아닙니다",
+      "legal_basis": "통신사기피해환급법의 지급정지·피해구제 절차는 사기이용계좌를 전제합니다. 가상자산은 2026년 10월 1일 시행 개정법(법률 제21503호, 「피해자산 환급」)으로 대상에 포함됩니다 — 금융위원회 보도자료.",
+      "source_url": "https://www.fsc.go.kr/no010101/86446",
+      "effective_from": "2026-08-04",
+      "effective_until": "2026-09-30",
+      "verified_at": "2026-08-25",
+      "body": {
+        "actor": "victim",
+        "requires_slots": [],
+        "after": [],
+        "conditional": null,
+        "summary": "코인으로 보낸 피해금은 지금 제도로는 지급정지·환급 절차가 적용되지 않습니다. 지금 할 수 있는 것은 수사 절차와 거래소 협조 요청입니다. 2026년 10월 1일부터 제도가 바뀝니다.",
+        "steps": [
+          {
+            "text": "112로 신고합니다. 지금 이 유형에서 절차가 실제로 진행되는 길은 수사입니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "보낸 지갑 주소·거래 해시·거래소 이름과 시각을 남겨 두세요. 수사기관이 자산의 흐름을 따라가는 단서입니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "이용한 거래소 고객센터에 피해 사실을 알리고 협조를 요청할 수 있습니다. 지금은 법이 강제하는 조치가 아니라 거래소의 협조에 달려 있습니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": "org.contact.report_tel",
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_no",
+          "label": "사건접수번호"
+        },
+        "caveat": "은행 계좌에서 거래소로 먼저 돈을 보낸 경우에는 그 계좌 쪽 절차가 따로 있습니다. 어디서 어디로 갔는지에 따라 할 수 있는 일이 달라집니다."
+      },
+      "_todo": [
+        "⬜ effective_from 2026-08-04 — 현행법의 문언이 시행된 날(법률 제21320호)입니다.",
+        "「가상자산은 대상이 아니다」가 그날부터 참이 된 것은 아니고 그 전에도 그랬지만,",
+        "우리가 **문언을 확인한 기준일**이 이날입니다 → docs/research/05-미확인-목록.md U-08.",
+        "",
+        "⬜ 조문 대조가 남았습니다. 지금 근거는 금융위 보도자료(1차)이고, 어느 조문이",
+        "가상자산을 배제/포함하는지의 문언 대조는 아직입니다."
+      ]
+    },
+    {
+      "kb_entry_id": "crypto-status-from-2026-10",
+      "step_key": "crypto-status",
+      "step_seq": 5,
+      "org_id": null,
+      "title": "2026년 10월 1일부터 가상자산도 환급 대상입니다",
+      "legal_basis": "법률 제21503호(시행 2026. 10. 1.) — 법률 이름이 「전기통신금융사기 피해자산 환급에 관한 특별법」으로 바뀌며 가상자산이 환급 대상에 포함됩니다. 반환은 코인의 종류·수량 단위로 하거나 전담기관이 매도해 금전으로 지급하고, 평가는 지급정지 시점을 기준으로 합니다 — 금융위원회 보도자료.",
+      "source_url": "https://www.fsc.go.kr/no010101/86446",
+      "effective_from": "2026-10-01",
+      "effective_until": null,
+      "verified_at": "2026-08-25",
+      "body": {
+        "actor": "victim",
+        "requires_slots": [],
+        "after": [],
+        "conditional": null,
+        "summary": "코인으로 보낸 피해금도 지급정지와 환급의 대상이 됩니다. 돌려받는 방식은 코인 그대로이거나, 전담기관이 팔아 돈으로 주는 것입니다. 얼마로 치는지는 지급정지 시점의 값으로 정합니다.",
+        "steps": [
+          {
+            "text": "112로 신고합니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "보낸 지갑 주소·거래 해시·거래소 이름과 시각을 남겨 두세요.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "이용한 거래소에 피해 사실을 알립니다. 구체적인 신청 창구와 서식은 시행령이 확정되면 이 안내에 붙습니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": "org.contact.report_tel",
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_no",
+          "label": "사건접수번호"
+        },
+        "caveat": "돌려받는 금액은 지급정지 시점의 값으로 정해집니다. 그 뒤에 시세가 올라도 오른 만큼을 받는 것이 아닙니다."
+      },
+      "_todo": [
+        "⛔ **단계 내용이 아직 얇습니다.** 시행령 세부 절차가 입법예고 단계(2026-08-24",
+        "종료)라 「거래소에 무엇을 어떻게 요청하는가」·「기한이 있는가」를 확인하지",
+        "못했습니다 → docs/research/05-미확인-목록.md U-09.",
+        "",
+        "**시행 전에 다시 채워야 합니다.** 지금 상태로 10월 1일을 맞으면 사용자는",
+        "「대상이 된다」까지만 듣고 무엇을 해야 할지는 못 듣습니다.",
+        "",
+        "⬜ deadline 이 null 입니다. 계좌 유형의 3영업일이 여기에도 걸리는지 확인 안 됐습니다.",
+        "확인 전까지 안 넣습니다 — 틀린 기한은 없는 기한보다 나쁩니다."
+      ]
+    }
+  ]
+}

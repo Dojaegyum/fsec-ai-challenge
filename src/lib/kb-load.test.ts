@@ -318,3 +318,64 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
     }
   })
 })
+
+/**
+ * 유형 파일 — **적재기는 파일 하나가 아니라 폴더 전부를 봅니다.**
+ *
+ * `after` 가 파일을 넘어 가리키고(§11.2 우선순위 병합), 하나라도 어기면 통째로
+ * 거부되므로 **함께 실어야 의미가 있습니다.**
+ */
+describe('⚠️ 유형 파일도 함께 실린다', () => {
+  const read = (name: string) => ({
+    name,
+    ...(JSON.parse(
+      readFileSync(new URL(`../kb/${name}`, import.meta.url), 'utf8'),
+    ) as Record<string, unknown>),
+  })
+
+  const plan = planLoad(
+    [read('common.json'), read('ch-facetoface.json'), read('ch-crypto.json')] as KbFile[],
+    OPTS,
+  )
+
+  it('폴더 전부가 검증을 통과한다', () => {
+    expect(plan.problems).toEqual([])
+  })
+
+  it('대면편취가 공통의 두 단계를 덮는다 — 순서가 뒤집히는 유형이다', () => {
+    const mine = plan.rows.filter((r) => r.channel_id === 'CH-facetoface')
+    expect(mine.map((r) => r.step_key)).toEqual(['report-112', 'freeze-request'])
+    // **지급정지를 하는 것이 피해자가 아닙니다.** victim 으로 두면 화면이
+    // 「당신이 해야 할 것」으로 그립니다
+    const freeze = mine.find((r) => r.step_key === 'freeze-request')
+    expect(freeze?.body.actor).toBe('police')
+  })
+
+  it('**가상자산은 같은 step_key 가 시행일로 갈린다** — 배포 없이 10월 1일에 바뀐다', () => {
+    const mine = plan.rows.filter((r) => r.step_key === 'crypto-status')
+    expect(mine).toHaveLength(2)
+
+    const before = mine.find((r) => r.effective_until !== null)
+    const after = mine.find((r) => r.effective_until === null)
+
+    expect(before?.effective_until).toBe('2026-09-30')
+    expect(after?.effective_from).toBe('2026-10-01')
+    // 구간이 안 겹칩니다 — 겹치면 같은 날 두 답이 나갑니다
+    expect(before!.effective_until! < after!.effective_from).toBe(true)
+  })
+
+  it('확인 못 한 기한을 지어내지 않았다 — 가상자산에는 기한이 없다', () => {
+    for (const row of plan.rows.filter((r) => r.channel_id === 'CH-crypto')) {
+      expect(row.body.deadline).toBeNull()
+    }
+  })
+
+  it('유형 파일도 근거 네 칸이 차 있다', () => {
+    for (const row of plan.rows.filter((r) => r.channel_id !== null)) {
+      expect(row.effective_from).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      expect(row.source_url).toContain('http')
+      expect(row.legal_basis.length).toBeGreaterThan(10)
+      expect(row.verified_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    }
+  })
+})
