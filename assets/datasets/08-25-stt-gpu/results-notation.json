@@ -1,0 +1,217 @@
+{
+  "note": "보존/변형/소실은 원본 전사문의 상태. after_undate 는 되돌리기를 전체 적용하고 다시 센 값",
+  "runs": [
+    {
+      "key": "A",
+      "device": "cpu",
+      "model": "medium",
+      "preserved": 22,
+      "mangled": 2,
+      "lost": 9,
+      "total": 33,
+      "after_undate": 24,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        }
+      ],
+      "broken_values": []
+    },
+    {
+      "key": "B",
+      "device": "cpu",
+      "model": "medium",
+      "preserved": 22,
+      "mangled": 2,
+      "lost": 9,
+      "total": 33,
+      "after_undate": 24,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        }
+      ],
+      "broken_values": []
+    },
+    {
+      "key": "C",
+      "device": "cpu",
+      "model": "medium",
+      "preserved": 20,
+      "mangled": 2,
+      "lost": 11,
+      "total": 33,
+      "after_undate": 22,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        }
+      ],
+      "broken_values": []
+    },
+    {
+      "key": "D",
+      "device": "cpu",
+      "model": "medium",
+      "preserved": 20,
+      "mangled": 2,
+      "lost": 11,
+      "total": 33,
+      "after_undate": 22,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        }
+      ],
+      "broken_values": []
+    },
+    {
+      "key": "E",
+      "device": "cuda",
+      "model": "medium",
+      "preserved": 22,
+      "mangled": 2,
+      "lost": 9,
+      "total": 33,
+      "after_undate": 24,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        }
+      ],
+      "broken_values": []
+    },
+    {
+      "key": "F",
+      "device": "cuda",
+      "model": "medium",
+      "preserved": 23,
+      "mangled": 2,
+      "lost": 8,
+      "total": 33,
+      "after_undate": 25,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        }
+      ],
+      "broken_values": []
+    },
+    {
+      "key": "G",
+      "device": "cuda",
+      "model": "large-v3-turbo",
+      "preserved": 26,
+      "mangled": 4,
+      "lost": 3,
+      "total": 33,
+      "after_undate": 30,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E04",
+          "kind": "주민번호",
+          "value": "880312-2345678"
+        },
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        },
+        {
+          "id": "E40",
+          "kind": "계좌",
+          "value": "3333-05-1122334"
+        }
+      ],
+      "broken_values": []
+    },
+    {
+      "key": "H",
+      "device": "cuda",
+      "model": "large-v3",
+      "preserved": 28,
+      "mangled": 4,
+      "lost": 1,
+      "total": 33,
+      "after_undate": 32,
+      "broken_by_undate": 0,
+      "mangled_values": [
+        {
+          "id": "E04",
+          "kind": "주민번호",
+          "value": "880312-2345678"
+        },
+        {
+          "id": "E10",
+          "kind": "계좌",
+          "value": "3333-01-2345678"
+        },
+        {
+          "id": "E23",
+          "kind": "계좌",
+          "value": "7777-01-9988776"
+        },
+        {
+          "id": "E40",
+          "kind": "계좌",
+          "value": "3333-05-1122334"
+        }
+      ],
+      "broken_values": []
+    }
+  ]
+}

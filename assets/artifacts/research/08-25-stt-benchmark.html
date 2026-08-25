@@ -1,0 +1,667 @@
+<!--
+  ⚠️ 이 파일은 **사본**입니다. 내용의 정본은 Markdown 쪽입니다.
+
+    docs/research/14-STT-전처리-실측.md    전처리로는 안 줄어든다 (CPU)
+    docs/research/15-STT-GPU-실측.md       GPU 22배 · 배치 · 자리표기 변형
+    decisions/052-stt-configuration.md     그래서 무엇으로 정했나
+    assets/datasets/08-25-stt-preprocess/  CPU 측정 원본
+    assets/datasets/08-25-stt-gpu/         GPU 측정 원본
+
+  **숫자가 바뀌면 Markdown 을 먼저 고치고 여기를 맞추세요.** 반대로 하면
+  정본이 어느 쪽인지 알 수 없어지고, 안 고친 쪽이 조용히 틀린 문서가 됩니다.
+
+  발표·공유용으로 브라우저에서 여는 완성 산출물입니다 (RFC-001 「assets/」).
+  단일 파일이라 외부 CSS·JS 의존이 없습니다 — 글꼴만 Google Fonts 를 씁니다.
+-->
+<title>전사 GPU 실측</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     값의 정본은 FinAlly src/app/globals.css 입니다.
+     08-21-pii-measurement.html 과 같은 토큰을 씁니다 — 새 색을 만들지 않았습니다.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --ground:      #000000;
+    --stage:       #0c0d0f;
+    --surface-low: #131416;
+    --surface:     #1d1d1d;
+    --hairline:    #2c2f36;
+    --chip:        rgba(255,255,255,0.04);
+
+    --ink-1: #ffffff;
+    --ink-2: #caccd2;
+    --ink-3: #9ca3af;
+    --ink-4: #8f8f8f;
+
+    /* 상태색 둘. 이 디자인 시스템은 빨강을 쓰지 않습니다 */
+    --masked:  #5b9dff;   /* 보존 = 탐지기가 볼 수 있다 */
+    --masked-bg: #0f1d33;
+    --leaked:  #e3a75b;   /* 자리표기 변형 = 새어 나갈 수 있다 */
+    --lost:    #8f8f8f;   /* 소실 = 확인 화면에서 고쳐진다 */
+
+    --kr: "Pretendard Variable", Pretendard, "IBM Plex Sans KR",
+          system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    --mono: "IBM Plex Mono", "Pretendard Variable", ui-monospace, "Consolas", monospace;
+
+    --wide: 68rem;
+    --prose: 40rem;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink-2);
+    font-family: var(--kr);
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+    font-weight: 400;
+  }
+
+  .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 24px; }
+
+  h1, h2, h3 { color: var(--ink-1); text-wrap: balance; margin: 0; font-weight: 600; }
+  h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.2; letter-spacing: -0.02em; }
+  h2 { font-size: 1.5rem; line-height: 1.35; letter-spacing: -0.01em; }
+  h3 { font-size: 1.0625rem; line-height: 1.5; }
+  p  { margin: 0; }
+  strong { color: var(--ink-1); font-weight: 600; }
+  em { font-style: normal; color: var(--ink-1); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+
+  .lede { font-size: 1.1875rem; line-height: 1.7; color: var(--ink-2); max-width: var(--prose); }
+  .note { font-size: 0.9375rem; line-height: 1.7; color: var(--ink-3); }
+  .num  { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ── 머리 ───────────────────────────────────────────────── */
+  header {
+    border-bottom: 1px solid var(--hairline);
+    padding: 72px 0 48px;
+    background:
+      radial-gradient(120% 90% at 12% 0%, rgba(91,157,255,0.10), transparent 60%),
+      var(--ground);
+  }
+  .head-grid { display: flex; flex-direction: column; gap: 24px; }
+  .verdict { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 8px; }
+  .vpill {
+    display: inline-flex; align-items: baseline; gap: 10px;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 999px; padding: 8px 18px;
+  }
+  .vpill .k { font-size: 0.875rem; color: var(--ink-3); }
+  .vpill .v { font-family: var(--mono); font-weight: 600; font-size: 1.0625rem; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+  .vpill.good .v { color: var(--masked); }
+  .vpill.bad  .v { color: var(--leaked); }
+
+  /* ── 섹션 ───────────────────────────────────────────────── */
+  section { padding: 64px 0; border-bottom: 1px solid var(--hairline); }
+  section.band { background: var(--stage); }
+  .s-head { display: flex; flex-direction: column; gap: 12px; margin-bottom: 36px; }
+
+  /* ── 추적 (히어로) ──────────────────────────────────────── */
+  .trace { display: flex; flex-direction: column; gap: 2px; }
+  .step {
+    display: grid; grid-template-columns: 152px 1fr; gap: 20px;
+    padding: 20px 22px;
+    background: var(--surface-low);
+    border: 1px solid var(--hairline);
+  }
+  .step:first-child { border-radius: 12px 12px 0 0; background: var(--surface); }
+  .step:last-child  { border-radius: 0 0 12px 12px; }
+  .step + .step { border-top: none; }
+  .step-label { display: flex; flex-direction: column; gap: 2px; }
+  .step-label .t { font-family: var(--mono); font-size: 0.8125rem; color: var(--ink-2); font-weight: 500; }
+  .step-label .s { font-size: 0.75rem; color: var(--ink-4); }
+  .utter { font-size: 1rem; line-height: 1.85; color: var(--ink-2); }
+  .utter .acct { font-family: var(--mono); font-weight: 500; }
+
+  mark.ok   { background: var(--masked-bg); color: var(--masked); padding: 1px 5px; border-radius: 4px; font-weight: 500; }
+  mark.warn { background: rgba(227,167,91,0.14); color: var(--leaked); padding: 1px 5px; border-radius: 4px; font-weight: 500; }
+  mark.dim  { background: rgba(255,255,255,0.05); color: var(--ink-3); padding: 1px 5px; border-radius: 4px; }
+
+  .verdict-row {
+    display: grid; grid-template-columns: 152px 1fr; gap: 20px;
+    padding: 20px 22px; margin-top: 14px;
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px;
+  }
+  .outcomes { display: flex; flex-direction: column; gap: 10px; }
+  .outcome { display: flex; align-items: baseline; gap: 10px; font-size: 0.9375rem; }
+  .dot { width: 9px; height: 9px; border-radius: 2px; flex: none; transform: translateY(-1px); }
+  .dot.m { background: var(--masked); }
+  .dot.l { background: var(--leaked); }
+  .dot.x { background: var(--lost); }
+
+  /* ── 표 ─────────────────────────────────────────────────── */
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 20px; }
+  .lg { display: inline-flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--ink-3); }
+
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  caption { text-align: left; font-size: 0.9375rem; color: var(--ink-3); padding-bottom: 14px; }
+  th, td { text-align: left; padding: 13px 14px; border-bottom: 1px solid var(--hairline); vertical-align: middle; }
+  thead th {
+    font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-4); font-weight: 500; font-family: var(--mono);
+    border-bottom: 1px solid var(--hairline);
+  }
+  td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tbody tr.hi td { background: var(--surface); }
+  tbody tr.hi td:first-child { border-left: 2px solid var(--masked); }
+  .cfg { color: var(--ink-1); font-weight: 500; }
+  .cfg .sub { display: block; font-size: 0.8125rem; color: var(--ink-4); font-weight: 400; }
+
+  .meter { display: flex; gap: 2px; height: 12px; width: 100%; min-width: 200px; }
+  .meter span { display: block; height: 100%; }
+  .meter span:first-child { border-radius: 4px 0 0 4px; }
+  .meter span:last-child  { border-radius: 0 4px 4px 0; }
+  .meter span:only-child  { border-radius: 4px; }
+  .m-ok { background: var(--masked); }
+  .m-lk { background: var(--leaked); }
+  .m-xx { background: var(--lost); }
+
+  /* ── 속도 막대 ──────────────────────────────────────────── */
+  .bars { display: flex; flex-direction: column; gap: 18px; }
+  .bar-row { display: grid; grid-template-columns: 210px 1fr 120px; gap: 18px; align-items: center; }
+  .bar-label { display: flex; flex-direction: column; gap: 1px; }
+  .bar-label .t { color: var(--ink-1); font-size: 0.9375rem; font-weight: 500; }
+  .bar-label .s { font-size: 0.8125rem; color: var(--ink-4); }
+  .bar-track { background: var(--surface-low); border: 1px solid var(--hairline); border-radius: 6px; height: 26px; overflow: hidden; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, #2c4d80, var(--masked)); border-radius: 5px 0 0 5px; min-width: 3px; }
+  .bar-fill.slow { background: linear-gradient(90deg, #3a3a3a, var(--ink-4)); }
+  .bar-val { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink-1); font-weight: 500; }
+  .bar-val .s { display: block; font-size: 0.75rem; color: var(--ink-4); font-weight: 400; }
+
+  /* ── 카드 ───────────────────────────────────────────────── */
+  .cards { display: grid; grid-template-columns: 1fr; gap: 2px; }
+  .card {
+    background: var(--surface-low); border: 1px solid var(--hairline);
+    padding: 26px 24px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card:first-child { border-radius: 12px 12px 0 0; }
+  .card:last-child { border-radius: 0 0 12px 12px; }
+  .card + .card { border-top: none; }
+  .card .idx { font-family: var(--mono); font-size: 0.8125rem; color: var(--masked); letter-spacing: 0.06em; }
+  .card p { max-width: var(--prose); font-size: 1rem; }
+  .card .evidence {
+    font-family: var(--mono); font-size: 0.875rem; line-height: 1.7;
+    background: var(--ground); border: 1px solid var(--hairline);
+    border-radius: 8px; padding: 14px 16px; color: var(--ink-3);
+    overflow-x: auto;
+  }
+  .card .evidence b { color: var(--ink-1); font-weight: 500; }
+  .card .evidence i { font-style: normal; color: var(--leaked); }
+
+  /* ── 권고 ───────────────────────────────────────────────── */
+  .recs { display: flex; flex-direction: column; gap: 14px; }
+  .rec { display: grid; grid-template-columns: 56px 1fr; gap: 18px; align-items: start; }
+  .rec .tag {
+    font-family: var(--mono); font-size: 0.8125rem; color: var(--ink-1);
+    background: var(--chip); border: 1px solid var(--hairline);
+    border-radius: 6px; padding: 3px 0; text-align: center;
+  }
+  .rec .tag.no { color: var(--ink-4); }
+  .rec p { font-size: 1rem; max-width: var(--prose); }
+
+  /* ── 단서 ───────────────────────────────────────────────── */
+  .caveat {
+    border-left: 2px solid var(--leaked);
+    padding: 4px 0 4px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .caveat p { max-width: var(--prose); }
+
+  .files { display: flex; flex-direction: column; gap: 8px; font-family: var(--mono); font-size: 0.875rem; }
+  .file { display: grid; grid-template-columns: minmax(0,26rem) 1fr; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+  .file .p { color: var(--ink-2); overflow-wrap: anywhere; }
+  .file .d { color: var(--ink-4); font-family: var(--kr); }
+
+  footer { padding: 40px 0 72px; color: var(--ink-4); font-size: 0.875rem; }
+
+  @media (max-width: 760px) {
+    .step, .verdict-row { grid-template-columns: 1fr; gap: 12px; }
+    .bar-row { grid-template-columns: 1fr; gap: 6px; }
+    .bar-val { text-align: left; }
+    .rec { grid-template-columns: 1fr; gap: 8px; }
+    .rec .tag { width: 56px; }
+    .file { grid-template-columns: 1fr; gap: 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<header>
+  <div class="wrap head-grid">
+    <div class="eyebrow">FinAlly · 실측 2026-08-25</div>
+    <h1>전사를 GPU로 옮기면<br>무엇이 좋아지고, 무엇이 위험해지는가</h1>
+    <p class="lede">
+      전사가 오래 걸려서 <strong>전처리로 줄일 수 있는지</strong>부터 쟀습니다. 못 줄인다는 답이 나와
+      GPU를 빌려 다시 쟀고, <strong>22배</strong>가 나왔습니다. 그런데 모델을 좋게 하니
+      <strong>개인정보가 새어 나갈 위험이 되레 커지는 자리</strong>가 드러났습니다 — 이 문서의 핵심은
+      속도가 아니라 그쪽입니다.
+    </p>
+    <div class="verdict">
+      <span class="vpill good"><span class="k">GPU로 옮긴 몫</span><span class="v">22배</span></span>
+      <span class="vpill good"><span class="k">6.8분 통화</span><span class="v">7.6초</span></span>
+      <span class="vpill bad"><span class="k">자리표기 변형</span><span class="v">2 → 4건</span></span>
+      <span class="vpill good"><span class="k">되돌린 뒤 PII 보존</span><span class="v">97.0%</span></span>
+      <span class="vpill"><span class="k">측정 비용</span><span class="v">$0.07</span></span>
+    </div>
+    <p class="note">
+      결론부터 — <strong>속도는 켜기만 하면 됩니다.</strong> 정작 손이 가는 것은
+      <strong>whisper가 계좌번호를 날짜로 적는 것</strong>이고, 그건 값이 사라지는 것보다 나쁩니다.
+      사라진 값은 확인 화면에서 사용자가 채우지만, <strong>날짜로 둔갑한 값은 아무도 이상함을 못 느낀 채
+      경계를 넘습니다.</strong>
+    </p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">한 문장으로 보는 문제</div>
+      <h2>계좌번호 하나가 파이프라인을 지나며</h2>
+      <p class="note" style="max-width:var(--prose)">
+        평가셋 <span class="num">E10</span>입니다. <mark class="warn">계좌번호</mark>가 어떻게 되는지만 보세요 —
+        <strong>모델을 아무리 올려도 똑같습니다.</strong>
+      </p>
+    </div>
+
+    <div class="trace">
+      <div class="step">
+        <div class="step-label"><span class="t">원문</span><span class="s">사람이 말한 것</span></div>
+        <p class="utter">
+          <mark class="dim">카카오뱅크</mark> 계좌
+          <span class="acct"><mark class="ok">3333-01-2345678</mark></span>로 보냈고요,
+          받은 사람이 <mark class="ok">정우성</mark>이라는데 대포통장 같아요.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-label"><span class="t">medium · CPU</span><span class="s">719.2초 · 실시간 1.77배</span></div>
+        <p class="utter">
+          카카오뱅크 계좌
+          <span class="acct"><mark class="warn">3,333년 1월 23일 45,678</mark></span>로 보냈고요.
+          받은 사람이 <mark class="ok">정우성</mark>이라는데, 대포통장 같아요.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-label"><span class="t">large-v3 · GPU</span><span class="s">32.2초 · 실시간 0.079배</span></div>
+        <p class="utter">
+          카카오뱅크 계좌
+          <span class="acct"><mark class="warn">3333년 1월 23일 45678</mark></span>로 보냈고요.
+          받은 사람이 <mark class="ok">정우성</mark>이라는데 대포통장 같아요.
+        </p>
+      </div>
+      <div class="step">
+        <div class="step-label"><span class="t">+ 자리표기 되돌리기</span><span class="s">코드 20줄 · GPU 무관</span></div>
+        <p class="utter">
+          카카오뱅크 계좌
+          <span class="acct"><mark class="ok">3333012345678</mark></span>로 보냈고요.
+          받은 사람이 <mark class="ok">정우성</mark>이라는데 대포통장 같아요.
+        </p>
+      </div>
+    </div>
+
+    <div class="verdict-row">
+      <div class="step-label"><span class="t">그래서</span><span class="s">무엇이 경계를 넘나</span></div>
+      <div class="outcomes">
+        <div class="outcome"><span class="dot l"></span>
+          <span><strong>22배를 벌어도, 모델을 올려도 이 계좌번호는 여전히 날짜입니다.</strong>
+          속도와 모델로는 안 풀리는 종류의 문제입니다.</span></div>
+        <div class="outcome"><span class="dot l"></span>
+          <span>탐지기가 <span class="num">3333년 1월 23일 45678</span>을 날짜로 읽고 지나치면
+          <strong>원문 계좌번호가 그대로 외부 LLM으로 나갑니다</strong> — 불변 규칙 2 위반입니다.</span></div>
+        <div class="outcome"><span class="dot m"></span>
+          <span>되돌리기는 <strong>GPU와 무관하게</strong> 지금 CPU에서 돌고 있는 것에도 그대로 먹힙니다.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">발견 ①</div>
+      <h2>모델을 좋게 하면 위험이 옮겨 갑니다</h2>
+      <p class="note" style="max-width:var(--prose)">
+        지금까지 「PII 손상」은 <strong>값이 살아남았나</strong>만 셌습니다. 못 살아남은 것을 열어 보니
+        성격이 둘로 갈립니다 — 그리고 <strong>둘의 위험이 다릅니다.</strong>
+      </p>
+    </div>
+
+    <div class="legend">
+      <span class="lg"><span class="dot m"></span>보존 — 전사문에 그대로. 탐지기가 볼 수 있는 상태</span>
+      <span class="lg"><span class="dot l"></span><strong>자리표기 변형 — 값이 있는데 모양이 다름. 가장 위험</strong></span>
+      <span class="lg"><span class="dot x"></span>소실 — 전사문에 없음. 확인 화면에서 사용자가 채움</span>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <caption>개인정보 33건을 셋으로 갈랐습니다. 같은 음성 6.8분 · 같은 평가셋</caption>
+        <thead>
+          <tr>
+            <th>설정</th>
+            <th style="min-width:220px">보존 · 변형 · 소실</th>
+            <th class="n">보존</th>
+            <th class="n">변형</th>
+            <th class="n">소실</th>
+            <th class="n">되돌린 뒤</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="cfg">medium<span class="sub">CPU·GPU 동일 · 지금 기본값</span></td>
+            <td><div class="meter"><span class="m-ok" style="width:66.7%"></span><span class="m-lk" style="width:6.1%"></span><span class="m-xx" style="width:27.3%"></span></div></td>
+            <td class="n">22</td><td class="n">2</td><td class="n">9</td>
+            <td class="n">24/33 · 72.7%</td>
+          </tr>
+          <tr>
+            <td class="cfg">large-v3-turbo<span class="sub">배치 16</span></td>
+            <td><div class="meter"><span class="m-ok" style="width:78.8%"></span><span class="m-lk" style="width:12.1%"></span><span class="m-xx" style="width:9.1%"></span></div></td>
+            <td class="n">26</td><td class="n">4</td><td class="n">3</td>
+            <td class="n">30/33 · 90.9%</td>
+          </tr>
+          <tr class="hi">
+            <td class="cfg">large-v3<span class="sub">배치 16 · 고른 것</span></td>
+            <td><div class="meter"><span class="m-ok" style="width:84.8%"></span><span class="m-lk" style="width:12.1%"></span><span class="m-xx" style="width:3.0%"></span></div></td>
+            <td class="n">28</td><td class="n">4</td><td class="n">1</td>
+            <td class="n"><strong>32/33 · 97.0%</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards" style="margin-top:36px">
+      <div class="card">
+        <div class="idx">왜 위험이 커지나</div>
+        <h3>소실이 변형으로 옮겨 갑니다</h3>
+        <p>
+          <strong>변형이 2건에서 4건으로 늘었습니다.</strong> <span class="num">medium</span>이 아예 못 듣던
+          계좌번호를 <span class="num">large-v3</span>는 <strong>듣고, 날짜로 적습니다.</strong>
+          모델이 좋아진 만큼 안 들리던 값이 들리는데, 그 값이 위험한 형태로 남습니다.
+        </p>
+        <div class="evidence">
+3333-01-2345678  →  "<i>3333년 1월 23일 45678</i>"<br>
+7777-01-9988776  →  "<i>7777년 1월 마이너스 9988776</i>"<br>
+3333-05-1122334  →  "<i>3333년 5월 11일 이만 2334</i>"<br>
+880312-2345678   →  "<i>88만 312-2345678</i>"
+        </div>
+        <p class="note">
+          <strong>그래서 <span class="num">large-v3</span>와 되돌리기는 묶음입니다.</strong>
+          모델만 올리면 놓치는 값은 줄지만 경계를 넘을 위험은 커집니다.
+        </p>
+      </div>
+      <div class="card">
+        <div class="idx">되돌리기의 함정</div>
+        <h3>되돌리기가 멀쩡한 값을 깨뜨릴 수 있습니다</h3>
+        <p>
+          첫 판에서 <span class="num">110-234-567890</span>이 깨졌습니다.
+          전사문의 <span class="num">"56만 7,890"</span>에서 <strong>자리쉼표</strong> 때문에
+          「만」 뒤가 <span class="num">7</span>로 잘렸기 때문입니다.
+        </p>
+        <div class="evidence">
+"56만 7,890"  →  56 + <i>0007</i> + ",890"   <b>110234560007890</b>  ✗<br>
+쉼표를 먼저 떼면  →  56 + <b>7890</b>         <b>110234567890</b>    ✓
+        </div>
+        <p class="note">
+          그래서 되돌리기는 <strong>「잃은 것만 다시 보기」로 하면 안 됩니다</strong> —
+          전체에 적용한 뒤 처음부터 다시 세야 합니다. 지금은 깨뜨리는 것이 0건입니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">발견 ②</div>
+      <h2>속도 — 장치가 22배, 배치가 4배</h2>
+      <p class="note" style="max-width:var(--prose)">
+        같은 6.8분(405.7초) 음성입니다. 위 둘은 발화 40개를 하나씩, 아래 둘은
+        <strong>실제 통화 모양으로 이어붙인 한 파일</strong>입니다 — 배치는 긴 녹음에서만 실력을 냅니다.
+      </p>
+    </div>
+
+    <div class="bars">
+      <div class="bar-row">
+        <div class="bar-label"><span class="t">medium · CPU</span><span class="s">오라클 ARM 2코어 · int8</span></div>
+        <div class="bar-track"><div class="bar-fill slow" style="width:100%"></div></div>
+        <div class="bar-val">719.2초<span class="s">실시간 1.77배</span></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span class="t">medium · GPU</span><span class="s">장치만 바꿈 · float16</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:4.6%"></div></div>
+        <div class="bar-val">33.3초<span class="s">22배 빠름</span></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span class="t">large-v3 · GPU · 배치 없음</span><span class="s">긴 녹음 하나</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:4.3%"></div></div>
+        <div class="bar-val">30.7초<span class="s">실시간 0.076배</span></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span class="t">large-v3 · GPU · 배치 16</span><span class="s">VAD 켬 · 고른 것</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:1.1%"></div></div>
+        <div class="bar-val">7.6초<span class="s">실시간 0.019배</span></div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top:36px">
+      <div class="card">
+        <div class="idx">기준선이 맞물립니다</div>
+        <h3>장치를 바꿔도 정확도는 한 자리도 안 움직였습니다</h3>
+        <p>
+          <span class="num">medium</span>을 CPU에서 GPU로만 옮겼을 때 <strong>PII 보존이 22/33으로 똑같고</strong>,
+          글자 오류율도 <span class="num">5.06% → 5.00%</span>입니다.
+          <strong>22배가 온전히 GPU의 몫</strong>이라는 뜻이고, 동시에 이 측정이 앞선 실측과
+          같은 것을 재고 있다는 확인입니다.
+        </p>
+      </div>
+      <div class="card">
+        <div class="idx">함정</div>
+        <h3>「배치 16」이 배치가 아니었습니다</h3>
+        <p>
+          평가셋이 10초짜리 클립이라 whisper 창(30초)도 못 채웁니다. 라이브러리는 그럴 때
+          <strong>덩어리 하나로 처리하고 끝냅니다</strong> — <span class="num">batch_size=16</span>을 줘도 묶을 게 없습니다.
+          그래서 40개를 이어붙여 다시 쟀습니다.
+        </p>
+        <div class="evidence">
+<b>elif</b> duration &lt; chunk_length:   <i># 30초</i><br>
+&nbsp;&nbsp;&nbsp;&nbsp;clip_timestamps = [{"start": 0, "end": audio.shape[0]}]<br>
+<b>else</b>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<b>raise</b> RuntimeError("No clip timestamps found. Set 'vad_filter' to True ...")
+        </div>
+        <p class="note">
+          여기서 하나가 더 나옵니다 — <strong>배치에는 VAD가 필수입니다.</strong> 무엇을 묶을지 정하는 게
+          VAD라, 30초를 넘는 파일에 끄고 걸면 위 <span class="num">RuntimeError</span>로 거절합니다.
+          「배치는 켜고 VAD는 끈다」는 선택지가 없습니다.
+        </p>
+      </div>
+      <div class="card">
+        <div class="idx">반직관</div>
+        <h3>낱말 시각을 켰더니 더 빨랐습니다</h3>
+        <p>
+          믿기지 않아 <strong>세 번씩 다시 쟀습니다.</strong> 껐을 때가 느리고 들쭉날쭉합니다 —
+          정렬이 붙는 비용보다, 껐을 때 whisper가 반복에 빠져 오래 도는 쪽이 컸던 것으로 보입니다.
+        </p>
+        <div class="evidence">
+낱말 시각 <b>켬</b>   29.1 · 29.0 · 31.7초   평균 <b>29.9초</b>   폭 2.7초<br>
+낱말 시각 <b>끔</b>   39.9 · 37.4 · 50.9초   평균 <b>42.7초</b>   폭 <i>13.5초</i>
+        </div>
+        <p class="note">
+          배치에서는 아예 공짜입니다(<span class="num">7.6</span> vs <span class="num">8.0</span>초).
+          모듈 계약의 <span class="num">pieces</span>가 낱말 시각을 요구하니 그냥 켜면 됩니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">발견 ③</div>
+      <h2>평균 WER로 골랐으면 틀렸습니다</h2>
+      <p class="note" style="max-width:var(--prose)">
+        <span class="num">large-v3-turbo</span>는 벤치마크 표에서 매력적입니다 — 두 배 빠르고
+        배치 없이 재면 <span class="num">medium</span>보다도 좋습니다.
+        <strong>그런데 배치를 켜면 무너집니다.</strong>
+      </p>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <caption>긴 녹음 하나(6.8분)에서 배치를 켰을 때</caption>
+        <thead>
+          <tr><th>모델</th><th>배치</th><th class="n">벽시계</th><th class="n">PII 손상</th><th class="n">keep 손상</th><th class="n">전사문 글자</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="cfg">large-v3-turbo</td><td>없음</td><td class="n">10.3초</td><td class="n">9/33</td><td class="n">13/80</td><td class="n">2,274</td></tr>
+          <tr><td class="cfg">large-v3-turbo</td><td>16</td><td class="n">6.2초</td><td class="n"><strong>12/33</strong></td><td class="n">13/80</td><td class="n"><strong>1,973</strong></td></tr>
+          <tr><td class="cfg">large-v3</td><td>없음</td><td class="n">30.7초</td><td class="n">7/33</td><td class="n">29/80</td><td class="n">2,412</td></tr>
+          <tr class="hi"><td class="cfg">large-v3</td><td>16</td><td class="n">7.6초</td><td class="n">8/33</td><td class="n"><strong>13/80</strong></td><td class="n">2,230</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards" style="margin-top:28px">
+      <div class="card">
+        <div class="idx">같은 글자 감소, 다른 의미</div>
+        <h3>줄어든 것이 무엇인가로 갈립니다</h3>
+        <p>
+          <span class="num">turbo</span>는 글자가 13% 줄었고 <strong>줄어든 몫이 계좌번호였습니다</strong>
+          (PII 손상 9 → 12). <span class="num">large-v3</span>도 글자가 줄었지만 그쪽은
+          <strong>줄어든 것이 환각</strong>이라 <span class="num">keep</span> 손상이 29 → 13으로
+          오히려 좋아졌습니다.
+        </p>
+        <p class="note">
+          모델 선택은 벤치마크 숫자가 아니라 <strong>우리 채점</strong>(지켜야 할 값이 살아남았나)으로
+          해야 하는 이유입니다. → <strong>ADR-052</strong>에 탈락 이유를 남겼습니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">권고</div>
+      <h2>그래서 무엇으로 정했나</h2>
+    </div>
+
+    <div class="evidence" style="font-family:var(--mono); font-size:0.9375rem; line-height:1.9; background:var(--surface-low); border:1px solid var(--hairline); border-radius:10px; padding:20px 22px; margin-bottom:32px; color:var(--ink-2); overflow-x:auto">
+FINALLY_DEVICE=cuda&nbsp;&nbsp;FINALLY_STT=<b style="color:var(--masked)">large-v3</b>&nbsp;&nbsp;FINALLY_COMPUTE=float16&nbsp;&nbsp;FINALLY_VAD=1<br>
++ batch_size=16 · word_timestamps=True<br>
++ <b style="color:var(--masked)">토큰화 앞에 자리표기 되돌리기</b><br>
+<br>
+&nbsp;&nbsp;→ 6.8분 통화를 <b>7.6초</b>에 · PII 보존 <b>32/33 (97.0%)</b>
+    </div>
+
+    <div class="recs">
+      <div class="rec"><span class="tag">필수</span>
+        <p><strong>자리표기 되돌리기</strong> — 변형 4건을 전부 회수합니다(28 → 32/33).
+        GPU와 무관하게 지금 CPU에서도 먹히고, <strong>가장 싼 한 걸음</strong>입니다.</p></div>
+      <div class="rec"><span class="tag">채택</span>
+        <p><strong>large-v3</strong> — <span class="num">medium</span>과 <strong>같은 시간에</strong>
+        절반 이하로 잃습니다(32.2 vs 33.3초). GPU에서 <span class="num">medium</span>을 쓸 이유가 없습니다.</p></div>
+      <div class="rec"><span class="tag">채택</span>
+        <p><strong>배치 16 · VAD 켬</strong> — 긴 녹음에서 4배. 32로 올려도 더 안 벌립니다.
+        VAD는 취향이 아니라 <strong>배치의 전제 조건</strong>입니다.</p></div>
+      <div class="rec"><span class="tag">채택</span>
+        <p><strong>낱말 시각 켬</strong> — 배치에서 공짜이고, 배치 없이는 끄는 쪽이 더 느립니다.</p></div>
+      <div class="rec"><span class="tag no">탈락</span>
+        <p><strong>large-v3-turbo</strong> — 배치에서 PII 손상 9 → 12. 평균 WER로는 이기는 자리라
+        <strong>나중에 다시 제안될 것</strong>이라 ADR에 이유를 남겼습니다.</p></div>
+      <div class="rec"><span class="tag no">탈락</span>
+        <p><strong>beam_size 5 → 1</strong> — 14%를 벌고 개인정보 2건을 더 잃습니다.</p></div>
+      <div class="rec"><span class="tag no">탈락</span>
+        <p><strong>우리가 직접 청크 쪼개기</strong> — 라이브러리가 이미 합니다. 밖에서 또 쪼개면 경계만 늘어납니다.</p></div>
+      <div class="rec"><span class="tag">미결</span>
+        <p><strong>기관명 어휘 힌트</strong> — <span class="num">keep</span> 손상 중 기관명이 19%인데
+        모델을 바꿔도 28% → 19%뿐입니다. <strong>8유형 분기가 여기 걸려</strong> 있어 그냥 둘 수 없습니다.
+        엔진이 <span class="num">vocabulary → initial_prompt</span>를 이미 받고 있어 붙일 자리는 있습니다.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">먼저 읽어야 할 것</div>
+      <h2>이 숫자의 한계</h2>
+    </div>
+    <div class="caveat">
+      <p>
+        <strong>⚠️ 탐지기가 「자리표기 변형」을 실제로 놓치는지는 안 쟀습니다.</strong>
+        <span class="num">3333년 1월 23일 45678</span>이 날짜처럼 보이니 놓칠 수 있다고
+        <strong>형태만 보고</strong> 말한 것입니다. 앞선 실측의 하네스와 평가셋이 그대로 있으니
+        <strong>변형 4건을 넣어 보면 바로 답이 나옵니다</strong> — 이 문서의 가장 중요한 미결입니다.
+      </p>
+      <p>
+        <strong>음성이 전부 합성입니다.</strong> 계좌·주민번호·전화·이름은 실존하지 않는 임의값이고
+        실제 피해자 음성이 아닙니다. TTS는 실제 통화보다 발음이 또렷해 <strong>여기 숫자는
+        낙관적 하한값</strong>입니다.
+      </p>
+      <p>
+        <strong>긴 녹음의 채점을 발화별 채점과 나란히 놓지 마세요.</strong> 이어붙인 전사문
+        <em>전체</em>에 값이 있는지로 세기 때문에 다른 발화 자리에서 우연히 맞아도 삽니다.
+        같은 표 안에서 조건끼리만 비교됩니다.
+      </p>
+      <p>
+        <strong>이어붙인 음성은 실제 통화가 아닙니다.</strong> 서로 무관한 40발화를 붙인 것이라
+        whisper가 앞 창을 다음 창의 문맥으로 쓰는 대목에서 실제 통화와 다르게 움직일 수 있습니다.
+      </p>
+      <p>
+        <strong>표본이 작습니다</strong>(40발화 · PII 33건). 백분율 한 칸이 1건에 가깝습니다.
+        그리고 <strong>RTX 4090 한 장에서만 쟀습니다.</strong>
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="s-head">
+      <div class="eyebrow">측정 환경 · 원본</div>
+      <h2>어디서 어떻게 쟀나</h2>
+    </div>
+
+    <div class="evidence" style="font-family:var(--mono); font-size:0.875rem; line-height:1.9; background:var(--surface-low); border:1px solid var(--hairline); border-radius:10px; padding:18px 20px; margin-bottom:32px; color:var(--ink-3); overflow-x:auto">
+CPU&nbsp;&nbsp;오라클 애슈번 · VM.Standard.A1.Flex (ARM) · 2 OCPU · 12GB · int8<br>
+GPU&nbsp;&nbsp;RunPod 커뮤니티 · RTX 4090 24GB · 드라이버 570.133.20 · $0.34/시간 · float16<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;faster-whisper 1.2.1 · CTranslate2 4.8.1<br>
+평가셋&nbsp;40발화 · pii 33건 · keep 80건 · 합계 6.8분 · 전화망 8kHz μ-law + 핑크 노이즈<br>
+비용&nbsp;&nbsp;$0.070 (GPU $0.0691 + 디스크 $0.0009) · 팟 약 40분
+    </div>
+
+    <div class="files">
+      <div class="file"><span class="p">docs/research/14-STT-전처리-실측.md</span><span class="d">전처리로는 안 줄어든다 (CPU)</span></div>
+      <div class="file"><span class="p">docs/research/15-STT-GPU-실측.md</span><span class="d">GPU 22배 · 배치 · 자리표기 변형 — <strong>이 문서의 정본</strong></span></div>
+      <div class="file"><span class="p">decisions/052-stt-configuration.md</span><span class="d">그래서 무엇으로 정했나 · 탈락 이유</span></div>
+      <div class="file"><span class="p">services/transcriber/bench_stt.py</span><span class="d">하네스. CPU A~D · GPU E~H</span></div>
+      <div class="file"><span class="p">assets/datasets/08-25-stt-preprocess/</span><span class="d">CPU 측정 원본 · 음성 만드는 스크립트</span></div>
+      <div class="file"><span class="p">assets/datasets/08-25-stt-gpu/</span><span class="d">GPU 측정 원본 · 전사문 전문 포함</span></div>
+      <div class="file"><span class="p">assets/datasets/08-25-stt-gpu/notation.py</span><span class="d">자리표기 되돌리기 참조 구현 · 위험 분류</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    FinAlly · 2026 금융 AI Challenge · 실측 2026-08-25<br>
+    이 페이지는 <strong>사본</strong>입니다. 숫자의 정본은 <span class="num">docs/research/15-STT-GPU-실측.md</span>입니다.
+  </div>
+</footer>

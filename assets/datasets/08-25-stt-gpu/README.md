@@ -17,12 +17,17 @@
 | `results-long.json` | 40개를 이어붙인 **6.8분 하나**에서 배치를 벗겨 본 여섯 조건 × 모델 둘 | `long_bench.py` |
 | `results-repeat.json` | 같은 조건 3회 반복 — 흔들림 폭 | `repeat_bench.py` |
 | `results-ship.json` | 실제로 붙일 조합(배치 + 낱말 시각) 3회 | `ship_bench.py` |
+| `results-notation.json` | **보존 · 자리표기 변형 · 소실** 셋으로 가른 것 → [15 §6](../../../docs/research/15-STT-GPU-실측.md) | `notation.py` |
 
 **음성과 평가셋은 여기 없습니다.** [08-25-stt-preprocess](../08-25-stt-preprocess/)
 의 `make_audio.py` 로 만든 것과 [08-21-local-llm-pii/eval-set.json](../08-21-local-llm-pii/eval-set.json)
 을 그대로 썼습니다 — 40발화 · `pii` 33건 · `keep` 80건.
 
 `long_bench.py` 셋은 경로가 `/poc` 로 박혀 있습니다. POC 팟에서 돌린 그대로 남깁니다.
+**`notation.py` 만 저장소 경로로 돕니다** — GPU 없이 저장된 전사문만 보기 때문입니다.
+
+`notation.py` 는 **참조 구현이지 정본이 아닙니다.** 실제로 붙일 자리는 `pii-tokenizer`
+앞이고 그 모듈은 아직 없습니다 → [ADR-052](../../../decisions/052-stt-configuration.md).
 
 ## ⚠️ 셋
 

@@ -5,6 +5,9 @@
 >
 > 평가셋은 [09](09-로컬모델-PII인식-실측.md)·[10](10-PII인식-실측-방법론.md) 의 것을 그대로 썼습니다 —
 > 40발화 · `pii` 33건 · `keep` 80건. 같은 평가셋이라 그때 숫자와 바로 비교됩니다.
+>
+> **사람이 보는 요약**은 [assets/artifacts/research/08-25-stt-benchmark.html](../../assets/artifacts/research/08-25-stt-benchmark.html)
+> 입니다 — 14·15 를 한 장으로 묶은 사본입니다.
 
 ## 왜 쟀나
 
