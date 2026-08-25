@@ -33,9 +33,13 @@ class FasterWhisperStt:
 
         self.name = f"faster-whisper {model} ({device}/{compute_type})"
         self._model = WhisperModel(model, device=device, compute_type=compute_type)
-        # ⬜ 실측은 vad_filter=False 로 쟀습니다. 통화는 침묵이 많아 켜면 빨라지는데
-        # **얼마나 빨라지고 정확도가 어떻게 되는지는 안 쟀습니다.**
-        # 기본을 끔으로 두어 실측과 같은 조건에서 시작합니다
+        # **속도로는 켤 이유가 없습니다** — 침묵 37% 짜리로 재도 0.4% 입니다
+        # (docs/research/14-STT-전처리-실측.md §2). whisper 가 말 없는 창에서
+        # 디코딩을 일찍 접어 **침묵은 VAD 없이도 이미 거의 공짜**입니다.
+        #
+        # 다만 **품질에서는 이득이 있었습니다** — 같은 측정에서 침묵 구간의 환각이
+        # 줄어 `keep` 손상이 24 → 19 로 나아졌습니다. 켠다면 그 이유입니다.
+        # 기본은 끔으로 둡니다 — 09 실측과 같은 조건에서 시작하려는 것입니다
         self._vad = os.environ.get("FINALLY_VAD", "0") == "1"
 
     def transcribe(
