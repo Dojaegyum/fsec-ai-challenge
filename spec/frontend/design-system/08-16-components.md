@@ -25,9 +25,10 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
 
 | 이름(가칭) | 무엇 | 근거 | 어디 |
 | --- | --- | --- | --- |
-| `OrbitRing` | 랜딩 히어로의 심볼 둘레 링·글로우. **뜻이 없습니다** | [tokens](08-16-tokens.md) `--horizon`·「장식 keyframes」 | `app/page.tsx` |
+| `OrbitRing` | 랜딩 히어로의 심볼 둘레 링 셋·글로우. **뜻이 없습니다.** 첫 렌더에 `bloom`(1.2초)으로 피어납니다 — 글자의 `rise` 와 따로 놀지 않게 | [tokens](08-16-tokens.md) `--horizon`·「장식 keyframes」 | `app/page.tsx` |
+| `HorizonGlow` | 화면 바닥에 걸린 오렌지 호라이즌 — 납작한 코어 띠 + 위로 번지는 헤일로. **뜻이 없습니다.** 랜딩(문서 끝) · `/start` · 사건 화면 `/c/{token}`(둘은 뷰포트 바닥, 사건 화면은 세기 0.7) 세 곳에서 쓰여 **컴포넌트로 뽑았습니다.** 부모가 `relative isolate` 여야 글 아래에 깔립니다 | [tokens](08-16-tokens.md) `--horizon` · 시안 `assets/artifacts/plans/08-16-entry-flow-mockup.html` 「원본 glows.png 재현」 | **`components/HorizonGlow.tsx`** |
 | `ScreenPreviewCard` | 화면 하나의 역할을 미니 목업 + **한 줄**로 | [screens S-04](../08-14-screens.md) 「스크롤 네 마디」③ | `app/page.tsx` |
-| `StepRail` | `/start` 단계 레일 (동의 → 무슨 일 → 링크 발급) | [screens S-05](../08-14-screens.md) | `app/start/page.tsx` |
+| `StepRail` | `/start` 단계 레일 (동의 → 무슨 일 → 링크 발급). **스크롤을 따라옵니다**(`sticky`) — 문진이 길어져도 몇 걸음 남았는지가 시야에서 안 사라지게 | [screens S-05](../08-14-screens.md) | `app/start/page.tsx` |
 | `ConsentModal` | 동의 전문. **요약 카드 넷 + 조항별 확인** | [screens S-05](../08-14-screens.md) · [ADR-016](../../../decisions/016-retention-and-datastore.md)·[ADR-026](../../../decisions/026-raw-upload-retention.md) | `app/start/page.tsx` |
 | `EvidenceSlot` | **종류별** 업로드 슬롯. 종류가 곧 안내이자 분류 | [screens S-05](../08-14-screens.md) 「자료」 | `app/start/page.tsx` |
 | `IssuedLink` | 발급된 사건 주소 + 복사. **전부 보이게 줄바꿈** | [ADR-021](../../../decisions/021-reentry-and-identity.md) | `app/start/page.tsx` |

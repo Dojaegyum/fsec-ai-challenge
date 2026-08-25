@@ -272,6 +272,25 @@
   /* 글로우 호흡 — 오렌지 가우시안 */
   @keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
 
+  /* 첫 렌더 — 히어로 장식(링·글로우)이 피어납니다. 글자의 rise(0.5s) 보다 길어
+     글이 다 올라온 뒤에도 잠깐 더 밝아집니다. 장식이 툭 하고 먼저 서 있으면
+     그 뒤에 올라오는 글자가 따로 놉니다 — 랜딩 전용 */
+  @keyframes bloom-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: none; }
+  }
+  .bloom {
+    animation: bloom-in 1.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  /* 배경 호라이즌이 천천히 켜집니다 — 움직임 없이 밝기만. `HorizonGlow` 전용.
+     끝값이 변수인 이유: 애니메이션은 inline opacity 보다 세서(`both`) 끝나고도 1 을
+     붙잡습니다. 화면마다 세기를 달리 하려면 끝값 자체를 받아야 합니다 */
+  @keyframes appear { from { opacity: 0; } to { opacity: var(--appear-to, 1); } }
+  .appear {
+    animation: appear 1.4s ease-out both;
+  }
+
   /* 사건 파일의 행이 채워질 때 한 번 훑고 사라집니다 — 본문이 챗일 때 전용 */
   @keyframes row-flash {
     from { background-color: oklch(0.697 0.16 258.2 / 12%); }
