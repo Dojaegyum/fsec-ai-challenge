@@ -2,7 +2,7 @@
 """전사 설정을 바꿔 가며 속도와 전사 품질을 잰다.
 
 정본: docs/research/10-PII인식-실측-방법론.md (같은 음성·같은 조건이어야 비교됩니다)
-결과: docs/research/14-STT-전처리-실측.md
+결과: docs/research/14-STT-전처리-실측.md (CPU) · 15-STT-GPU-실측.md (GPU)
 
 ## 무엇을 재나
 

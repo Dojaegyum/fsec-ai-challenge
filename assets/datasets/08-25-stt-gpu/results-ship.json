@@ -1,0 +1,28 @@
+[
+  {
+    "label": "배치16 · 낱말시각 끔",
+    "word_timestamps": false,
+    "seconds": [
+      9.1,
+      7.6,
+      7.4
+    ],
+    "mean": 8.0,
+    "chars": 2230,
+    "pii_lost": 8,
+    "keep_lost": 13
+  },
+  {
+    "label": "배치16 · 낱말시각 켬",
+    "word_timestamps": true,
+    "seconds": [
+      7.4,
+      7.7,
+      7.8
+    ],
+    "mean": 7.6,
+    "chars": 2230,
+    "pii_lost": 8,
+    "keep_lost": 13
+  }
+]

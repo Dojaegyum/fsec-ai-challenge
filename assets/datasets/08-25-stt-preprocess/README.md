@@ -5,6 +5,7 @@
 | 읽을 것 | 어디 |
 | --- | --- |
 | **결론·발견·권고** | [docs/research/14-STT-전처리-실측.md](../../../docs/research/14-STT-전처리-실측.md) |
+| **이어지는 GPU 측정** | [docs/research/15-STT-GPU-실측.md](../../../docs/research/15-STT-GPU-실측.md) · [08-25-stt-gpu/](../08-25-stt-gpu/) |
 | 평가셋 설계·채점 규칙의 뿌리 | [docs/research/10-PII인식-실측-방법론.md](../../../docs/research/10-PII인식-실측-방법론.md) |
 | 하네스 | [services/transcriber/bench_stt.py](../../../services/transcriber/bench_stt.py) |
 
