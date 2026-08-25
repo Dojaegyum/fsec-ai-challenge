@@ -25,10 +25,33 @@ import type { Env } from './env'
 
 import type { LlmClient, ModelReply } from '@/modules/chat-receiver'
 
-const ENDPOINT = 'https://api.x.ai/v1/chat/completions'
+/**
+ * 기본은 **Grok (xAI)** 입니다 → ARCHITECTURE §2 · §1.2 `XAI_API_KEY`.
+ *
+ * ## 갈아끼울 수 있게 둔 이유
+ *
+ * 부르는 모양이 **OpenAI 호환 `/chat/completions` 하나**입니다. 그래서 주소와
+ * 모델 이름만 바꾸면 무료 제공자로도, 이 컴퓨터에 띄운 모델로도 갑니다 —
+ * `TRANSCRIBER_URL` 을 주소 하나로 둔 것과 같은 이유입니다.
+ *
+ * **개발 중에 이게 필요합니다.** 유료 계정의 잔액이 떨어지면 챗 한 턴이
+ * 통째로 500 이 되고, 그러면 **이 서비스의 핵심 동작을 한 번도 못 봅니다.**
+ * 2026-08-25 에 실제로 그랬습니다 — `permission-denied`(403, 크레딧 없음).
+ *
+ * | 변수 | 없으면 |
+ * | --- | --- |
+ * | `LLM_BASE_URL` | `https://api.x.ai/v1` |
+ * | `LLM_MODEL` | `grok-4.5` |
+ * | `LLM_API_KEY` | `XAI_API_KEY` 를 씁니다 |
+ *
+ * ⚠️ **바꾸면 사건 내용이 그 사업자에게 갑니다.** 이 자리는 격리 경계 바깥이라
+ * (아래 경고), 무엇을 끼우느냐가 **어느 회사가 토큰화된 진술을 보게 되는지**를
+ * 정합니다. 제출·시연에 쓸 제공자는 사람이 정합니다 → ADR-043 과 같은 판단.
+ */
+const DEFAULT_BASE_URL = 'https://api.x.ai/v1'
 
 /** ARCHITECTURE §2 · 08-17-system-prompt.md §「확인한 것」이 이 모델로 쟀습니다 */
-const MODEL = 'grok-4.5'
+const DEFAULT_MODEL = 'grok-4.5'
 
 /**
  * 답이 늦어도 기다릴 수 있는 한계.
@@ -87,8 +110,15 @@ function toReply(raw: unknown): ModelReply {
  * 부를 것을 만든다. **열쇠가 없으면 `null`** — 조립이 성공해야 합니다.
  */
 export function createLlmClient(env: Env): LlmClient | null {
-  const key = env.values.XAI_API_KEY
+  // **둘 중 하나면 섭니다.** 개발용 열쇠를 넣었는데 `XAI_API_KEY` 가 비어서
+  // 안 뜨면, 무엇이 문제인지 아무 데도 안 나옵니다
+  const key = env.values.LLM_API_KEY ?? env.values.XAI_API_KEY
   if (!key) return null
+
+  // 끝의 빗금을 지웁니다 — 붙여 놓고 오는 주소가 흔하고, 그러면 `//v1` 이 됩니다
+  const base = (env.values.LLM_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
+  const endpoint = `${base}/chat/completions`
+  const model = env.values.LLM_MODEL ?? DEFAULT_MODEL
 
   return {
     async complete(prompt: { system: string; user: string }): Promise<ModelReply> {
@@ -97,14 +127,14 @@ export function createLlmClient(env: Env): LlmClient | null {
 
       let res: Response
       try {
-        res = await fetch(ENDPOINT, {
+        res = await fetch(endpoint, {
           method: 'POST',
           headers: {
             authorization: `Bearer ${key}`,
             'content-type': 'application/json',
           },
           body: JSON.stringify({
-            model: MODEL,
+            model,
             // **0 입니다.** 절차 안내는 같은 물음에 같은 답이 나와야 하고,
             // 정본이 이 값으로 재서 확인했습니다 → 08-17-system-prompt.md
             temperature: 0,

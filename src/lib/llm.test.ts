@@ -21,8 +21,8 @@ import { createLlmClient } from './llm'
 
 const KEY = 'xai-비밀값이면-메시지에-나오면-안-된다'
 
-function envWith(key: string | undefined): Env {
-  return { values: { XAI_API_KEY: key } } as unknown as Env
+function envWith(key: string | undefined, over: Record<string, string> = {}): Env {
+  return { values: { XAI_API_KEY: key, ...over } } as unknown as Env
 }
 
 /** 모델이 이런 글을 돌려줬다고 치고 */
@@ -155,5 +155,71 @@ describe('오류 메시지가 비밀을 흘리지 않는다', () => {
   it('빈 답은 빈 답이라고 말한다', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{"choices":[]}', { status: 200 })))
     await expect(client().complete(ask)).rejects.toThrow('모델이 빈 답을 냈습니다')
+  })
+})
+
+/**
+ * 제공자를 갈아끼우는 자리 — **개발 중에 유료 잔액이 떨어지면 챗을 한 번도
+ * 못 봅니다.** 2026-08-25 에 실제로 그랬습니다(403 · 크레딧 없음).
+ */
+describe('주소와 모델을 환경변수로 갈아끼운다', () => {
+  const urlOf = (spy: ReturnType<typeof respondWith>) => String(spy.mock.calls[0]![0])
+  const bodyOf = (spy: ReturnType<typeof respondWith>) =>
+    JSON.parse(String(spy.mock.calls[0]![1]!.body)) as { model: string }
+
+  it('아무것도 안 주면 xAI 로 간다', async () => {
+    const spy = respondWith('{"insufficient":true,"citations":[]}')
+    vi.stubGlobal('fetch', spy)
+
+    await client().complete(ask)
+    expect(urlOf(spy)).toBe('https://api.x.ai/v1/chat/completions')
+    expect(bodyOf(spy).model).toBe('grok-4.5')
+  })
+
+  it('주소와 모델을 주면 그쪽으로 간다', async () => {
+    const spy = respondWith('{"insufficient":true,"citations":[]}')
+    vi.stubGlobal('fetch', spy)
+
+    const other = createLlmClient(
+      envWith(KEY, {
+        LLM_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        LLM_MODEL: 'gemini-2.5-flash',
+      }),
+    )!
+    await other.complete(ask)
+
+    expect(urlOf(spy)).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    )
+    expect(bodyOf(spy).model).toBe('gemini-2.5-flash')
+  })
+
+  it('끝에 빗금이 붙어 와도 `//v1` 이 안 된다', async () => {
+    const spy = respondWith('{"insufficient":true,"citations":[]}')
+    vi.stubGlobal('fetch', spy)
+
+    const other = createLlmClient(envWith(KEY, { LLM_BASE_URL: 'http://127.0.0.1:11434/v1/' }))!
+    await other.complete(ask)
+    expect(urlOf(spy)).toBe('http://127.0.0.1:11434/v1/chat/completions')
+  })
+
+  it('개발용 열쇠만 있어도 선다 — `XAI_API_KEY` 가 비어도', () => {
+    const only = { values: { LLM_API_KEY: '개발용-열쇠' } } as unknown as Env
+    expect(createLlmClient(only)).not.toBeNull()
+  })
+
+  it('개발용 열쇠가 있으면 그것을 먼저 쓴다', async () => {
+    const spy = respondWith('{"insufficient":true,"citations":[]}')
+    vi.stubGlobal('fetch', spy)
+
+    const other = createLlmClient(envWith(KEY, { LLM_API_KEY: '개발용-열쇠' }))!
+    await other.complete(ask)
+
+    const headers = spy.mock.calls[0]![1]!.headers as Record<string, string>
+    expect(headers.authorization).toBe('Bearer 개발용-열쇠')
+  })
+
+  it('열쇠가 하나도 없으면 안 선다', () => {
+    expect(createLlmClient(envWith(undefined))).toBeNull()
   })
 })
