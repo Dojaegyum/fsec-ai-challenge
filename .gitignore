@@ -30,3 +30,6 @@ out/
 # Python 캐시 — 검사기를 직접 import 하면 생깁니다
 __pycache__/
 *.pyc
+
+# 브레인스토밍 비주얼 컴패니언 세션 파일 — 저장소에 올리지 않습니다
+.superpowers/

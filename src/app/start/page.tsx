@@ -1,6 +1,7 @@
 "use client";
 
 import { LinkHandoff } from "@/modules/case-opener";
+import { HorizonGlow } from "@/components/HorizonGlow";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -17,8 +18,9 @@ import { openCase, trackOf } from "./open";
  *
  * 두 국면이 한 파일입니다
  *  · intake (1/2) — 동의 모달 + Q1 문진 + 종류별 업로드 슬롯
- *  · issued (2/2) — 링크 발급. URL 카드가 화면의 주인, 오렌지 글로우는 이 순간에만
- *  · 왼쪽 단계 레일(동의 → 무슨 일 → 링크 발급)이 국면에 따라 바뀝니다
+ *  · issued (2/2) — 링크 발급. URL 카드가 화면의 주인, 카드 뒤의 가까운 글로우는 이 순간에만
+ *    (화면 바닥의 호라이즌은 두 국면 모두에 있습니다 — `HorizonGlow`)
+ *  · 왼쪽 단계 레일(동의 → 무슨 일 → 링크 발급)이 국면에 따라 바뀌고, **스크롤을 따라옵니다**
  *
  * 스펙 준수
  *  · 관문은 동의 하나. [건너뛰고 바로 시작]이 주 버튼과 같은 크기로 나란히
@@ -168,7 +170,10 @@ export default function Start() {
   const issued = phase === "issued";
 
   return (
-    <main className="flex min-h-svh flex-col">
+    <main className="relative isolate flex min-h-svh flex-col">
+      {/* 화면 바닥의 호라이즌 — 장식. 검정 한 색이던 배경에 온기만 더합니다.
+          `isolate` 가 글 아래에 깔리게 하고, `overflow-hidden` 은 두지 않습니다(레일 sticky) */}
+      <HorizonGlow attach="viewport" />
       <header className="border-b border-hairline bg-stage">
         <div className="mx-auto flex w-full max-w-shell items-center justify-between gap-4 px-[clamp(20px,4.2vw,40px)] py-[14px]">
           <div className="flex items-center gap-2.5">
@@ -200,51 +205,56 @@ export default function Start() {
 
       <div className="grid flex-1 md:grid-cols-[300px_1fr]">
         {/* ── 단계 레일 ─────────────────────────────────── */}
-        <aside className="border-b border-hairline bg-[oklch(1_0_0/1.5%)] p-[26px_26px_28px] md:border-b-0 md:border-r">
-          <div className="mb-4 text-[13px] tracking-[0.12em] text-ink-4">시작하기</div>
-          <div className="grid grid-cols-[16px_1fr] gap-[11px]">
-            <RailDot state={agreed ? "done" : "now"} tail />
-            <div className="pb-4">
-              <div className="text-[14px] font-[580] text-ink-1">동의</div>
-              {agreed ? (
-                <div className="text-[13px] text-ink-3">완료 · 180일 파기 · 주민번호 미수집</div>
-              ) : (
-                <div className="text-[13px] text-deadline-urgent">전문 확인이 필요합니다</div>
-              )}
+        <aside className="border-b border-hairline bg-[oklch(1_0_0/1.5%)] md:border-b-0 md:border-r">
+          {/* 레일은 스크롤을 따라옵니다 — 문진·업로드 슬롯이 길어져 화면을 넘겨도
+              몇 걸음 남았는지가 시야에서 사라지지 않게. 바깥 <aside> 는 그리드 행
+              높이를 다 차지해 오른쪽 선이 끝까지 그어지고, 안쪽 상자만 붙습니다 */}
+          <div className="p-[26px_26px_28px] md:sticky md:top-0">
+            <div className="mb-4 text-[13px] tracking-[0.12em] text-ink-4">시작하기</div>
+            <div className="grid grid-cols-[16px_1fr] gap-[11px]">
+              <RailDot state={agreed ? "done" : "now"} tail />
+              <div className="pb-4">
+                <div className="text-[14px] font-[580] text-ink-1">동의</div>
+                {agreed ? (
+                  <div className="text-[13px] text-ink-3">완료 · 180일 파기 · 주민번호 미수집</div>
+                ) : (
+                  <div className="text-[13px] text-deadline-urgent">전문 확인이 필요합니다</div>
+                )}
+              </div>
+              <RailDot state={issued ? "done" : agreed ? "now" : "todo"} tail />
+              <div className="pb-4">
+                <div className={`text-[14px] font-[580] ${issued || agreed ? "text-ink-1" : "text-ink-2"}`}>
+                  무슨 일이 있었는지
+                </div>
+                <div className="text-[13px] text-ink-3">
+                  {issued ? (Q1[q1]?.[0] ?? "고르지 않음") : "하나만 고르면 됩니다"}
+                </div>
+              </div>
+              <RailDot state={issued ? "now" : "todo"} />
+              <div>
+                <div className={`text-[14px] ${issued ? "font-[580] text-ink-1" : "text-ink-3"}`}>
+                  사건 링크 발급
+                </div>
+                {issued ? (
+                  <div className="text-[13px] text-deadline-urgent">주소를 보관하세요</div>
+                ) : (
+                  <div className="text-[13px] text-ink-3">회원가입 없음</div>
+                )}
+              </div>
             </div>
-            <RailDot state={issued ? "done" : agreed ? "now" : "todo"} tail />
-            <div className="pb-4">
-              <div className={`text-[14px] font-[580] ${issued || agreed ? "text-ink-1" : "text-ink-2"}`}>
-                무슨 일이 있었는지
-              </div>
-              <div className="text-[13px] text-ink-3">
-                {issued ? (Q1[q1]?.[0] ?? "고르지 않음") : "하나만 고르면 됩니다"}
-              </div>
-            </div>
-            <RailDot state={issued ? "now" : "todo"} />
-            <div>
-              <div className={`text-[14px] ${issued ? "font-[580] text-ink-1" : "text-ink-3"}`}>
-                사건 링크 발급
-              </div>
+            <div className="mt-[26px] rounded-[12px] border border-dashed border-hairline p-[13px_15px] text-[13px] leading-[1.6] text-ink-3">
               {issued ? (
-                <div className="text-[13px] text-deadline-urgent">주소를 보관하세요</div>
+                <>
+                  이 화면을 지나면 <b className="font-[620] text-ink-2">주소가 유일한 열쇠</b>가
+                  됩니다. 계정이 없어 되찾아 드릴 수 없습니다.
+                </>
               ) : (
-                <div className="text-[13px] text-ink-3">회원가입 없음</div>
+                <>
+                  답이 어려우면 언제든 <b className="font-[620] text-ink-2">「잘 모르겠어요」</b>를
+                  고르세요. 모름은 실패가 아닙니다.
+                </>
               )}
             </div>
-          </div>
-          <div className="mt-[26px] rounded-[12px] border border-dashed border-hairline p-[13px_15px] text-[13px] leading-[1.6] text-ink-3">
-            {issued ? (
-              <>
-                이 화면을 지나면 <b className="font-[620] text-ink-2">주소가 유일한 열쇠</b>가
-                됩니다. 계정이 없어 되찾아 드릴 수 없습니다.
-              </>
-            ) : (
-              <>
-                답이 어려우면 언제든 <b className="font-[620] text-ink-2">「잘 모르겠어요」</b>를
-                고르세요. 모름은 실패가 아닙니다.
-              </>
-            )}
           </div>
         </aside>
 
@@ -420,7 +430,8 @@ export default function Start() {
         {/* ── 본문 2/2 · 링크 발급 (시안 1a) ───────────── */}
         {issued && (
           <section className="relative overflow-hidden p-[clamp(24px,4vw,44px)]">
-            {/* 오렌지 글로우 — 발급 순간에만. 장식이며 의미 없음 */}
+            {/* 카드 뒤의 가까운 오렌지 글로우 — 발급 순간에만. 장식이며 의미 없음.
+                바닥의 호라이즌(HorizonGlow)과 겹쳐 이 순간이 가장 밝습니다 */}
             <div
               aria-hidden
               className="pointer-events-none absolute left-10 top-16 h-[300px] w-[640px] rounded-full blur-[34px]

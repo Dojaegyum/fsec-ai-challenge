@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { openCase } from "@/modules/case-opener";
+import { HorizonGlow } from "@/components/HorizonGlow";
 import { CallPanel } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
@@ -255,7 +256,11 @@ function CaseScreen({
   return (
     // `overflow-x-clip` 은 전환 중 변형된 요소가 문서를 넓히지 못하게 하는 안전장치입니다.
     // 유령은 제 겹에서 가두지만, 여기가 마지막 방어선입니다
-    <main className="flex min-h-svh flex-col overflow-x-clip">
+    <main className="relative isolate flex min-h-svh flex-col overflow-x-clip">
+      {/* 화면 바닥의 호라이즌 — 장식. 랜딩·/start 와 같은 것이되 **70%** — 오래 머무는
+          화면이고 보드에는 앰버(기한)·horizon(공고 대기) 이 이미 있어 한 단계 죽였습니다
+          (2026-08-25 검수). `isolate` 가 있어야 세 열 아래에 깔립니다 (HorizonGlow 머리말) */}
+      <HorizonGlow attach="viewport" opacity={0.7} />
       {/* ── 헤더 ─────────────────────────────────────────── */}
       <header className="border-b border-hairline bg-stage">
         <div className="mx-auto flex min-h-[56px] w-full max-w-shell flex-wrap items-center justify-between gap-x-4 gap-y-2 px-[clamp(16px,3vw,32px)] py-2">
