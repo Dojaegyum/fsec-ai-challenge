@@ -118,6 +118,29 @@ npm run kb:load -- --version 2026.08.1
 
 ---
 
+## 지금 올라가 있는 것 (2026-08-25)
+
+| | |
+| --- | --- |
+| 프로젝트 | `finai/fin-ally` |
+| **여는 주소** | **https://fin-ally-khaki.vercel.app** |
+| 다른 별칭 | `fin-ally-finai.vercel.app` — **Vercel 인증 보호에 걸려 302 입니다** |
+
+⚠️ **제출용 주소는 `fin-ally-khaki` 쪽입니다.** 팀 계정의 Deployment Protection 이
+기본으로 켜져 있어 다른 별칭은 로그인 없이 안 열립니다. 보호를 끄려면
+Project Settings → Deployment Protection → Vercel Authentication 을 Disabled 로
+바꿔야 하고, **그건 주소를 완전히 공개하는 것이라 사람이 정합니다.**
+
+CLI 로 올렸습니다 — 대시보드를 안 거칩니다.
+
+```
+cd src
+npx vercel link --yes --project fin-ally --scope finai
+npx vercel deploy --prod --yes
+```
+
+`vercel link` 를 **`src` 안에서** 부르면 그 디렉터리가 루트가 됩니다.
+
 ## 4. 올린 뒤 — 한 바퀴 확인
 
 ```
@@ -134,6 +157,7 @@ curl -s -X POST "$B/api/cases" -H 'content-type: application/json' -d '{"track":
 | --- | --- |
 | `모델이 거절했습니다 (403)` | 열쇠는 살아 있는데 **잔액이 없습니다** |
 | `모델이 거절했습니다 (503)` | 과부하. 후보를 다 돌고도 안 됐다는 뜻입니다 |
+| `모델이 제때 답하지 않았습니다` | **예산(55초)을 넘겼습니다.** 잔액·한도와 무관합니다 — `[llm]` 줄이 실제 소요를 남깁니다 |
 | `KB_CITATION_MISSING` | 모델이 답은 했는데 **인용 형식을 어겼습니다** — 모델을 바꾸세요 |
 
 ---

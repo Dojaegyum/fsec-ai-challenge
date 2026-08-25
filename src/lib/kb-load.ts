@@ -462,3 +462,131 @@ function cycles(edges: ReadonlyMap<string, readonly string[]>): readonly string[
   for (const key of edges.keys()) walk(key)
   return [...found]
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// 기관 마스터 — `org` 표 → §11.1
+// ─────────────────────────────────────────────────────────────────────
+
+/** `org.contact` 의 다섯 → §11.1. **전부 선택입니다** */
+const CONTACT_KEYS: ReadonlySet<string> = new Set([
+  'report_tel',
+  'report_steps',
+  'report_hours',
+  'submit',
+  'caution',
+])
+
+/** 전화번호 모양. 대표번호(1588-9999)와 일반 번호를 함께 봅니다 */
+const TEL = /^\d{2,4}-\d{3,4}(-\d{4})?$/
+
+export interface OrgFile {
+  readonly name: string
+  readonly orgs?: unknown
+}
+
+export interface OrgRow {
+  readonly org_id: string
+  readonly channel_id: string
+  readonly name: string
+  readonly aliases: readonly string[]
+  readonly contact: Readonly<Record<string, unknown>>
+  readonly source_url: string
+  readonly verified_at: string
+  readonly kb_version: string
+}
+
+export interface OrgPlan {
+  readonly rows: readonly OrgRow[]
+  readonly problems: readonly KbProblem[]
+}
+
+/**
+ * 기관 파일을 검사해 넣을 행을 만든다. **DB 도 파일도 안 봅니다** — 순수 함수입니다.
+ *
+ * `kb_entry` 와 같은 규칙을 씁니다: **하나라도 어기면 통째로 거부합니다.**
+ * 절반만 실으면 어떤 사건은 번호를 받고 어떤 사건은 못 받습니다.
+ *
+ * ⚠️ **틀린 번호는 없는 번호보다 나쁩니다.** 피해자가 골든타임에 엉뚱한 곳에
+ * 겁니다 → docs/research/04-기관정보.md. 그래서 모양이 안 맞으면 거부합니다.
+ */
+export function planOrgLoad(
+  files: readonly OrgFile[],
+  opts: { readonly kbVersion: string },
+): OrgPlan {
+  const problems: KbProblem[] = []
+  const rows: OrgRow[] = []
+  const seen = new Set<string>()
+
+  for (const file of files) {
+    if (!Array.isArray(file.orgs)) {
+      problems.push({ file: file.name, entry: null, rule: 'FILE', message: '`orgs` 가 배열이 아닙니다' })
+      continue
+    }
+
+    for (const raw of file.orgs as Record<string, unknown>[]) {
+      const id = isText(raw.org_id) ? raw.org_id : null
+      const where = (rule: string, message: string) =>
+        problems.push({ file: file.name, entry: id, rule, message })
+      const before = problems.length
+
+      if (id === null) {
+        where('ID', '`org_id` 가 없습니다')
+        continue
+      }
+      // **같은 기관이 두 줄이면 어느 번호가 나갈지 알 수 없습니다**
+      if (seen.has(id)) where('ID', '`org_id` 가 겹칩니다')
+      seen.add(id)
+
+      if (!isText(raw.channel_id)) where('CHANNEL', '`channel_id` 가 없습니다')
+      if (!isText(raw.name)) where('ORG', '`name` 이 없습니다')
+
+      // **출처가 없으면 안 싣습니다** → §11.1 `source_url` *"비면 적재 거부"*
+      if (!isText(raw.source_url) || !raw.source_url.startsWith('http')) {
+        where('EVIDENCE', '`source_url` 이 없습니다 — 연락처는 근거가 있어야 합니다')
+      }
+      if (!isDate(raw.verified_at)) {
+        where('EVIDENCE', '`verified_at` 이 `YYYY-MM-DD` 가 아닙니다')
+      }
+
+      // 별칭은 매칭에 쓰입니다. 비어 있어도 되지만 문자열이어야 합니다
+      const aliases = Array.isArray(raw.aliases) ? (raw.aliases as unknown[]) : null
+      if (aliases === null) where('ORG', '`aliases` 가 배열이 아닙니다')
+      else if (aliases.some((one) => !isText(one))) where('ORG', '`aliases` 에 빈 값이 있습니다')
+
+      const contact = (raw.contact ?? {}) as Record<string, unknown>
+      if (typeof raw.contact !== 'object' || raw.contact === null) {
+        where('CONTACT', '`contact` 가 객체가 아닙니다')
+      } else {
+        for (const key of Object.keys(contact)) {
+          // **모르는 칸을 흘리지 않습니다.** 화면이 안 읽는 칸이 늘어나면
+          // 「무엇이 실제로 안내되나」를 볼 자리가 흐려집니다
+          if (!CONTACT_KEYS.has(key)) where('CONTACT', `\`contact.${key}\` 는 다섯 밖입니다 (§11.1)`)
+        }
+        const tel = contact.report_tel
+        if (tel !== undefined && (typeof tel !== 'string' || !TEL.test(tel))) {
+          where('CONTACT', `\`contact.report_tel\` 이 번호 모양이 아닙니다 — ${String(tel)}`)
+        }
+        // **확인 못 한 것은 칸을 아예 안 넣습니다** → §11.1 ①.
+        // `null` 을 두면 「없다」로 읽혀 「확인 못 함」과 「해당 없음」이 뭉갭니다
+        for (const [key, value] of Object.entries(contact)) {
+          if (value === null) where('CONTACT', `\`contact.${key}\` 가 \`null\` 입니다 — 칸을 빼세요 (§11.1 ①)`)
+        }
+      }
+
+      if (problems.length > before) continue
+
+      rows.push({
+        org_id: id,
+        channel_id: raw.channel_id as string,
+        name: raw.name as string,
+        aliases: (aliases ?? []) as readonly string[],
+        contact,
+        source_url: raw.source_url as string,
+        verified_at: raw.verified_at as string,
+        kb_version: opts.kbVersion,
+      })
+    }
+  }
+
+  return { rows, problems }
+}

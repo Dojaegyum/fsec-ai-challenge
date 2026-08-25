@@ -813,6 +813,132 @@ export function createDeadlineWriter(sql: Sql): DeadlineWriter {
 }
 
 /**
+ * 기관을 읽는다 → §11.1 · §11.4.4.
+ *
+ * **`contact_ref` 를 실제 번호로 바꾸는 자리입니다.** KB 본문은 번호를 직접
+ * 쓰지 않고 `org.contact.report_tel` 처럼 가리키기만 합니다(§11.4.1) —
+ * 번호가 바뀔 때 절차 항목까지 새 버전을 내지 않으려는 것입니다.
+ *
+ * **못 찾으면 `null` 이고, 그때도 절차는 나갑니다** → §11.4.3.
+ * 연락처는 절차의 부속이지 절차 자체가 아닙니다.
+ */
+export interface OrgReader {
+  /** 한 곳. 없으면 `null` */
+  read(orgId: string, kbVersion: string): Promise<OrgView | null>
+}
+
+export interface OrgView {
+  readonly orgId: string
+  readonly channelId: string
+  readonly name: string
+  /** `org.contact` 그대로 — 확인 못 한 칸은 **아예 없습니다** (§11.1 ①) */
+  readonly contact: Readonly<Record<string, unknown>>
+  readonly sourceUrl: string
+  /** `YYYY-MM-DD`. 화면이 「최종 확인일」로 함께 보여줍니다 (§11.4.4) */
+  readonly verifiedAt: string
+}
+
+export function createOrgReader(sql: Sql): OrgReader {
+  return {
+    async read(orgId, kbVersion) {
+      const rows = await sql<
+        {
+          org_id: string
+          channel_id: string
+          name: string
+          contact: Record<string, unknown> | null
+          source_url: string
+          verified_at: Date
+        }[]
+      >`
+        SELECT org_id, channel_id, name, contact, source_url, verified_at
+        FROM org WHERE org_id = ${orgId} AND kb_version = ${kbVersion}
+      `
+      const one = rows[0]
+      if (!one) return null
+      return {
+        orgId: one.org_id,
+        channelId: one.channel_id,
+        name: one.name,
+        contact: one.contact ?? {},
+        sourceUrl: one.source_url,
+        // DATE 는 드라이버가 `Date` 로 줍니다 — 그대로 String() 하면
+        // `Thu Aug 25` 가 되고 다시 읽으면 2001년이 됩니다
+        verifiedAt: dateOnly(one.verified_at),
+      }
+    },
+  }
+}
+
+/**
+ * 경유 서비스를 적는다 → §4 · §4.1.
+ *
+ * ⚠️ **2026-08-25 까지 이 표에 쓰는 코드가 아예 없었습니다.** 읽는 자리만
+ * 있었고(`CasePlanStore.readChannel`), 그래서 사용자가 「시중은행 계좌이체」를
+ * 골라도 `case_channel` 이 비어 있었습니다. 결과는 둘입니다 —
+ *
+ *   · **유형별 KB 가 조회에 안 걸립니다** (§11.2 2순위가 `channel_id` 일치)
+ *   · 기관을 특정할 수 없어 **번호가 영영 안 붙습니다** (§11.4.1)
+ *
+ * 유형 파일을 만들어도 실제 사건에서는 전 유형 공통(3순위)만 나갔습니다.
+ */
+export interface ChannelWriter {
+  /**
+   * 유형을 적는다. **같은 사건에 여러 줄이 쌓입니다** — 여러 번 특정을
+   * 시도할 수 있고, 읽는 쪽이 가장 확신 높은 것을 고릅니다(§4).
+   */
+  write(input: {
+    readonly caseId: string
+    readonly channelId: string
+    readonly orgId: string | null
+    /** 사용자·증거에 나온 표기 그대로. **토큰화 대상이 아닙니다** → ADR-011 */
+    readonly orgNameRaw: string | null
+    readonly source: 'auto' | 'user'
+    readonly confidence?: number | null
+  }): Promise<void>
+
+  /** 그 유형의 기관들 — 이름 정규화에 씁니다 → §11.4.4 ① */
+  candidates(channelId: string, kbVersion: string): Promise<readonly OrgCandidateRow[]>
+}
+
+export interface OrgCandidateRow {
+  readonly orgId: string
+  readonly name: string
+  readonly aliases: readonly string[]
+}
+
+export function createChannelWriter(sql: Sql): ChannelWriter {
+  return {
+    async write(input) {
+      // **문진 답이 자동 추출을 덮어야 합니다.** 사용자가 직접 고른 것이
+      // 더 확실하므로 확신도를 1.00 으로 둡니다 — 읽는 쪽이 확신도 순으로
+      // 고르기 때문에(§4), 이게 없으면 옛 추출값이 계속 이깁니다
+      const confidence = input.confidence ?? (input.source === 'user' ? 1 : null)
+      await sql`
+        INSERT INTO case_channel
+          (case_id, channel_id, org_id, org_name_raw, confidence, source)
+        VALUES (${input.caseId}, ${input.channelId}, ${input.orgId},
+                ${input.orgNameRaw}, ${confidence}, ${input.source})
+      `
+    },
+
+    async candidates(channelId, kbVersion) {
+      const rows = await sql<
+        { org_id: string; name: string; aliases: unknown }[]
+      >`
+        SELECT org_id, name, aliases FROM org
+        WHERE channel_id = ${channelId} AND kb_version = ${kbVersion}
+      `
+      return rows.map((one) => ({
+        orgId: one.org_id,
+        name: one.name,
+        aliases: Array.isArray(one.aliases) ? (one.aliases as string[]) : [],
+      }))
+    },
+  }
+}
+
+/**
  * 사건 자체의 값 → 계약 §3.10.
  *
  * `CasePlanStore.readCase` 는 갈래만 돌려줍니다 — 플랜을 만드는 데 그것만

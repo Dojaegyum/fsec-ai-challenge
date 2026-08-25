@@ -30,7 +30,14 @@ import { fileURLToPath } from 'node:url'
 
 import postgres from 'postgres'
 
-import { planLoad, type KbFile, type KbRow } from '@/lib/kb-load'
+import {
+  planLoad,
+  planOrgLoad,
+  type KbFile,
+  type KbRow,
+  type OrgFile,
+  type OrgRow,
+} from '@/lib/kb-load'
 
 const KB_DIR = fileURLToPath(new URL('../kb/', import.meta.url))
 const ENV_LOCAL = fileURLToPath(new URL('../.env.local', import.meta.url))
@@ -72,12 +79,23 @@ function fromEnvLocal(key: string): string | undefined {
   return undefined
 }
 
-function readFiles(): readonly KbFile[] {
+/**
+ * 파일을 둘로 가른다 — **절차(`entries`)와 기관(`orgs`)은 다른 표로 갑니다.**
+ *
+ * 한 폴더에 두는 이유는 **같은 릴리스로 묶이기 때문**입니다. 번호가 바뀌었는데
+ * 절차만 새 버전을 내면, 그 릴리스를 인용한 안내가 옛 번호를 답니다.
+ */
+function readFiles(): { kb: readonly KbFile[]; orgs: readonly OrgFile[] } {
   const names = readdirSync(KB_DIR).filter((name) => name.endsWith('.json')).sort()
-  return names.map((name) => {
+  const kb: KbFile[] = []
+  const orgs: OrgFile[] = []
+
+  for (const name of names) {
     const raw = JSON.parse(readFileSync(KB_DIR + name, 'utf8')) as Record<string, unknown>
-    return { name, ...raw } as KbFile
-  })
+    if (Array.isArray(raw.orgs)) orgs.push({ name, ...raw } as OrgFile)
+    else kb.push({ name, ...raw } as KbFile)
+  }
+  return { kb, orgs }
 }
 
 async function main(): Promise<number> {
@@ -89,12 +107,13 @@ async function main(): Promise<number> {
     return 1
   }
 
-  const files = readFiles()
+  const { kb: files, orgs: orgFiles } = readFiles()
   if (files.length === 0) {
     console.error(`KB 파일이 없습니다: ${KB_DIR}`)
     return 1
   }
 
+  const orgPlan = planOrgLoad(orgFiles, { kbVersion: args.version })
   const { rows, problems } = planLoad(files, {
     kbVersion: args.version,
     releasedAt: new Date().toISOString(),
@@ -102,11 +121,12 @@ async function main(): Promise<number> {
 
   console.log(`파일 ${files.length}개 · 항목 ${rows.length + problems.length}개를 봤습니다.\n`)
 
-  if (problems.length > 0) {
+  const allProblems = [...problems, ...orgPlan.problems]
+  if (allProblems.length > 0) {
     // **하나라도 어기면 통째로 거부합니다** → §11.4.5.
     // 절반만 실으면 「어느 절차가 최신인가」가 사건마다 달라집니다
-    console.error(`적재를 거부합니다 — 어긴 자리 ${problems.length}건.\n`)
-    for (const one of problems) {
+    console.error(`적재를 거부합니다 — 어긴 자리 ${allProblems.length}건.\n`)
+    for (const one of allProblems) {
       console.error(`  [${one.rule}] ${one.file}${one.entry ? ` · ${one.entry}` : ''}`)
       console.error(`      ${one.message}`)
     }
@@ -118,6 +138,15 @@ async function main(): Promise<number> {
     console.log(
       `  ${row.step_seq.toString().padStart(3)} ${row.step_key.padEnd(20)} ${row.effective_from}  ${row.title}`,
     )
+  }
+
+  if (orgPlan.rows.length > 0) {
+    console.log(`
+기관 ${orgPlan.rows.length}곳`)
+    for (const one of orgPlan.rows) {
+      const tel = (one.contact.report_tel as string | undefined) ?? '(번호 미확인)'
+      console.log(`  ${one.org_id.padEnd(16)} ${one.channel_id.padEnd(12)} ${tel.padEnd(14)} ${one.name}`)
+    }
   }
 
   if (args.dryRun) {
@@ -149,9 +178,10 @@ async function main(): Promise<number> {
     // **한 덩어리로 넣습니다.** 절반만 실린 KB 는 절반이 최신이고 절반이 옛것입니다
     await sql.begin(async (tx) => {
       for (const row of rows) await insert(tx, row)
+      for (const row of orgPlan.rows) await insertOrg(tx, row)
     })
 
-    console.log(`\n적재했습니다 — ${rows.length}건, 버전 ${args.version}.`)
+    console.log(`\n적재했습니다 — 절차 ${rows.length}건 · 기관 ${orgPlan.rows.length}곳, 버전 ${args.version}.`)
     console.log(`이 버전을 쓰려면 \`KB_VERSION=${args.version}\` 을 환경에 넣으세요 (ADR-045).`)
     return 0
   } finally {
@@ -205,3 +235,27 @@ main().then(
     process.exitCode = 1
   },
 )
+
+/**
+ * 기관 한 곳을 넣는다 → §11.1.
+ *
+ * 열쇠가 `(org_id, kb_version)` 이라 **같은 릴리스 안에서만 덮어씁니다.**
+ * 지난 릴리스의 번호는 그대로 남습니다 — 「그때 무엇을 안내했나」가 남아야 합니다.
+ */
+async function insertOrg(tx: Tx, row: OrgRow): Promise<void> {
+  await tx`
+    INSERT INTO org
+      (org_id, kb_version, channel_id, name, aliases, contact, source_url, verified_at)
+    VALUES
+      (${row.org_id}, ${row.kb_version}, ${row.channel_id}, ${row.name},
+       ${tx.json(row.aliases as never)}, ${tx.json(row.contact as never)},
+       ${row.source_url}, ${row.verified_at})
+    ON CONFLICT (org_id, kb_version) DO UPDATE SET
+      channel_id = EXCLUDED.channel_id,
+      name = EXCLUDED.name,
+      aliases = EXCLUDED.aliases,
+      contact = EXCLUDED.contact,
+      source_url = EXCLUDED.source_url,
+      verified_at = EXCLUDED.verified_at
+  `
+}

@@ -26,6 +26,9 @@ import 'server-only'
 import type { Container } from '@/lib/container'
 import { BadRequestError } from '@/lib/http'
 
+import { channelForOption } from '@/lib/questions'
+import { matchOrg } from '@/lib/org-match'
+
 import { tierOf, valueTypeOf } from '@/modules/slot-checker'
 
 import { readCasePlan, regeneratePlan } from './regenerate-plan'
@@ -121,6 +124,8 @@ export async function answerSlot(
       valueMasked: rechecked.masked,
       source: 'user',
     })
+    await recordChannel(input.caseId, input.slotKey, raw, rechecked.masked, container)
+
     return {
       slotKey: input.slotKey,
       state: 'confirmed',
@@ -168,12 +173,79 @@ export async function answerSlot(
     source: 'user',
   })
 
+  await recordChannel(input.caseId, input.slotKey, raw, masked.masked, container)
+
   return {
     slotKey: input.slotKey,
     state: 'confirmed',
     value: masked.masked,
     piiConfirm: null,
     planRegenerated: true,
+  }
+}
+
+/**
+ * 답이 경유 서비스·기관을 정하면 `case_channel` 에 적는다 → §4 · §4.1.
+ *
+ * ⚠️ **2026-08-25 까지 이 자리가 없었습니다.** 사용자가 「시중은행 계좌이체」를
+ * 골라도 그 라벨 문자열이 슬롯에만 남고 `case_channel` 은 비어 있었습니다.
+ * 그래서 **유형별 KB 가 조회에 안 걸리고**(§11.2 2순위) **번호도 안 붙었습니다.**
+ * `channelForOption` 은 만들어져 있었는데 부르는 자리가 없었습니다.
+ *
+ * ## 매칭은 원문으로, 저장은 가린 값으로
+ *
+ * 「국민은행」은 개인정보가 아니지만(§4.1 · ADR-011) 2차 모델이 기관명을 집을 수
+ * 있습니다. 가린 값으로 매칭하면 `[기관-1]` 과 별칭을 견주게 되어 **늘 실패**하고,
+ * 원문을 저장하면 경계가 깨집니다. 그래서 **견주는 것은 원문, 표에 남기는 것은
+ * 가린 값**입니다 — 나온 `org_id` 자체는 개인정보가 아닙니다.
+ *
+ * **실패해도 답 저장을 되돌리지 않습니다.** 기관을 못 찾는 것은 정상이고
+ * (§4.1 *"못 찾아도 진행합니다"*), 유형 기본 절차는 그대로 나갑니다.
+ */
+async function recordChannel(
+  caseId: string,
+  slotKey: string,
+  raw: string,
+  masked: string,
+  container: Container,
+): Promise<void> {
+  try {
+    if (slotKey === 'channel') {
+      // 화면이 보내는 것은 사람이 읽는 라벨입니다. **8유형 밖의 값을 만들지
+      // 않습니다** — 표에 없으면 답으로 못 받은 것으로 둡니다 (questions.ts)
+      const channelId = channelForOption(raw) ?? channelForOption(masked)
+      if (!channelId) return
+      await container.channelWrite.write({
+        caseId,
+        channelId,
+        orgId: null,
+        orgNameRaw: null,
+        source: 'user',
+      })
+      return
+    }
+
+    if (slotKey === 'org_name') {
+      // **유형을 알아야 후보를 좁힙니다.** 전 기관에서 「제주」를 찾으면
+      // 제주은행과 다른 곳이 함께 걸릴 수 있습니다
+      const channel = await container.ports.casePlan.readChannel(caseId)
+      if (!channel) return
+
+      const version = await container.ports.kbVersion.current()
+      const candidates = await container.channelWrite.candidates(channel.channelId, version)
+
+      await container.channelWrite.write({
+        caseId,
+        channelId: channel.channelId,
+        // 못 찾으면 `null` — 유형 기본으로 갑니다 (§11.4.3)
+        orgId: matchOrg(raw, candidates),
+        orgNameRaw: masked,
+        source: 'user',
+      })
+    }
+  } catch {
+    // 여기서 던지면 **답이 저장됐는데 응답이 500** 이 됩니다. 사용자는
+    // 같은 답을 다시 넣게 되고, 그때도 같은 자리에서 터집니다
   }
 }
 

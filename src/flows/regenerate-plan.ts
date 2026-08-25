@@ -47,6 +47,7 @@ import { kbRowToPlanStep } from '@/lib/adapters'
 import { serverClock } from '@/lib/clock'
 import { CaseNotFoundError } from '@/lib/http'
 import type { Container } from '@/lib/container'
+import { withContacts } from '@/lib/contact'
 import type { DeadlineChange } from '@/lib/db'
 
 import type { OpenedCase, Track } from '@/modules/case-intake'
@@ -273,7 +274,8 @@ export async function regeneratePlan(
     superset: check.needsSupersetPlan,
   })
 
-  const steps = await store.applyPlan(caseId, result)
+  const applied = await store.applyPlan(caseId, result)
+  const steps = await dressContacts(caseId, applied, { container, store })
 
   // **단계가 정해진 뒤입니다.** 기한은 단계에 딸리므로 순서가 뒤집히면
   // 방금 생긴 단계의 기한이 한 박자 늦게 생깁니다
@@ -301,6 +303,38 @@ export async function regeneratePlan(
     changedDeadlines,
     auditId: record.auditId,
   }
+}
+
+/**
+ * 단계 본문의 `contact_ref` 를 실제 번호로 바꾼다 → §3.6 `body.contact`.
+ *
+ * **세 경로가 같은 값을 봐야 합니다** — 사건 생성(§3.1) · 플랜 조회(§3.6) ·
+ * 재생성. 라우트마다 따로 풀면 어떤 화면은 번호를 받고 어떤 화면은 못 받습니다.
+ *
+ * **못 풀어도 단계는 그대로 나갑니다** → §11.4.3. 기관을 특정 못 했거나
+ * (`org_id` 가 `null`) 그 릴리스에 그 기관이 없으면 `contact` 가 `null` 입니다 —
+ * 연락처는 절차의 부속이지 절차 자체가 아닙니다.
+ */
+async function dressContacts(
+  caseId: string,
+  steps: readonly StoredStep[],
+  deps: { container: Container; store: CasePlanStore },
+): Promise<readonly StoredStep[]> {
+  if (steps.length === 0) return steps
+
+  const channel = await deps.store.readChannel(caseId)
+  // 기관을 특정 못 했으면 풀 것이 없습니다. **유형 기본 절차는 그대로입니다**
+  if (!channel?.orgId) return steps
+
+  // **단계가 만들어진 릴리스로 읽습니다.** 지금 릴리스로 읽으면 옛 플랜에
+  // 새 번호가 붙어, 「그때 무엇을 안내했나」가 실제와 어긋납니다
+  const org = await deps.container.orgs
+    .read(channel.orgId, steps[0]!.kbVersion)
+    // 기관을 못 찾는 것은 안내를 멈출 이유가 아닙니다
+    .catch(() => null)
+  if (!org) return steps
+
+  return steps.map((one) => ({ ...one, body: withContacts(one.body, org.contact) }))
 }
 
 /**
@@ -342,10 +376,11 @@ export async function readCasePlan(
     throw new CaseNotFoundError('그 사건을 찾지 못했습니다', { caseId })
   }
 
-  const [slots, steps] = await Promise.all([
+  const [slots, stored] = await Promise.all([
     store.readSlots(caseId),
     store.readSteps(caseId),
   ])
+  const steps = await dressContacts(caseId, stored, { container, store })
 
   // 슬롯이 하나도 없어도 판정합니다 — T1 미충족이고, 그것이 정상입니다
   const check = container.slotChecker.check({ slots })
