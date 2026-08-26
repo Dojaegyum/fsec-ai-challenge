@@ -9,6 +9,7 @@ FINALLY_STT      medium | large-v3 …   전사 모델 크기
 FINALLY_COMPUTE  int8 | float16        정밀도. CPU 면 int8, GPU 면 float16
 FINALLY_NER      gemma3:4b …           사람 이름을 찾는 모델 (Ollama)
 FINALLY_OLLAMA   기본 127.0.0.1:11434   그 모델이 도는 자리
+FINALLY_NER_KEEPALIVE  기본 -1          그 모델을 GPU 에 얼마나 두나 (`5m` 이면 5분)
 FINALLY_TOKEN    (없으면 인증 안 함)      앱만 부를 수 있게 하는 공유 비밀
 FINALLY_WORKDIR  기본 ./.work           내려받은 파일을 두는 자리
 ```
@@ -36,6 +37,8 @@ class Config:
     # 사람 이름을 찾는 모델과 그것이 도는 자리 → docs/research/09 R-1
     ner_model: str
     ollama_url: str
+    # 그 모델을 GPU 에 얼마나 두나 → engines/ollama_ner.py 머리의 실측
+    ner_keep_alive: str
     token: str | None
     workdir: str
     # 내려받을 파일의 상한. 사건당 상한이 300MB 라 그보다 크면 애초에 못 올라옵니다
@@ -59,6 +62,9 @@ def load() -> Config:
         # → docs/research/09 §3. qwen3:4b 도 같은 자리에서 재 봤습니다
         ner_model=os.environ.get("FINALLY_NER", "gemma3:4b"),
         ollama_url=os.environ.get("FINALLY_OLLAMA", "http://127.0.0.1:11434"),
+        # 기본은 「안 내림」. Ollama 기본값 5분으로 두면 그 사이 쉰 다음 사람이
+        # 5.5초를 맞습니다 — 전용 기기를 전제로 한 값이라, 남과 나눠 쓰면 `5m`
+        ner_keep_alive=os.environ.get("FINALLY_NER_KEEPALIVE", "-1"),
         token=os.environ.get("FINALLY_TOKEN") or None,
         workdir=os.environ.get("FINALLY_WORKDIR", "./.work"),
         max_bytes=int(os.environ.get("FINALLY_MAX_BYTES", 300 * 1024 * 1024)),

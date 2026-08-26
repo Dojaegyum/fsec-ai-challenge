@@ -50,6 +50,14 @@ Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으�
 **없어도 도는 것** — `TRANSCRIBER_URL`(비면 녹음이 글로 안 옮겨지고, **사건 진행은
 그대로 돕니다**) · `CASE_PURGE_DAYS`(기본 180) · `ADMIN_*`(관리자 화면이 아직 없습니다).
 
+> ⛔ **`NER_URL` 은 다릅니다 — 채웠으면 그 서버가 살아 있어야 합니다.**
+> `TRANSCRIBER_URL` 은 비면 **파일만** 안 되는데, 이쪽은 **경계**라 못 가리면
+> 안 내보냅니다 — 서버가 죽으면 슬롯 저장이 `503 PII_TOKENIZER_UNAVAILABLE` 이
+> 되어 **사건 진행이 멈춥니다**(설계대로). 빌린 GPU 는 끝나면 지우는 것이
+> [ADR-043](../decisions/043-gpu-hosting.md) 이므로, **켜 둔 동안에만 채우는 값**입니다.
+> 비워 두면 이름이 안 가려지고(1차 정규식만), 그 사실은 `nerApplied` 와
+> 설정 현황에 남습니다. 세우는 절차는 [`runpod-bench.md`](runpod-bench.md).
+
 > ⚠️ **`service_role` 키는 행 단위 접근 제어를 통과합니다.** Preview 환경까지
 > 같은 키를 넣으면 PR 미리보기 주소로 운영 데이터가 열립니다. Production 에만 넣으세요.
 
@@ -116,6 +124,24 @@ npm run kb:load -- --version 2026.08.1
 **같은 값을 `KB_VERSION` 환경변수에 넣어야 합니다.** 적재만 하고 환경변수를 안
 바꾸면 앱은 옛 릴리스를 계속 인용합니다 — 그게 [ADR-045](../decisions/045-kb-release-pin.md)
 가 의도한 동작입니다(검수 전 버전이 피해자에게 안 나가게).
+
+### ⛔ **배포 환경의 값까지 올려야 한 작업이 끝납니다**
+
+로컬 `.env.local` 만 고치고 끝내면 **배포본만 옛 릴리스에 남습니다.** 2026-08-26 에
+실제로 그랬습니다 — 운영이 카드·상품권·통신 유형이 없던 릴리스를 보고 있어서
+**카드 피해자에게 환급법 절차와 3영업일 기한이 나가고 있었습니다.** 조용해서
+아무도 몰랐고, 아홉 유형을 배포본에 걸어 보고서야 드러났습니다.
+
+```bash
+cd src
+vercel env ls production                     # 지금 무엇이 박혀 있나
+printf '2026.08.17' | vercel env add KB_VERSION production --force
+vercel deploy --prod                         # ⚠️ 환경변수는 다시 빌드해야 반영됩니다
+```
+
+⚠️ **`rm` 하고 `add` 하지 마세요.** 그 사이 몇 분 동안 값이 없어 **운영이 멈춥니다**
+— `pinnedKbVersion` 이 `unconfigured` 가 되어 `POST /api/cases` 가 응답하지 않습니다.
+2026-08-26 에 그렇게 장애를 냈습니다. **`--force` 로 덮어쓰세요.**
 
 ---
 

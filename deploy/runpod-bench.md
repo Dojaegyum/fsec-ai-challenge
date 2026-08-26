@@ -65,6 +65,52 @@ runtime.ports 에 type:"tcp" · private:22 항목이 있어야  →  ssh/scp 가
 **`tar` 에 `--no-same-owner`.** 없으면 Windows 에서 만 꾸러미의 uid 를 그대로 쓰려다
 `Cannot change ownership` 로 실패합니다.
 
+## 재는 게 아니라 **띄울** 때 — 이름 찾기 서비스 (2026-08-27 실제 순서)
+
+벤치는 한 번 재고 끝이지만, 데모는 **앱이 부르는 동안 살아 있어야** 합니다.
+아래는 RTX 4090 팟에 `services/transcriber` 를 올려 `POST /ner` 를 연 순서
+그대로입니다. 측정값은 [research/09 §7.2](../docs/research/09-로컬모델-PII인식-실측.md).
+
+```bash
+# 1. 모델 — Ollama 는 GPU 를 스스로 찾습니다 (설치 로그의 "GPU 못 찾음" 경고는 무시)
+curl -fsSL https://ollama.com/install.sh | sh
+setsid nohup ollama serve > /tmp/ollama.log 2>&1 < /dev/null &
+ollama pull gemma3:4b                 # 3.1GB · 8분쯤
+
+# 2. 전사 쪽 의존성
+apt-get install -y ffmpeg
+pip install --break-system-packages -r requirements.txt -r requirements-models.txt
+
+# 3. 서비스 — 로컬에서 꾸러미로 올립니다
+#    tar czf - --exclude=__pycache__ -C services transcriber | ssh … "tar xzf - --no-same-owner -C /opt/finally"
+FINALLY_ENGINE=local FINALLY_DEVICE=cuda FINALLY_COMPUTE=float16 \
+FINALLY_STT=large-v3 FINALLY_NER=gemma3:4b FINALLY_WARMUP=1 \
+FINALLY_TOKEN=<공유 비밀> \
+  python3 -m uvicorn transcriber.app:app --host 0.0.0.0 --port 8917
+
+# 4. 확인 — 아무도 요청하지 않았는데 모델이 올라와 있어야 합니다
+ollama ps                             # gemma3:4b … 100% GPU … Forever
+curl -s localhost:8917/health         # "ready": true
+```
+
+밖에서는 `https://<팟ID>-8917.proxy.runpod.net` 입니다(팟 생성 때 `8917/http`).
+
+### ⛔ `FINALLY_WARMUP=1` 을 빼면 **첫 요청이 실패합니다**
+
+첫 적재가 **60초를 넘겨** 그대로 타임아웃했습니다. 이름 찾기가 죽으면 앱은 슬롯
+저장을 503 으로 막으므로(경계라서 못 가리면 안 내보냅니다) **첫 사용자가 그것을
+맞으면 사건 진행이 멈춥니다.** 켜면 첫 요청이 0.4초입니다.
+
+### ⚠️ `pkill -f uvicorn` 은 **당신의 ssh 세션을 죽입니다**
+
+`pkill -f` 는 명령줄 전체를 봅니다. ssh 로 보낸 명령줄에 `uvicorn` 이라는 글자가
+들어 있으므로 **그 명령을 실행 중인 셸이 스스로 걸립니다.** 출력 없이 세션만
+끊겨서 원인을 찾기 어렵습니다. 다시 띄우는 일은 **팟 안에 스크립트 파일로 두고**
+`setsid /opt/finally/restart.sh < /dev/null` 로 부르세요.
+
+같은 이유로 `nohup … &` 만으로는 ssh 가 끊길 때 함께 죽는 경우가 있습니다 —
+`setsid nohup … < /dev/null &` 로 떼어 두세요.
+
 ## 무엇을 올려도 되나
 
 **합성 데이터만.** 실제 피해자의 음성·이미지는 올리지 않습니다 —
