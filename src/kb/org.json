@@ -576,8 +576,11 @@
       "channel_id": "CH-carrier",
       "name": "LG유플러스",
       "aliases": ["LGU+", "엘지유플러스", "유플러스", "LG U+"],
-      "contact": {},
-      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "contact": {
+        "report_tel": "1544-0010",
+        "report_steps": "그 통신사 휴대폰에서는 114 로 걸면 무료입니다. 다른 전화에서는 위 번호로 거세요"
+      },
+      "source_url": "https://www.lguplus.com/",
       "verified_at": "2026-08-26"
     },
     {
@@ -585,8 +588,11 @@
       "channel_id": "CH-carrier",
       "name": "헬로모바일",
       "aliases": ["LG헬로비전", "헬로비전"],
-      "contact": {},
-      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "contact": {
+        "report_tel": "1855-1000",
+        "caution": "1855-1082 는 가입 상담 번호라 다릅니다. 결제 문제는 위 고객행복센터로 거세요"
+      },
+      "source_url": "https://www.lghellovision.net/",
       "verified_at": "2026-08-26"
     },
     {
