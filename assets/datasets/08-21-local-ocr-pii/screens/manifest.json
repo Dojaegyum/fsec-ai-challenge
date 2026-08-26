@@ -1,0 +1,205 @@
+{
+  "condition": "12 §1 절차로 다시 그림",
+  "items": [
+    {
+      "id": "I01",
+      "ch": "CH-bank",
+      "screen": "bank_transfer",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I02",
+      "ch": "CH-bank",
+      "screen": "bank_transfer",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I03",
+      "ch": "CH-bank",
+      "screen": "bankbook",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I04",
+      "ch": "CH-neobank",
+      "screen": "bank_transfer",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I05",
+      "ch": "CH-neobank",
+      "screen": "bank_transfer",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I06",
+      "ch": "CH-easypay",
+      "screen": "easypay_history",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I07",
+      "ch": "CH-easypay",
+      "screen": "easypay_history",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I08",
+      "ch": "CH-easypay",
+      "screen": "easypay_history",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I09",
+      "ch": "CH-securities",
+      "screen": "securities_withdraw",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I10",
+      "ch": "CH-securities",
+      "screen": "securities_withdraw",
+      "size": [
+        900,
+        496
+      ],
+      "fields": 4
+    },
+    {
+      "id": "I11",
+      "ch": "CH-crypto",
+      "screen": "crypto_withdraw",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I12",
+      "ch": "CH-crypto",
+      "screen": "crypto_withdraw",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I13",
+      "ch": "CH-giftcard",
+      "screen": "sms_giftcard",
+      "size": [
+        900,
+        372
+      ],
+      "fields": 2
+    },
+    {
+      "id": "I14",
+      "ch": "CH-giftcard",
+      "screen": "sms_giftcard",
+      "size": [
+        900,
+        372
+      ],
+      "fields": 2
+    },
+    {
+      "id": "I15",
+      "ch": "CH-carrier",
+      "screen": "sms_carrier",
+      "size": [
+        900,
+        372
+      ],
+      "fields": 2
+    },
+    {
+      "id": "I16",
+      "ch": "CH-carrier",
+      "screen": "sms_carrier",
+      "size": [
+        900,
+        372
+      ],
+      "fields": 2
+    },
+    {
+      "id": "I17",
+      "ch": "CH-facetoface",
+      "screen": "sms_impersonation",
+      "size": [
+        900,
+        372
+      ],
+      "fields": 2
+    },
+    {
+      "id": "I18",
+      "ch": "CH-facetoface",
+      "screen": "sms_impersonation",
+      "size": [
+        900,
+        372
+      ],
+      "fields": 2
+    },
+    {
+      "id": "I19",
+      "ch": "CH-bank",
+      "screen": "bank_transfer",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    },
+    {
+      "id": "I20",
+      "ch": "CH-neobank",
+      "screen": "bankbook",
+      "size": [
+        900,
+        558
+      ],
+      "fields": 5
+    }
+  ]
+}

@@ -8,6 +8,7 @@
 | **앱** (Next.js) | **Vercel** · 서울(`icn1`) | [ARCHITECTURE §8](../ARCHITECTURE.md#8-배포) |
 | **DB · 저장소** | **Supabase** · 서울(`ap-northeast-2`) | [ADR-016](../decisions/016-retention-and-datastore.md) |
 | **전사·판독** | **OCI** · [`oci-provision.py`](oci-provision.py) | 모델을 서버리스 함수에 못 띄웁니다 → [ADR-028](../decisions/028-runtime-and-module-shape.md) |
+| **벤치마크용 GPU** | **RunPod** · [`runpod-bench.md`](runpod-bench.md) | 합성 데이터만 올립니다 → [ADR-043](../decisions/043-gpu-hosting.md). **띄운 직후 확인할 것 둘**이 거기 있습니다 |
 
 셋이 **같은 리전(서울)** 이어야 합니다. 「데이터가 어디 있느냐」가 심사 질문이고,
 서버리스 함수와 DB 가 대륙을 건너면 요청마다 왕복이 붙습니다.

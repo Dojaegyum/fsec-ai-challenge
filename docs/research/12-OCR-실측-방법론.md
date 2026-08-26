@@ -145,6 +145,13 @@ Tesseract 전용 후처리입니다. 줄을 공백으로 자른 뒤, **한 글�
 측정 하네스는 저장소에 넣지 않았습니다 — 버리는 것을 전제로 쓴 코드입니다.
 위 절차와 프롬프트면 다시 만들 수 있습니다.
 
+> **그 자리를 뒤늦게 메웠습니다** → [16](16-OCR-GPU-실측.md) §6.
+> 화면이 견본 두 장뿐이라 **OCR 엔진을 다시 못 돌리는** 상태였습니다. §1 절차대로
+> 다시 그리는 [make_screens.py](../../assets/datasets/08-21-local-ocr-pii/make_screens.py) 와
+> [bench_ocr.py](../../services/transcriber/bench_ocr.py) 를 남겼고, 그린 화면 60장도
+> [screens/](../../assets/datasets/08-21-local-ocr-pii/screens/) 에 넣었습니다.
+> ⚠️ **12 의 그 화면과 픽셀 단위로 같지는 않습니다** — 절대값을 나란히 놓지 마세요.
+
 **`ocr-text.json` 이 있어 OCR 을 다시 돌리지 않고 탐지기·후처리만 바꿔 잴 수 있습니다** —
 EasyOCR 이 장당 80\~95초, 비전 모델이 176\~240초라 그 시간을 통째로 아낍니다.
 
