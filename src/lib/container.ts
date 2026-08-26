@@ -33,7 +33,7 @@ import { linkTokenSource, newUlid, ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
 import { createHolidayCalendar } from './holidays'
-import { createLlmClient } from './llm'
+import { createLlmClient, type TextLlmClient } from './llm'
 import { createQuestionSource } from './questions'
 import {
   createAuditStore,
@@ -197,7 +197,7 @@ export interface Ports {
    * 어디에 둘지가 정해져야 하고(그 자리가 아직 없습니다), ③은 층 1 이
    * 챗 전용 형식에 묶입니다.
    */
-  readonly llm: LlmClient
+  readonly llm: TextLlmClient
   /** 메일 발송 */
   readonly mailer: Mailer
   /** 접수번호 형식 */

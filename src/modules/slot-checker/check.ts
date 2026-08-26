@@ -177,8 +177,13 @@ function pickQuestion(
   questions: QuestionSource,
   orgCandidates: readonly string[],
 ): NextQuestion | null {
-  // **못 알아본 기관은 다시 묻는다** → 08-16-data-model.md §11.4.4 ①
+  // **확정되지 않은 기관은 다시 묻는다** → 08-16-data-model.md §11.4.4 ①
   // *"못 찾으면 되묻는 편이 안전합니다"*.
+  //
+  // 여기로 오는 길이 둘이다 — 사용자가 답한 표기를 사전에서 못 찾았거나
+  // (`flows/answer-slot.ts`), 전사문에서 모델이 짚은 것이 확인 전이거나
+  // (`flows/read-evidence.ts` → ADR-056). 둘 다 「값은 있는데 확정 전」이라
+  // 같은 문항으로 묻는다.
   //
   // 이 자리가 아래 순회 앞에 있는 이유는, 값이 있어서 `empty` 가 아니기
   // 때문이다 — 순회는 `empty` 만 본다. 되묻지 않으면 사용자는 아무 말도
@@ -198,7 +203,7 @@ function pickQuestion(
   if (!t1Pending && stateOf('org_name') === 'extracted' && orgCandidates.length > 0) {
     return withUnknownOption({
       slotKey: 'org_name',
-      text: '말씀하신 곳을 찾지 못했습니다. 아래에서 골라 주세요.',
+      text: '어느 곳이었는지 골라 주세요.',
       input: 'buttons',
       options: orgCandidates,
     })
