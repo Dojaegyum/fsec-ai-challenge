@@ -131,6 +131,7 @@
 | [053](053-deploy-on-merge.md) | 배포는 `main` 머지에서 GitHub Actions 가 한다 — Vercel Git 연동은 쓰지 않는다 | 채택 |
 | [054](054-notice-anchor.md) | 채권소멸공고의 기산일은 통지문에서 온다 | 채택 |
 | [055](055-channel-card.md) | 카드를 아홉째 유형으로 세운다 — 근거법이 다르면 조건문으로 못 붙인다 | 채택 |
+| [056](056-transcript-org-normalization.md) | 전사문의 기관명은 토큰화 뒤에 외부 모델로 교정하고, 확정은 사용자가 한다 | 채택 |
 
 ## 아직 안 쓴 것
 
