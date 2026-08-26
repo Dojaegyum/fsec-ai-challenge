@@ -34,7 +34,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from .config import load
-from .engines import build_ocr, build_stt
+from .engines import build_ner, build_ocr, build_stt
 from .jobs import JobStore
 
 log = logging.getLogger("transcriber")
@@ -48,6 +48,7 @@ app = FastAPI(title="FinAlly transcriber", version="0.1.0")
 _lock = threading.Lock()
 _stt = None
 _ocr = None
+_ner = None
 
 # 미리 올리기가 끝났나. 배포에서 「받을 준비가 됐나」를 이걸로 봅니다
 _ready = False
@@ -67,6 +68,19 @@ def ocr():
         if _ocr is None:
             _ocr = build_ocr(cfg)
         return _ocr
+
+
+def ner():
+    """이름을 찾는 엔진.
+
+    **미리 올리지 않습니다.** 모델이 이 프로세스가 아니라 Ollama 안에 있어서,
+    여기서 만드는 것은 주소를 든 객체뿐입니다 — 올릴 것이 없습니다.
+    """
+    global _ner
+    with _lock:
+        if _ner is None:
+            _ner = build_ner(cfg)
+        return _ner
 
 
 def _warm() -> None:
@@ -193,11 +207,73 @@ def health() -> dict[str, Any]:
         "device": cfg.device,
         "stt_model": cfg.stt_model,
         "compute_type": cfg.compute_type,
+        "ner_model": cfg.ner_model,
         "echo": cfg.is_echo,
         "authenticated": cfg.token is not None,
         # 미리 올리기를 켰으면 끝나야 True. 배포 상태검사가 이걸 기다립니다
         "ready": _ready,
     }
+
+
+class NerRequest(BaseModel):
+    """앱이 보내는 것 — **글 자체입니다.** 파일이 아니라서 주소가 아닙니다."""
+
+    text: str
+    # 앱이 어느 모델을 쓰라고 말할 수 있습니다. 안 오면 서비스 기본값입니다.
+    # ⬜ **아직 여기서 갈아끼우지 않습니다** — 요청마다 모델을 바꾸면 같은 사건이
+    #    두 모델을 지나 가린 자리가 달라집니다. 받아만 두고 `/health` 로 답합니다
+    model: str | None = None
+
+
+@app.post("/ner")
+def ner_find(
+    req: NerRequest, x_finally_token: str | None = Header(default=None)
+) -> dict[str, Any]:
+    """글에서 사람 이름을 찾는다. **여기는 기다립니다** — 전사와 다릅니다.
+
+    정본: spec/common/08-14-api.md §1.2 의 `/ner` · src/lib/ner.ts
+
+    발화 한 토막이라 GPU 에서 1초 안팎입니다. 전사처럼 맡기고 물어볼 이유가 없습니다.
+    **CPU 에서는 15~39초**라(09 §6.2) 그쪽으로는 이 경로를 쓰지 마세요.
+
+    ## 못 하면 500 입니다 — 빈 목록이 아닙니다
+
+    앱이 빈 목록을 받으면 **「이름은 없었다」로 읽습니다.** 모델이 안 돌아서 못 찾은
+    것과 정말 없는 것은 다른 일이고, 둘을 같게 만들면 **토큰화 없이 LLM 을 부르는
+    우회 경로**가 생깁니다 → CLAUDE.md 불변 규칙 2.
+
+    ⚠️ **오류 본문에 원문을 담지 않습니다.** 이 자리로 진술이 그대로 지나갑니다.
+    """
+    _guard(x_finally_token)
+    try:
+        return ner().find(req.text)
+    except Exception as error:  # noqa: BLE001 — 이유만 남기고 본문은 안 담습니다
+        log.warning("이름 찾기 실패: %s", type(error).__name__)
+        raise HTTPException(status_code=500, detail=_reason(error)) from None
+
+
+# 밖으로 내보내도 되는 이유들. **여기 없는 것은 통째로 가립니다** —
+# 예외 메시지에 원문 조각이 섞여 나가는 경로를 남기지 않습니다
+_REASONS = frozenset(
+    {
+        "ner_unreachable",
+        "ner_no_response",
+        "ner_bad_json",
+        "ner_bad_shape",
+    }
+)
+
+
+def _reason(error: Exception) -> str:
+    text = str(error)
+    if text in _REASONS:
+        return text
+    # `ner_http_503` 처럼 뒤가 숫자일 때만. 「로 시작한다」로 두면 뒤에 무엇이든
+    # 붙여 내보낼 수 있는 자리가 됩니다
+    head, _, tail = text.partition("ner_http_")
+    if head == "" and tail.isdigit():
+        return text
+    return "ner_failed"
 
 
 @app.post("/jobs", status_code=202)

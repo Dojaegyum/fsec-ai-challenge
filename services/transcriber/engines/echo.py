@@ -102,6 +102,27 @@ class EchoOcr:
         return {"engine": "echo", "lines": _IMAGE_LINES}
 
 
+class EchoNer:
+    """모델 없이 이름을 찾는 대역 — **모양만 맞춰 흐름을 이어 줍니다.**
+
+    ⚠️ **경계가 아닙니다.** 아래 목록에 없는 이름은 못 찾습니다. `engine` 에
+    `echo` 가 실리므로 **진짜로 판정한 것이 아니라는 사실이 응답에 남습니다** —
+    STT·OCR 대역과 같은 규칙입니다.
+
+    이 이름들은 `_AUDIO_LINES`·평가셋에 나오는 것과 같은 임의값입니다.
+    """
+
+    name = "echo"
+
+    # 실측 평가셋에 나오는 이름들 → docs/research/09 §2.1
+    KNOWN = ["김민수", "김도현", "이정훈", "박서준", "최유진"]
+
+    def find(self, text: str) -> dict[str, Any]:
+        from .spans import locate
+
+        return {"engine": "echo", "spans": locate(text, list(self.KNOWN))}
+
+
 def enabled() -> bool:
     """대역으로 돌고 있는가. 설정 현황과 응답에 그대로 실립니다."""
     return os.environ.get("FINALLY_ENGINE", "echo") == "echo"

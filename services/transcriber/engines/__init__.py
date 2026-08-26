@@ -13,8 +13,8 @@
 from __future__ import annotations
 
 from ..config import Config
-from .base import OcrEngine, SttEngine
-from .echo import EchoOcr, EchoStt
+from .base import NerEngine, OcrEngine, SttEngine
+from .echo import EchoNer, EchoOcr, EchoStt
 
 
 def build_stt(cfg: Config) -> SttEngine:
@@ -35,4 +35,25 @@ def build_ocr(cfg: Config) -> OcrEngine:
     return EasyOcrReader(device=cfg.device)
 
 
-__all__ = ["OcrEngine", "SttEngine", "build_ocr", "build_stt"]
+def build_ner(cfg: Config) -> NerEngine:
+    """이름을 찾는 엔진.
+
+    **`FINALLY_ENGINE` 하나로 셋이 같이 갈립니다.** 전사만 진짜고 탐지는 대역인
+    상태를 만들지 않으려는 것입니다 — 그러면 `engine` 칸만 보고는 무엇이 진짜인지
+    알 수 없어집니다.
+    """
+    if cfg.is_echo:
+        return EchoNer()
+    from .ollama_ner import OllamaNer
+
+    return OllamaNer(base_url=cfg.ollama_url, model=cfg.ner_model)
+
+
+__all__ = [
+    "NerEngine",
+    "OcrEngine",
+    "SttEngine",
+    "build_ner",
+    "build_ocr",
+    "build_stt",
+]

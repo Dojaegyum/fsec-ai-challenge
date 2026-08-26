@@ -487,9 +487,12 @@ sequenceDiagram
   실측이 깨끗한 텍스트에서 누출 0%·과차단 0% 를 냈고([research/09](docs/research/09-로컬모델-PII인식-실측.md) R-1),
   두는 곳은 [ADR-043](decisions/043-gpu-hosting.md)의 개발·데모 조건 그대로입니다 —
   **합성 데이터만 올리고 끝나면 terminate.** CPU 로는 발화당 15~39초라 안 됩니다([09 §6.2](docs/research/09-로컬모델-PII인식-실측.md)).
-  **앱 쪽은 준비돼 있습니다** — `NER_URL` 이 있으면 붙고 없으면 `null` 입니다
-  (`src/lib/ner.ts` · [API 계약](spec/common/08-14-api.md) §1.2 의 `/ner`).
-  ⬜ **남은 것은 서비스 구현입니다** — `services/` 에 `/ner` 한 길을 세우는 일
+  **양쪽 다 섰습니다** — 앱은 `NER_URL` 이 있으면 붙고 없으면 `null`(`src/lib/ner.ts`),
+  서비스는 `POST /ner` 한 길(`services/transcriber/`). 2026-08-27 에 `echo` 대역으로
+  **걸어서 확인**했습니다 — 「김민수」가 `[이름-1]` 로 바뀌고, 서비스를 끄면
+  슬롯 답변이 `503 PII_TOKENIZER_UNAVAILABLE` 이 됩니다(설계대로).
+  ⬜ **남은 것은 실제 모델입니다** — Ollama + gemma3:4b 로는 아직 안 돌려 봤습니다.
+  GPU 가 붙는 날 재야 합니다
 - **GPU 를 어디에 두나** → 개발은 해외 대여, 운영은 국내 ([ADR-043](decisions/043-gpu-hosting.md)). **운영 벤더는 국내 단가 확인 후** ([research/13](docs/research/13-GPU-클라우드-단가.md) G-02)
 - Grok 모델명과 단가
 - 환경 분리 · 시드 데이터 · 애플리케이션 로그
