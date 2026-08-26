@@ -34,28 +34,40 @@
 
 ---
 
-## ⛔ 2026-08-26 — CI 와 배포가 멈췄습니다. **이게 지금 가장 위입니다**
+## ⚠️ 2026-08-26 — CI 와 배포가 멈췄습니다 → **원인 둘 다 확인됐고, 16:19 부터 돌아옵니다**
 
 ```
-13:51  워크플로 여덟 전부 success        ← 마지막으로 정상이던 때
-15:14~ 전부 startup_failure (0초)
-15:17  deploy 가 queued 인 채 러너가 안 붙습니다
+13:35  #59 의 Vercel 배포가 BLOCKED           ← ① 작성자가 팀 소유자가 아니라 Vercel 이 막음. CLI 는 2시간 48분 대기
+13:51  워크플로 여덟 전부 success            ← 검사는 마지막으로 정상이던 때
+15:11  GitHub "Incident with Actions" (Critical) ← ② 러너 장애
+15:14~ 전부 startup_failure (0초) · queued 인 채 러너 미할당
+16:19~ 실행이 다시 돕니다 · push 이벤트는 십몇 분 늦거나 안 옵니다
+16:37  866619b(#67) 이 프로덕션 — Run workflow 로 손으로
 ```
 
-**`fin-ally-khaki` 는 200 을 냅니다. 그런데 그건 15:14 이전 빌드입니다** —
-그 뒤 deploy 가 하나도 완료되지 않았습니다. 「머지가 곧 배포」([ADR-053](../../decisions/053-deploy-on-merge.md))라
-**머지했으니 올라갔다고 보면 안 됩니다.**
+**`fin-ally-khaki` 는 `main` 끝(866619b)입니다** — 16:25 부터 2bec464 · 53e578a · 17dcde2 · 866619b 가
+차례로 올라갔습니다. 다만 `push` 이벤트가 늦거나 안 오는 동안은 **머지 뒤 Actions 탭에서 deploy
+실행이 생겼는지 보고, 없으면 Run workflow** 입니다 ([ADR-053](../../decisions/053-deploy-on-merge.md)).
 
 ⛔ **#63 은 검사 0개로 머지됐습니다**(`gh pr checks 63` → *"no checks reported"*).
 `src/lib/org-repair.ts` 가 CI 를 한 번도 안 거치고 `main` 에 있습니다.
 
-⚠️ **#64 의 실패는 startup 이 아니라 진짜입니다** — `code-check` 15분53초 뒤 failure,
-`module-sync` 1분2초 뒤 failure. 둘을 섞어 보면 진짜 결함을 놓칩니다.
+⚠️ **#64 의 16분짜리 실패는 진짜가 아니라 장애입니다** — 그 잡의 주석이
+*"The job was not acquired by Runner of type hosted even after multiple attempts"* 입니다.
+로컬 여덟은 8/8 통과였습니다(아래). 실행 시간을 같이 보세요.
 
-- [ ] **사람이 GitHub → Settings → Billing 을 봐야 합니다.** 비공개 저장소 + 0초
-      startup_failure + queued 인 채 러너 미할당은 **무료 Actions 분 소진**의 전형입니다.
-      워크플로 파일은 최근에 안 바뀌었고(마지막 18ebd70), 여덟 다 `active`, Actions 는 `enabled`.
-      과금 API 는 `user` 스코프를 요구해 에이전트가 확인하지 못합니다.
+- [x] **원인은 과금이 아닙니다 — 둘 다 확인됐습니다.**
+      ① Vercel: 배포 응답 `readyStateReason: "Git author 82037797+kth9245@… must have access to
+      the team's projects on Vercel"` · `seatBlock.blockCode: TEAM_ACCESS_REQUIRED`. Hobby 팀은
+      비공개 저장소에서 **소유자 커밋만** 받습니다.
+      ② GitHub: 상태 페이지 API 에 *Incident with Actions · Critical · Actions major_outage*(15:11Z~).
+      과금 소진이면 *"spending limit"* 문구가 옵니다. **Billing 은 볼 필요 없습니다.**
+- [x] **`deploy.yml` 을 고쳤습니다** — `main` 끝을 올리고(장애가 남긴 옛 커밋의 유령 실행이
+      살아나도 되돌아가지 않게), `.git` 없는 사본을 올리고(①), 잡에 20분 제한(어느 쪽이 멈춰도
+      동시성 그룹을 붙들지 않게) → [`deploy/README.md`](../../deploy/README.md) 「막히는 두 가지」.
+- [ ] **장애가 남긴 유령 실행 8개**는 취소도 삭제도 안 됩니다(409 · 403). 러너가 살아나면 알아서
+      돌거나 사라집니다 — 위 고침으로 무해합니다.
+- [ ] **Vercel 팀 플랜은 사람이 정합니다** — Pro(팀원 추가) 또는 공개 저장소. 그전까지 사본 배포가 우회입니다.
 - [x] **그동안 CI 를 로컬로 대신합니다.** 워크플로 여덟이 하는 일 그대로입니다.
 
 ```bash
@@ -794,28 +806,26 @@ KB 전체에서 기산점으로 쓰이는 슬롯은 **둘뿐**인데(`relief_app
 그날 법이 「금융회사등」으로 넓어지니 맞을 수도 있지만 **공통 문장은 「금융회사」
 그대로**라, 시행 전에 볼 자리입니다.
 
-### ⛔ CI 가 멈췄습니다 — **사람이 봐야 합니다** (2026-08-26 오후)
+### ⚠️ CI 가 멈췄습니다 — 원인 둘 다 확인됐습니다 (2026-08-26 오후, 16:19 부터 회복)
 
 ```
-13:51   전부 success                      ← 마지막으로 정상
+13:35   #59 의 Vercel 배포 BLOCKED           ← 작성자가 팀 소유자가 아님 (Hobby 팀)
+13:51   전부 success                         ← 검사는 마지막으로 정상
+15:11   GitHub Actions 장애 (Critical)
 15:14~  0초 startup_failure · queued 인 채 러너 미할당
 15:24   #63 이 **검사 0개로 머지**됐습니다
-15:17~  deploy 가 queued 로 멈춤
+16:19~  회복 · 16:37 에 866619b(#67) 가 프로덕션
 ```
 
-**「QA 가능」의 ①③ 이 지금 성립하지 않습니다.**
-
-- **배포본은 15:14 이전 빌드입니다.** `fin-ally-khaki` 가 200 을 내지만
-  **#58·#62·#63 은 배포에 없습니다.** 「머지가 곧 배포」([ADR-053](../../decisions/053-deploy-on-merge.md))라
-  머지만으로 올라갔다고 보면 안 됩니다.
+- **배포본은 `main` 끝입니다**(866619b, 16:37). #58·#62·#63 도 들어 있습니다. `push` 이벤트가
+  늦거나 안 오는 동안은 머지 뒤 Actions 탭을 보고, 없으면 Run workflow
+  ([ADR-053](../../decisions/053-deploy-on-merge.md)).
 - **CI 가 문지기가 아닙니다.** 그동안 머지 전에
   `bash .github/scripts/gates.sh origin/main` 을 손으로 돌립니다 —
   워크플로 여덟이 하는 일을 그대로 돕니다.
 
-⬜ **원인은 확인 못 했습니다.** 워크플로 파일은 안 바뀌었고 여덟 다 `active`,
-Actions 도 `enabled` 입니다. **비공개 저장소 + 0초 `startup_failure` + 러너
-미할당**은 무료 Actions 분 소진의 전형인데, 과금 API 는 `user` 스코프를 요구해
-에이전트가 확인할 수 없습니다 — **GitHub → Settings → Billing 을 사람이 봐야 합니다.**
+✅ **원인은 위 「2026-08-26」 절에 근거와 함께 적었습니다** — Vercel Hobby 팀의 작성자
+제한과 GitHub Actions 장애. **Billing 은 볼 필요 없습니다.** 고친 것과 남은 것도 거기에.
 
 > **#64 의 실패는 이 장애입니다.** `doc-integrity` 가 16분 걸리고 실패했는데
 > 평소 14초입니다. `origin/main` 을 머지한 상태로 여덟을 로컬에서 돌려 **8/8
@@ -834,8 +844,8 @@ GET deadlines                         200   []      ← 같은 결함이 배포�
 **로컬만 보면 「내 기기에서는 됩니다」로 끝납니다.** 심사위원이 여는 것은 배포본이라
 `qa_compare.py` 로 둘을 나란히 겁니다.
 
-⬜ **위 기한 고침은 아직 배포 전입니다** — `main` 머지가 곧 배포이므로([ADR-053](../../decisions/053-deploy-on-merge.md))
-머지 뒤 배포본에서 **한 번 더 걸어야 확인입니다.**
+⬜ **위 기한 고침은 배포됐습니다**(17dcde2 가 16:31 에, 지금은 866619b) — 배포본에서
+**한 번 더 걸어야 확인입니다** ([ADR-053](../../decisions/053-deploy-on-merge.md)).
 
 ### 함께 확인된 것
 
