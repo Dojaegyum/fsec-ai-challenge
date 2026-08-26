@@ -127,10 +127,22 @@ npm run kb:load -- --version 2026.08.1
 | **여는 주소** | **https://fin-ally-khaki.vercel.app** |
 | 다른 별칭 | `fin-ally-finai.vercel.app` — **Vercel 인증 보호에 걸려 302 입니다** |
 
-⚠️ **제출용 주소는 `fin-ally-khaki` 쪽입니다.** 팀 계정의 Deployment Protection 이
-기본으로 켜져 있어 다른 별칭은 로그인 없이 안 열립니다. 보호를 끄려면
-Project Settings → Deployment Protection → Vercel Authentication 을 Disabled 로
-바꿔야 하고, **그건 주소를 완전히 공개하는 것이라 사람이 정합니다.**
+✅ **제출용 주소는 `fin-ally-khaki` 쪽입니다 — 그대로 갑니다** (2026-08-26 결정).
+
+팀 계정의 Deployment Protection 이 기본으로 켜져 있어 다른 별칭은 로그인 없이 안
+열립니다. **끄지 않기로 했습니다** — `fin-ally-khaki` 가 이미 로그인 없이 열려서
+막히는 것이 없고, 보호를 끄는 것은 되돌리기 번거로운 공개 행위입니다.
+
+```
+fin-ally-khaki.vercel.app   200   <- 제출·시연은 여기
+fin-ally-finai.vercel.app   302   <- 보호에 걸림. 그대로 둡니다
+```
+
+> 눌러서 확인한 값입니다(2026-08-26). **제출 전에 다시 한 번 누르세요** — 팀 설정이
+> 바뀌면 여기도 302 가 될 수 있고, 그때는 심사위원이 로그인 화면을 봅니다.
+
+끄려면 Project Settings → Deployment Protection → Vercel Authentication 을 Disabled
+로 바꾸면 됩니다. **모든 별칭이 공개되므로 사람이 정할 일입니다.**
 
 ## 올리는 방법 — `main` 머지가 곧 배포
 

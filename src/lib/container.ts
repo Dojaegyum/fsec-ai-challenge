@@ -32,6 +32,7 @@ import { readEnv, type Env } from './env'
 import { linkTokenSource, newUlid, ulidSource } from './ids'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
+import { createNerModel } from './ner'
 import { createHolidayCalendar } from './holidays'
 import { createLlmClient } from './llm'
 import { createQuestionSource } from './questions'
@@ -231,6 +232,26 @@ function readingEngines(env: Env): Pick<Ports, 'stt' | 'ocr'> {
 }
 
 /**
+ * 2차 탐지 모델 — **주소가 있을 때만.**
+ *
+ * `readingEngines` 와 달리 **미설정 대역을 안 끼웁니다.** 저쪽은 비면 음성 증거가
+ * 아무것도 안 돼서 터뜨리는 편이 낫지만, 이쪽은 **1차 정규식만으로도 경계가 섭니다** —
+ * 없다고 던지면 붙어 있는 1차까지 못 쓰게 됩니다. 그래서 `null` 입니다.
+ *
+ * ⚠️ **어디를 가리키느냐가 곧 정책입니다** → ARCHITECTURE §6 · [ADR-043](../../decisions/043-gpu-hosting.md).
+ * 이 자리는 토큰화 이전이라 원문이 그대로 지나갑니다.
+ */
+function nerModel(env: Env): NerModel | null {
+  const baseUrl = env.values.NER_URL
+  if (!baseUrl) return null
+  return createNerModel({
+    baseUrl,
+    token: env.values.NER_TOKEN,
+    model: env.values.NER_MODEL,
+  })
+}
+
+/**
  * 지금 쓰는 KB 릴리스 → ADR-045 · 09-data-model.md §11.2.
  *
  * **「가장 최근 적재분」을 쓰지 않습니다.** 적재기는 검수 중인 다음 버전을 미리
@@ -372,10 +393,13 @@ export function unconfiguredPorts(env: Env): Ports {
      * 설정 현황이 드러냅니다 → config-report.ts
      */
     holidays: createHolidayCalendar(),
-    // ⬜ 판별 모델 미선정 → ARCHITECTURE.md §10.
+    // 모델은 정해졌습니다 — **gemma3:4b** (research/09 R-1 · ARCHITECTURE §10).
+    // 주소가 있을 때만 붙이고, 없으면 `null` 입니다.
+    //
     // **부르면 터지는 대역으로 두지 않습니다** — 1차 정규식만으로 경계가 서고,
-    // 여기서 던지면 붙어 있는 1차까지 못 씁니다
-    ner: null,
+    // 여기서 던지면 붙어 있는 1차까지 못 씁니다. 안 붙은 사실은 결과의
+    // `nerApplied` 와 설정 현황에 그대로 나옵니다.
+    ner: nerModel(env),
     // 주소가 있으면 그 서비스를 부르고, 없으면 부르는 순간 터집니다.
     // **경계 이전이라 「어디를 부르나」가 곧 정책입니다** → ARCHITECTURE §6.
     // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
