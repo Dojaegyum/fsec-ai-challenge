@@ -95,6 +95,7 @@ import type {
   VaultStore,
 } from '@/modules/case-purger'
 import { createChatPublisher } from '@/modules/chat-publisher'
+import { createAllowedTermSource } from './allowed-terms'
 import { createChatReceiver } from '@/modules/chat-receiver'
 import type { LlmClient } from '@/modules/chat-receiver'
 import { createCitationChecker } from '@/modules/citation-checker'
@@ -537,6 +538,9 @@ export function createContainer(
     newId: () => ulidSource.next(),
   })
   const kbFinder = createKbFinder({ store: ports.kbStore })
+  // 기관 표를 두 곳이 씁니다 — 사건의 경유 서비스 기록과 **토큰화 제외 목록**.
+  // 한 번만 세워 같은 것을 넘깁니다
+  const channels = channelWriter(env)
   // 격리 경계. 2차 모델이 없어도 1차 정규식으로 섭니다
   const piiTokenizer = createPiiTokenizer(ports.ner ? { ner: ports.ner } : {})
   const retryChecker = createRetryChecker()
@@ -557,7 +561,7 @@ export function createContainer(
     deadlineWrite: deadlineWriter(env),
     caseRead: caseReader(env),
     orgs: orgReader(env),
-    channelWrite: channelWriter(env),
+    channelWrite: channels,
     slotWrite: slotWriter(env),
     artifacts: artifactWriter(env),
     messages: messageStore(env),
@@ -595,6 +599,8 @@ export function createContainer(
 
     chatReceiver: createChatReceiver({
       tokenizer: piiTokenizer,
+      // 기관명을 NER 결과보다 우선 지킵니다 → `lib/allowed-terms.ts`
+      orgTerms: createAllowedTermSource({ channels }),
       // 표의 행을 프롬프트 항목으로 옮깁니다 → adapters.ts
       kb: asKbSource(kbFinder),
       prompts: createPromptBuilder(),

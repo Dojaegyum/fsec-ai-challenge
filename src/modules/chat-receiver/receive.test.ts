@@ -106,6 +106,7 @@ function receiver(over: {
 
   const chat = createChatReceiver({
     tokenizer: { tokenize },
+    orgTerms: { list: async (): Promise<readonly string[]> => [] },
     kb: { find: kbFind },
     prompts,
     llm,

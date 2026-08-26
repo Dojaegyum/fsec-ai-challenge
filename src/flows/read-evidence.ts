@@ -24,6 +24,7 @@
 
 import 'server-only'
 
+import { allowedTermsFor } from '@/lib/allowed-terms'
 import type { Container } from '@/lib/container'
 import {
   ORG_REPAIR_PROMPT,
@@ -133,7 +134,14 @@ export async function collectReading(
   }
 
   // ── 여기부터 원문입니다 ────────────────────────────────────────────
-  const masked = await maskLines(progress.result.lines, container)
+  // **토큰화 제외 목록** → 04-pii-boundary.md. 없으면 NER 이 기관명을 사람
+  // 이름으로 집어 `[이름-1]` 로 가리고, 경유 서비스를 특정할 수 없어
+  // **에러 없이 슈퍼셋 플랜이 나갑니다.** 여기가 그 목록을 넘기는 자리입니다
+  const allowed = await allowedTermsFor({
+    channels: container.channelWrite,
+    kbVersion: container.ports.kbVersion,
+  })
+  const masked = await maskLines(progress.result.lines, container, allowed)
 
   const state: ReadState = {
     status: 'done',
@@ -202,6 +210,8 @@ function fromStored(text: string): ReadState {
 async function maskLines(
   lines: readonly Line[],
   container: Container,
+  /** 토큰화하지 않을 낱말 — 기관명이 여기 들어옵니다 → `lib/allowed-terms.ts` */
+  allowedTerms: readonly string[],
 ): Promise<{
   lines: { speaker: string | null; text: string; startMs: number | null }[]
   tokens: { token: string; kind: string }[]
@@ -213,6 +223,9 @@ async function maskLines(
 
   for (const line of lines) {
     const result = await container.piiTokenizer.tokenize(line.text, {
+      // **NER 결과보다 우선입니다** → 04-pii-boundary.md 「토큰화 제외 목록」.
+      // 이게 비면 「토스로 300만원」이 「[이름-1]로 300만원」이 됩니다
+      allowedTerms,
       // **전사문입니다** → `transcript-digits.ts`. 이 표시가 없으면 구분자가
       // 깨진 계좌번호를 못 잡습니다 — 실측에서 정규식이 숫자 20건 중 6~10건만
       // 잡았습니다(docs/research/09 §5.4). 「110-234-567890」이
