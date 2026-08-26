@@ -88,6 +88,25 @@ const ASK_ORDER: readonly AskStep[] = [
   { slotKey: 'occurred_at' },
   { slotKey: 'elapsed_hint' },
   { slotKey: 'contact_method' },
+
+  // ── 이미 밟은 절차의 날짜 ───────────────────────────────────
+  //
+  // **맨 뒤입니다.** 사건이 무엇인지부터 잡고 나서 묻습니다 — 들어오자마자
+  // 「지급정지 언제 하셨어요」를 물으면, 아직 아무것도 못 한 사람이 첫 화면에서
+  // 자기가 늦었다고 느낍니다.
+  //
+  // **`transferred` 에 답을 받은 뒤에 묻습니다.** ⚠️ 값이 「아니오」여도 묻습니다 —
+  // `askWhen` 은 슬롯의 **상태**만 보고 값은 못 봅니다(`amount_hint` 도 같습니다).
+  // 돈이 안 나간 사건에는 불필요한 문항이지만 「모름」으로 넘어갈 수 있어
+  // 막히지는 않습니다. 값까지 보려면 이 자리의 시그니처를 넓혀야 합니다.
+  {
+    slotKey: 'freeze_requested_at',
+    askWhen: (stateOf) => stateOf('transferred') === 'confirmed',
+  },
+  {
+    slotKey: 'relief_applied_at',
+    askWhen: (stateOf) => stateOf('transferred') === 'confirmed',
+  },
 ]
 
 /**
@@ -246,6 +265,6 @@ const VALUE_TYPES: Readonly<Record<string, SlotValueType>> = {
   relief_applied_at: 'datetime',
   report_filed_at: 'datetime',
   objection_submitted_at: 'datetime',
-  // 채권소멸공고 2개월의 기산점. **통지문에 적힌 공고일입니다** → ADR-053
+  // 채권소멸공고 2개월의 기산점. **통지문에 적힌 공고일입니다** → ADR-054
   notice_started_at: 'datetime',
 }
