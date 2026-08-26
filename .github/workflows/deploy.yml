@@ -18,6 +18,13 @@ name: deploy
 #
 # ⚠️ PR 미리보기(Preview)는 일부러 안 만듭니다 — `service_role` 키가 미리보기
 #    주소로 열립니다 (deploy/README.md §1). 올라가는 것은 `main` 뿐입니다.
+#
+# 올리는 것은 실행에 박힌 커밋(`GITHUB_SHA`)이 아니라 **그 순간 `main` 의 끝**입니다.
+# 2026-08-26 GitHub Actions 장애(상태 페이지 "Incident with Actions · Critical")가
+# 큐에 들어가지도 못한 실행을 남겼습니다 — 취소도 삭제도 안 되는 채로(409 · 403)
+# 이미 지나간 커밋을 가리키고 있습니다. 그것이 나중에 살아나 자기 커밋을 올리면
+# **프로덕션이 옛 커밋으로 돌아갑니다.** `main` 끝을 올리면 어느 실행이 언제 돌든
+# 결과는 「지금 main」입니다. 실행을 만든 커밋과 올린 커밋이 다르면 요약에 남깁니다.
 on:
   push:
     branches: [main]
@@ -36,6 +43,10 @@ concurrency:
 jobs:
   production:
     runs-on: ubuntu-latest
+    # `vercel deploy` 는 Vercel 이 끝낼 때까지 기다립니다 — 그쪽이 안 끝내면(2026-08-26
+    # 13:35 BLOCKED 배포를 2시간 48분 기다렸습니다) 이 잡이 동시성 그룹을 붙들어 뒤의
+    # 배포가 전부 섭니다. 평소 2분 안에 끝나니 20분이면 Vercel 빌드 대기까지 넉넉합니다.
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: src
@@ -43,7 +54,19 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
+      # 실행을 만든 커밋이 아니라 **지금의 `main`** 을 받습니다 (머리말).
       - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: 올릴 커밋
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "DEPLOY_SHA=$sha" >> "$GITHUB_ENV"
+          echo "올릴 커밋: ${sha::7} (main 끝)"
+          if [ "$sha" != "$GITHUB_SHA" ]; then
+            echo "::notice::이 실행은 ${GITHUB_SHA::7} 에서 만들어졌지만 main 은 ${sha::7} 까지 나갔습니다 — main 끝을 올립니다"
+          fi
 
       # 검사를 다 돌고 나서 시크릿이 없다고 터지면 몇 분을 버립니다 — 먼저 봅니다.
       - name: 시크릿이 있는지
@@ -76,16 +99,35 @@ jobs:
 
       # `VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` 가 있으면 CLI 는 `vercel link` 없이 그 프로젝트로 갑니다.
       # 소스를 올리고 Vercel 이 빌드합니다 — 손으로 올릴 때와 같은 경로라 결과가 같습니다.
+      #
+      # **git 메타데이터 없이 올립니다.** Vercel 팀이 Hobby 라 비공개 저장소에서 소유자가
+      # 아닌 작성자의 커밋을 안 받습니다 — 2026-08-26 13:35 kth9245 님이 머지한 #59 가
+      # `BLOCKED`(TEAM_ACCESS_REQUIRED) 로 막혔고, CLI 는 `Building…` 에서 2시간 48분을
+      # 기다렸습니다. `.git` 이 없는 사본(`git archive HEAD:src`)을 올리면 배포 주체는
+      # 토큰 주인(소유자)이고 커밋 작성자는 검사 대상이 아닙니다. 올린 커밋은 `--meta commit=`
+      # 과 아래 요약에 남습니다. 제대로 된 답은 Pro 플랜 또는 공개 저장소 — deploy/README.md.
+      #
+      # 사본은 `src` 의 **내용물**입니다 — CLI 가 프로젝트의 Root Directory(`src`)에 맞춰
+      # 현재 디렉터리에 `src/` 접두를 붙여 올립니다(체크아웃에서 `src` 안에서 부를 때와 같은
+      # 모양). `src/` 를 한 겹 더 두면 `src/src/` 가 되어 빌드가 앱을 못 찾습니다.
+      # `git archive` 는 현재 디렉터리를 경로 접두로 쓰므로 저장소 루트에서(`-C`) 부릅니다 —
+      # 여기서 그냥 부르면 `src` 안의 `src/` 를 찾아 빈 아카이브가 나옵니다.
       - name: Vercel Production 에 올리기
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          url=$(npx --yes vercel@59 deploy --prod --yes --token "$VERCEL_TOKEN")
+          stage=$(mktemp -d)
+          git -C "$GITHUB_WORKSPACE" archive "HEAD:src" | tar -x -C "$stage"
+          cd "$stage"
+          url=$(npx --yes vercel@59 deploy --prod --yes --token "$VERCEL_TOKEN" --meta commit="$DEPLOY_SHA")
           echo "올라간 주소: $url"
           {
             echo "### 배포됨"
             echo
-            echo "- 커밋: \`${GITHUB_SHA::7}\`"
+            echo "- 커밋: \`${DEPLOY_SHA::7}\` (main 끝)"
+            if [ "$DEPLOY_SHA" != "$GITHUB_SHA" ]; then
+              echo "- 실행을 만든 커밋은 \`${GITHUB_SHA::7}\` — 그 뒤 main 이 앞서가서 main 끝을 올렸습니다"
+            fi
             echo "- 배포 주소: $url"
             echo "- 여는 주소는 \`https://fin-ally-khaki.vercel.app\` 입니다 — 다른 별칭은 인증 보호에 걸립니다 (deploy/README.md)"
           } >> "$GITHUB_STEP_SUMMARY"

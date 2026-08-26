@@ -150,13 +150,44 @@ fin-ally-finai.vercel.app   302   <- 보호에 걸림. 그대로 둡니다
 
 ```
 main 에 src/** 가 푸시됨
+  → 그 순간의 main 끝을 받음             (실행에 박힌 커밋이 아닙니다 — 아래 「막히는 두 가지」②)
   → npm run typecheck · npm test      (code-check 와 같은 명령 — 브랜치 보호가 없어 여기서 다시 봅니다)
-  → npx vercel deploy --prod          (소스를 올리고 Vercel 이 빌드. 실패하면 이전 배포가 남습니다)
+  → npx vercel deploy --prod          (.git 없는 사본을 올리고 Vercel 이 빌드. 실패하면 이전 배포가 남습니다)
 ```
 
 **PR 미리보기는 안 만듭니다** — 위 §1 의 `service_role` 경고가 그 이유입니다. 올라가는 것은 `main` 뿐입니다.
 
 같은 커밋을 다시 올려야 할 때(환경변수만 바꿨을 때 등)는 Actions 탭 → `deploy` → **Run workflow**.
+
+### 막히는 두 가지 — 2026-08-26 에 겪은 것
+
+**① Vercel 팀이 Hobby 라 소유자가 아닌 작성자의 커밋을 안 받습니다.** 비공개 저장소의
+Hobby 팀은 *"the commit author must be the owner of the Hobby team"* 입니다
+([Vercel 문서](https://vercel.com/docs/deployments/troubleshoot-project-collaboration#team-configuration)).
+kth9245 님이 머지한 #59 의 배포가 `BLOCKED`(`seatBlock: TEAM_ACCESS_REQUIRED`) 로 남았고,
+CLI 는 `Building…` 에서 **2시간 48분**을 기다리다 취소됐습니다 — 그동안 뒤의 배포가 전부 섰습니다.
+
+그래서 워크플로는 **`.git` 이 없는 사본**(`git archive HEAD:src`)을 올립니다. 배포 주체가
+토큰 주인(소유자)이고 커밋 작성자는 검사 대상이 아닙니다. 올린 커밋은 잡 요약과
+`vercel inspect` 의 `meta.commit` 에 남습니다. 잡에는 20분 제한이 있어 어느 쪽이 멈춰도
+동시성 그룹을 붙들지 않습니다.
+
+**제대로 된 답은 둘 중 하나이고, 사람이 정합니다** — Pro 플랜으로 올려 팀원을 추가하거나,
+저장소를 공개로(공개 저장소는 협업이 무료). 그전까지 사본 배포는 우회입니다.
+
+⚠️ **손으로 올릴 때도 같습니다** — `src` 안에서 `vercel deploy` 를 부르면 HEAD 의 작성자가
+실립니다. HEAD 가 소유자 커밋이 아니면 막힙니다 → Run workflow 를 쓰거나, 사본에서 올리세요.
+
+**② GitHub Actions 자체가 죽을 수 있습니다** — 그날 상태 페이지에 *Incident with Actions ·
+Critical* 이 15:11Z 에 열렸습니다. 보이는 것과 할 일:
+
+| 보이는 것 | 뜻 | 할 일 |
+| --- | --- | --- |
+| 머지했는데 `deploy` 실행이 **안 생김**, 또는 십몇 분 뒤에야 생김 | 이벤트가 밀려 있습니다 | Actions 탭 → `deploy` → **Run workflow**. 밀린 실행이 나중에 와도 `main` 끝을 올리니 겹쳐도 됩니다 |
+| `queued` 인 채 러너가 안 붙음 · 0초 `startup_failure` · 주석 *"The job was not acquired by Runner of type hosted even after multiple attempts"* | **러너 장애입니다. 과금이 아닙니다** — 과금 소진은 *"spending limit"* 문구로 옵니다 | 기다립니다. 급하면 「손으로 올리려면」 |
+| 장애 뒤에도 `queued` 로 남은 실행이 취소·삭제가 안 됨(409 *"has not been queued yet"* · 403) | 큐에 들어가지도 못한 유령입니다. 나중에 살아날 수 있습니다 | 워크플로가 **실행의 커밋이 아니라 `main` 끝**을 올리므로 살아나도 옛 커밋으로 돌아가지 않습니다 |
+
+머지 전 검사는 그동안 `bash .github/scripts/gates.sh origin/main` 이 대신합니다.
 
 ### 시크릿 셋 — Settings → Secrets and variables → Actions
 
@@ -180,6 +211,8 @@ npx vercel deploy --prod --yes
 
 `vercel link` 를 **`src` 안에서** 부르면 그 디렉터리가 루트가 됩니다.
 CI 에서는 `VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` 환경변수가 그 링크를 대신합니다.
+
+⚠️ HEAD 의 작성자가 팀 소유자가 아니면 `BLOCKED` 로 막힙니다 → 위 「막히는 두 가지」①.
 
 ## 4. 올린 뒤 — 한 바퀴 확인
 
