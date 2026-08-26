@@ -122,6 +122,52 @@ describe('실제 사전으로 걸어도 실명은 그대로 가려진다', () =>
   })
 })
 
+describe('목록이 안 걸린 것을 숨기지 않는다', () => {
+  /**
+   * `catch { return [] }` 로 조용히 넘어가면 **방금 고친 것과 같은 모양**이
+   * 됩니다 — 기관명이 가려지고 에러 없이 엉뚱한 매뉴얼이 나갑니다.
+   *
+   * 막지는 않습니다. **막는 해와 안 막는 해가 다르기 때문**입니다 —
+   * NER 이 죽으면 원문이 밖으로 나가지만(되돌릴 수 없음), 목록이 비면
+   * 가리지 않아도 될 것이 가려질 뿐입니다(안내가 나빠짐). 대신 **사실을 냅니다.**
+   */
+  it('목록이 비면 `allowedTermsApplied` 가 거짓이다', async () => {
+    const text = '토스로 300만원 보냈어요'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '토스') })
+    const result = await tokenizer.tokenize(text)
+    expect(result.nerApplied).toBe(true)
+    expect(result.allowedTermsApplied).toBe(false)
+    // 둘이 겹친 상태가 위험한 상태입니다
+    expect(result.masked).toContain('[이름-1]')
+  })
+
+  it('목록이 걸리면 참이고 기관명이 살아남는다', async () => {
+    const text = '토스로 300만원 보냈어요'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '토스') })
+    const result = await tokenizer.tokenize(text, {
+      allowedTerms: await allowedTermsFor({ channels, kbVersion }),
+    })
+    expect(result.allowedTermsApplied).toBe(true)
+    expect(result.masked).toBe(text)
+  })
+
+  it('**NER 이 안 돌면 목록이 비어도 위험하지 않습니다**', async () => {
+    // 지금까지 이 결함이 안 터진 이유가 그것입니다 — `NER_URL` 이 비어 있었습니다
+    const text = '토스로 300만원 보냈어요'
+    const result = await createPiiTokenizer().tokenize(text)
+    expect(result.nerApplied).toBe(false)
+    expect(result.allowedTermsApplied).toBe(false)
+    expect(result.masked).toBe(text)
+  })
+
+  it('전사 흐름이 그 사실을 shortfall 로 내보낸다', () => {
+    // 화면이 「이건 직접 확인해 주세요」로 쓰는 통로입니다 — API·화면까지 갑니다
+    const source = readFileSync(new URL('../flows/read-evidence.ts', import.meta.url), 'utf8')
+    expect(source).toContain('no_org_allowlist')
+    expect(source).toMatch(/nerApplied && !result\.allowedTermsApplied/)
+  })
+})
+
 /**
  * **부르는 쪽을 지킵니다.**
  *

@@ -369,7 +369,15 @@ export function createPiiTokenizer(deps: { ner?: NerModel } = {}): PiiTokenizer 
 
       assertNoLeak(out, added)
 
-      return { masked: out, added, mappings, counts, nerApplied, foreignTokens }
+      return {
+        masked: out,
+        added,
+        mappings,
+        counts,
+        nerApplied,
+        allowedTermsApplied: allowedTerms.length > 0,
+        foreignTokens,
+      }
     },
 
     /**

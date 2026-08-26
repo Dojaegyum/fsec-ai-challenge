@@ -147,7 +147,13 @@ export async function collectReading(
     status: 'done',
     lines: masked.lines,
     tokens: masked.tokens,
-    shortfalls: [...progress.result.shortfalls],
+    shortfalls: [
+      ...progress.result.shortfalls,
+      // **조용히 넘어가지 않습니다.** 목록을 못 가져오면 절차는 그대로 가되
+      // 기관명이 가려졌을 수 있고, 그건 화면이 「직접 확인해 주세요」로 쓸
+      // 종류의 사실입니다 → `Shortfall` 의 「무엇을 못 했는지는 숨기지 않습니다」
+      ...(masked.orgGuardMissing ? ['no_org_allowlist'] : []),
+    ],
   }
 
   // **토큰화가 끝난 뒤에 기관 이름을 고칩니다** → ADR-056.
@@ -215,9 +221,15 @@ async function maskLines(
 ): Promise<{
   lines: { speaker: string | null; text: string; startMs: number | null }[]
   tokens: { token: string; kind: string }[]
+  /**
+   * **모델이 이름을 집는데 기관명을 지켜 줄 목록이 없었나.**
+   * 둘이 겹칠 때만 위험합니다 → `pii-tokenizer` 의 `allowedTermsApplied`
+   */
+  orgGuardMissing: boolean
 }> {
   const out: { speaker: string | null; text: string; startMs: number | null }[] = []
   const seen = new Map<string, string>()
+  let orgGuardMissing = false
 
   let mappings: readonly { token: string; kind: string; value: string }[] = []
 
@@ -236,6 +248,7 @@ async function maskLines(
       mappings: mappings as never,
     })
     mappings = result.mappings as never
+    if (result.nerApplied && !result.allowedTermsApplied) orgGuardMissing = true
     for (const one of result.added) seen.set(one.token, one.kind)
 
     out.push({
@@ -249,6 +262,7 @@ async function maskLines(
   return {
     lines: out,
     tokens: [...seen].map(([token, kind]) => ({ token, kind })),
+    orgGuardMissing,
   }
 }
 
