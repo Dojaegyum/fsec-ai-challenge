@@ -176,6 +176,10 @@ docs/research/  무엇이 사실인가       decisions/  왜 그렇게 정했나
   같은 검사가 PR과 `main` 푸시에서도 돕니다 — **여기서 걸리면 CI에서도 걸립니다.**
 - **역할이 끝난 문서는 지우거나 옮기지 말고 은퇴시키세요** (→ [RFC-001 「은퇴」](rfc/001-repo-structure.md)).
   문서가 코드와 어긋났는지 감사하고 은퇴시키는 절차는 `.claude/skills/doc-gardening/` 스킬에 있습니다.
+- **기관 사전(`src/kb/org.json`)에 무언가를 넣기 전에** `.claude/skills/org-materialization/`
+  스킬을 보세요 (→ [ADR-018](decisions/018-inventory-skill.md) 의 스킬 규약).
+  **출처를 요약시켜 읽으면 이름이 밀립니다** — 「한국산업은행」이 「국민은행」으로 붙은
+  사고가 실제로 있었습니다. 방향을 뒤집어 **아는 이름이 원문에 있는지**만 대조합니다.
 
 ## 아직 정해지지 않은 것
 

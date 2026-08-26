@@ -21,6 +21,16 @@
 | `dart_lookup.py` | **DART 전자공시로 법인의 실재·홈페이지·업종을 확인합니다.** 비상장이 여기서 풀립니다. `DART_API_KEY` 필요(무료 · 앱은 안 씁니다) |
 | `verify_source.py` | **등록부 원문에 이 이름들이 있는지 문자열로 대조합니다.** 초안을 사전으로 올리기 전에 통과해야 하는 관문. 큰 목록에는 `--table` (표의 회사명 칸과 **정확히 일치**) |
 
+## 절차는 스킬에 있습니다
+
+초안을 사전으로 올리는 일은 **[`.claude/skills/org-materialization/`](../../../.claude/skills/org-materialization/SKILL.md)**
+에 절차로 굳혀 뒀습니다 — 등록부 사다리(협회 → 상장법인 목록 → DART → 각 사),
+무엇을 근거로 치고 안 치나, 그리고 실제로 걸렸던 함정들.
+
+```bash
+python .claude/skills/org-materialization/scripts/materialize.py --check
+```
+
 ## 초안 → 사전, 한 바퀴 돈 첫 사례
 
 카드사 아홉이 이 폴더를 거쳐 `src/kb/org.json` 으로 갔습니다(2026-08-26).
