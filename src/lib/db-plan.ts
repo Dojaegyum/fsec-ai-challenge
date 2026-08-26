@@ -163,8 +163,27 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
    */
   async function apply(caseId: string, result: PlanResult, tx: Sql): Promise<void> {
     for (const step of result.upsert) {
-      // 같은 단계가 이미 있으면 **내용을 갈아끼우되 상태와 완료 시각은 둡니다** —
+      // 같은 단계가 이미 있으면 **내용을 갈아끼우되 완료 시각은 둡니다** —
       // 사용자가 끝낸 것을 플랜 재생성이 되돌리면 안 됩니다 → §6.1
+      //
+      // ## `skipped` 만은 되돌립니다
+      //
+      // 「새 플랜에 없는 단계」를 지우지 않고 `skipped` 로 두는 이유가 **조건이
+      // 다시 맞으면 되살아나야 하기 때문**인데, 되살리는 자리가 없었습니다.
+      //
+      // 대면편취에서 실제로 그랬습니다. 사건을 열 때는 공통 「지급정지를
+      // 요청합니다」가 서고(선행 없음), 경유 서비스가 정해지면 그 유형의
+      // 것으로 바뀌는데 그쪽은 `after: [report-112]` 라 112 를 끝내기 전에는
+      // 활성이 아닙니다 → 그 재생성에서 `skipped` 가 됩니다. 112 를 끝내면
+      // 내용은 제대로 바뀌는데(`actor: police`) **상태가 `skipped` 에 남아
+      // 보드가 「해당 없음」으로 그렸습니다** — 대면편취에서도 지급정지는
+      // 걸립니다, 수사기관이 계좌를 특정한 뒤에.
+      //
+      // **`done_verified`·`unconfirmed` 는 여기 오지 않습니다** — planner 가
+      // `preserved` 로 빼둡니다. `in_progress` 는 planner 가 그대로 다시 실어
+      // 보내므로 값이 안 바뀝니다. 그래도 SQL 쪽 그물을 걷지 않고 `skipped`
+      // 하나만 통과시킵니다 — 이 자리가 사용자의 진행을 되돌릴 수 있는
+      // 마지막 문입니다
       await tx`
         INSERT INTO plan_step
           (plan_step_id, case_id, seq, step_key, title, actor, body, conditional,
@@ -174,6 +193,8 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
                 ${step.state}, ${step.kbEntryId}, ${step.kbVersion},
                 ${step.sourceUrl}, ${step.effectiveFrom}, ${step.generatedAt})
         ON CONFLICT (case_id, step_key) DO UPDATE SET
+          state = CASE WHEN plan_step.state = 'skipped'
+                       THEN EXCLUDED.state ELSE plan_step.state END,
           seq = EXCLUDED.seq,
           title = EXCLUDED.title,
           actor = EXCLUDED.actor,

@@ -18,6 +18,7 @@
 
 import { afterAll, describe, expect, it } from 'vitest'
 import { createAuditStore, createCaseStore, createCaseTokenResolver, createSql } from './db'
+import { createCasePlanStore } from './db-plan'
 import { createAuditLogger, hashOf } from '@/modules/audit-logger'
 import { readEnv } from './env'
 import { linkTokenSource, ulidSource } from './ids'
@@ -113,8 +114,77 @@ live('실제 데이터베이스에 붙는다', () => {
     expect(recomputed).toBe(written.hash)
   })
 
+  /**
+   * 지우지 않고 `skipped` 로 두는 이유가 **되살아나기 위해서**인데, 되살리는
+   * 자리가 없었습니다 → §6.1.
+   *
+   * 대면편취의 지급정지가 실제로 이 길을 지납니다 — 경유 서비스가 정해지며
+   * 한 번 꺼졌다가(그쪽은 `after: ["report-112"]`), 112 를 끝내면 「수사기관이
+   * 계좌를 특정한 뒤」로 다시 켜져야 합니다. 안 켜지면 보드가 **「해당 없음」**
+   * 으로 그립니다.
+   *
+   * **가짜 저장소로는 안 걸립니다** — `ON CONFLICT DO UPDATE SET` 이 `state` 를
+   * 안 적던 것이라 SQL 의 뜻입니다.
+   */
+  const planned = (over: Record<string, unknown> = {}) => ({
+    caseId,
+    seq: 1,
+    stepKey: 'live-resurrect',
+    title: '지급정지를 요청합니다',
+    actor: 'victim' as const,
+    body: { actor: 'victim', action: 'call' } as never,
+    conditional: null,
+    state: 'not_started' as const,
+    kbEntryId: 'live-kb',
+    kbVersion: '0000.00.0',
+    sourceUrl: 'https://example.invalid/',
+    effectiveFrom: '2020-01-01',
+    generatedAt: new Date().toISOString(),
+    ...over,
+  })
+
+  const rowNow = async () => {
+    const rows = await sql!`
+      SELECT state, title FROM plan_step
+      WHERE case_id = ${caseId} AND step_key = 'live-resurrect'
+    `
+    return { state: String(rows[0]?.state), title: String(rows[0]?.title) }
+  }
+
+  it('**건너뛴 단계가 다시 플랜에 들어오면 되살아난다** — §6.1', async () => {
+    const store = createCasePlanStore(sql!, () => ulidSource.next())
+
+    await store.applyPlan(caseId, { upsert: [planned()], preserved: [], skipped: [] })
+    expect((await rowNow()).state).toBe('not_started')
+
+    // 조건이 안 맞아 플랜에서 빠졌습니다
+    await store.applyPlan(caseId, { upsert: [], preserved: [], skipped: ['live-resurrect'] })
+    expect((await rowNow()).state).toBe('skipped')
+
+    // 조건이 다시 맞았습니다 — **여기서 `skipped` 에 갇혀 있었습니다**
+    await store.applyPlan(caseId, { upsert: [planned()], preserved: [], skipped: [] })
+    expect((await rowNow()).state).toBe('not_started')
+  })
+
+  it('진행 중이던 단계는 재생성이 되돌리지 않는다 — SQL 쪽 그물은 그대로', async () => {
+    await sql!`
+      UPDATE plan_step SET state = 'in_progress'
+      WHERE case_id = ${caseId} AND step_key = 'live-resurrect'
+    `
+    const store = createCasePlanStore(sql!, () => ulidSource.next())
+    await store.applyPlan(caseId, {
+      upsert: [planned({ title: '바뀐 제목' })],
+      preserved: [],
+      skipped: [],
+    })
+
+    // 내용은 갈리고 상태는 남습니다
+    expect(await rowNow()).toEqual({ state: 'in_progress', title: '바뀐 제목' })
+  })
+
   afterAll(async () => {
     // 시험이 남긴 것을 지웁니다 — 실제 저장소입니다
+    await sql!`DELETE FROM plan_step WHERE case_id = ${caseId}`
     await sql!`DELETE FROM audit_log WHERE case_id = ${caseId}`
     await sql!`DELETE FROM evidence WHERE case_id = ${caseId}`
     await sql!`DELETE FROM "case" WHERE case_id = ${caseId}`
