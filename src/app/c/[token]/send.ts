@@ -290,6 +290,13 @@ export function useChatSend(
   firstQuestion: NextQuestion | null = null,
   /** 플랜이 다시 만들어졌을 때 — **화면을 비우지 않는 갱신**이어야 합니다 */
   onPlanChanged?: () => void,
+  /**
+   * 답이 가리킨 단계들 → §3.9 `referenced_steps`.
+   *
+   * **여기서 패널을 고르지 않습니다** — 언급이 여럿이어도 열 것은 하나이고,
+   * 그 판단은 `work-handler` 의 `pickStep` 이 합니다.
+   */
+  onReferenced?: (stepIds: readonly string[]) => void,
 ): ChatSend {
   const store = useMemo<KeyStore>(() => indexedDbKeyStore(), []);
   const [lines, setLines] = useState<readonly Line[]>([]);
@@ -368,12 +375,16 @@ export function useChatSend(
       }
       setMappings(result.mappings);
       setLines((prev) => [...prev, { who: "ai", ...result.turn }]);
+      // 「지급정지부터 하세요」라고 답했으면 그 단계의 작업 자리가 열려야 합니다.
+      // **비어 있어도 부릅니다** — 「감사합니다」 같은 답에서는 비고, 그때
+      // 패널을 그대로 두는 것이 부르는 쪽의 규칙입니다(`applySignal`)
+      onReferenced?.(result.turn.referencedSteps);
       // 발화도 질문을 옮깁니다 — §3.9 응답에 `next_question` 이 실립니다.
       // 이걸 안 받으면 답을 말로 했는데 **같은 질문이 그대로 남아** 있습니다
       setQuestion(result.turn.question);
       return true;
     },
-    [caseToken, mappings, sending, store],
+    [caseToken, mappings, onReferenced, sending, store],
   );
 
   /** 답 하나를 보내고 화면 상태를 옮깁니다 — 세 입구(`answer`·`skip`·`resolve`)가 함께 씁니다 */

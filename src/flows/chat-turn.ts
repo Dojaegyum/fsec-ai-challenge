@@ -85,12 +85,42 @@ export async function chatTurn(
 
   return {
     body: body as unknown as Record<string, unknown>,
-    // ⬜ **어느 단계·기한을 참조했는지 아직 안 나갑니다.** 모델이 돌려준
-    // `ref` 를 단계·기한 번호로 되짚는 자리가 필요한데(`case-N` 꼴), 그
-    // 대응표를 `chat-receiver` 가 밖으로 안 냅니다 → §3.9
-    referencedSteps: [],
+    referencedSteps: stepsCited(outcome),
+    // ⬜ **기한은 아직 안 나갑니다.** 프롬프트의 `case_state` 에 기한이 들어가지
+    // 않아 되짚을 `ref` 자체가 없습니다 — 단계와 슬롯만 들어갑니다.
+    // 기한을 넣으려면 무엇을 어떤 문장으로 넣을지부터 정해야 합니다 → §3.9
     referencedDeadlines: [],
   }
+}
+
+/**
+ * 모델이 인용한 것 중 **단계를 가리키는 것**만 골라 냅니다 → §3.9 `referenced_steps`.
+ *
+ * 화면은 이걸로 작업 패널을 옮깁니다(`work-handler` 의 `applySignal`) —
+ * *"지급정지를 걸고 3영업일 안에 신청하세요"* 처럼 둘을 가리켜도 **패널은
+ * 하나**이고, 그 고르는 일은 화면이 합니다.
+ *
+ * **`kb-` 는 여기 안 옵니다.** 그쪽은 절차 지식이지 이 사건의 단계가 아닙니다 —
+ * 같은 KB 항목이 여러 사건에 걸리고, 이 사건에 그 단계가 서 있다는 보장도
+ * 없습니다. 단계를 가리키는 것은 `case_state` 에 실린 `case-N` 뿐입니다.
+ *
+ * **중복은 걷어냅니다.** 모델이 같은 줄을 두 번 인용하면 화면이 같은 단계를
+ * 두 번 받습니다.
+ */
+export function stepsCited(outcome: {
+  reply: { citations: readonly { ref: string }[] }
+  issued: readonly { ref: string; stepId?: string }[]
+}): readonly string[] {
+  const stepOf = new Map(
+    outcome.issued.filter((one) => one.stepId).map((one) => [one.ref, one.stepId!]),
+  )
+
+  const out: string[] = []
+  for (const one of outcome.reply.citations) {
+    const stepId = stepOf.get(one.ref)
+    if (stepId && !out.includes(stepId)) out.push(stepId)
+  }
+  return out
 }
 
 /** 모델이 쓴 근거에 KB 의 네 칸을 붙인다 → 불변 규칙 1 */
@@ -144,7 +174,13 @@ async function gatherContext(
         // 「모름」과 「확인 전」은 값이 아닙니다 — 넣으면 모델이 그것을 사실로 씁니다
         .filter((one) => one.state === 'confirmed' && one.valueMasked !== null)
         .map((one) => ({ label: one.slotKey, value: one.valueMasked ?? '' })),
-      ...steps.map((one) => ({ label: `단계: ${one.title}`, value: one.state })),
+      // `stepId` 는 프롬프트에 안 들어갑니다 — 모델이 `case-N` 을 인용했을 때
+      // 그것이 어느 단계였는지 되짚는 데만 씁니다 (§3.9 `referenced_steps`)
+      ...steps.map((one) => ({
+        label: `단계: ${one.title}`,
+        value: one.state,
+        stepId: one.planStepId,
+      })),
     ],
     history,
   }

@@ -25,6 +25,15 @@ export interface CaseStateItem {
   readonly label: string
   /** 이미 만들어진 문자열. **날짜 계산은 이 모듈의 일이 아닙니다** → §3.3 */
   readonly value: string
+  /**
+   * 이 줄이 어느 단계인가 — **프롬프트에는 안 들어갑니다.**
+   *
+   * 모델이 `case-3` 을 인용했을 때 그것이 어느 단계였는지 서버가 되짚는 데만
+   * 씁니다(§3.9 `referenced_steps`). 모델에게 ULID 를 보여줄 이유가 없고,
+   * 보여주면 옮겨 적으려다 형식이 틀립니다 — `kb_entry_id` 를 안 넣는 것과
+   * 같은 이유입니다(§5).
+   */
+  readonly stepId?: string
 }
 
 /** 사건 대화 한 줄 — 사기범과 피해자가 주고받은 것. 이미 토큰화된 상태 */
@@ -59,6 +68,8 @@ export interface PromptInput {
 export interface IssuedRef {
   readonly ref: string
   readonly label: string
+  /** `case-` 줄이 단계일 때만 있습니다 → §3.9 `referenced_steps` */
+  readonly stepId?: string
   /** kb- 항목에만 있습니다 */
   readonly kbEntryId?: string
   readonly kbVersion?: string
