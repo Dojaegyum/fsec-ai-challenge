@@ -39,7 +39,7 @@ export type StepState = 'done_verified' | 'in_progress' | 'unconfirmed'
 /**
  * L1 이 무엇을 보고 그렇게 판정했나. **PII 를 넣지 않습니다** → §7 verify_detail.
  *
- * **실패 이유만 담는 칸이 아닙니다** → [ADR-056](../../../decisions/056-receipt-number-l1.md).
+ * **실패 이유만 담는 칸이 아닙니다** → [ADR-057](../../../decisions/057-receipt-number-l1.md).
  * 통과에도 붙습니다 — 형식을 대조한 통과와 모양만 본 통과는 다른 일이고,
  * 나중에 형식 정본이 생기면 **다시 볼 것을 여기서 셉니다.**
  */
@@ -74,7 +74,7 @@ export interface CompletionVerdict {
  *
  * ❌ **형식의 정본이 없습니다.** 112·은행·금감원 어디에도 공개된 규격이 없고,
  * 흔히 보이는 `2025-000000` 꼴은 사설 안내에만 나옵니다 → U-18 · docs/research/19 §4.
- * **기다리지 않기로 했습니다** → [ADR-056](../../../decisions/056-receipt-number-l1.md).
+ * **기다리지 않기로 했습니다** → [ADR-057](../../../decisions/057-receipt-number-l1.md).
  *
  * 그래서 이 자리는 **지금 아무도 안 채웁니다.** 나중에 어느 기관의 형식이 실제로
  * 확인되면 그때 채우면 되고, 그전까지 `matches()` 는 `undefined` 를 냅니다.

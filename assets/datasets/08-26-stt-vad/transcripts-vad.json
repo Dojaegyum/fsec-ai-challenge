@@ -1,0 +1,728 @@
+{
+  "vad_off": {
+    "wall": 197.2,
+    "segments": [
+      {
+        "start": 31.0,
+        "end": 33.0,
+        "text": "자기는 박준영 검사라고 했고요.",
+        "avg_logprob": -0.225,
+        "no_speech_prob": 0.856,
+        "compression_ratio": 1.13
+      },
+      {
+        "start": 40.5,
+        "end": 49.1,
+        "text": "우리은행 콜센터 1588-5000에 전화해서 지급정지를 신청했는데 상담원이 사명업일 안에 서면을 내라고 했어요.",
+        "avg_logprob": -0.225,
+        "no_speech_prob": 0.856,
+        "compression_ratio": 1.13
+      },
+      {
+        "start": 49.1,
+        "end": 71.6,
+        "text": "제 계좌 352-0123-4567-89에서 빠져나갔고요. 제 주민번호는 88312-2345678입니다. 이것도 알려줬어요.",
+        "avg_logprob": -0.241,
+        "no_speech_prob": 0.344,
+        "compression_ratio": 0.97
+      },
+      {
+        "start": 78.0,
+        "end": 91.4,
+        "text": "8월 17일 밤 11시 40분에 하나은행 앱으로 두 번 나눠서 보냈습니다. 처음엔 300만원, 두 번째는 475,000원이요.",
+        "avg_logprob": -0.218,
+        "no_speech_prob": 0.93,
+        "compression_ratio": 1.05
+      },
+      {
+        "start": 95.1,
+        "end": 106.3,
+        "text": "토스뱅크에서 1000-56-78912 계좌로 620만원 보냈어요. 예금주는 이서연이었습니다.",
+        "avg_logprob": -0.194,
+        "no_speech_prob": 0.924,
+        "compression_ratio": 0.91
+      },
+      {
+        "start": 121.4,
+        "end": 123.4,
+        "text": "다시 연락준다고 했어요.",
+        "avg_logprob": -0.205,
+        "no_speech_prob": 0.843,
+        "compression_ratio": 1.08
+      },
+      {
+        "start": 130.5,
+        "end": 138.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬고, 접수번호가 2026-08-70-043이라고 문자로 왔어요.",
+        "avg_logprob": -0.205,
+        "no_speech_prob": 0.843,
+        "compression_ratio": 1.08
+      },
+      {
+        "start": 144.8,
+        "end": 152.7,
+        "text": "토스앱에서 자동이체가 걸려있었는데, 8월 19일 오전 9시에 190만원이 또 나갔어요.",
+        "avg_logprob": -0.172,
+        "no_speech_prob": 0.711,
+        "compression_ratio": 0.95
+      },
+      {
+        "start": 158.5,
+        "end": 168.6,
+        "text": "카카오뱅크 계좌 3333년 1월 23일 45,678로 보냈고요. 받은 사람이 정우성이라는데, 대포통장 같아요.",
+        "avg_logprob": -0.213,
+        "no_speech_prob": 0.67,
+        "compression_ratio": 0.99
+      },
+      {
+        "start": 191.2,
+        "end": 198.6,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.58,
+        "no_speech_prob": 0.936,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 209.4,
+        "end": 215.5,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.268,
+        "no_speech_prob": 0.947,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 242.0,
+        "end": 244.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.206,
+        "no_speech_prob": 0.777,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 254.0,
+        "end": 274.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.141,
+        "no_speech_prob": 0.659,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 284.4,
+        "end": 292.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.167,
+        "no_speech_prob": 0.732,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 328.2,
+        "end": 334.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.11,
+        "no_speech_prob": 0.773,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 351.7,
+        "end": 364.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.096,
+        "no_speech_prob": 0.753,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 373.1,
+        "end": 394.2,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.093,
+        "no_speech_prob": 0.677,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 418.5,
+        "end": 424.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.072,
+        "no_speech_prob": 0.679,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 446.7,
+        "end": 454.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.088,
+        "no_speech_prob": 0.807,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 483.0,
+        "end": 484.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.09,
+        "no_speech_prob": 0.75,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 496.1,
+        "end": 502.7,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.082,
+        "no_speech_prob": 0.745,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 534.7,
+        "end": 544.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.054,
+        "no_speech_prob": 0.608,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 560.0,
+        "end": 572.5,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.139,
+        "no_speech_prob": 0.762,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 600.5,
+        "end": 604.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.056,
+        "no_speech_prob": 0.912,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 623.8,
+        "end": 634.4,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.068,
+        "no_speech_prob": 0.912,
+        "compression_ratio": 0.87
+      },
+      {
+        "start": 638.1,
+        "end": 645.6,
+        "text": "K뱅크 고객센터에 최수진 대리라는 분이 접수해줬어요.",
+        "avg_logprob": -0.076,
+        "no_speech_prob": 0.934,
+        "compression_ratio": 0.87
+      }
+    ],
+    "chars": 944,
+    "n_segments": 26
+  },
+  "vad_on": {
+    "wall": 194.1,
+    "segments": [
+      {
+        "start": 2.9,
+        "end": 11.9,
+        "text": "어제 오후 3시쯤 국민은행에서 신한은행 110-234-567,890 계좌로 850만원을 이치했어요.",
+        "avg_logprob": -0.171,
+        "no_speech_prob": 0.62,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 12.9,
+        "end": 16.0,
+        "text": "받는 사람 이름은 김도현이라고 떴습니다.",
+        "avg_logprob": -0.171,
+        "no_speech_prob": 0.62,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 22.9,
+        "end": 30.5,
+        "text": "서울중앙지검 수사관이라면서 02-987-6543으로 전화가 왔어요.",
+        "avg_logprob": -0.171,
+        "no_speech_prob": 0.62,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 31.1,
+        "end": 33.2,
+        "text": "자기는 박준영 검사라고 했고요.",
+        "avg_logprob": -0.171,
+        "no_speech_prob": 0.62,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 39.8,
+        "end": 49.0,
+        "text": "우리은행 콜센터 1588-5000에 전화해서 지급정지를 신청했는데 상담원이 사명업일 안에 서면을 내라고 했어요.",
+        "avg_logprob": -0.085,
+        "no_speech_prob": 0.61,
+        "compression_ratio": 1.2
+      },
+      {
+        "start": 56.3,
+        "end": 63.7,
+        "text": "제 계좌 352-0123-4567-89에서 빠져나갔고요.",
+        "avg_logprob": -0.085,
+        "no_speech_prob": 0.61,
+        "compression_ratio": 1.2
+      },
+      {
+        "start": 64.1,
+        "end": 68.7,
+        "text": "제 주민번호는 88312-2345678입니다.",
+        "avg_logprob": -0.085,
+        "no_speech_prob": 0.61,
+        "compression_ratio": 1.2
+      },
+      {
+        "start": 70.2,
+        "end": 71.5,
+        "text": "이것도 알려줬어요.",
+        "avg_logprob": -0.085,
+        "no_speech_prob": 0.61,
+        "compression_ratio": 1.2
+      },
+      {
+        "start": 78.4,
+        "end": 83.5,
+        "text": "8월 17일 밤 11시 40분에 하나은행 앱으로 두 번 나눠서 보냈습니다.",
+        "avg_logprob": -0.071,
+        "no_speech_prob": 0.918,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 84.8,
+        "end": 88.4,
+        "text": "처음엔 300만원, 두 번째는 475,000원이요.",
+        "avg_logprob": -0.071,
+        "no_speech_prob": 0.918,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 95.6,
+        "end": 102.0,
+        "text": "토스뱅크에서 10-56-789,012 계좌로 620만원 보냈어요.",
+        "avg_logprob": -0.071,
+        "no_speech_prob": 0.918,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 103.7,
+        "end": 104.8,
+        "text": "예금주는 이서현이었습니다.",
+        "avg_logprob": -0.071,
+        "no_speech_prob": 0.918,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 112.8,
+        "end": 116.1,
+        "text": "카카오뱅크는 지점이 없어서 앱으로만 신고가 된다던데",
+        "avg_logprob": -0.071,
+        "no_speech_prob": 0.918,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 116.1,
+        "end": 123.6,
+        "text": "제 연락처 010-4821-9930으로 다시 연락준다고 했어요.",
+        "avg_logprob": -0.083,
+        "no_speech_prob": 0.824,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 130.5,
+        "end": 133.6,
+        "text": "K뱅크 고객센터의 최수진 대리라는 분이 접수해줬고",
+        "avg_logprob": -0.083,
+        "no_speech_prob": 0.824,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 134.2,
+        "end": 138.5,
+        "text": "접수번호가 20608-7043이라고 문자로 왔어요.",
+        "avg_logprob": -0.083,
+        "no_speech_prob": 0.824,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 145.6,
+        "end": 151.7,
+        "text": "토스앱에서 자동이체가 걸려있었는데 8월 19일 오전 9시에 190만원이 또 나갔어요.",
+        "avg_logprob": -0.083,
+        "no_speech_prob": 0.824,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 159.0,
+        "end": 165.2,
+        "text": "카카오뱅크 계좌 3333년 1월 23일 45678로 보냈고요.",
+        "avg_logprob": -0.083,
+        "no_speech_prob": 0.824,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 165.2,
+        "end": 168.5,
+        "text": "받은 사람이 정우성이라는데 대포통장 같아요.",
+        "avg_logprob": -0.112,
+        "no_speech_prob": 0.265,
+        "compression_ratio": 1.36
+      },
+      {
+        "start": 176.1,
+        "end": 180.6,
+        "text": "미래에세증권 CMA 계좌에서 1200만원이 빠져나갔습니다.",
+        "avg_logprob": -0.112,
+        "no_speech_prob": 0.265,
+        "compression_ratio": 1.36
+      },
+      {
+        "start": 180.9,
+        "end": 183.9,
+        "text": "계좌번호는 0501234567이에요.",
+        "avg_logprob": -0.112,
+        "no_speech_prob": 0.265,
+        "compression_ratio": 1.36
+      },
+      {
+        "start": 190.8,
+        "end": 197.4,
+        "text": "삼성증권 고객센터 15588-2323에 전화했더니 지급정지는 됐는데",
+        "avg_logprob": -0.112,
+        "no_speech_prob": 0.265,
+        "compression_ratio": 1.36
+      },
+      {
+        "start": 197.4,
+        "end": 199.5,
+        "text": "서면을 사명업일 안에 내라고 하네요.",
+        "avg_logprob": -0.112,
+        "no_speech_prob": 0.265,
+        "compression_ratio": 1.36
+      },
+      {
+        "start": 206.8,
+        "end": 211.6,
+        "text": "키웅증권 계좌를 만들라고 해서 만들었고 제 이름 한지민으로 개설했어요.",
+        "avg_logprob": -0.112,
+        "no_speech_prob": 0.265,
+        "compression_ratio": 1.36
+      },
+      {
+        "start": 212.6,
+        "end": 215.4,
+        "text": "인증번호까지 다 불러줬습니다.",
+        "avg_logprob": -0.107,
+        "no_speech_prob": 0.86,
+        "compression_ratio": 1.19
+      },
+      {
+        "start": 222.2,
+        "end": 227.1,
+        "text": "NL투자증권에서 8월 15일 오후 2시 10분경 430만원 출금됐고",
+        "avg_logprob": -0.107,
+        "no_speech_prob": 0.86,
+        "compression_ratio": 1.19
+      },
+      {
+        "start": 227.7,
+        "end": 235.0,
+        "text": "이제 받은 계좌가 302-0987-6543-21입니다.",
+        "avg_logprob": -0.107,
+        "no_speech_prob": 0.86,
+        "compression_ratio": 1.19
+      },
+      {
+        "start": 242.2,
+        "end": 245.0,
+        "text": "카카오페이로 300만원 송금했어요.",
+        "avg_logprob": -0.107,
+        "no_speech_prob": 0.86,
+        "compression_ratio": 1.19
+      },
+      {
+        "start": 245.4,
+        "end": 247.9,
+        "text": "연결된 은행은 국민은행이고요.",
+        "avg_logprob": -0.107,
+        "no_speech_prob": 0.86,
+        "compression_ratio": 1.19
+      },
+      {
+        "start": 254.4,
+        "end": 264.4,
+        "text": "토스로 보낸 건 85만원인데 받는 사람이 조민호로 뜨고 전화번호는 010-2287-510이었어요.",
+        "avg_logprob": -0.086,
+        "no_speech_prob": 0.347,
+        "compression_ratio": 1.39
+      },
+      {
+        "start": 271.9,
+        "end": 277.5,
+        "text": "네이버페이 포인트로 결제한 것도 있고 페이코로도 123,000원 나갔습니다.",
+        "avg_logprob": -0.086,
+        "no_speech_prob": 0.347,
+        "compression_ratio": 1.39
+      },
+      {
+        "start": 284.3,
+        "end": 292.3,
+        "text": "카카오페이 고객센터 164-7400으로 신고했고 상담사가 연계은행에도 따로 신고하라고 했어요.",
+        "avg_logprob": -0.086,
+        "no_speech_prob": 0.347,
+        "compression_ratio": 1.39
+      },
+      {
+        "start": 299.7,
+        "end": 302.3,
+        "text": "토스 아이디로 보내서 계좌번호는 몰라요?",
+        "avg_logprob": -0.086,
+        "no_speech_prob": 0.347,
+        "compression_ratio": 1.39
+      },
+      {
+        "start": 303.1,
+        "end": 310.6,
+        "text": "상대방 닉네임이 김대리였고 제 번호는 010-7734-1120입니다.",
+        "avg_logprob": -0.186,
+        "no_speech_prob": 0.594,
+        "compression_ratio": 1.13
+      },
+      {
+        "start": 317.5,
+        "end": 321.5,
+        "text": "업비트에서 비트코인 0.12개를 보냈어요.",
+        "avg_logprob": -0.186,
+        "no_speech_prob": 0.594,
+        "compression_ratio": 1.13
+      },
+      {
+        "start": 321.9,
+        "end": 331.1,
+        "text": "지갑주소는 bc1qxiekgdgrsqtqen0yrfe493p83kfzx0wl입니다.",
+        "avg_logprob": -0.186,
+        "no_speech_prob": 0.594,
+        "compression_ratio": 1.13
+      },
+      {
+        "start": 337.8,
+        "end": 341.7,
+        "text": "비싼 계정으로 옮긴 다음에 코인으로 바꿨습니다.",
+        "avg_logprob": -0.186,
+        "no_speech_prob": 0.594,
+        "compression_ratio": 1.13
+      },
+      {
+        "start": 341.7,
+        "end": 346.5,
+        "text": "8월 18일 저녁 7시쯤이고 금액은 2400만원이에요.",
+        "avg_logprob": -0.091,
+        "no_speech_prob": 0.465,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 353.4,
+        "end": 362.5,
+        "text": "코인원 고객센터에 신고했고 제 이름은 윤태호. 연락처는 010-3391-8845입니다.",
+        "avg_logprob": -0.091,
+        "no_speech_prob": 0.465,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 369.6,
+        "end": 378.2,
+        "text": "업비트 원화 입금 계좌가 킬뱅크 7777년 1월-9988776이었고 거기로 550만원 넣었어요.",
+        "avg_logprob": -0.091,
+        "no_speech_prob": 0.465,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 385.1,
+        "end": 390.4,
+        "text": "코비드에서 이더리움으로 바꿔서 보냈는데 10월부터 황급이 된다는 얘기를 들었어요.",
+        "avg_logprob": -0.091,
+        "no_speech_prob": 0.465,
+        "compression_ratio": 1.34
+      },
+      {
+        "start": 397.1,
+        "end": 405.3,
+        "text": "집 앞으로 사람이 와서 현금 1,500만원을 직접 건넸어요. 8월 16일 오후 4시쯤입니다.",
+        "avg_logprob": -0.074,
+        "no_speech_prob": 0.078,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 412.2,
+        "end": 420.0,
+        "text": "금융감독원 직원이라면서 신분증을 보여줬는데 이름이 강민철이었고 사원번호가 2018054이라고 했어요.",
+        "avg_logprob": -0.074,
+        "no_speech_prob": 0.078,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 427.0,
+        "end": 432.6,
+        "text": "112에 신고는 했고 담당 형사님이 서초경찰서 이정훈 경사라고 했습니다.",
+        "avg_logprob": -0.074,
+        "no_speech_prob": 0.078,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 439.1,
+        "end": 449.5,
+        "text": "현금을 전달한 장소는 강남역 3번 출구였고 받아간 사람 전화번호가 010-9982-3316이에요.",
+        "avg_logprob": -0.069,
+        "no_speech_prob": 0.863,
+        "compression_ratio": 1.27
+      },
+      {
+        "start": 456.4,
+        "end": 463.9,
+        "text": "제 통장에서 돈을 뽑은 건 신한은행 창구였고 그때 주민번호 9905241234567을 불러줬어요.",
+        "avg_logprob": -0.069,
+        "no_speech_prob": 0.863,
+        "compression_ratio": 1.27
+      },
+      {
+        "start": 470.7,
+        "end": 476.8,
+        "text": "구글 기프트카드 핀번호를 사진 찍어서 보냈어요. 50만원짜리 3장입니다.",
+        "avg_logprob": -0.069,
+        "no_speech_prob": 0.863,
+        "compression_ratio": 1.27
+      },
+      {
+        "start": 483.7,
+        "end": 491.0,
+        "text": "컬처랜드 문화상품권 200만원어치를 편의점에서 사서 핀번호를 카톡으로 다 넘겼습니다.",
+        "avg_logprob": -0.069,
+        "no_speech_prob": 0.861,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 497.8,
+        "end": 507.6,
+        "text": "해피머니 고객센터에 사용정지를 신청했고 접수하면서 이름 서지훈이랑 전화 010-5567-2200이를 남겼어요.",
+        "avg_logprob": -0.069,
+        "no_speech_prob": 0.861,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 515.0,
+        "end": 521.4,
+        "text": "6월 19일 오전에 신세계상품권 100만원어치를 추가로 보냈는데 그때는 이미 늦었더라고요.",
+        "avg_logprob": -0.069,
+        "no_speech_prob": 0.861,
+        "compression_ratio": 1.35
+      },
+      {
+        "start": 528.0,
+        "end": 532.4,
+        "text": "부겟라이프 핀번호 16자리를 불러줬어요.",
+        "avg_logprob": -0.129,
+        "no_speech_prob": 0.922,
+        "compression_ratio": 1.23
+      },
+      {
+        "start": 534.4,
+        "end": 540.0,
+        "text": "5001234-5678-9012 이런 형식이었습니다.",
+        "avg_logprob": -0.129,
+        "no_speech_prob": 0.922,
+        "compression_ratio": 1.23
+      },
+      {
+        "start": 547.7,
+        "end": 553.9,
+        "text": "SK텔레콤 소액결제로 90만원이 결제됐어요. 8월 18일 새벽입니다.",
+        "avg_logprob": -0.129,
+        "no_speech_prob": 0.922,
+        "compression_ratio": 1.23
+      },
+      {
+        "start": 561.0,
+        "end": 565.1,
+        "text": "KT 고객센터 114에 전화해서 소액결제 차단을 신청했습니다.",
+        "avg_logprob": -0.129,
+        "no_speech_prob": 0.922,
+        "compression_ratio": 1.23
+      },
+      {
+        "start": 571.8,
+        "end": 581.1,
+        "text": "LGU 플러스 명의로 제 이름 놓은서 주민번호 02071호-4567890으로 개통된 게 하나 더 있었어요.",
+        "avg_logprob": -0.13,
+        "no_speech_prob": 0.895,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 588.0,
+        "end": 592.6,
+        "text": "알뜰폰 헬로모바일 쪽인데 결제대행사가 단알이라고 하더라고요.",
+        "avg_logprob": -0.13,
+        "no_speech_prob": 0.895,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 593.4,
+        "end": 595.8,
+        "text": "총 37만 8천원 나갔습니다.",
+        "avg_logprob": -0.13,
+        "no_speech_prob": 0.895,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 602.8,
+        "end": 605.1,
+        "text": "제 카드로도 결제가 됐어요.",
+        "avg_logprob": -0.13,
+        "no_speech_prob": 0.895,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 605.7,
+        "end": 611.0,
+        "text": "신한카드 45391-4880-3436467입니다.",
+        "avg_logprob": -0.13,
+        "no_speech_prob": 0.895,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 617.5,
+        "end": 625.2,
+        "text": "정리하면 8월 17일 오후 3시 국민은행에서 카카오뱅크 3333년 5월 11일 임한",
+        "avg_logprob": -0.077,
+        "no_speech_prob": 0.571,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 625.2,
+        "end": 630.9,
+        "text": "2334로 850만원 그리고 카카오페이로 120만원 보냈고",
+        "avg_logprob": -0.077,
+        "no_speech_prob": 0.571,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 631.3,
+        "end": 636.0,
+        "text": "상대는 자기가 서울중앙지검 김민수 수사관이라고 했어요.",
+        "avg_logprob": -0.077,
+        "no_speech_prob": 0.571,
+        "compression_ratio": 1.25
+      },
+      {
+        "start": 636.7,
+        "end": 641.5,
+        "text": "제번호는 010-3345-8821입니다.",
+        "avg_logprob": -0.077,
+        "no_speech_prob": 0.571,
+        "compression_ratio": 1.25
+      }
+    ],
+    "chars": 2202,
+    "n_segments": 63
+  }
+}

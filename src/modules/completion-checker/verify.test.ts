@@ -51,7 +51,7 @@ describe('L1 — 접수번호를 직접 입력', () => {
     ])
   })
 
-  // → ADR-056. 정본이 없는데 막아 세우면 **제대로 받아 적은 피해자가 실패 화면을
+  // → ADR-057. 정본이 없는데 막아 세우면 **제대로 받아 적은 피해자가 실패 화면을
   //   봅니다.** 그 사람은 할 일을 다 한 사람입니다
   it('그 기관의 형식을 모르면 모양만 보고 통과시킨다', () => {
     const noFormat = createCompletionChecker({ receiptFormat: unknownFormat })

@@ -133,7 +133,7 @@ export function createSlotChecker(deps: {
       return {
         t1,
         t2,
-        nextQuestion: pickQuestion(stateOf, questions),
+        nextQuestion: pickQuestion(stateOf, questions, input.orgCandidates ?? []),
         // 「모름」으로 확정된 경우도 여기 포함된다.
         // 낫게 안내하지 못할 바에 넓게 안내한다 → 08-14-slot-tiering.md
         needsSupersetPlan: t1 !== 'satisfied',
@@ -175,7 +175,35 @@ function tierStatus(
 function pickQuestion(
   stateOf: (key: SlotKey) => SlotState,
   questions: QuestionSource,
+  orgCandidates: readonly string[],
 ): NextQuestion | null {
+  // **못 알아본 기관은 다시 묻는다** → 08-16-data-model.md §11.4.4 ①
+  // *"못 찾으면 되묻는 편이 안전합니다"*.
+  //
+  // 이 자리가 아래 순회 앞에 있는 이유는, 값이 있어서 `empty` 가 아니기
+  // 때문이다 — 순회는 `empty` 만 본다. 되묻지 않으면 사용자는 아무 말도
+  // 못 듣고 유형 기본 절차로 떨어지고, 그 기관 전용 안내와 연락처가
+  // 영영 안 붙는다.
+  //
+  // **선택지로 묻는다.** 자유 입력으로 다시 물으면 같은 표기를 다시 쓰게 되고
+  // 또 못 찾아 되풀이된다. 선택지면 반드시 사전 안의 값이라 다음 답에서
+  // 확정된다 — 되풀이가 구조적으로 생기지 않는다.
+  //
+  // **T1 이 먼저입니다.** 분기를 정하는 둘(`transferred`·`channel`)이 아직
+  // 비어 있으면 그쪽을 먼저 묻습니다 — 기관은 유형 안에서만 뜻을 갖습니다.
+  // 실제로는 유형을 알아야 후보를 좁히므로 이 경우가 잘 안 생기지만, 순서를
+  // 코드로 못박아 둡니다
+  const t1Pending = T1_KEYS.some((key) => stateOf(key) === 'empty')
+
+  if (!t1Pending && stateOf('org_name') === 'extracted' && orgCandidates.length > 0) {
+    return withUnknownOption({
+      slotKey: 'org_name',
+      text: '말씀하신 곳을 찾지 못했습니다. 아래에서 골라 주세요.',
+      input: 'buttons',
+      options: orgCandidates,
+    })
+  }
+
   for (const { slotKey, askWhen } of ASK_ORDER) {
     // 질문 대상은 empty 뿐이다. 추출됐거나 「모름」으로 답한 것은 다시 묻지 않는다
     if (stateOf(slotKey) !== 'empty') continue

@@ -258,6 +258,32 @@ export interface RegeneratePlanDeps {
 }
 
 /**
+ * 못 알아본 기관을 되물을 선택지 — 이 사건 유형의 기관 이름들.
+ *
+ * §11.4.4 ① 이 *"못 찾으면 되묻는 편이 안전합니다"* 로 정했고, 되묻는 것은
+ * 슬롯 체커의 몫입니다. 그러려면 **고를 것을 줘야 합니다** — 자유 입력으로
+ * 다시 물으면 같은 표기를 다시 쓰게 되어 되풀이됩니다.
+ *
+ * 유형이 안 정해졌거나 그 유형에 사전이 아직 없으면 빈 배열입니다.
+ * **그때는 되묻지 않는 것이 맞습니다** — 「사전에 없어서 못 찾은 것」과
+ * 「잘못 들어서 못 찾은 것」이 구분되지 않아, 물어도 고를 것이 없습니다.
+ */
+async function orgOptions(
+  channelId: string | null,
+  kbVersion: string | null,
+  container: Container,
+): Promise<readonly string[]> {
+  if (!channelId || !kbVersion) return []
+  try {
+    const rows = await container.channelWrite.candidates(channelId, kbVersion)
+    return rows.map((one) => one.name)
+  } catch {
+    // 후보를 못 읽어도 **플랜은 나가야 합니다.** 되묻기만 조용히 빠집니다
+    return []
+  }
+}
+
+/**
  * 사건 하나의 플랜을 지금 아는 것에 맞춰 다시 만든다.
  *
  * @throws KbUnavailableError KB 조회가 실패했을 때 — 멈춥니다
@@ -284,7 +310,10 @@ export async function regeneratePlan(
   ])
 
   // 슬롯이 하나도 없어도 판정합니다 — T1 미충족이고, 그것이 정상입니다
-  const check = slotChecker.check({ slots })
+  const check = slotChecker.check({
+    slots,
+    orgCandidates: await orgOptions(channel?.channelId ?? null, version, container),
+  })
 
   const groups = await kbFinder.find({
     kbVersion: version,
@@ -449,20 +478,28 @@ export async function readCasePlan(
     throw new CaseNotFoundError('그 사건을 찾지 못했습니다', { caseId })
   }
 
-  const [slots, stored, channelRows] = await Promise.all([
+  const [slots, stored, channelRows, channel] = await Promise.all([
     store.readSlots(caseId),
     store.readSteps(caseId),
     store.readChannels(caseId),
+    store.readChannel(caseId),
   ])
   const steps = await dressContacts(caseId, stored, { container, store })
-
-  // 슬롯이 하나도 없어도 판정합니다 — T1 미충족이고, 그것이 정상입니다
-  const check = container.slotChecker.check({ slots })
 
   // **저장된 단계가 어느 릴리스로 만들어졌는지**를 그대로 씁니다.
   // 지금 릴리스를 쓰면 「이 안내가 어느 기준인가」가 실제와 어긋납니다 —
   // 플랜은 옛 릴리스로 만들어졌는데 새 번호가 붙습니다
   const kbVersion = steps[0]?.kbVersion ?? null
+
+  // 슬롯이 하나도 없어도 판정합니다 — T1 미충족이고, 그것이 정상입니다.
+  //
+  // **이 자리가 `kbVersion` 뒤인 이유**는 기관 후보를 그 릴리스에서 읽기
+  // 때문입니다. 읽기 경로도 되묻기를 내야 새로고침한 뒤에도 질문이 살아
+  // 있습니다 — 화면이 첫 문항을 여기서 받습니다
+  const check = container.slotChecker.check({
+    slots,
+    orgCandidates: await orgOptions(channel?.channelId ?? null, kbVersion, container),
+  })
 
   return {
     caseId,

@@ -95,6 +95,21 @@ export interface QuestionSource {
 
 export interface SlotCheckInput {
   readonly slots: readonly SlotSnapshot[]
+  /**
+   * 이 사건 유형의 기관 이름들 — **못 알아본 기관을 되물을 선택지**입니다.
+   *
+   * §11.4.4 ① 이 *"못 찾으면 되묻는 편이 안전합니다"* 로 정한 뒤 절반입니다.
+   * 앞 절반(`matchOrg` 의 두 단계)은 `lib/org-match.ts` 에 있고, 못 찾았을 때
+   * 되묻는 것이 여기입니다.
+   *
+   * **선택지로 물어야 합니다.** 같은 자리를 자유 입력으로 다시 물으면 사용자가
+   * 같은 표기를 다시 쓰고, 그러면 또 못 찾아 되풀이됩니다.
+   *
+   * 비었으면(유형 미정이거나 그 유형에 사전이 없으면) 되묻지 않습니다 —
+   * 「사전에 없어서 못 찾은 것」과 「잘못 들어서 못 찾은 것」이 구분되지
+   * 않으므로, 물어도 사용자가 고를 것이 없습니다.
+   */
+  readonly orgCandidates?: readonly string[]
 }
 
 export interface SlotCheckResult {
