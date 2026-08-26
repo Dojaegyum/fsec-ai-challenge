@@ -397,20 +397,10 @@ ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지�
 
 ---
 
-## 기존 문서 반영은 별도 작업입니다
+## 기존 문서 반영 — 끝났습니다
 
-이 문서를 작성한 시점에 `spec/`의 다른 문서들은 아직 「Ingest 서비스」·「2차 PII 스크러버」 같은 옛 표기를 쓰고 있었습니다. 같은 파일들을 여러 작업이 동시에 고치고 있어 일괄 반영을 미뤘습니다.
-
-**2026-08-16 반영이 지시됐습니다.** 도메인 용어는 하나도 바뀌지 않았으므로 대상은 **모듈 이름뿐**이고, 각 문서의 담당이 자기 파일만 고칩니다.
-
-| 무엇 | 어디 |
-| --- | --- |
-| 「서버 구성 요소」 표를 새 이름으로 | [08](08-14-api.md) |
-| 「2차 PII 스크러버」 → `pii-tokenizer` | [04](08-14-pii-boundary.md) [08](08-14-api.md) [10](../backend/08-16-errors.md) |
-| 층 2 모듈 이름을 절 제목에 대응 | [11](../backend/08-16-chat-context.md) §2 §3 §4 §6 §8 |
-| 이 문서 링크 추가 | [00-glossary.md](08-14-glossary.md) |
-
-**`spec/backend/08-16-errors.md`는 반영을 마쳤습니다** — 재시도를 판단하는 자리를 `retry-checker`로 부른다고 명시했습니다.
+이 문서를 작성한 시점에 `spec/`의 다른 문서들은 「Ingest 서비스」·「2차 PII 스크러버」 같은 옛 표기를 쓰고 있었습니다.
+2026-08-16 에 반영을 지시했고, **2026-08-26 기준 옛 표기는 0건**입니다 — `module-inventory --check` 가 계속 봅니다.
 
 ## TODO
 
@@ -420,9 +410,8 @@ ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지�
   [ADR-022](../../decisions/022-chat-turn-boundaries.md)의 결정을 옮겨 적은 것이라 새 판단은 없습니다.
 - TODO(미정): **`chat-receiver`가 얇게 유지되는지 볼 방법.** 지금은 금지 조항뿐이고 강제하는 검사기가 없습니다
   → [ADR-022](../../decisions/022-chat-turn-boundaries.md) 「남은 것」. `work-handler`도 같은 상태입니다.
-- TODO(미정): 리마인더 발송과 파기 실행을 맡을 이름. 층 4에 자리가 비어 있습니다 —
-  선행 조건이던 재진입·연락처([ADR-021](../../decisions/021-reentry-and-identity.md))와
-  주기 실행([ADR-025](../../decisions/025-scheduled-jobs.md)의 Vercel Cron)이 **둘 다 풀렸습니다.**
+- ~~TODO(미정): 리마인더 발송과 파기 실행을 맡을 이름~~ → **층 4 에 `reminder-sender`·`case-purger` 로 등재됐습니다.**
+  코드 폴더도 있습니다 — 다만 깨우는 크론과 메일 발송은 아직 배선 전입니다([qa-readiness](../../docs/plans/08-23-qa-readiness.md)).
 
 ### 상태·등급의 호칭은 정하지 않기로 했습니다
 

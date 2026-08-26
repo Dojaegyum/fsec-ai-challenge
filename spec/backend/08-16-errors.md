@@ -4,7 +4,7 @@
 > 바꿀 때는 spec을 직접 고치지 말고 RFC → ADR 절차를 거칩니다.
 >
 > **2026-08-17 §1의 예외 계층을 Python 에서 TypeScript 로 옮겼습니다** —
-> [ADR-021](../../decisions/028-runtime-and-module-shape.md)로 언어가 확정됐기 때문입니다.
+> [ADR-028](../../decisions/028-runtime-and-module-shape.md)로 언어가 확정됐기 때문입니다.
 > **계약은 하나도 바뀌지 않았습니다** — 예외 14개, `code` 값, HTTP 번호, `retryable` 여부가 전부 그대로입니다.
 > 바뀐 것은 표기(`http_status` → `httpStatus`)와 `detail` 을 받는 방식뿐입니다 → §1.1.
 
@@ -21,7 +21,7 @@
 ## 1. 예외 계층
 
 > **구현 위치는 `src/lib/errors.ts` 입니다.** 모든 모듈이 쓰므로 `src/modules/` 밖의 공용에 둡니다
-> → [ADR-021](../../decisions/028-runtime-and-module-shape.md). 아래가 그 파일의 계약입니다.
+> → [ADR-028](../../decisions/028-runtime-and-module-shape.md). 아래가 그 파일의 계약입니다.
 
 ```ts
 /**
