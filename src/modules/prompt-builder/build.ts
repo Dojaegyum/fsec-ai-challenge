@@ -127,7 +127,9 @@ function caseStateBlock(
 
   const items: PromptItem[] = entries.map((entry) => {
     const ref = `case-${countOf(issued, 'case-') + 1}`
-    issued.push({ ref, label: entry.label })
+    // **`stepId` 는 발급 기록에만 넣습니다** — 아래 `attrs` 에 안 들어갑니다.
+    // 서버가 인용을 되짚는 데만 쓰는 값이고, 모델에게 보일 이유가 없습니다
+    issued.push({ ref, label: entry.label, ...(entry.stepId ? { stepId: entry.stepId } : {}) })
     return {
       tag: 'item',
       attrs: { ref, label: entry.label },

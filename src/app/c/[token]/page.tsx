@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { openCase } from "@/modules/case-opener";
 import { HorizonGlow } from "@/components/HorizonGlow";
-import { isOpen, Workspace } from "@/modules/work-handler";
+import { isOpen, pickStep, Workspace } from "@/modules/work-handler";
 import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
@@ -138,7 +138,20 @@ function CaseScreen({
    * 질문 자리도 여기 있습니다 — 슬롯 답과 발화가 **같은 매핑 목록**을 써야
    * 같은 계좌에 같은 번호가 붙습니다 (PII 경계).
    */
-  const chat = useChatSend(dataToken, bundle.question, onPlanChanged);
+  /**
+   * 사용자가 직접 연 단계. **누르지 않았으면 `null`** 이고, 그때는 아래
+   * 기본 규칙이 고릅니다 → `work-handler` 의 `openStep`.
+   */
+  const [picked, setPicked] = useState<string | null>(null);
+
+  const chat = useChatSend(dataToken, bundle.question, onPlanChanged, (stepIds) => {
+    // **언급이 여럿이어도 패널은 하나**입니다 — 「지급정지를 걸고 3영업일 안에
+    // 신청하세요」는 둘을 가리키지만 지금 할 것은 앞의 하나입니다.
+    // 고를 것이 없으면 `null` 이고, 그때는 **패널을 그대로 둡니다** —
+    // 「감사합니다」에서 작업 자리가 사라지면 적던 접수번호를 잃습니다
+    const next = pickStep(stepIds, bundle.steps as unknown as WorkStep[]);
+    if (next) setPicked(next.step_id);
+  });
   /** 자료 레일도 같은 이유로 여기 있습니다. 개발 경로에서는 픽스처를 씨앗으로 둡니다 */
   const uploads = useUploads(dataToken, dataToken === null ? FIXTURE_EVIDENCE.files : []);
   /**
@@ -146,12 +159,6 @@ function CaseScreen({
    * (불변 규칙 6). 여기 없으면 사슬도 기한도 멈춥니다 → `artifact.ts`
    */
   const artifact = useArtifact(dataToken, onPlanChanged);
-
-  /**
-   * 사용자가 직접 연 단계. **누르지 않았으면 `null`** 이고, 그때는 아래
-   * 기본 규칙이 고릅니다 → `work-handler` 의 `openStep`.
-   */
-  const [picked, setPicked] = useState<string | null>(null);
 
   /**
    * 지금 손댈 단계 하나.

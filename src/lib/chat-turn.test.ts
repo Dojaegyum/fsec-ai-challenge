@@ -17,6 +17,8 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { stepsCited } from '@/flows/chat-turn'
+
 import { createAuditLogger } from '@/modules/audit-logger'
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
 import { createChatPublisher } from '@/modules/chat-publisher'
@@ -425,5 +427,123 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
 
     // 되물어도 안 나온다 — 에러가 아니라 안내다
     expect(turn.outcome.kind).toBe('guide_1332')
+  })
+})
+
+describe('답이 가리킨 단계가 화면으로 나간다 — §3.9 `referenced_steps`', () => {
+  /**
+   * **여기가 오래 비어 있었습니다.** 계약이 이 칸을 정의했는데 서버가 빈 배열만
+   * 냈고, 그래서 챗이 「지급정지부터 하세요」라고 답해도 그 작업 패널이 열리지
+   * 않았습니다. 되짚는 열쇠는 `case_state` 에 실린 `stepId` 입니다.
+   */
+  const builder = createPromptBuilder()
+
+  const promptWith = (steps: readonly { title: string; state: string; stepId: string }[]) =>
+    builder.build({
+      kbApplied: KB_APPLIED,
+      kbReference: [],
+      caseTalk: [],
+      caseState: steps.map((one) => ({
+        label: `단계: ${one.title}`,
+        value: one.state,
+        stepId: one.stepId,
+      })),
+      history: [{ speaker: 'user', text: '뭐부터 하죠' }],
+      currentDate: '2026년 8월 18일',
+    })
+
+  it('발급 기록이 단계 식별자를 들고 다닌다', () => {
+    const prompt = promptWith([
+      { title: '지급정지를 요청합니다', state: 'not_started', stepId: '01JFREEZE' },
+    ])
+    const issued = prompt.issued.find((one) => one.ref === 'case-1')
+
+    expect(issued?.stepId).toBe('01JFREEZE')
+  })
+
+  it('**프롬프트에는 안 들어간다** — 모델에게 ULID 를 보여줄 이유가 없습니다', () => {
+    const prompt = promptWith([
+      { title: '지급정지를 요청합니다', state: 'not_started', stepId: '01JFREEZE' },
+    ])
+
+    expect(prompt.user).toContain('지급정지를 요청합니다')
+    expect(prompt.user).not.toContain('01JFREEZE')
+  })
+
+  it('KB 인용에는 단계가 안 붙는다 — 절차 지식이지 이 사건의 단계가 아닙니다', () => {
+    const prompt = promptWith([
+      { title: '지급정지를 요청합니다', state: 'not_started', stepId: '01JFREEZE' },
+    ])
+    const kb = prompt.issued.find((one) => one.ref === 'kb-1')
+
+    expect(kb).toBeDefined()
+    expect(kb?.stepId).toBeUndefined()
+  })
+
+  it('단계가 여럿이면 발급 번호도 여럿이고 각각 제 단계를 가리킨다', () => {
+    const prompt = promptWith([
+      { title: '지급정지를 요청합니다', state: 'done_verified', stepId: '01JFREEZE' },
+      { title: '피해구제를 신청합니다', state: 'not_started', stepId: '01JRELIEF' },
+    ])
+
+    expect(prompt.issued.find((one) => one.ref === 'case-1')?.stepId).toBe('01JFREEZE')
+    expect(prompt.issued.find((one) => one.ref === 'case-2')?.stepId).toBe('01JRELIEF')
+  })
+
+  it('단계가 아닌 사건 정보에는 안 붙는다 — 슬롯은 단계가 아닙니다', () => {
+    const prompt = builder.build({
+      kbApplied: KB_APPLIED,
+      kbReference: [],
+      caseTalk: [],
+      caseState: [{ label: 'org_name', value: '[기관-1]' }],
+      history: [{ speaker: 'user', text: '뭐부터 하죠' }],
+      currentDate: '2026년 8월 18일',
+    })
+
+    expect(prompt.issued.find((one) => one.ref === 'case-1')?.stepId).toBeUndefined()
+  })
+})
+
+describe('인용을 단계로 되짚는 규칙', () => {
+  const cited = (
+    citations: readonly { ref: string }[],
+    issued: readonly { ref: string; stepId?: string }[],
+  ) => stepsCited({ reply: { citations }, issued })
+
+  it('`case-` 가 가리킨 단계를 낸다', () => {
+    expect(
+      cited([{ ref: 'case-2' }], [
+        { ref: 'case-1', stepId: '01JA' },
+        { ref: 'case-2', stepId: '01JB' },
+      ]),
+    ).toEqual(['01JB'])
+  })
+
+  it('**`kb-` 는 안 온다** — 절차 지식이지 이 사건의 단계가 아닙니다', () => {
+    expect(cited([{ ref: 'kb-1' }], [{ ref: 'kb-1', kbEntryId: 'x' } as never])).toEqual([])
+  })
+
+  it('단계가 아닌 `case-` 는 안 온다 — 슬롯이 그 경우입니다', () => {
+    expect(cited([{ ref: 'case-1' }], [{ ref: 'case-1' }])).toEqual([])
+  })
+
+  it('**같은 줄을 두 번 인용해도 한 번만** 낸다', () => {
+    expect(
+      cited([{ ref: 'case-1' }, { ref: 'case-1' }], [{ ref: 'case-1', stepId: '01JA' }]),
+    ).toEqual(['01JA'])
+  })
+
+  it('인용한 순서를 지킨다 — 화면이 앞의 것을 먼저 봅니다', () => {
+    expect(
+      cited([{ ref: 'case-2' }, { ref: 'case-1' }], [
+        { ref: 'case-1', stepId: '01JA' },
+        { ref: 'case-2', stepId: '01JB' },
+      ]),
+    ).toEqual(['01JB', '01JA'])
+  })
+
+  it('발급하지 않은 번호를 지어내도 조용히 버린다', () => {
+    // 모델이 없는 `case-9` 를 쓸 수 있습니다 — 던지면 답 전체가 날아갑니다
+    expect(cited([{ ref: 'case-9' }], [{ ref: 'case-1', stepId: '01JA' }])).toEqual([])
   })
 })

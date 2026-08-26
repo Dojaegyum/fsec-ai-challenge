@@ -90,6 +90,8 @@ export interface PromptSource {
 export interface IssuedRef {
   readonly ref: string
   readonly label: string
+  /** `case-` 줄이 단계일 때만 → §3.9 `referenced_steps` */
+  readonly stepId?: string
   readonly kbEntryId?: string
   readonly kbVersion?: string
 }
