@@ -166,7 +166,17 @@ function toReply(raw: unknown): ModelReply {
 /**
  * 부를 것을 만든다. **열쇠가 없으면 `null`** — 조립이 성공해야 합니다.
  */
-export function createLlmClient(env: Env): LlmClient | null {
+/**
+ * 챗이 쓰는 `complete` 에 **글을 그대로 받는 `completeText`** 를 더한 것.
+ *
+ * 전사문 기관 교정은 챗의 네 항목(JSON) 형식이 아니라 제 형식으로 답을
+ * 받아야 해서 갈라 뒀습니다 → ADR-056.
+ */
+export interface TextLlmClient extends LlmClient {
+  completeText(prompt: { system: string; user: string }): Promise<{ text: string }>
+}
+
+export function createLlmClient(env: Env): TextLlmClient | null {
   // **둘 중 하나면 섭니다.** 개발용 열쇠를 넣었는데 `XAI_API_KEY` 가 비어서
   // 안 뜨면, 무엇이 문제인지 아무 데도 안 나옵니다
   const key = env.values.LLM_API_KEY ?? env.values.XAI_API_KEY
@@ -205,8 +215,14 @@ export function createLlmClient(env: Env): LlmClient | null {
       ],
     })
 
-  return {
-    async complete(prompt: { system: string; user: string }): Promise<ModelReply> {
+  /**
+   * 모델을 부르고 **글을 그대로** 돌려준다.
+   *
+   * 재시도·시간 예산·모델 폴백이 전부 여기 있습니다. 위에 무엇을 얹든 같은
+   * 규칙으로 돕니다 — 챗은 JSON 네 항목으로 읽고(`complete`), 전사문 기관
+   * 교정은 제 형식으로 읽습니다(`completeText` → ADR-056).
+   */
+  const sendText = async (prompt: { system: string; user: string }): Promise<string> => {
       // **예산은 통틀어 하나입니다.** 시도마다 45초씩 주면 재시도 두 번에
       // 함수 상한(60초)을 넘겨 버립니다 → 라우트의 `maxDuration`
       const deadline = Date.now() + TIMEOUT_MS
@@ -270,6 +286,12 @@ export function createLlmClient(env: Env): LlmClient | null {
         throw new Error('모델이 빈 답을 냈습니다')
       }
 
+      return text
+  }
+
+  return {
+    async complete(prompt: { system: string; user: string }): Promise<ModelReply> {
+      const text = await sendText(prompt)
       try {
         return toReply(extractJson(text))
       } catch {
@@ -277,6 +299,10 @@ export function createLlmClient(env: Env): LlmClient | null {
         // 사용자가 다시 물어볼 수 없고, 억지로 읽으면 근거 없는 안내가 나갑니다
         return { insufficient: true, citations: [] }
       }
+    },
+
+    async completeText(prompt: { system: string; user: string }): Promise<{ text: string }> {
+      return { text: await sendText(prompt) }
     },
   }
 }
