@@ -399,6 +399,16 @@ python .github/scripts/schema-names.py
 python -m unittest discover -s services/transcriber -t .
 ```
 
+**여덟을 한 번에 도는 것이 있습니다** — `bash .github/scripts/gates.sh origin/main`.
+위 다섯에 `typecheck`·`test`·`build` 를 더해, **CI 워크플로 여덟이 하는 일을 그대로**
+돕니다. 인자로 준 기준과의 차이가 있어야 볼 수 있는 검사 둘(ADR 불변성 · 스키마↔
+마이그레이션 짝)도 그때만 켭니다.
+
+> ⛔ **CI 가 멈출 수 있습니다.** 2026-08-26 오후에 러너가 안 붙어 검사가 `queued`
+> 인 채로 남거나 0초에 `startup_failure` 로 떨어졌고, **검사 0개로 머지된 PR 이
+> 생겼습니다.** 그때 이 스크립트가 문지기를 대신합니다 — **러너가 죽어도 검사
+> 자체는 우리 것**입니다. 다만 대신할 뿐이고, Actions 가 살아나면 그쪽이 문지기입니다.
+
 **게이트 밖에 하나가 더 있습니다** — `npm run test:db`. CI 에서 안 돌아서 게이트가
 아니고, 그래서 더 잊기 쉽습니다. 스키마나 `lib/db.ts` 를 건드렸으면 돌리세요 (→ 아래).
 
@@ -579,3 +589,4 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-24 | KB 적재기(`npm run kb:load`) 신설 — `src/kb/*.json` 을 `kb_entry` 로. 판정은 `lib/kb-load.ts` 에 두어 `npm test` 가 봅니다 | [RFC-002](002-kb-authoring.md) · [ADR-045](../decisions/045-kb-release-pin.md) |
 | 2026-08-25 | 배포 워크플로(`deploy`) 신설 — `main` 머지가 곧 배포. 손으로 올린 주소가 `main` 보다 뒤처져 있었습니다 | [ADR-053](../decisions/053-deploy-on-merge.md) |
 | 2026-08-26 | 「은퇴」 신설 — 역할이 끝난 `spec/`·`docs/` Markdown 은 옮기거나 지우지 않고 제자리에서 배너 + README 「은퇴」 절로. ADR 이 그 주소를 수십 곳 가리키고 있어 옮기면 고칠 수 없는 문서의 링크가 깨집니다. `docs/plans/` 의 「반영되면 지운다」 규정도 이걸로 대체. 첫 손질에서 6편 은퇴 · `doc-gardening` 스킬 신설 · 폴더 지도에 `assets/components/`·`src/migrations/` 보강 | 커밋 메시지 · [docs/plans/08-26-doc-gardening.md](../docs/plans/08-26-doc-gardening.md) |
+| 2026-08-27 | 게이트 한 번에 도는 `gates.sh` 신설 — **CI 가 멈춘 날 만들었습니다.** 러너가 안 붙어 검사가 `queued` 로 남거나 0초에 `startup_failure` 로 떨어졌고 **검사 0개로 머지된 PR 이 생겼습니다.** 러너가 죽어도 검사 자체는 우리 것이라, 그것을 손에 들려 주는 자리입니다 | 커밋 메시지 |
