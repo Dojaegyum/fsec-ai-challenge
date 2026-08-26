@@ -911,6 +911,16 @@ export interface ChannelWriter {
 
   /** 그 유형의 기관들 — 이름 정규화에 씁니다 → §11.4.4 ① */
   candidates(channelId: string, kbVersion: string): Promise<readonly OrgCandidateRow[]>
+  /**
+   * 유형을 가리지 않은 전 기관 — **전사문 교정에 씁니다** → ADR-056.
+   *
+   * `candidates` 와 갈라 두는 이유는 **전사 시점에는 유형을 모르기** 때문입니다
+   * (그것을 알아내려고 전사합니다 → 17 §4). 좁힐 축이 없으니 전부 봅니다.
+   *
+   * 넓게 봐도 안전한 것은 `matchOrg` 가 **정확 일치**만 보고, 여럿 걸리면
+   * 고르지 않고 `null` 을 내기 때문입니다.
+   */
+  allCandidates(kbVersion: string): Promise<readonly OrgCandidateRow[]>
 }
 
 export interface OrgCandidateRow {
@@ -932,6 +942,20 @@ export function createChannelWriter(sql: Sql): ChannelWriter {
         VALUES (${input.caseId}, ${input.channelId}, ${input.orgId},
                 ${input.orgNameRaw}, ${confidence}, ${input.source})
       `
+    },
+
+    async allCandidates(kbVersion) {
+      const rows = await sql<
+        { org_id: string; name: string; aliases: unknown }[]
+      >`
+        SELECT org_id, name, aliases FROM org
+        WHERE kb_version = ${kbVersion}
+      `
+      return rows.map((one) => ({
+        orgId: one.org_id,
+        name: one.name,
+        aliases: Array.isArray(one.aliases) ? (one.aliases as string[]) : [],
+      }))
     },
 
     async candidates(channelId, kbVersion) {

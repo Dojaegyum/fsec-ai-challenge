@@ -25,6 +25,12 @@
 import 'server-only'
 
 import type { Container } from '@/lib/container'
+import {
+  ORG_REPAIR_PROMPT,
+  buildOrgRepairInput,
+  parseOrgRepair,
+  verifyOrgRepair,
+} from '@/lib/org-repair'
 
 import type { EvidenceKind, IngestStatus } from '@/modules/case-intake'
 import type { IngestPhase, Line } from '@/modules/transcriber'
@@ -136,6 +142,13 @@ export async function collectReading(
     shortfalls: [...progress.result.shortfalls],
   }
 
+  // **토큰화가 끝난 뒤에 기관 이름을 고칩니다** → ADR-056.
+  //
+  // 이 자리인 이유는 경계 때문입니다 — 여기서부터 개인정보는 토큰이라
+  // 밖으로 내보내도 [불변 규칙 2](../../CLAUDE.md)를 안 깨뜨립니다.
+  // 기관명은 토큰화 제외 목록이라 평문 그대로 남아 있어 모델이 볼 수 있습니다.
+  await repairOrgs(input.caseId, masked.lines, container)
+
   // **한 번만 토큰화합니다.** 저장해 두면 다음 폴링은 위에서 바로 돌아갑니다.
   // 챗도 이 값을 맥락으로 씁니다 → `flows/chat-turn.ts`
   await container.evidenceWrite.finish({
@@ -231,4 +244,69 @@ export function statusOf(state: ReadState): IngestStatus {
   if (state.status === 'running') return 'processing'
   if (state.status === 'failed') return 'failed'
   return 'done'
+}
+
+/**
+ * 전사문에서 기관 이름을 찾아 고치고, 확인 대기 상태로 남긴다 → ADR-056.
+ *
+ * ## 왜 확정하지 않나
+ *
+ * 모델이 짚고 사전이 걸러도 **마지막은 사용자가 봅니다** — `state: 'extracted'`
+ * 로 두면 슬롯 체커가 그 유형의 기관 목록을 선택지로 되묻습니다
+ * (`slot-checker/check.ts`). §11.4.4 ① 이 *"못 찾으면 되묻는 편이 안전합니다"*
+ * 로 정한 것이고, 모델을 쓴다고 그 이유가 사라지지 않습니다.
+ *
+ * ## 왜 유형으로 안 좁히나
+ *
+ * **전사 시점에는 유형을 모릅니다** — 그것을 알아내려고 전사합니다(17 §4).
+ * 그래서 전 기관을 봅니다. `matchOrg` 가 정확 일치만 보고 여럿이면 `null` 을
+ * 내므로 넓게 봐도 엉뚱한 곳이 확정되지 않습니다.
+ *
+ * ## 실패해도 진행한다
+ *
+ * 모델이 안 뜨거나 형식을 못 지키면 **교정만 건너뜁니다.** 전사 결과는 그대로
+ * 저장되고, 지금과 같은 상태가 될 뿐 새로 나빠지는 것이 없습니다 → 불변 규칙 5.
+ */
+async function repairOrgs(
+  caseId: string,
+  lines: readonly { readonly text: string }[],
+  container: Container,
+): Promise<void> {
+  try {
+    const texts = lines.map((one) => one.text)
+    if (texts.length === 0) return
+
+    const version = await container.ports.kbVersion.current()
+    const candidates = await container.channelWrite.allCandidates(version)
+    // 사전이 비면 대조할 것이 없습니다. 모델을 부를 이유도 없습니다
+    if (candidates.length === 0) return
+
+    const reply = await container.ports.llm.completeText({
+      system: ORG_REPAIR_PROMPT,
+      user: buildOrgRepairInput(texts),
+    })
+
+    const repaired = verifyOrgRepair(parseOrgRepair(reply.text), texts.join('\n'), candidates)
+    // **하나로 확정된 것만 슬롯에 올립니다.** 여럿이 걸린 것은 값이 없는 것과
+    // 같아서, 그것으로 슬롯을 채우면 되묻기가 무엇을 물을지 정하지 못합니다
+    const first = repaired.find((one) => one.orgId !== null)
+    if (!first) return
+
+    const name = first.options[0]
+    if (!name) return
+
+    await container.slotWrite.write({
+      caseId,
+      slotKey: 'org_name',
+      tier: 'T2',
+      valueType: 'string',
+      // **확인 전입니다.** 사용자가 고르면 `confirmed` 가 됩니다
+      state: 'extracted',
+      valueMasked: name,
+      source: 'auto',
+    })
+  } catch {
+    // 여기서 던지면 **전사 결과를 통째로 잃습니다.** 아래 finish 가 못 돌고,
+    // 다음 폴링에서 전사 서비스가 이미 작업을 버렸으면 다시 읽지도 못합니다
+  }
 }
