@@ -108,16 +108,22 @@ export interface PanelProps {
   title: string;
   /** 통화 타이머·D-day 처럼 상태 칩에 들어갈 것 */
   status?: { tone: "pii" | "amber"; label: string };
+  /**
+   * **부산물을 내는 자리** — 패널 본문 아래에 붙습니다 → §3.8.
+   *
+   * 넘기지 않으면 안 그립니다. 그래서 시안을 그리던 기존 호출부는
+   * 그대로 돌고, 실제 단계에 붙은 호출부만 동작합니다.
+   */
   children?: React.ReactNode;
 }
 
 /* ── 유형 일곱 ───────────────────────────────────────────────── */
 
 /** 통화 — 전화는 관측 불가한 블랙박스. **대본과 받아적기 칸이 타이머가 도는 동안 이미 떠 있어야** 합니다 */
-export function CallPanel({ title, status, script, artifactLabel, placeholder }: PanelProps & {
-  script: React.ReactNode;
-  artifactLabel: string;
-  placeholder: string;
+export function CallPanel({ title, status, script, artifactLabel, placeholder, children }: PanelProps & {
+  script?: React.ReactNode;
+  artifactLabel?: string | null;
+  placeholder?: string;
 }) {
   return (
     <Shell
@@ -131,29 +137,37 @@ export function CallPanel({ title, status, script, artifactLabel, placeholder }:
         계좌번호는 <b className="font-[620] text-ink-2">그대로 적혀 있습니다.</b> 보고 읽으시면 됩니다
       </p>
 
-      <div className="mt-3.5 text-[13.5px] font-[620] text-ink-1">{artifactLabel}</div>
-      <div className="mt-2 flex gap-2">
-        <input className={`${FIELD} flex-1`} placeholder={placeholder} data-numeric />
-        <button type="button" className={`${PRIMARY} shrink-0 px-4`}>
-          입력
-        </button>
-      </div>
+      {/* **시안이 그리던 자리입니다.** `artifactLabel` 을 넘기지 않으면 안 그립니다 —
+          실제 단계에 붙은 호출부는 부산물 자리를 `children` 으로 받아 오고,
+          둘 다 그리면 입력칸이 두 개가 됩니다 */}
+      {artifactLabel ? (
+        <>
+          <div className="mt-3.5 text-[13.5px] font-[620] text-ink-1">{artifactLabel}</div>
+          <div className="mt-2 flex gap-2">
+            <input className={`${FIELD} flex-1`} placeholder={placeholder} data-numeric />
+            <button type="button" className={`${PRIMARY} shrink-0 px-4`}>
+              입력
+            </button>
+          </div>
 
-      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
-        접수 문자 캡처 올리기
-      </button>
-      <button type="button" className={LATER}>
-        나중에 입력할게요
-      </button>
+          <button type="button" className={`${PRIMARY} mt-3 w-full`}>
+            접수 문자 캡처 올리기
+          </button>
+          <button type="button" className={LATER}>
+            나중에 입력할게요
+          </button>
+        </>
+      ) : null}
+      {children}
     </Shell>
   );
 }
 
 /** 외부 이동 — 화면을 떠나는 유일한 유형. **나가기 전에 「들고 돌아올 것」을 먼저** */
-export function VisitPanel({ title, status, bring, why, exitLabel, note }: PanelProps & {
-  bring: string;
-  why: string;
-  exitLabel: string;
+export function VisitPanel({ title, status, bring, why, exitLabel, note, children }: PanelProps & {
+  bring?: string;
+  why?: string;
+  exitLabel?: string;
   note?: string;
 }) {
   return (
@@ -175,14 +189,15 @@ export function VisitPanel({ title, status, bring, why, exitLabel, note }: Panel
         나중에 할게요
       </button>
       {note && <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">{note}</p>}
+      {children}
     </Shell>
   );
 }
 
 /** 받아적기 — **형식이 틀려도 막지 않습니다.** 저장 후 「확인 필요」 표시만 */
-export function WritePanel({ title, placeholder, why }: PanelProps & {
-  placeholder: string;
-  why: React.ReactNode;
+export function WritePanel({ title, placeholder, why, children }: PanelProps & {
+  placeholder?: string;
+  why?: React.ReactNode;
 }) {
   return (
     <Shell active eyebrow="받아적기" title={title}>
@@ -198,12 +213,13 @@ export function WritePanel({ title, placeholder, why }: PanelProps & {
         형식이 달라도 저장됩니다.{" "}
         <b className="font-[620] text-deadline-urgent">확인 필요</b>로 표시만 합니다
       </p>
+      {children}
     </Shell>
   );
 }
 
 /** 제출 — **「올려도 되는 이유」를 패널 안에서** 설명합니다 */
-export function UploadPanel({ title }: PanelProps) {
+export function UploadPanel({ title, children }: PanelProps) {
   return (
     <Shell active eyebrow="제출" title={title}>
       <div className="grid min-h-[92px] place-items-center rounded-[10px] border border-dashed border-hairline bg-chip px-3 text-center text-[13.5px] text-ink-3">
@@ -219,14 +235,15 @@ export function UploadPanel({ title }: PanelProps) {
       <button type="button" className={LATER}>
         나중에 올릴게요
       </button>
+      {children}
     </Shell>
   );
 }
 
 /** 받기 — **PII 전체 복원이 허용된 유일한 패널.** 사용자가 직접 연 자리입니다 */
-export function DownloadPanel({ title, status, fields, fileLabel }: PanelProps & {
-  fields: { label: string; value: string }[];
-  fileLabel: string;
+export function DownloadPanel({ title, status, fields, fileLabel, children }: PanelProps & {
+  fields?: { label: string; value: string }[];
+  fileLabel?: string;
 }) {
   return (
     <Shell
@@ -236,7 +253,7 @@ export function DownloadPanel({ title, status, fields, fileLabel }: PanelProps &
       status={status && <Chip tone={status.tone}>{status.label}</Chip>}
     >
       <div className={INNER}>
-        {fields.map((f) => (
+        {(fields ?? []).map((f) => (
           <div key={f.label} className="flex justify-between gap-3 py-[3px]">
             <span className="text-[12.5px] text-ink-3">{f.label}</span>
             {/* 원문입니다 — 이 패널에서만 */}
@@ -254,16 +271,17 @@ export function DownloadPanel({ title, status, fields, fileLabel }: PanelProps &
       <button type="button" className={LATER}>
         나중에 받을게요
       </button>
+      {children}
     </Shell>
   );
 }
 
 /** 기다리기 — **진행률이지 카운트다운이 아닙니다.** 앰버 금지, 「기다림이 정상」을 말하는 자리 */
-export function WaitPanel({ title, body, from, to, footer }: PanelProps & {
-  body: React.ReactNode;
-  from: string;
-  to: string;
-  footer: string;
+export function WaitPanel({ title, body, from, to, footer, children }: PanelProps & {
+  body?: React.ReactNode;
+  from?: string;
+  to?: string;
+  footer?: string;
 }) {
   return (
     <Shell active={false} eyebrow="기다리기" title={title}>
@@ -277,14 +295,15 @@ export function WaitPanel({ title, body, from, to, footer }: PanelProps & {
         <span>{to}</span>
       </div>
       <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">{footer}</p>
+      {children}
     </Shell>
   );
 }
 
 /** 읽기 — **완료 개념이 없습니다. 체크박스·버튼을 두지 마세요.** 사각지대를 사각지대라고 말하는 자리 */
-export function ReadPanel({ title, body, source }: PanelProps & {
-  body: React.ReactNode;
-  source: string;
+export function ReadPanel({ title, body, source, children }: PanelProps & {
+  body?: React.ReactNode;
+  source?: string;
 }) {
   return (
     <Shell active={false} eyebrow="읽기" title={title}>
@@ -292,6 +311,7 @@ export function ReadPanel({ title, body, source }: PanelProps & {
       <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
         근거 · {source}
       </p>
+      {children}
     </Shell>
   );
 }

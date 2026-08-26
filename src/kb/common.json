@@ -41,6 +41,7 @@
       "verified_at": "2026-08-24",
       "body": {
         "actor": "victim",
+        "action": "call",
         "requires_slots": [],
         "after": [],
         "conditional": null,
@@ -91,6 +92,7 @@
       "verified_at": "2026-08-24",
       "body": {
         "actor": "victim",
+        "action": "call",
         "requires_slots": [],
         "after": [],
         "conditional": null,
@@ -146,6 +148,7 @@
       "verified_at": "2026-08-24",
       "body": {
         "actor": "victim",
+        "action": "call",
         "requires_slots": [],
         "after": [
           "freeze-request"
@@ -203,6 +206,7 @@
       "verified_at": "2026-08-24",
       "body": {
         "actor": "victim",
+        "action": "visit",
         "requires_slots": [
           "relief_applied_at"
         ],
@@ -282,6 +286,7 @@
       "verified_at": "2026-08-26",
       "body": {
         "actor": "bank",
+        "action": "upload",
         "requires_slots": [],
         "after": [
           "relief-documents"

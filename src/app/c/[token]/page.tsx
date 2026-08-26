@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { openCase } from "@/modules/case-opener";
 import { HorizonGlow } from "@/components/HorizonGlow";
-import { CallPanel } from "@/modules/work-handler";
+import { isOpen, Workspace } from "@/modules/work-handler";
+import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
 import { ABSORB_MS, absorbKeyframes, fadeKeyframes, prefersReducedMotion, rectOf } from "./absorb";
@@ -14,6 +15,7 @@ import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
 import { useCaseBundle, type CaseBundle } from "./load";
 import { useChatSend } from "./send";
+import { useArtifact } from "./artifact";
 import { useUploads } from "./upload";
 import T0Rail from "./safety";
 import PlanView from "./plan";
@@ -139,6 +141,27 @@ function CaseScreen({
   const chat = useChatSend(dataToken, bundle.question, onPlanChanged);
   /** 자료 레일도 같은 이유로 여기 있습니다. 개발 경로에서는 픽스처를 씨앗으로 둡니다 */
   const uploads = useUploads(dataToken, dataToken === null ? FIXTURE_EVIDENCE.files : []);
+  /**
+   * **부산물을 내는 자리** — 완료는 사용자의 체크가 아니라 이것으로 판정합니다
+   * (불변 규칙 6). 여기 없으면 사슬도 기한도 멈춥니다 → `artifact.ts`
+   */
+  const artifact = useArtifact(dataToken, onPlanChanged);
+
+  /**
+   * 지금 손댈 단계 하나 — **아직 안 끝난 것 중 앞선 것**입니다.
+   *
+   * ⬜ 챗의 `referenced_steps` 로 옮기는 것(`applySignal`)과 보드에서 눌러
+   * 여는 것(`openStep`)은 아직 안 이어져 있습니다. 지금은 규칙 하나로만
+   * 고릅니다 — 그래도 **부산물을 낼 자리가 생깁니다.**
+   */
+  const activeStep = useMemo(() => {
+    const open = bundle.steps.filter((one) => isOpen(one as WorkStep));
+    if (open.length === 0) return null;
+    // §3.6 이 `title` 과 `body` 를 보장합니다 — 두 모듈의 타입이 각자
+    // 필요한 만큼만 선언해 놓아서 여기서 한 번 넓힙니다
+    return open.reduce((best, one) =>
+      (one.seq < best.seq ? one : best)) as unknown as FullStep;
+  }, [bundle.steps]);
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
   const [side, setSide] = useState<Side>(
@@ -369,19 +392,14 @@ function CaseScreen({
           {atWork ? (
             <>
               <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">워크스페이스</div>
-              <CallPanel
-                title="국민은행에 전화"
-                status={{ tone: "pii", label: "⏱ 04:17" }}
-                artifactLabel="끊기 전에 접수번호를 받아적으세요"
-                placeholder="2026-0815-000123"
-                script={
-                  <>
-                    「보이스피싱 피해를 입었습니다.{" "}
-                    <b className="font-[620] text-ink-1">지급정지</b>를 요청합니다.」 제 계좌는{" "}
-                    <b className="font-[620] text-ink-1">110-2345-678901</b>, 300만원을{" "}
-                    <b className="font-[620] text-ink-1">352-0987-654321</b>로 보냈습니다.
-                  </>
-                }
+              {/* **서버가 준 단계를 그립니다** — 어느 패널인지는 `body.action` 이
+                  정합니다(ADR-024). 전에는 시안 값이 하드코딩돼 있어 사용자가
+                  무엇을 해도 부산물이 안 만들어졌습니다 */}
+              <Workspace
+                step={activeStep}
+                onSubmit={(stepId, one) => void artifact.submit(stepId, one)}
+                busy={artifact.sendingStepId !== null}
+                verdict={artifact.verdict}
               />
               {chatIsMain ? (
                 <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">

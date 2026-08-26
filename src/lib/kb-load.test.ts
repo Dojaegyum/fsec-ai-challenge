@@ -27,6 +27,8 @@ const good = (over: Record<string, unknown> = {}, bodyOver: Record<string, unkno
   verified_at: '2026-08-24',
   body: {
     actor: 'victim',
+    // 그 단계에서 사용자가 하는 일 하나 → §3.6 `body.action` · ADR-024
+    action: 'call',
     requires_slots: [],
     after: [],
     conditional: null,
@@ -178,6 +180,30 @@ describe('누가 하는 단계인가 — **없으면 사건 생성이 500 으로
   it('**기본값을 두지 않는다** — 기관이 할 일이 사용자 할 일로 뜨면 안 된다', () => {
     expect(rulesOf([good({}, { actor: 'bank' })])).toEqual([])
     expect(rulesOf([good({}, { actor: 'victim' })])).toEqual([])
+  })
+})
+
+describe('어떤 패널을 여나 — `body.action` (§3.6 · ADR-024)', () => {
+  it('없으면 거부한다 — **화면이 패널을 못 엽니다**', () => {
+    // `panelFor` 가 `null` 을 내면 그 단계는 워크스페이스에 아무것도 안 그리고,
+    // 사용자가 부산물을 낼 자리가 사라집니다 → 완료 판정도 사슬도 멈춥니다
+    expect(rulesOf([good({}, { action: undefined })])).toContain('ACTION')
+  })
+
+  it('일곱 밖이면 거부한다', () => {
+    expect(rulesOf([good({}, { action: 'sign' })])).toContain('ACTION')
+    expect(rulesOf([good({}, { action: 'submit' })])).toContain('ACTION')
+  })
+
+  it('일곱은 전부 받는다', () => {
+    for (const one of ['call', 'visit', 'write', 'upload', 'download', 'wait', 'read']) {
+      expect(rulesOf([good({}, { action: one })]), one).toEqual([])
+    }
+  })
+
+  it('`steps[].action` 과 다른 값이어도 된다 — 첫 줄이 대표가 아닙니다', () => {
+    // 서류 제출은 `download` 로 시작해 `visit` 로 끝나고, 핵심은 제출입니다
+    expect(rulesOf([good({}, { action: 'visit' })])).toEqual([])
   })
 })
 
