@@ -34,11 +34,12 @@
 | **모듈 이름이 무엇이고 무엇을 맡나** | [spec/common/08-16-module-names.md](spec/common/08-16-module-names.md) | 서버 네 층 + **브라우저 층 C**. 코드 폴더가 여기 묶여 있어 CI가 강제 |
 | **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-001](rfc/001-repo-structure.md) |
 | 왜 그렇게 정했나 | `decisions/` | 판단 근거의 이력(ADR). 과거형, 고치지 않음 |
+| **절차·기한·기관의 근거** | [docs/research/](docs/research/) — 목차가 [README](docs/research/README.md) | **조사 원본 열여덟 편.** 법령 조문·기관 연락처·실측값이 전부 **출처와 확인일과 함께** 있습니다. `kb_entry`·`org` 의 `legal_basis`·`source_url` 이 여기서 나옵니다 |
 | 서비스 기획 전체 그림 | `assets/artifacts/plans/08-13-service-plan.html` | 사람이 보는 원본. 다이어그램·목업 포함. **구 명칭 시점 문서** |
 | **색·크기·상태를 눈으로** | `assets/artifacts/plans/08-18-design-system.html` | 팔레트·타입 사다리·대비 실측. 값의 정본은 `src/app/globals.css` |
 | **화면이 어떻게 생겼나** | Claude Design 캔버스 + `assets/artifacts/handoff/` | **디자인 정본.** 받은 그대로의 스냅샷과 캔버스 URL. 절차는 [RFC-003](rfc/003-design-handoff.md) |
 | 화면 목업(옛 그림) | `assets/artifacts/plans/08-17-screen-mockups.html` | **동결됨** — 화면 01(S-04)까지만 갱신. 레이아웃은 더 이상 정본이 아니고 **설계 노트만 유효**합니다 ([ADR-030](decisions/030-design-handoff.md)) |
-| 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
+| 절차 지식의 근거(옛 자료) | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차. **위 `docs/research/` 가 더 최신이고 정확합니다** |
 | **자동화를 어디까지 하나** | [spec/common/08-20-automation-boundary.md](spec/common/08-20-automation-boundary.md) | **계약.** 넘으면 인허가가 필요한 선. 새 기능을 볼 때 여기서 대조 |
 | **STT·OCR 이 실제로 얼마나 새나** | [docs/research/09](docs/research/09-로컬모델-PII인식-실측.md)·[11](docs/research/11-로컬OCR-PII인식-실측.md) | **우리가 직접 잰 값.** `transcriber`·`pii-tokenizer` 를 만들기 전에. 사람이 보는 요약은 `assets/artifacts/research/08-21-pii-measurement.html` |
 | **전사를 무엇으로 어떻게 돌리나** | [ADR-052](decisions/052-stt-configuration.md) · 근거는 [14](docs/research/14-STT-전처리-실측.md)·[15](docs/research/15-STT-GPU-실측.md) | **계약.** 모델·배치·VAD 와 **토큰화 앞의 자리표기 되돌리기**. 사람이 보는 요약은 `assets/artifacts/research/08-25-stt-benchmark.html` |
@@ -111,15 +112,16 @@
 
 커밋 메시지와 코드 주석에서 이 ID로 참조하세요 (예: `F-05b 슬롯 체커 구현`).
 
-## 네 폴더의 역할 — 헷갈리면 여기
+## 다섯 폴더의 역할 — 헷갈리면 여기
 
 ```
-결정할 일이 생김
-   ↓ 논의
-decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않음)
-   ├→ rfc/   그래서 지킬 작업 규칙   (현재형 · 현행 · 고쳐서 유지)
-   ├→ spec/  그래서 만들 제품 계약
-   └→ src/   구현
+바깥 세상의 사실                     결정할 일이 생김
+   ↓ 조사                              ↓ 논의
+docs/research/  무엇이 사실인가       decisions/  왜 그렇게 정했나
+(출처·확인일 · 정정하며 쌓음)          (과거형 · 이력 · 고치지 않음)
+   │                                     ├→ rfc/   그래서 지킬 작업 규칙
+   └────────── 근거를 대 준다 ─────────→  ├→ spec/  그래서 만들 제품 계약
+                                         └→ src/   구현
 ```
 
 | 물음 | 폴더 |
@@ -127,6 +129,11 @@ decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않
 | 이 파일을 어디에 둬야 하나? 파일명은? | `rfc/` |
 | 왜 이렇게 하기로 했더라? | `decisions/` |
 | 제품이 무엇을 해야 하나? | `spec/` |
+| **이 값의 근거가 뭐지? 이미 조사됐나?** | **`docs/research/`** |
+
+- **`docs/research/` 는 「사실」이고 나머지 넷은 「우리가 정한 것」입니다.** 법정 기한·기관
+  연락처·실측값처럼 **바깥에서 와서 우리 마음대로 못 바꾸는 것**이 여기 있고, 전부 출처와
+  확인일이 붙어 있습니다. **틀린 것이 발견되면 정정하며 쌓습니다** — ADR 과 달리 고칩니다.
 
 - **`spec/`과 `rfc/`의 경계는 "어기면 무엇이 깨지나"입니다.** 제품이 잘못 동작하면 `spec/`, 저장소가 어질러지면 `rfc/`.
 - **규약이 바뀌면 `rfc/` 문서를 고치고, 그 문서의 「개정 이력」에 한 줄 적습니다**(현행이므로).
@@ -148,6 +155,14 @@ decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않
 - **spec을 근거로 코드를 쓸 때도 같습니다.** 관련 ADR·RFC를 먼저 확인하고, 답변·커밋 메시지에
   근거가 된 `ADR-xxxx`·`RFC-xxxx`를 함께 적으세요. 근거를 못 찾으면 지어내지 말고 사람에게 물으세요.
 - **모르는 절차·수치를 지어내지 마세요.** 이 서비스는 잘못된 안내가 곧 피해자의 금전 손실입니다. 근거가 없으면 `TODO(근거 필요)`로 남기고 사람에게 물으세요.
+- **근거가 필요한 값을 찾기 전에 [`docs/research/`](docs/research/) 를 먼저 보세요.**
+  법정 기한·기관 연락처·경로별 절차는 **이미 조사돼 있을 확률이 높고**, 없더라도
+  **「어디서 확인해야 하는지」와 「무엇을 시도했다가 막혔는지」가 적혀 있습니다.**
+  거기 있는 것을 모르고 다시 찾으면 시간을 버리고, 더 나쁘게는 **조사가 이미 정정해 둔
+  틀린 값을 다시 씁니다**(예: 사건사고사실확인원 온라인 발급 → [04 §0](docs/research/04-기관정보.md)).
+  <br>실제로 있었던 일 — 기관 사전의 출처를 찾겠다고 등록부를 한참 뒤졌는데,
+  [04 §8.1](docs/research/04-기관정보.md) 이 *"이들은 각 사업자 공식 페이지에서
+  확인해야 합니다"* 라고 이미 적어 두고 있었습니다.
 - spec의 `TODO` 표시는 "아직 정해지지 않은 것"입니다. 임의로 채우지 말고 확인하세요.
 - 목업·기획서에 등장하는 전화번호·금액·기관명은 **전부 예시**입니다. 실제 연락처는 KB 구축 시 출처와 함께 확인해야 합니다.
 - 문서는 한국어로 씁니다. 코드 식별자는 영문.
