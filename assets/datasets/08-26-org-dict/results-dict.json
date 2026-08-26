@@ -1,0 +1,134 @@
+{
+  "orgs": 19,
+  "forms": 73,
+  "channels": {
+    "CH-bank": 16,
+    "CH-neobank": 3,
+    "CH-securities": 0,
+    "CH-easypay": 0,
+    "CH-crypto": 0,
+    "CH-facetoface": 0,
+    "CH-giftcard": 0,
+    "CH-carrier": 0
+  },
+  "coverage": {
+    "전사 large-v3": {
+      "기관": {
+        "total": 24,
+        "missing": [
+          "NH투자증권",
+          "금융감독원",
+          "네이버페이",
+          "다날",
+          "미래에셋증권",
+          "빗썸",
+          "삼성증권",
+          "서울중앙지검",
+          "서초경찰서",
+          "신한카드",
+          "업비트",
+          "카카오페이",
+          "코빗",
+          "코인원",
+          "키움증권",
+          "토스",
+          "페이코"
+        ]
+      },
+      "상품권사": {
+        "total": 5,
+        "missing": [
+          "구글",
+          "북앤라이프",
+          "신세계상품권",
+          "컬쳐랜드",
+          "해피머니"
+        ]
+      },
+      "통신사": {
+        "total": 4,
+        "missing": [
+          "KT",
+          "LG유플러스",
+          "SK텔레콤",
+          "헬로모바일"
+        ]
+      }
+    },
+    "화면 GPU": {
+      "기관": {
+        "total": 18,
+        "missing": [
+          "금융감독원",
+          "네이버페이",
+          "다날",
+          "미래에셋증권",
+          "빗썸",
+          "삼성증권",
+          "서울중앙지검",
+          "업비트",
+          "카카오페이",
+          "토스"
+        ]
+      },
+      "상품권사": {
+        "total": 2,
+        "missing": [
+          "컬쳐랜드",
+          "해피머니"
+        ]
+      },
+      "통신사": {
+        "total": 2,
+        "missing": [
+          "LG유플러스",
+          "SK텔레콤"
+        ]
+      }
+    }
+  },
+  "sweep": [
+    {
+      "case": "전사 large-v3",
+      "cap": 0,
+      "recovered": 2,
+      "recoverable": 2,
+      "false": 0
+    },
+    {
+      "case": "전사 large-v3",
+      "cap": 1,
+      "recovered": 2,
+      "recoverable": 2,
+      "false": 6
+    },
+    {
+      "case": "전사 large-v3",
+      "cap": 2,
+      "recovered": 2,
+      "recoverable": 2,
+      "false": 200
+    },
+    {
+      "case": "화면 GPU",
+      "cap": 0,
+      "recovered": 0,
+      "recoverable": 7,
+      "false": 0
+    },
+    {
+      "case": "화면 GPU",
+      "cap": 1,
+      "recovered": 4,
+      "recoverable": 7,
+      "false": 0
+    },
+    {
+      "case": "화면 GPU",
+      "cap": 2,
+      "recovered": 7,
+      "recoverable": 7,
+      "false": 133
+    }
+  ]
+}
