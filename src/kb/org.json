@@ -40,12 +40,62 @@
     "넣으면 뜻이 어긋납니다 — 카드는 「카드 뒷면·앱의 고객센터」로 안내하는 편이",
     "언제나 맞습니다(`ch-card.json`). 채우려면 그 페이지에 번호가 있습니다.",
     "",
-    "## 아직 없는 것",
+    "## 간편송금 넷 — 각 사 공식 페이지 (2026-08-26 확인)",
     "",
-    "간편송금(`CH-easypay`)·증권·가상자산·통신사·상품권 발행사는 여기 없습니다.",
-    "이름 초안은 assets/datasets/08-26-org-dict/org-draft.json 에 있고, **막힌 것은",
-    "출처 한 줄**입니다 — 등록부가 스크립트로 그려지거나(FIU·금융투자협회)",
-    "명단이 첨부파일에 있어(금융위 선불업 공고) 원문 대조가 안 됩니다.",
+    "04 §8.1 이 지정한 방법입니다 — *「이들은 각 사업자 공식 페이지에서 확인해야",
+    "합니다」*. 은행연합회 같은 공동 페이지가 없어 넷이 각자 다른 출처를 가집니다.",
+    "",
+    "⚠️ **번호의 성격이 넷 다 다릅니다.** 뭉뚱그리면 안 됩니다.",
+    "",
+    "    카카오페이  1833-7483  금융안심센터 — 사고 전용 · 365일 24시간",
+    "                           (고객센터 1644-7405 과 다른 번호)",
+    "    네이버페이  1588-3816  결제도용신고 전용 (대표번호 1588-3819 와 다름)",
+    "    토스        1599-4905  일반 고객센터 · 24시간",
+    "    페이코      1544-6891  일반 고객센터 · 운영시간 확인 못 함",
+    "",
+    "**요청처가 둘이라 `caution` 에 「연계 은행에도」를 넣었습니다** —",
+    "08-14-channel-matrix.md 의 `CH-easypay` 칸이 요청처를 「이용 선불업자 +",
+    "연계 은행」으로 정하고 있습니다. 선불업자만 막으면 은행 쪽이 그대로 나갑니다.",
+    "",
+    "**토스는 「안심보상제」 경고가 붙어 있습니다** — 04 §3. 토스 자체 보상 제도이지",
+    "법정 피해구제가 아니라, 그것만 신청하고 기다리면 3영업일을 놓칩니다.",
+    "",
+    "## 증권·통신·결제대행 아홉 — 한국거래소 상장법인 목록 (2026-08-26 확인)",
+    "",
+    "업권 협회 등록부가 하나도 안 열려서(전부 스크립트로 그리거나 명단이 첨부파일)",
+    "**상장법인 목록**으로 갔습니다. 미래에셋증권·NH투자증권·삼성증권·키움증권 ·",
+    "SK텔레콤·KT·LG유플러스·헬로모바일 · 다날.",
+    "",
+    "⚠️ **표의 회사명 칸과 정확히 맞췄습니다.** 이 목록은 28만 자라 부분문자열로",
+    "대면 「KT」가 「SKT」 안에서 걸립니다 — 확인 안 한 것을 확인했다고 적게 됩니다.",
+    "`<tr>` 을 파싱해 회사명 2,800여 개를 뽑고 그것과 **정확히 같은지** 봤습니다",
+    "(verify_source.py --table).",
+    "",
+    "**법인명이 우리 표기와 다른 둘이 있습니다.** 목록에 KT 는 「케이티」로,",
+    "헬로모바일은 법인인 「LG헬로비전」으로 실려 있습니다. `name` 은 사람이 실제로",
+    "쓰는 쪽에 두고 법인명을 별칭으로 뒀습니다 — 사전이 하는 일이 인식이라서입니다.",
+    "",
+    "⚠️ **이 출처가 증명하는 것은 「이 이름의 상장법인이 있다」까지입니다.**",
+    "업종 분류(증권사인가·통신사인가)는 04 §5·§6 의 조사에서 옵니다.",
+    "",
+    "## 셋은 각 사 공식 페이지에서",
+    "",
+    "    한국투자증권  지주 자회사라 상장법인 목록에 없습니다. 공식 사이트 본문에서",
+    "    코인원        비상장. 공식 사이트에 고객센터 1670-9756 이 적혀 있습니다",
+    "    컬쳐랜드      비상장. 「컬쳐랜드 고객센터(1577-2111)」로 본문에 적혀 있습니다",
+    "",
+    "**둘 다 보이스피싱 전용 창구가 아닙니다.** 코인원은 평일 낮에만 열리고,",
+    "컬쳐랜드로 핀 사용정지가 되는지는 확인되지 않았습니다 → 04 §7 의 미확인 항목.",
+    "",
+    "## 아직 없는 것 — 열셋",
+    "",
+    "    KB증권 · 신한투자증권 · 하나증권      지주 자회사라 상장법인 목록에 없음",
+    "    업비트 · 빗썸 · 코빗 · 고팍스         비상장 + 사이트가 전부 자바스크립트",
+    "    해피머니 · 북앤라이프 · 신세계상품권    같음",
+    "    구글·애플 기프트카드                 한국 법인명과 상품명이 어긋남",
+    "    KG모빌리언스                        상장법인 목록에서 못 찾음",
+    "",
+    "이름 초안은 assets/datasets/08-26-org-dict/org-draft.json 에 있습니다.",
     "**없으면 절차만 안내합니다** (§11.4.3)."
   ],
   "orgs": [
@@ -323,6 +373,174 @@
       "aliases": ["농협카드", "엔에이치농협카드"],
       "contact": {},
       "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "kakao-pay",
+      "channel_id": "CH-easypay",
+      "name": "카카오페이",
+      "aliases": ["카페이", "카카오 페이"],
+      "contact": {
+        "report_tel": "1833-7483",
+        "report_steps": "금융안심센터입니다. 고객센터(1644-7405)와 번호가 다릅니다",
+        "report_hours": "365일 24시간",
+        "caution": "분실·도용 긴급문의만 상담한다고 안내돼 있습니다. 지급정지는 여기 한 곳으로 끝나지 않습니다. 돈이 빠져나간 **연계 은행**에도 함께 요청해야 합니다."
+      },
+      "source_url": "https://support.kakaopay.com/web/center",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "toss-pay",
+      "channel_id": "CH-easypay",
+      "name": "토스",
+      "aliases": ["토스페이", "비바리퍼블리카"],
+      "contact": {
+        "report_tel": "1599-4905",
+        "report_steps": "같은 페이지의 토스뱅크 문의(1661-7654)와 번호가 다릅니다",
+        "report_hours": "24시간 연중무휴",
+        "caution": "토스의 「안심보상제」는 토스가 자율적으로 보상하는 별도 제도이고 법정 피해구제가 아닙니다. 그것만 신청하고 기다리면 3영업일을 놓칩니다. 지급정지는 여기 한 곳으로 끝나지 않습니다. 돈이 빠져나간 **연계 은행**에도 함께 요청해야 합니다."
+      },
+      "source_url": "https://support.toss.im/",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "naver-pay",
+      "channel_id": "CH-easypay",
+      "name": "네이버페이",
+      "aliases": ["네페이", "N페이", "네이버 페이"],
+      "contact": {
+        "report_tel": "1588-3816",
+        "report_steps": "결제도용 신고 번호입니다. 대표번호(1588-3819)와 다릅니다",
+        "caution": "지급정지는 여기 한 곳으로 끝나지 않습니다. 돈이 빠져나간 **연계 은행**에도 함께 요청해야 합니다."
+      },
+      "source_url": "https://help.pay.naver.com/faq/list.help",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "payco",
+      "channel_id": "CH-easypay",
+      "name": "페이코",
+      "aliases": ["PAYCO"],
+      "contact": {
+        "report_tel": "1544-6891",
+        "caution": "보이스피싱 전용 창구가 아니라 일반 고객센터입니다. 운영시간은 확인하지 못했습니다. 지급정지는 여기 한 곳으로 끝나지 않습니다. 돈이 빠져나간 **연계 은행**에도 함께 요청해야 합니다."
+      },
+      "source_url": "https://www.payco.com/mobile/introduceCompany.nhn?titleYN=N",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "mirae-sec",
+      "channel_id": "CH-securities",
+      "name": "미래에셋증권",
+      "aliases": ["미래에셋", "미래에셋대우"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "korea-inv-sec",
+      "channel_id": "CH-securities",
+      "name": "한국투자증권",
+      "aliases": ["한투증권", "한국투자"],
+      "contact": {},
+      "source_url": "https://securities.koreainvestment.com/main/Main.jsp",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "nh-inv-sec",
+      "channel_id": "CH-securities",
+      "name": "NH투자증권",
+      "aliases": ["NH투자", "엔에이치투자증권"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "samsung-sec",
+      "channel_id": "CH-securities",
+      "name": "삼성증권",
+      "aliases": ["삼성"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "kiwoom-sec",
+      "channel_id": "CH-securities",
+      "name": "키움증권",
+      "aliases": ["키움"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "coinone",
+      "channel_id": "CH-crypto",
+      "name": "코인원",
+      "aliases": ["Coinone"],
+      "contact": {
+        "report_tel": "1670-9756",
+        "report_hours": "평일 10:00~19:00 (주말·공휴일 휴무)",
+        "caution": "보이스피싱 전용 창구가 아니라 일반 고객센터입니다. 밤과 주말에는 닿지 않습니다."
+      },
+      "source_url": "https://coinone.co.kr/",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "skt",
+      "channel_id": "CH-carrier",
+      "name": "SK텔레콤",
+      "aliases": ["SKT", "에스케이텔레콤", "SK 텔레콤"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "kt",
+      "channel_id": "CH-carrier",
+      "name": "KT",
+      "aliases": ["케이티", "kt"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "lgu",
+      "channel_id": "CH-carrier",
+      "name": "LG유플러스",
+      "aliases": ["LGU+", "엘지유플러스", "유플러스", "LG U+"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "hello-mobile",
+      "channel_id": "CH-carrier",
+      "name": "헬로모바일",
+      "aliases": ["LG헬로비전", "헬로비전"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "cultureland",
+      "channel_id": "CH-giftcard",
+      "name": "컬쳐랜드",
+      "aliases": ["컬처랜드", "문화상품권"],
+      "contact": {
+        "report_tel": "1577-2111",
+        "caution": "일반 고객센터입니다. 상품권은 환급 제도 밖이라 이 전화로 핀 사용정지가 되는지는 **확인되지 않았습니다** — 된다고 기대하지 마세요."
+      },
+      "source_url": "https://www.cultureland.co.kr/",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "danal",
+      "channel_id": "CH-carrier",
+      "name": "다날",
+      "aliases": ["DANAL", "Danal"],
+      "contact": {},
+      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
       "verified_at": "2026-08-26"
     }
   ]

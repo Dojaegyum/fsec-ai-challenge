@@ -38,16 +38,22 @@
     "    3. 태그를 벗기고, 초안의 이름·별칭이 그대로 있는지 대조한다",
     "    4. 전부 찾히면 그 URL 을 source_url 로 쓴다. 하나라도 없으면 넣지 않는다",
     "",
-    "## 남은 것들이 막힌 지점 (2026-08-26 시도)",
+    "## 남은 열셋이 막힌 지점 (2026-08-26)",
     "",
-    "    CH-securities  금융투자협회 회원사 목록이 스크립트로 그려집니다 (본문 83자)",
-    "    CH-crypto      FIU 신고현황이 2KB 껍데기만 옵니다. 금융위 보도자료는",
-    "                   본문에 거래소 이름이 없습니다 (첨부파일에 있음)",
-    "    CH-easypay     파인 전자금융업 등록현황·금융위 선불업 공고 둘 다 본문에",
-    "    CH-giftcard    회사명이 없습니다 (첨부 HWP·PDF)",
-    "    CH-carrier     KTOA 회원사 페이지도 스크립트로 그려집니다 (본문 38자)",
+    "업권 등록부가 **하나도 안 열립니다** — 금융투자협회 회원사 목록 본문 83자,",
+    "KTOA 회원사 38자, FIU 신고현황 2KB 껍데기. 전부 자바스크립트로 그립니다.",
+    "그래서 한국거래소 상장법인 목록과 각 사 공식 페이지로 갔고, 거기서도 안 되는",
+    "것이 이 열셋입니다.",
     "",
-    "**첨부파일을 열거나(HWP·PDF) 사람이 화면에서 옮겨 적는 것**이 남은 길입니다.",
+    "    KB증권 · 신한투자증권 · 하나증권    지주 자회사라 상장법인 목록에 없음",
+    "    업비트 · 빗썸 · 코빗 · 고팍스        비상장 + 사이트 본문이 18~63자(제목뿐)",
+    "    해피머니 · 북앤라이프 · 신세계상품권   같음",
+    "    구글 · 애플 기프트카드               한국 법인명과 상품명이 어긋나 「구글」 같은",
+    "                                      헐거운 표기로만 걸림 — 근거가 못 됩니다",
+    "    KG모빌리언스                       상장법인 목록에서 못 찾음",
+    "",
+    "**제목만 걸린 곳은 올리지 않았습니다.** 자바스크립트 사이트라 본문이 6~63자뿐이고,",
+    "그건 근거라 하기에 얇습니다. **남은 길은 사람이 화면에서 확인하는 것**입니다.",
     "",
     "## contact 는 비워 둡니다",
     "",
@@ -61,98 +67,156 @@
     "아니라 편집거리 매칭이 흡수합니다 → 17 §2·§3."
   ],
   "orgs": [
-    { "org_id": "mirae-sec", "channel_id": "CH-securities", "name": "미래에셋증권",
-      "aliases": ["미래에셋", "미래에셋대우"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "korea-inv-sec", "channel_id": "CH-securities", "name": "한국투자증권",
-      "aliases": ["한투증권", "한국투자"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "nh-inv-sec", "channel_id": "CH-securities", "name": "NH투자증권",
-      "aliases": ["NH투자", "엔에이치투자증권"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "samsung-sec", "channel_id": "CH-securities", "name": "삼성증권",
-      "aliases": ["삼성"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "kb-sec", "channel_id": "CH-securities", "name": "KB증권",
-      "aliases": ["케이비증권"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "shinhan-inv-sec", "channel_id": "CH-securities", "name": "신한투자증권",
-      "aliases": ["신한금융투자", "신한투자"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "kiwoom-sec", "channel_id": "CH-securities", "name": "키움증권",
-      "aliases": ["키움"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "hana-sec", "channel_id": "CH-securities", "name": "하나증권",
-      "aliases": ["하나금융투자"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-
-    { "org_id": "kakao-pay", "channel_id": "CH-easypay", "name": "카카오페이",
-      "aliases": ["카페이", "카카오 페이"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "toss-pay", "channel_id": "CH-easypay", "name": "토스",
-      "aliases": ["토스페이", "비바리퍼블리카"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "naver-pay", "channel_id": "CH-easypay", "name": "네이버페이",
-      "aliases": ["네페이", "N페이", "네이버 페이"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "payco", "channel_id": "CH-easypay", "name": "페이코",
-      "aliases": ["PAYCO"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-
-    { "org_id": "upbit", "channel_id": "CH-crypto", "name": "업비트",
-      "aliases": ["UPbit", "Upbit", "두나무"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "bithumb", "channel_id": "CH-crypto", "name": "빗썸",
-      "aliases": ["Bithumb"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "coinone", "channel_id": "CH-crypto", "name": "코인원",
-      "aliases": ["Coinone"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "korbit", "channel_id": "CH-crypto", "name": "코빗",
-      "aliases": ["Korbit"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "gopax", "channel_id": "CH-crypto", "name": "고팍스",
-      "aliases": ["GOPAX"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-
-    { "org_id": "skt", "channel_id": "CH-carrier", "name": "SK텔레콤",
-      "aliases": ["SKT", "에스케이텔레콤", "SK 텔레콤"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "kt", "channel_id": "CH-carrier", "name": "KT",
-      "aliases": ["케이티", "kt"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "lgu", "channel_id": "CH-carrier", "name": "LG유플러스",
-      "aliases": ["LGU+", "엘지유플러스", "유플러스", "LG U+"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "hello-mobile", "channel_id": "CH-carrier", "name": "헬로모바일",
-      "aliases": ["LG헬로비전", "헬로비전"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-
-    { "org_id": "happymoney", "channel_id": "CH-giftcard", "name": "해피머니",
-      "aliases": ["해피머니상품권"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "cultureland", "channel_id": "CH-giftcard", "name": "컬쳐랜드",
-      "aliases": ["컬처랜드", "문화상품권"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "booknlife", "channel_id": "CH-giftcard", "name": "북앤라이프",
-      "aliases": ["도서문화상품권"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "shinsegae-gift", "channel_id": "CH-giftcard", "name": "신세계상품권",
-      "aliases": ["신세계 상품권"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "google-play", "channel_id": "CH-giftcard", "name": "구글 기프트카드",
-      "aliases": ["구글", "구글플레이", "Google Play"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "apple-gift", "channel_id": "CH-giftcard", "name": "애플 기프트카드",
-      "aliases": ["애플", "앱스토어"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-
-    { "org_id": "danal", "channel_id": "CH-carrier", "name": "다날",
-      "aliases": ["DANAL", "Danal"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" },
-    { "org_id": "kg-mobilians", "channel_id": "CH-carrier", "name": "KG모빌리언스",
-      "aliases": ["모빌리언스", "KG 모빌리언스"], "contact": {},
-      "source_url": "TODO(근거 필요)", "verified_at": "TODO(근거 필요)" }
+    {
+      "org_id": "kb-sec",
+      "channel_id": "CH-securities",
+      "name": "KB증권",
+      "aliases": [
+        "케이비증권"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "shinhan-inv-sec",
+      "channel_id": "CH-securities",
+      "name": "신한투자증권",
+      "aliases": [
+        "신한금융투자",
+        "신한투자"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "hana-sec",
+      "channel_id": "CH-securities",
+      "name": "하나증권",
+      "aliases": [
+        "하나금융투자"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "upbit",
+      "channel_id": "CH-crypto",
+      "name": "업비트",
+      "aliases": [
+        "UPbit",
+        "Upbit",
+        "두나무"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "bithumb",
+      "channel_id": "CH-crypto",
+      "name": "빗썸",
+      "aliases": [
+        "Bithumb"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "korbit",
+      "channel_id": "CH-crypto",
+      "name": "코빗",
+      "aliases": [
+        "Korbit"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "gopax",
+      "channel_id": "CH-crypto",
+      "name": "고팍스",
+      "aliases": [
+        "GOPAX"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "happymoney",
+      "channel_id": "CH-giftcard",
+      "name": "해피머니",
+      "aliases": [
+        "해피머니상품권"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "booknlife",
+      "channel_id": "CH-giftcard",
+      "name": "북앤라이프",
+      "aliases": [
+        "도서문화상품권"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "shinsegae-gift",
+      "channel_id": "CH-giftcard",
+      "name": "신세계상품권",
+      "aliases": [
+        "신세계 상품권"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "google-play",
+      "channel_id": "CH-giftcard",
+      "name": "구글 기프트카드",
+      "aliases": [
+        "구글",
+        "구글플레이",
+        "Google Play"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "apple-gift",
+      "channel_id": "CH-giftcard",
+      "name": "애플 기프트카드",
+      "aliases": [
+        "애플",
+        "앱스토어"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    },
+    {
+      "org_id": "kg-mobilians",
+      "channel_id": "CH-carrier",
+      "name": "KG모빌리언스",
+      "aliases": [
+        "모빌리언스",
+        "KG 모빌리언스"
+      ],
+      "contact": {},
+      "source_url": "TODO(근거 필요)",
+      "verified_at": "TODO(근거 필요)"
+    }
   ],
   "_elsewhere": [
     "## 여기 안 넣은 것 — 자리가 다릅니다",

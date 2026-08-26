@@ -89,18 +89,23 @@ def dist(a: str, b: str, cap: int) -> int:
     return prev[-1]
 
 
-def find(text: str, forms: dict[str, str], cap: int) -> set[str]:
+def find(text: str, forms: dict[str, str], cap: int, fuzzy_from: int = 0) -> set[str]:
     """글에서 사전의 기관을 찾는다.
 
     **공백을 떼고 봅니다** — OCR 은 「케 이 뱅 크」로 흩고 전사는 띄어쓰기를 흔듭니다.
     `cap` 글자까지 틀려도 같은 것으로 봅니다.
+
+    `fuzzy_from` 은 **거리를 허용할 최소 길이**입니다. 0 이면 모든 표기에 `cap` 을
+    씁니다. 세 글자에 거리 1 을 허용하면 **두 글자만 맞아도 걸려** 「카페이」가
+    엉뚱한 자리에서 카카오페이를 만들어 냅니다 — 실측 17 §2 의 오탐 넷이 전부
+    그것이었습니다. 짧은 표기만 정확일치로 묶으면 그게 사라지는지 보려고 둡니다.
     """
     flat = text.replace(" ", "")
     hits: set[str] = set()
     for form, canon in forms.items():
         if len(form) < MIN_FORM:
             continue
-        if cap == 0:
+        if cap == 0 or len(form) < fuzzy_from:
             if form in flat:
                 hits.add(canon)
             continue
@@ -151,11 +156,13 @@ def main() -> int:
         items = {i["id"]: i for i in json.loads((ROOT / eval_path).read_text(encoding="utf-8"))["items"]}
         run = next(r for r in json.loads((ROOT / res_path).read_text(encoding="utf-8"))["runs"]
                    if r["key"] == key)
-        for cap in (0, 1, 2):
+        # `(거리, 거리를 허용할 최소 표기 길이)`. 마지막 둘이 **길이별 규칙**입니다 —
+        # 세 글자에 거리 1 을 주면 두 글자만 맞아도 걸립니다 → 17 §2
+        for cap, fuzzy_from in ((0, 0), (1, 0), (2, 0), (1, 4), (1, 5)):
             need = got = false = 0
             for it in run["items"]:
                 spec = items[it["id"]]
-                hits = find(it["text"], forms, cap)
+                hits = find(it["text"], forms, cap, fuzzy_from)
                 truth = {forms[k["text"].replace(" ", "")] for k in spec["keep"]
                          if k["kind"] in ORG_KINDS and k["text"].replace(" ", "") in forms}
                 for k in spec["keep"]:
@@ -167,9 +174,10 @@ def main() -> int:
                     need += 1
                     got += canon in hits
                 false += len(hits - truth)
-            out["sweep"].append({"case": label, "cap": cap,
+            out["sweep"].append({"case": label, "cap": cap, "fuzzy_from": fuzzy_from,
                                  "recovered": got, "recoverable": need, "false": false})
-            print(f"{label if cap == 0 else '':16}{cap:>4}  {got:>4}/{need:<4}  {false:>6}")
+            rule = f"{cap}" + (f" (≥{fuzzy_from}자만)" if fuzzy_from else "")
+            print(f"{label if (cap, fuzzy_from) == (0, 0) else '':16}{rule:>12}  {got:>4}/{need:<4}  {false:>6}")
         print()
 
     name = "results-dict-draft.json" if with_draft else "results-dict.json"

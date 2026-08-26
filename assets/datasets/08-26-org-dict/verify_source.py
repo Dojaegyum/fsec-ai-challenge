@@ -2,6 +2,17 @@
 """등록부 원문에 초안의 기관명이 **그대로 있는지** 대조한다 — 요약시키지 않고.
 
     python verify_source.py <URL> CH-card [CH-carrier ...]
+    python verify_source.py <URL> --table CH-securities   # 표의 첫 칸과 정확히 일치
+
+## ⚠️ 큰 목록에는 `--table` 을 쓰세요
+
+기본 방식은 **부분문자열**입니다. 짧은 목록에서는 맞는데, 한국거래소 상장법인
+목록처럼 28만 자짜리에 대면 **「KT」가 「SKT」 안에서 걸립니다.** 그러면 확인하지
+않은 것을 확인했다고 적게 됩니다.
+
+`--table` 은 `<tr>`/`<td>` 를 파싱해 **각 행의 첫 칸(회사명)** 만 모은 뒤
+**정확히 같은지** 봅니다. org.json 의 `_note` 가 말한 *"원문의 구조를 그대로
+읽으세요"* 가 이것입니다.
 
 ## 왜 이렇게 하나
 
@@ -33,6 +44,9 @@ import subprocess
 import sys
 import unicodedata
 from pathlib import Path
+
+# Windows 콘솔·파일 리다이렉트가 cp949 라 한글과 「—」에서 터집니다
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = Path(__file__).resolve().parent
 DRAFT = HERE / "org-draft.json"
@@ -78,12 +92,32 @@ def flat(s: str) -> str:
     return unicodedata.normalize("NFC", s).replace(" ", "")
 
 
+def table_names(raw: bytes) -> list[str]:
+    """`<tr>` 마다 **첫 칸**을 모은다 — 회사명 목록이 표로 오는 경우.
+
+    부분문자열의 우연한 일치를 없애려는 것입니다. 머리글 행(「회사명」)은 뺍니다.
+    """
+    html, _ = decode(raw)
+    names = []
+    for row in re.findall(r"(?is)<tr[^>]*>(.*?)</tr>", html):
+        cells = re.findall(r"(?is)<t[dh][^>]*>(.*?)</t[dh]>", row)
+        if not cells:
+            continue
+        first = re.sub(r"(?s)<[^>]+>", "", cells[0])
+        first = unicodedata.normalize("NFC", first.replace("&nbsp;", " ").strip())
+        if first and first != "회사명":
+            names.append(first)
+    return names
+
+
 def main() -> int:
     if len(sys.argv) < 3:
         print(__doc__.split("## 왜")[0].strip())
         return 2
 
-    url, channels = sys.argv[1], set(sys.argv[2:])
+    args = [a for a in sys.argv[1:] if a != "--table"]
+    as_table = "--table" in sys.argv
+    url, channels = args[0], set(args[1:])
 
     pool = json.loads(DRAFT.read_text(encoding="utf-8"))["orgs"]
     pool += json.loads(ORG.read_text(encoding="utf-8"))["orgs"]
@@ -92,9 +126,19 @@ def main() -> int:
         print(f"대조할 기관이 없습니다 — {', '.join(sorted(channels))}")
         return 1
 
-    text, enc = page_text(fetch(url))
-    body = flat(text)
-    print(f"{url}\n  {enc} · 본문 {len(text):,}자 · 대조 대상 {len(orgs)}곳\n")
+    raw = fetch(url)
+    if as_table:
+        cells = table_names(raw)
+        body = {flat(c) for c in cells}
+        how = f"표에서 이름 {len(cells):,}개 — **정확히 일치**만 봅니다"
+    else:
+        text, enc = page_text(raw)
+        body = flat(text)
+        how = f"{enc} · 본문 {len(text):,}자 — 부분문자열로 봅니다"
+        if len(text) > 50_000:
+            print("⚠️ 본문이 5만 자를 넘습니다. 부분문자열은 짧은 이름이 다른 이름 안에서")
+            print("   걸립니다(「KT」가 「SKT」 안에서). `--table` 을 쓰세요.\n")
+    print(f"{url}\n  {how} · 대조 대상 {len(orgs)}곳\n")
 
     missing = []
     for o in orgs:
