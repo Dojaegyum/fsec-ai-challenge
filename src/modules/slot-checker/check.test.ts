@@ -257,3 +257,68 @@ describe('T2 상태도 함께 알려준다', () => {
     expect(result.t2).toBe('partial')
   })
 })
+
+describe('못 알아본 기관을 되묻는다 — §11.4.4 ①', () => {
+  const answered: SlotSnapshot[] = [
+    slot('transferred', 'confirmed'),
+    slot('channel', 'confirmed'),
+  ]
+  const banks = ['KB국민은행', '신한은행', '토스뱅크']
+
+  it('기관이 extracted 면 후보를 선택지로 다시 묻는다', () => {
+    const { nextQuestion } = checker.check({
+      slots: [...answered, slot('org_name', 'extracted', 'T2')],
+      orgCandidates: banks,
+    })
+
+    expect(nextQuestion?.slotKey).toBe('org_name')
+    // **자유 입력이 아니라 선택지여야 한다** — 자유 입력으로 다시 물으면
+    // 같은 표기를 다시 쓰게 되어 되풀이된다
+    expect(nextQuestion?.input).toBe('buttons')
+    expect(nextQuestion?.options).toEqual([...banks, '모름·기억 안 남'])
+  })
+
+  it('후보가 없으면 되묻지 않는다 — 물어도 고를 것이 없다', () => {
+    const { nextQuestion } = checker.check({
+      slots: [...answered, slot('org_name', 'extracted', 'T2')],
+      orgCandidates: [],
+    })
+
+    expect(nextQuestion?.slotKey).not.toBe('org_name')
+  })
+
+  it('후보를 안 넘겨도 터지지 않는다 — 되묻기만 빠진다', () => {
+    const { nextQuestion } = checker.check({
+      slots: [...answered, slot('org_name', 'extracted', 'T2')],
+    })
+
+    expect(nextQuestion?.slotKey).not.toBe('org_name')
+  })
+
+  it('고르고 나면 더 묻지 않는다 — 되풀이가 구조적으로 안 생긴다', () => {
+    const { nextQuestion } = checker.check({
+      slots: [...answered, slot('org_name', 'confirmed', 'T2')],
+      orgCandidates: banks,
+    })
+
+    expect(nextQuestion?.slotKey).not.toBe('org_name')
+  })
+
+  it('「모름」으로 답한 기관은 다시 묻지 않는다', () => {
+    const { nextQuestion } = checker.check({
+      slots: [...answered, slot('org_name', 'unknown', 'T2')],
+      orgCandidates: banks,
+    })
+
+    expect(nextQuestion?.slotKey).not.toBe('org_name')
+  })
+
+  it('T1 이 비어 있으면 그쪽을 먼저 묻는다 — 기관은 유형 안에서만 뜻을 갖는다', () => {
+    const { nextQuestion } = checker.check({
+      slots: [slot('org_name', 'extracted', 'T2')],
+      orgCandidates: banks,
+    })
+
+    expect(nextQuestion?.slotKey).toBe('transferred')
+  })
+})

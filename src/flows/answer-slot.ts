@@ -163,21 +163,36 @@ export async function answerSlot(
   }
 
   // ── 개인정보가 없거나 「가릴게요」 ─────────────────────────────────
+  //
+  // **기관 정규화를 먼저 합니다.** 그 결과가 슬롯 상태를 가릅니다 — 말한 곳을
+  // 못 알아봤으면 `confirmed` 로 닫으면 안 됩니다. 닫으면 슬롯 체커가 다시
+  // 묻지 않고(질문 대상은 `empty` 와 기관 재확인뿐), 사용자는 아무 말도 못
+  // 들은 채 유형 기본 절차로 떨어집니다 → §11.4.4 ①
+  const { orgUnresolved } = await recordChannel(
+    input.caseId,
+    input.slotKey,
+    raw,
+    masked.masked,
+    container,
+  )
+
+  // 값은 남깁니다 — 사용자가 그렇게 말한 것은 사실입니다. 다만 **어느 기관인지
+  // 정해지지 않았으므로 확인 전**입니다
+  const state = orgUnresolved ? 'extracted' : 'confirmed'
+
   await container.slotWrite.write({
     caseId: input.caseId,
     slotKey: input.slotKey,
     tier,
     valueType,
-    state: 'confirmed',
+    state,
     valueMasked: masked.masked,
     source: 'user',
   })
 
-  await recordChannel(input.caseId, input.slotKey, raw, masked.masked, container)
-
   return {
     slotKey: input.slotKey,
-    state: 'confirmed',
+    state,
     value: masked.masked,
     piiConfirm: null,
     planRegenerated: true,
@@ -208,13 +223,18 @@ async function recordChannel(
   raw: string,
   masked: string,
   container: Container,
-): Promise<void> {
+): Promise<{ readonly orgUnresolved: boolean }> {
+  // **못 알아본 것만 참입니다.** 유형을 아직 모르거나 이 답이 기관이 아니거나
+  // 여기서 터진 경우는 전부 거짓입니다 — 되물어도 사용자가 고를 것이 없습니다
+  const resolved = { orgUnresolved: false }
+  const unresolved = { orgUnresolved: true }
+
   try {
     if (slotKey === 'channel') {
       // 화면이 보내는 것은 사람이 읽는 라벨입니다. **8유형 밖의 값을 만들지
       // 않습니다** — 표에 없으면 답으로 못 받은 것으로 둡니다 (questions.ts)
       const channelId = channelForOption(raw) ?? channelForOption(masked)
-      if (!channelId) return
+      if (!channelId) return resolved
       await container.channelWrite.write({
         caseId,
         channelId,
@@ -222,31 +242,45 @@ async function recordChannel(
         orgNameRaw: null,
         source: 'user',
       })
-      return
+      return resolved
     }
 
     if (slotKey === 'org_name') {
       // **유형을 알아야 후보를 좁힙니다.** 전 기관에서 「제주」를 찾으면
       // 제주은행과 다른 곳이 함께 걸릴 수 있습니다
       const channel = await container.ports.casePlan.readChannel(caseId)
-      if (!channel) return
+      // 유형을 모르면 후보를 좁힐 수 없습니다. 되묻는 대신 유형 문항이 먼저
+      // 나가야 하므로 여기서는 못 알아본 것으로 세지 않습니다
+      if (!channel) return resolved
 
       const version = await container.ports.kbVersion.current()
       const candidates = await container.channelWrite.candidates(channel.channelId, version)
 
+      // 못 찾으면 `null` — 유형 기본으로 갑니다 (§11.4.3). **다만 조용히
+      // 넘어가지는 않습니다** — 아래에서 되묻기 대상으로 올립니다
+      const orgId = matchOrg(raw, candidates)
+
       await container.channelWrite.write({
         caseId,
         channelId: channel.channelId,
-        // 못 찾으면 `null` — 유형 기본으로 갑니다 (§11.4.3)
-        orgId: matchOrg(raw, candidates),
+        orgId,
         orgNameRaw: masked,
         source: 'user',
       })
+
+      // **후보가 없으면 되묻지 않습니다.** 그 유형에 사전이 아직 없다는 뜻이라
+      // 선택지를 만들 수 없고, 물어도 사용자가 고를 것이 없습니다
+      return orgId === null && candidates.length > 0 ? unresolved : resolved
     }
   } catch {
     // 여기서 던지면 **답이 저장됐는데 응답이 500** 이 됩니다. 사용자는
     // 같은 답을 다시 넣게 되고, 그때도 같은 자리에서 터집니다
+    //
+    // **터졌을 때 되묻지 않는 이유**는 이 실패가 기관을 못 알아본 것이 아니라
+    // 조회 자체가 안 된 것이기 때문입니다. 되물어도 같은 자리에서 또 터집니다
   }
+
+  return resolved
 }
 
 /** 답한 뒤에 화면이 받아야 하는 것 → §3.5 */
