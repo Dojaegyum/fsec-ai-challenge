@@ -601,6 +601,14 @@ export interface DeadlineView {
   readonly condition: string | null
   /** 사용자가 할 일이 없는 기한(`kind: info`)에 붙습니다 */
   readonly note: string | null
+  /**
+   * 기산점이 **부산물로 확인되지 않았습니다** → 08-16-deadline-rules.md.
+   *
+   * 사용자가 기억으로 댄 날짜에서 나온 기한입니다. 확정 기한처럼 보여주면
+   * **틀린 날짜를 법정 기한으로 믿고 권리를 잃습니다** — 기한 규칙이 그래서
+   * 「미확인 배지와 함께 추정만」이라고 못 박았습니다.
+   */
+  readonly estimated: boolean
 }
 
 export function createDeadlineReader(sql: Sql): DeadlineReader {
@@ -647,6 +655,10 @@ export function createDeadlineReader(sql: Sql): DeadlineReader {
           // KB 가 개정돼도 「그때 무엇을 근거로 이 날짜가 나왔나」가 남습니다
           startsAt: typeof snap.starts_at === 'string' ? snap.starts_at : null,
           condition: typeof snap.condition === 'string' ? snap.condition : null,
+          // **없으면 확정으로 봅니다.** `date-checker` 가 늘 적어 주는 값이고,
+          // 옛 줄에 없더라도 「추정」으로 뒤집으면 확정 기한에 미확인 표시가
+          // 붙습니다 — 그쪽이 더 나쁜 오해입니다
+          estimated: snap.estimated === true,
         }
       })
     },

@@ -46,6 +46,14 @@ export interface ApiDeadline {
   readonly kind: string
   readonly due_at: string
   readonly status: string
+  /**
+   * 기산점이 부산물로 확인되지 않았습니다 → 08-16-deadline-rules.md.
+   *
+   * **늘 실립니다** — 빠뜨린 응답과 「확정입니다」를 구분할 수 없으면
+   * 화면이 추정을 확정으로 그립니다. 안전 표시는 없을 때 켜지는 쪽이 아니라
+   * **늘 말하는 쪽**이어야 합니다.
+   */
+  readonly estimated: boolean
   readonly days_left?: number
   readonly computed_from?: string
   readonly on_miss?: string
@@ -80,6 +88,8 @@ export function toApiDeadline(
     kind: one.kind,
     due_at: one.dueAt,
     status: one.status,
+    // **조건을 안 답니다** — 위 주석대로 늘 실립니다
+    estimated: one.estimated,
     // **화면이 날짜를 세지 않습니다** — 기기 시계가 틀리면 기한을 놓칩니다
     ...(left === null ? {} : { days_left: left }),
     ...(one.computedFrom === null ? {} : { computed_from: one.computedFrom }),

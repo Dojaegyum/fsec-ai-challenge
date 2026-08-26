@@ -230,6 +230,21 @@ async function gatherContext(
   }
 }
 
+/**
+ * 기산점이 확인 안 된 기한에 붙는 한 마디 → 08-16-deadline-rules.md.
+ *
+ * **화면의 「미확인」 배지와 같은 말입니다.** 두 자리가 다른 말을 하면
+ * 사용자는 더 단정적인 쪽을 믿습니다.
+ *
+ * **「사용자」라고 쓰지 않습니다.** 모델이 이 마디를 거의 그대로 옮기는데,
+ * 처음에 「사용자가 말한 날」로 뒀더니 답변에 *"사용자가 말씀하신 날"* 이
+ * 그대로 나왔습니다 — 읽는 사람이 자기 자신인데 3인칭으로 불립니다.
+ * 화면 문구(`plan.tsx` 히어로)와 같은 말로 둡니다.
+ */
+const ESTIMATED_NOTE =
+  '이 날짜는 말씀해 주신 날짜에서 센 것이라 아직 확정이 아닙니다. ' +
+  '접수증이 올라오면 다시 셉니다'
+
 /** 기한 종류를 사람 말로 → §3.7 `kind`. **셋을 합치지 않습니다** (09 §8.1) */
 const KIND_LABEL: Readonly<Record<string, string>> = {
   primary: '기한',
@@ -259,9 +274,11 @@ const KIND_LABEL: Readonly<Record<string, string>> = {
  * 없으면 안 붙입니다 — **지어내지 않습니다**(불변 규칙 1). 조건이 빠지면
  * 모델이 추가 기간을 본 기한처럼 말합니다(09 §8.1).
  *
- * ⬜ **추정 기한을 그렇게 표시하지 못합니다.** 사용자가 기억으로 댄 날짜에서
- * 나온 기한은 `rule_snapshot.estimated` 로 남는데, §3.7 응답에 그 칸이 없어
- * 화면도 챗도 확정 기한과 구분하지 못합니다. 계약에 칸을 더해야 합니다.
+ * ## 추정 기한은 추정이라고 말합니다
+ *
+ * 기산점이 부산물로 확인 안 된 기한(`estimated`)을 확정처럼 실으면 모델이
+ * 그것을 사실로 옮겨 적습니다. **화면에는 「미확인」 배지가 붙는데 챗만 단정하면
+ * 두 자리가 다른 말을 합니다** → 08-16-deadline-rules.md.
  */
 export function deadlineState(
   rows: readonly ApiDeadline[],
@@ -276,7 +293,16 @@ export function deadlineState(
 
     out.push({
       label: `${KIND_LABEL[one.kind] ?? '기한'}: ${one.title}`,
-      value: [dayText(one, day), one.condition, one.note].filter(Boolean).join(' · '),
+      value: [
+        dayText(one, day),
+        // **확정이 아니라고 먼저 말합니다** — 조건·설명보다 앞입니다.
+        // 뒤에 붙이면 모델이 날짜만 옮겨 적고 이 마디를 흘립니다
+        one.estimated ? ESTIMATED_NOTE : null,
+        one.condition,
+        one.note,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       deadlineId: one.deadline_id,
     })
   }

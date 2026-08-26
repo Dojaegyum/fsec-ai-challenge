@@ -30,6 +30,14 @@ export function DeadlineBadge({ deadline }: { deadline: Deadline }) {
       className={`inline-flex items-center gap-[7px] rounded-full border px-[11px] py-1 text-[13px] ${PILL[badge.variant]}`}
     >
       {badge.text}
+      {/* **기산점이 확인 안 된 기한** — 기한 규칙이 「미확인 배지와 함께
+          추정만」이라고 못 박은 자리입니다. 이걸 빼면 사용자가 기억으로 댄
+          날짜에서 나온 기한을 법정 기한으로 믿습니다 */}
+      {badge.estimated && (
+        <span className="rounded-full border border-hairline px-[6px] py-px text-[11.5px] font-[560] text-ink-3">
+          미확인
+        </span>
+      )}
     </span>
   );
 }

@@ -101,6 +101,16 @@ export default function PlanView({
                 </>
               )}
             </p>
+            {/* **기산점이 확인 안 된 기한입니다.** 히어로는 이 사건에서 가장
+                크게 읽히는 자리라, 여기서 확정처럼 보이면 배지에 「미확인」이
+                붙어 있어도 소용이 없습니다 → 기한 규칙 */}
+            {primary?.estimated && (
+              <p className="mt-1 text-[12.5px] leading-[1.55] text-ink-3">
+                말씀해 주신 날짜로 센 것이라{" "}
+                <b className="font-[620] text-ink-2">아직 확정이 아닙니다.</b> 접수증을
+                올려주시면 정확한 날짜로 다시 세어 드립니다.
+              </p>
+            )}
             <h2 className="mt-1 text-[21px] font-[660] leading-[1.4] tracking-[-0.01em] text-ink-1">
               {now ? now.title : "기다리는 구간입니다"}
             </h2>
