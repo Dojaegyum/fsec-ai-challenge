@@ -33,6 +33,9 @@ import json
 import sys
 from pathlib import Path
 
+# Windows 콘솔·파일 리다이렉트가 cp949 라 한글과 「—」에서 터집니다
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 
@@ -44,6 +47,18 @@ CHANNELS = {
     "CH-card": "카드",
 }
 ORG_KINDS = ("기관", "상품권사", "통신사")
+
+# **`org` 표에 들어갈 수 없는 곳** — 04 §8 *「org 테이블이 아니라 3순위 공통 KB 항목」*.
+# `org` 행은 `channel_id` 가 필수인데 이들은 **돈이 지나간 경유 서비스가 아니라서**
+# 붙일 채널이 없습니다. 모수에 두면 커버리지가 영영 100% 가 안 되고, 볼 때마다
+# 「아직 덜 채웠나」로 읽힙니다 — 그래서 따로 셉니다.
+#
+# ⚠️ **셋의 성격이 서로 다릅니다.** 평가셋 문장을 보면 갈립니다.
+#   금융감독원·서울중앙지검  사기범이 **사칭**한 곳 (「직원이라면서」·「수사관이라면서」)
+#   서초경찰서               **사칭이 아닙니다** — 피해자가 실제로 신고한 관할서이고
+#                            담당 수사관 소속입니다(「담당 형사님이 서초경찰서 이정훈 경사」).
+#                            이건 사건 데이터에 가까운데 **아직 담을 슬롯이 없습니다.**
+NOT_ORG = ("금융감독원", "서울중앙지검", "서초경찰서")
 
 # 표기가 짧으면 편집거리 매칭이 아무 데나 걸립니다 — 「KB」·「국민」 같은 두 글자.
 MIN_FORM = 3
@@ -136,17 +151,30 @@ def main() -> int:
     for label, _res, eval_path, _key in CASES:
         items = json.loads((ROOT / eval_path).read_text(encoding="utf-8"))["items"]
         seen: dict[str, set[str]] = {}
+        outside: set[str] = set()
         for it in items:
             for k in it["keep"]:
-                if k["kind"] in ORG_KINDS:
+                if k["kind"] not in ORG_KINDS:
+                    continue
+                if k["text"] in NOT_ORG:
+                    outside.add(k["text"])       # 모수 밖 — 위 NOT_ORG 참조
+                else:
                     seen.setdefault(k["kind"], set()).add(k["text"])
         cov = {}
         print(f"{label}")
+        got = tot = 0
         for kind, vals in sorted(seen.items()):
             miss = sorted(v for v in vals if v.replace(" ", "") not in forms)
             cov[kind] = {"total": len(vals), "missing": miss}
+            got, tot = got + len(vals) - len(miss), tot + len(vals)
             print(f"   {kind:<6} {len(vals) - len(miss):>2}/{len(vals):<2} 덮음"
                   + (f"   빠진 것: {', '.join(miss)}" if miss else ""))
+        print(f"   {'합':<6} {got:>2}/{tot:<2} = {got / tot * 100:.1f}%"
+              if tot else "   (모수 없음)")
+        if outside:
+            print(f"   ※ 모수 밖 {len(outside)}곳 — {', '.join(sorted(outside))}"
+                  " (org 표가 아닙니다 → 04 §8)")
+        cov["_outside"] = sorted(outside)
         out["coverage"][label] = cov
         print()
 
