@@ -246,4 +246,6 @@ const VALUE_TYPES: Readonly<Record<string, SlotValueType>> = {
   relief_applied_at: 'datetime',
   report_filed_at: 'datetime',
   objection_submitted_at: 'datetime',
+  // 채권소멸공고 2개월의 기산점. **통지문에 적힌 공고일입니다** → ADR-053
+  notice_started_at: 'datetime',
 }

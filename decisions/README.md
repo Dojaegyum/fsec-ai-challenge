@@ -129,6 +129,7 @@
 | [051](051-idempotent-ingest.md) | 읽기 접수는 멱등하고, 재시도는 막지 않는다 | 채택 |
 | [052](052-stt-configuration.md) | 전사는 large-v3 로 하고, 자리표기를 되돌린 뒤 토큰화한다 | 채택 |
 | [053](053-deploy-on-merge.md) | 배포는 `main` 머지에서 GitHub Actions 가 한다 — Vercel Git 연동은 쓰지 않는다 | 채택 |
+| [054](054-notice-anchor.md) | 채권소멸공고의 기산일은 통지문에서 온다 | 채택 |
 
 ## 아직 안 쓴 것
 
