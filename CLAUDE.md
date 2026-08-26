@@ -40,6 +40,7 @@
 | 절차 지식의 근거 | `assets/artifacts/context/08-13-aftermath-research.html` | 법령·기관 기준 사후처리 절차 |
 | **자동화를 어디까지 하나** | [spec/common/08-20-automation-boundary.md](spec/common/08-20-automation-boundary.md) | **계약.** 넘으면 인허가가 필요한 선. 새 기능을 볼 때 여기서 대조 |
 | **STT·OCR 이 실제로 얼마나 새나** | [docs/research/09](docs/research/09-로컬모델-PII인식-실측.md)·[11](docs/research/11-로컬OCR-PII인식-실측.md) | **우리가 직접 잰 값.** `transcriber`·`pii-tokenizer` 를 만들기 전에. 사람이 보는 요약은 `assets/artifacts/research/08-21-pii-measurement.html` |
+| **전사를 무엇으로 어떻게 돌리나** | [ADR-052](decisions/052-stt-configuration.md) · 근거는 [14](docs/research/14-STT-전처리-실측.md)·[15](docs/research/15-STT-GPU-실측.md) | **계약.** 모델·배치·VAD 와 **토큰화 앞의 자리표기 되돌리기**. 사람이 보는 요약은 `assets/artifacts/research/08-25-stt-benchmark.html` |
 | **누가 어떤 길로 지나가나** | [spec/common/08-21-user-journeys.md](spec/common/08-21-user-journeys.md) | **계약.** 갈림길 여덟 · 여정 열둘. **`src/` 를 읽어 세운 것**이라 이 짝에서는 spec 이 정본이고 [아티팩트](assets/artifacts/plans/08-21-user-journeys.html)가 사본입니다 |
 | **제도·경쟁의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브. **법적 경계는 위 문서로 올라왔습니다** — 나머지 제도·경쟁 사실은 아직 여기가 최신입니다(공고문 원문 확보 후 재조사한 최종본) |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |

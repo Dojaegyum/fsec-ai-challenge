@@ -1,0 +1,246 @@
+{
+  "condition": "phone_noisy",
+  "total_seconds": 405.7,
+  "items": [
+    {
+      "id": "E01",
+      "file": "E01.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 13.3
+    },
+    {
+      "id": "E02",
+      "file": "E02.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 11.81
+    },
+    {
+      "id": "E03",
+      "file": "E03.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 9.62
+    },
+    {
+      "id": "E04",
+      "file": "E04.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 16.75
+    },
+    {
+      "id": "E05",
+      "file": "E05.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 10.8
+    },
+    {
+      "id": "E06",
+      "file": "E06.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 11.16
+    },
+    {
+      "id": "E07",
+      "file": "E07.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 11.45
+    },
+    {
+      "id": "E08",
+      "file": "E08.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 9.36
+    },
+    {
+      "id": "E09",
+      "file": "E09.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 7.32
+    },
+    {
+      "id": "E10",
+      "file": "E10.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 11.09
+    },
+    {
+      "id": "E11",
+      "file": "E11.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 8.62
+    },
+    {
+      "id": "E12",
+      "file": "E12.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 10.25
+    },
+    {
+      "id": "E13",
+      "file": "E13.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 9.1
+    },
+    {
+      "id": "E14",
+      "file": "E14.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 14.16
+    },
+    {
+      "id": "E15",
+      "file": "E15.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 6.46
+    },
+    {
+      "id": "E16",
+      "file": "E16.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 11.3
+    },
+    {
+      "id": "E17",
+      "file": "E17.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 6.29
+    },
+    {
+      "id": "E18",
+      "file": "E18.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 9.62
+    },
+    {
+      "id": "E19",
+      "file": "E19.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 11.42
+    },
+    {
+      "id": "E20",
+      "file": "E20.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 14.71
+    },
+    {
+      "id": "E21",
+      "file": "E21.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 9.31
+    },
+    {
+      "id": "E22",
+      "file": "E22.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 10.32
+    },
+    {
+      "id": "E23",
+      "file": "E23.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 9.43
+    },
+    {
+      "id": "E24",
+      "file": "E24.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 6.91
+    },
+    {
+      "id": "E25",
+      "file": "E25.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 8.18
+    },
+    {
+      "id": "E26",
+      "file": "E26.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 8.98
+    },
+    {
+      "id": "E27",
+      "file": "E27.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 6.6
+    },
+    {
+      "id": "E28",
+      "file": "E28.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 10.73
+    },
+    {
+      "id": "E29",
+      "file": "E29.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 8.14
+    },
+    {
+      "id": "E30",
+      "file": "E30.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 7.8
+    },
+    {
+      "id": "E31",
+      "file": "E31.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 7.3
+    },
+    {
+      "id": "E32",
+      "file": "E32.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 11.26
+    },
+    {
+      "id": "E33",
+      "file": "E33.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 7.32
+    },
+    {
+      "id": "E34",
+      "file": "E34.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 13.3
+    },
+    {
+      "id": "E35",
+      "file": "E35.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 7.32
+    },
+    {
+      "id": "E36",
+      "file": "E36.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 5.88
+    },
+    {
+      "id": "E37",
+      "file": "E37.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 9.1
+    },
+    {
+      "id": "E38",
+      "file": "E38.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 9.02
+    },
+    {
+      "id": "E39",
+      "file": "E39.wav",
+      "voice": "ko-KR-SunHiNeural",
+      "seconds": 9.34
+    },
+    {
+      "id": "E40",
+      "file": "E40.wav",
+      "voice": "ko-KR-InJoonNeural",
+      "seconds": 24.89
+    }
+  ]
+}
