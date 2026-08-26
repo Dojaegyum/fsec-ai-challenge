@@ -1,0 +1,43 @@
+{
+  "detector": "gemma3:4b",
+  "runs": [
+    {
+      "key": "E",
+      "device": "cuda",
+      "model": "medium",
+      "name_survived": 11,
+      "name_damaged": 2,
+      "leaked": 0,
+      "over_masked": 7,
+      "leak_rate": 0.0,
+      "detail": [
+        "과차단 E06:이서현",
+        "과차단 E07:김도현",
+        "과차단 E12:삼성진권",
+        "과차단 E28:강남역",
+        "과차단 E29:김도현",
+        "과차단 E36:KT",
+        "과차단 E37:놓은서"
+      ],
+      "seconds": 1470.9
+    },
+    {
+      "key": "H",
+      "device": "cuda",
+      "model": "large-v3",
+      "name_survived": 13,
+      "name_damaged": 0,
+      "leaked": 0,
+      "over_masked": 5,
+      "leak_rate": 0.0,
+      "detail": [
+        "과차단 E07:",
+        "과차단 E19:김대리",
+        "과차단 E28:강남역",
+        "과차단 E29:김도현",
+        "과차단 E36:KT"
+      ],
+      "seconds": 1375.6
+    }
+  ]
+}

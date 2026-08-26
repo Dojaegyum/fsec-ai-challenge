@@ -127,7 +127,9 @@
 | [049](049-vault-in-postgres.md) | 볼트를 같은 Postgres 안 별도 스키마에 둔다 | 채택 |
 | [050](050-history-and-vault-read.md) | 대화 이력과 볼트를 되받는 경로를 만든다 | 채택 |
 | [051](051-idempotent-ingest.md) | 읽기 접수는 멱등하고, 재시도는 막지 않는다 | 채택 |
-| [053](053-notice-anchor.md) | 채권소멸공고의 기산일은 통지문에서 온다 | 채택 |
+| [052](052-stt-configuration.md) | 전사는 large-v3 로 하고, 자리표기를 되돌린 뒤 토큰화한다 | 채택 |
+| [053](053-deploy-on-merge.md) | 배포는 `main` 머지에서 GitHub Actions 가 한다 — Vercel Git 연동은 쓰지 않는다 | 채택 |
+| [054](054-notice-anchor.md) | 채권소멸공고의 기산일은 통지문에서 온다 | 채택 |
 
 ## 아직 안 쓴 것
 

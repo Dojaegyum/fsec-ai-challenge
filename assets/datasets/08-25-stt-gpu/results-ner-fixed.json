@@ -1,0 +1,40 @@
+{
+  "detector": "gemma3:4b",
+  "prompt": "fixed",
+  "runs": [
+    {
+      "key": "E",
+      "device": "cuda",
+      "model": "medium",
+      "name_survived": 11,
+      "name_damaged": 2,
+      "leaked": 1,
+      "over_masked": 5,
+      "leak_rate": 0.091,
+      "detail": [
+        "과차단 E06:이서현",
+        "과차단 E12:삼성진권",
+        "과차단 E28:사람",
+        "과차단 E37:놓은서",
+        "누출 E40:김민수",
+        "과차단 E40:임한"
+      ],
+      "seconds": 2381.9
+    },
+    {
+      "key": "H",
+      "device": "cuda",
+      "model": "large-v3",
+      "name_survived": 13,
+      "name_damaged": 0,
+      "leaked": 1,
+      "over_masked": 1,
+      "leak_rate": 0.077,
+      "detail": [
+        "과차단 E28:강남역",
+        "누출 E40:김민수"
+      ],
+      "seconds": 2252.1
+    }
+  ]
+}

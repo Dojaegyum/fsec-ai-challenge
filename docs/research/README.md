@@ -44,6 +44,8 @@ research/  →  KB 릴리스  →  kb_entry · org 테이블  →  LLM 이 인�
 | [11-로컬OCR-PII인식-실측.md](11-로컬OCR-PII인식-실측.md) | **우리가 직접 잰 값.** 증거 화면 OCR 의 누출률·필드 짝짓기. **숫자는 OCR 이 압도적** | `transcriber` OCR 선택 · `slot-extractor` |
 | [12-OCR-실측-방법론.md](12-OCR-실측-방법론.md) | 11을 **다시 재는 법.** 화면 합성·좌표 행 복원·짝짓기 채점. 원본은 `assets/datasets/08-21-local-ocr-pii/` | 11의 재현 |
 | [13-GPU-클라우드-단가.md](13-GPU-클라우드-단가.md) | GPU 공급자 시간당 단가와 **개인정보 국외 이전 요건**. 정지 중 볼륨이 더 비싼 함정 | [ADR-043](../../decisions/043-gpu-hosting.md) |
+| [14-STT-전처리-실측.md](14-STT-전처리-실측.md) | **전처리로는 지연이 안 줄어듭니다.** VAD 0.4% · 빔 축소는 14% 를 벌고 PII 2건을 더 잃음. 병목은 인코더 | [ADR-043](../../decisions/043-gpu-hosting.md) |
+| [15-STT-GPU-실측.md](15-STT-GPU-실측.md) | **장치만 바꿔도 22배 · 모델을 좋게 하면 「자리표기 변형」이 2 → 4건으로 늘지만, 경계의 숫자 규칙이 그걸 잡습니다** — 이음 거리를 5 → 8 로 넓힌 뒤 누출 0·과차단 0. 모델은 `large-v3`, 배치 16 은 긴 녹음에서 4배 — 단 **VAD 가 배치의 전제 조건**. `turbo` 는 배치에서 PII 를 잃어 탈락 | [ADR-052](../../decisions/052-stt-configuration.md) · 사람이 보는 요약은 `assets/artifacts/research/08-25-stt-benchmark.html` |
 
 ## 기록 규칙
 

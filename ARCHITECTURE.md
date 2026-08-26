@@ -445,6 +445,9 @@ sequenceDiagram
 ## 8. 배포
 
 - **배포 대상: Vercel.** 대회 배포 URL 요건이 있습니다 → [용어와 전제](spec/common/08-14-glossary.md) §9
+- **올리는 것은 GitHub Actions 입니다.** `main` 에 `src/**` 가 푸시되면 `deploy.yml` 이 typecheck·test 를
+  돌고 `vercel deploy --prod` 로 올립니다. PR 미리보기는 만들지 않습니다 →
+  [ADR-053](decisions/053-deploy-on-merge.md) · [`deploy/README.md`](deploy/README.md)
 - **데이터는 Supabase(서울)입니다.** ADR-010이 "저장소가 전부 Vercel 제품이라 별도 설정이 없다"를
   이유로 들었지만, 그 대가가 **리전**이었습니다 — 계정·네트워크 설정이 하나 늘어나는 것을 감수합니다 →
   [ADR-016](decisions/016-retention-and-datastore.md)
