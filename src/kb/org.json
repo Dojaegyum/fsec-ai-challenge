@@ -35,10 +35,43 @@
     "그래서 `name` 이 「비씨카드」입니다 — source_url 이 그렇게 적고 있습니다.",
     "「BC카드」는 별칭으로 뒀습니다.",
     "",
-    "⚠️ **연락처는 안 넣었습니다.** 그 페이지에 대표전화가 함께 있지만 그것은",
-    "회사 대표번호이지 **부정사용 신고 창구가 아닙니다.** `contact.report_tel` 에",
-    "넣으면 뜻이 어긋납니다 — 카드는 「카드 뒷면·앱의 고객센터」로 안내하는 편이",
-    "언제나 맞습니다(`ch-card.json`). 채우려면 그 페이지에 번호가 있습니다.",
+    "⚠️ **회원사 페이지의 번호는 안 씁니다.** 그 페이지에 대표전화가 함께 있지만",
+    "그것은 회사 대표번호이지 **부정사용 신고 창구가 아닙니다.** `contact.report_tel`",
+    "에 넣으면 뜻이 어긋납니다.",
+    "",
+    "### 번호는 다른 페이지에서 왔습니다 (2026-08-26 추가)",
+    "",
+    "여신금융협회 **소비자지원센터**의 「카드 분실 일괄신고」 표입니다. 머리글이",
+    "`회사명 | 분실일괄신고 전화(국내 | 해외) | 홈페이지 신고` 라 **첫 칸이 회사명이고",
+    "둘째 칸이 신고 전화**입니다 — 대표번호가 아니라 신고 창구입니다.",
+    "",
+    "**`ch-card.json` 의 `freeze-request` 가 바로 그 통지입니다** — 여신전문금융업법",
+    "제16조가 「도난·분실 등의 통지」를 기준으로 삼고, 그 통지를 받는 창구가 이것입니다.",
+    "",
+    "**행을 깨지 않고 읽었습니다.** `read_tel.py` 가 `<tr>` 마다 첫 칸과 번호 칸을",
+    "같은 줄에 붙여 찍습니다 — 위 사고(이름과 번호가 밀림)를 눈으로 잡으려는 것입니다.",
+    "**같은 페이지를 두 번 받아 결과가 같은 것**도 확인했습니다.",
+    "",
+    "⚠️ **NH농협카드는 그 표에 없습니다.** 정회원 8곳만 있고 NH농협은행 번호가 따로",
+    "있는데, 그건 은행 것이지 카드 것이 아닙니다. **그래서 비워 뒀습니다** — 이름이",
+    "다른 것에 번호를 옮겨 붙이지 않습니다. 그 한 곳은 `source_url` 도 회원사",
+    "페이지 그대로입니다.",
+    "",
+    "## 증권 둘만 번호가 있습니다 — 공동 창구가 없습니다 (2026-08-26)",
+    "",
+    "**증권사에는 은행연합회·여신금융협회 같은 공동 신고 페이지가 없습니다.** 찾아봤고",
+    "금융투자협회에도 없습니다. 공식 안내가 「112 · 1332 · **해당 금융회사 고객센터**」라,",
+    "이 유형에서는 **고객센터가 곧 그 창구**입니다 — 카드에서 대표번호를 거절한 것과",
+    "다릅니다. 카드는 전용 신고 창구가 따로 있었습니다.",
+    "",
+    "    미래에셋증권  1588-6800  평일 08:00~18:00 · ARS 상시",
+    "    삼성증권      1588-2323  Family Center · 평일 07:30~18:00",
+    "",
+    "⚠️ **운영시간을 반드시 함께 적습니다.** 주간에만 상담원이 연결되는데 그걸 안 적으면",
+    "새벽에 건 피해자가 아무도 안 받는 번호를 붙들고 골든타임을 씁니다. 은행과 다릅니다.",
+    "",
+    "⬜ **나머지 여섯은 페이지가 스크립트로 그려져 못 읽었습니다** — 한국투자·NH투자·",
+    "키움·KB·신한투자·하나. 사람이 열어 보면 금방입니다.",
     "",
     "## 간편송금 넷 — 각 사 공식 페이지 (2026-08-26 확인)",
     "",
@@ -325,8 +358,8 @@
       "channel_id": "CH-card",
       "name": "신한카드",
       "aliases": ["신한 카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1544-7200" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -334,8 +367,8 @@
       "channel_id": "CH-card",
       "name": "삼성카드",
       "aliases": ["삼성 카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1588-8900" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -343,8 +376,8 @@
       "channel_id": "CH-card",
       "name": "KB국민카드",
       "aliases": ["국민카드", "케이비국민카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1588-1788" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -352,8 +385,8 @@
       "channel_id": "CH-card",
       "name": "현대카드",
       "aliases": ["현대 카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1577-6200" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -361,8 +394,8 @@
       "channel_id": "CH-card",
       "name": "롯데카드",
       "aliases": ["롯데 카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1588-8300" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -370,8 +403,8 @@
       "channel_id": "CH-card",
       "name": "우리카드",
       "aliases": ["우리 카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1588-5300" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -379,8 +412,8 @@
       "channel_id": "CH-card",
       "name": "하나카드",
       "aliases": ["하나 카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1800-1111" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -388,8 +421,8 @@
       "channel_id": "CH-card",
       "name": "비씨카드",
       "aliases": ["BC카드", "비씨 카드", "BC 카드"],
-      "contact": {},
-      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "contact": { "report_tel": "1588-4515" },
+      "source_url": "https://customer.crefia.or.kr/common/forward.xx?url=/customer/guard/guardCreditcardLoss",
       "verified_at": "2026-08-26"
     },
     {
@@ -459,8 +492,12 @@
       "channel_id": "CH-securities",
       "name": "미래에셋증권",
       "aliases": ["미래에셋", "미래에셋대우"],
-      "contact": {},
-      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "contact": {
+        "report_tel": "1588-6800",
+        "report_hours": "평일 08:00~18:00 (토·일·공휴일 제외). ARS 는 상시",
+        "caution": "증권사에는 은행연합회 같은 공동 신고 창구가 없어 고객센터 번호입니다. 상담원은 주간에만 연결됩니다."
+      },
+      "source_url": "https://securities.miraeasset.com/guideMain.do",
       "verified_at": "2026-08-26"
     },
     {
@@ -486,8 +523,12 @@
       "channel_id": "CH-securities",
       "name": "삼성증권",
       "aliases": ["삼성"],
-      "contact": {},
-      "source_url": "https://kind.krx.co.kr/corpgeneral/corpList.do?method=download",
+      "contact": {
+        "report_tel": "1588-2323",
+        "report_hours": "평일 07:30~18:00",
+        "caution": "증권사에는 은행연합회 같은 공동 신고 창구가 없어 고객센터(Family Center) 번호입니다. 상담원은 주간에만 연결됩니다."
+      },
+      "source_url": "https://www.samsungpop.com/customer/counsel/overview.pop",
       "verified_at": "2026-08-26"
     },
     {
