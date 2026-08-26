@@ -16,6 +16,7 @@
 | --- | --- |
 | `dict_probe.py` | 커버리지·회수·오탐을 한 번에 잽니다. **GPU 불필요** |
 | `results-dict.json` | 그 출력 |
+| `org-draft.json` | **사전 초안 27곳** — 04 §3~§7 에서 옮긴 이름·별칭·유형. `source_url`·`verified_at` 이 비어 있어 **아직 `src/kb/org.json` 이 아닙니다** |
 
 ## ⚠️ 둘
 
