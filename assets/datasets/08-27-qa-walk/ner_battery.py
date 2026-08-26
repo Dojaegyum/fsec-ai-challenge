@@ -70,7 +70,10 @@ CASES: list[tuple[str, str, list[str]]] = [
 
 
 def ask(text: str) -> tuple[dict, float]:
-    headers = {"content-type": "application/json"}
+    # ⚠️ **UA 를 안 바꾸면 RunPod 프록시가 403 입니다** — Cloudflare 가
+    # `Python-urllib` 을 봇으로 막습니다(`error code: 1010`). 앱은 통과하는데
+    # 이 스크립트만 막혀서, 서비스가 죽은 줄 알고 한참 헤맵니다
+    headers = {"content-type": "application/json", "user-agent": "finally-qa/1.0"}
     if TOKEN:
         headers["x-finally-token"] = TOKEN
     req = urllib.request.Request(
