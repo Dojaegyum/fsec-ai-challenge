@@ -55,6 +55,20 @@ echo "# 로컬 게이트 — $(git log --oneline -1)"
 [ -n "$BASE" ] && echo "# 비교 기준 ${BASE_REF} (${BASE:0:8})"
 echo
 
+# ⚠️ **워크트리의 `node_modules` 가 심링크면 빌드가 거부됩니다.**
+# `Symlink … points out of the filesystem root` — Turbopack 이 저장소 밖을 가리키는
+# 링크를 안 따라갑니다. 워크트리에서 일할 때 흔히 밟습니다.
+#
+# **여기서 지우지 않습니다.** `npm ci` 를 그대로 돌리면 링크 **너머** 메인
+# 저장소의 `node_modules` 를 지웁니다 — 다른 세션이 그걸 쓰고 있을 수 있습니다.
+# 사람이 `unlink` 를 먼저 하도록 말만 합니다.
+if [ -L src/node_modules ]; then
+  echo "  ⚠️ src/node_modules 가 심링크입니다 — build 가 거부될 수 있습니다."
+  echo "     고치려면: unlink src/node_modules && (cd src && npm ci)"
+  echo "     ⛔ unlink 없이 npm ci 를 돌리면 **링크 너머 메인 저장소의 것을 지웁니다.**"
+  echo
+fi
+
 if [ -n "$BASE" ]; then
   run "doc-integrity" python .github/scripts/doc-integrity.py --base "$BASE" --head "$HEAD"
   run "module-sync" python .claude/skills/module-inventory/scripts/inventory.py \
