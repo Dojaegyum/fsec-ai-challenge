@@ -1,8 +1,32 @@
 #!/usr/bin/env python3
 """등록부 원문에서 **회사명과 번호가 같은 행에 있는지** 그대로 꺼내 본다.
 
-    python read_tel.py <URL>              표의 각 행에서 첫 칸 + 번호가 든 칸
-    python read_tel.py <URL> --window     표가 아니면: 번호 주변 본문을 그대로
+    python read_tel.py <URL>                    표의 각 행에서 첫 칸 + 번호가 든 칸
+    python read_tel.py <URL> --window           표가 아니면: 번호 주변 본문을 그대로
+    python read_tel.py <URL> --window --width 320   창을 넓혀서 (기본 60)
+    python read_tel.py <URL1> <URL2> ...        주소 여럿을 한 번에
+
+## ⚠️ 창이 좁으면 짝이 어긋납니다 (2026-08-26에 두 번 겪음)
+
+기본 60자는 **번호가 하나뿐인 꼬리말에만 안전합니다.** 실제로 이런 일이 났습니다.
+
+    다날    60자로 보면 「직계약 문의·호스팅업체·가맹점관리사이트」만 보여
+            **가맹점 전용 페이지로 단정**하고 번호를 거절했습니다. 380자로 넓히니
+            같은 페이지에 `[개인고객] 휴대폰결제를 했습니다. 환불/취소하여 주십시오.`
+            가 있었습니다 — 판단이 뒤집혔습니다.
+
+    빗썸    꼬리말에 운영시간이 **두 개**입니다. 좁게 보면 「평일 9:00~19:00」이
+            전화번호에 붙어 보이는데, 그건 **서초 사무실 방문 시간**이고 전화는
+            「365일 24시간」입니다. 320자로 넓혀서야 갈렸습니다.
+
+**성격을 판단하려면 넓게 보세요.** 번호만 옮겨 적을 때와 다릅니다.
+
+## ⚠️ 오류 페이지를 정상 페이지로 착각하기 쉽습니다
+
+많은 사이트가 **오류 안내에도 정상 꼬리말을 붙입니다.** 라벨 붙은 번호가 거기서만
+나오면 사실상 출처가 하나라, 이 저장소 기준을 못 넘습니다(04 §9 의 증권 셋·KT).
+그래서 아래 출력이 **한글 자 수와 「오류 문구 있음」**을 함께 찍습니다 — 본문이
+100자 언저리면 거의 오류 페이지입니다.
 
 ## 왜 이 스크립트가 따로 있나
 
@@ -88,15 +112,36 @@ def windows(text: str, width: int = 60) -> list[str]:
     return out
 
 
+def health(text: str) -> str:
+    """본문이 살아 있는가 — 오류 페이지를 정상으로 착각하지 않으려는 것입니다."""
+    hangul = sum(1 for ch in text if "가" <= ch <= "힣")
+    bad = [w for w in ("오류", "죄송", "준비중", "찾을 수 없") if w in text]
+    note = f"  ⚠️ 오류 문구 있음({'·'.join(bad)})" if bad else ""
+    thin = "  ⚠️ 본문이 얇습니다 — 오류 페이지일 수 있습니다" if hangul < 200 else ""
+    return f"한글 {hangul:,}자{note}{thin}"
+
+
 def main() -> int:
-    if len(sys.argv) < 2:
-        print(__doc__.split("## 왜")[0].strip())
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if not args:
+        print(__doc__.split("## ⚠️")[0].strip())
         return 2
 
-    url = sys.argv[1]
+    width = 60
+    if "--width" in sys.argv:
+        width = int(sys.argv[sys.argv.index("--width") + 1])
+        args = [a for a in args if a != str(width)]
+
+    for url in args:
+        one(url, width)
+    return 0
+
+
+def one(url: str, width: int) -> int:
     raw = fetch(url)
     html, enc = decode(raw)
-    print(f"{url}\n  {enc} · {len(html):,}바이트\n")
+    plain = clean(re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html))
+    print(f"{url}\n  {enc} · {len(html):,}바이트 · {health(plain)}\n")
 
     if "--window" not in sys.argv:
         found = rows(html)
@@ -107,11 +152,11 @@ def main() -> int:
             return 0
         print("표에서 못 찾았습니다. 본문 주변으로 봅니다.\n")
 
-    text = clean(re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html))
-    found = windows(text)
-    print(f"번호 {len(found)}개 — 앞뒤 본문 그대로\n")
+    found = windows(plain, width)
+    print(f"번호 {len(found)}개 — 앞뒤 {width}자 그대로\n")
     for line in found:
         print(f"  … {line} …")
+    print()
     return 0
 
 

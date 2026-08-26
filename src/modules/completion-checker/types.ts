@@ -36,12 +36,23 @@ export type VerifyResult = 'passed' | 'failed' | 'not_applicable'
 /** 08-16-domain-model.md 의 PlanStep 상태 중 이 모듈이 내는 셋 */
 export type StepState = 'done_verified' | 'in_progress' | 'unconfirmed'
 
-/** L1 이 왜 실패했나. **PII 를 넣지 않습니다** → §7 verify_detail */
-export type FailReason =
-  /** 기관의 접수번호 형식과 다르다 */
+/**
+ * L1 이 무엇을 보고 그렇게 판정했나. **PII 를 넣지 않습니다** → §7 verify_detail.
+ *
+ * **실패 이유만 담는 칸이 아닙니다** → [ADR-057](../../../decisions/057-receipt-number-l1.md).
+ * 통과에도 붙습니다 — 형식을 대조한 통과와 모양만 본 통과는 다른 일이고,
+ * 나중에 형식 정본이 생기면 **다시 볼 것을 여기서 셉니다.**
+ */
+export type VerifyReason =
+  /** 접수번호 모양이 아니다 — 빈칸·너무 짧음·숫자 없음. **실패** */
+  | 'not_identifier'
+  /** 기관의 접수번호 형식과 다르다. **실패** */
   | 'format_mismatch'
-  /** 그 기관의 형식을 아직 모른다 → README 「형식을 모를 때」 */
-  | 'format_unknown'
+  /**
+   * **통과.** 다만 그 기관의 형식 정본이 없어 모양만 봤습니다 (U-18).
+   * 형식이 생기면 이 표시가 붙은 것들이 재검증 대상입니다.
+   */
+  | 'format_unchecked'
 
 /** 사용자가 다음에 할 수 있는 것. **L1 이 실패해도 길이 막히지 않습니다** */
 export interface NextOption {
@@ -52,7 +63,7 @@ export interface NextOption {
 export interface CompletionVerdict {
   readonly verifyLevel: VerifyLevel
   readonly verifyResult: VerifyResult
-  readonly verifyDetail?: { readonly reason: FailReason }
+  readonly verifyDetail?: { readonly reason: VerifyReason }
   readonly stepState: StepState
   /** 실패했을 때만. 사용자가 막히지 않도록 다음 길을 함께 냅니다 */
   readonly nextOptions?: readonly NextOption[]
@@ -61,15 +72,20 @@ export interface CompletionVerdict {
 /**
  * 이 모듈이 밖에 요구하는 것 — 기관별 접수번호 형식.
  *
- * **형식의 정본이 아직 없습니다** → 08-14-completion-hook.md TODO(근거 필요).
- * 그래서 이 모듈은 형식을 갖지 않고 물어봅니다. 정해지면 구현만 바뀝니다.
+ * ❌ **형식의 정본이 없습니다.** 112·은행·금감원 어디에도 공개된 규격이 없고,
+ * 흔히 보이는 `2025-000000` 꼴은 사설 안내에만 나옵니다 → U-18 · docs/research/19 §4.
+ * **기다리지 않기로 했습니다** → [ADR-057](../../../decisions/057-receipt-number-l1.md).
+ *
+ * 그래서 이 자리는 **지금 아무도 안 채웁니다.** 나중에 어느 기관의 형식이 실제로
+ * 확인되면 그때 채우면 되고, 그전까지 `matches()` 는 `undefined` 를 냅니다.
  */
 export interface ReceiptNumberFormat {
   /**
    * 형식에 맞는가.
    *
-   * **모르면 undefined 를 돌려주세요.** `false`(틀렸다)와 구분해야 사용자에게
-   * 다른 말을 할 수 있습니다.
+   * **모르면 undefined 를 돌려주세요.** `false`(틀렸다)와 구분해야 합니다 —
+   * `undefined` 는 이제 **실패가 아니라 통과**입니다(`format_unchecked`).
+   * 모른다고 막아 세우면 제대로 받아 적은 피해자가 실패 화면을 봅니다.
    */
   matches(value: string): boolean | undefined
 }
