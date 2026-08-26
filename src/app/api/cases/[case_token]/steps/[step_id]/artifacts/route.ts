@@ -22,6 +22,7 @@
  * 안 나옵니다. **안 적으면 빠뜨린 것과 구분되지 않아** 밝혀 둡니다.
  */
 
+import { allowedTermsFor } from '@/lib/allowed-terms'
 import { BadRequestError, readJsonObject } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
 import { newUlid } from '@/lib/ids'
@@ -88,8 +89,20 @@ export async function POST(
     // 접수번호에 개인정보가 섞여 들어올 수 있습니다 → ADR-040.
     // 파일로 올린 것은 값이 없습니다 — 그쪽은 이미 전사 경로가 다뤘습니다
     const raw = submission.kind === 'receipt_no' ? submission.value : null
+    // **제외 목록을 함께 넘깁니다** → 04-pii-boundary.md. 접수번호에 기관명이
+    // 섞여 오는 일이 있고(「국민은행 2026-1234」), 목록이 없으면 그 앞부분이
+    // 사람 이름으로 가려집니다
     const valueMasked =
-      raw === null ? null : (await container.piiTokenizer.tokenize(raw)).masked
+      raw === null
+        ? null
+        : (
+            await container.piiTokenizer.tokenize(raw, {
+              allowedTerms: await allowedTermsFor({
+                channels: container.channelWrite,
+                kbVersion: container.ports.kbVersion,
+              }),
+            })
+          ).masked
 
     const artifactId = newUlid()
     await container.artifacts.write({

@@ -23,6 +23,7 @@
 
 import 'server-only'
 
+import { allowedTermsFor } from '@/lib/allowed-terms'
 import type { Container } from '@/lib/container'
 import { BadRequestError } from '@/lib/http'
 
@@ -97,8 +98,18 @@ export async function answerSlot(
 
   // ── 경계 ───────────────────────────────────────────────────────────
   // **사용자가 타이핑한 글입니다** — 전사문이 아니므로 숫자 규칙을 켜지
-  // 않습니다. 여기서 켜면 멀쩡한 금액까지 가려집니다
-  const masked = await container.piiTokenizer.tokenize(raw)
+  // 않습니다. 여기서 켜면 멀쩡한 금액까지 가려집니다.
+  //
+  // **제외 목록을 여기서부터 넘깁니다** → 04-pii-boundary.md.
+  // 「어느 서비스로 보내셨나요」에 **「카카오페이」라고 타이핑하는 자리**라
+  // 목록이 없으면 그 답이 `[이름-1]` 이 되어 유형 분기가 무너집니다.
+  // 아래 「아니에요」 분기는 **그걸 되돌리는 길**이지 첫 방어가 아닙니다 —
+  // 사용자가 알아채야만 돌아오는 구조를 첫 방어로 두면 안 됩니다
+  const orgTerms = await allowedTermsFor({
+    channels: container.channelWrite,
+    kbVersion: container.ports.kbVersion,
+  })
+  const masked = await container.piiTokenizer.tokenize(raw, { allowedTerms: orgTerms })
 
   // ── 「아니에요, 개인정보가 아닙니다」 → ADR-041 ④ ──────────────────
   //
@@ -113,7 +124,9 @@ export async function answerSlot(
   // 골라도 **그대로 가려집니다.** 그게 맞는 동작입니다.
   if (input.action === 'keep') {
     const rechecked = await container.piiTokenizer.tokenize(raw, {
-      allowedTerms: [raw],
+      // 사용자가 고른 값 + 기관 사전. 앞엣것만 넘기면 「국민은행 김민수」처럼
+      // 섞인 값에서 기관 쪽이 다시 가려집니다
+      allowedTerms: [raw, ...orgTerms],
     })
     await container.slotWrite.write({
       caseId: input.caseId,

@@ -45,7 +45,16 @@ export interface LlmClient {
  * → 04-pii-boundary.md 불변 규칙 2.
  */
 export interface PiiTokenizer {
-  tokenize(text: string): Promise<{ masked: string }>
+  /**
+   * `allowedTerms` 는 **토큰화하지 않을 낱말**입니다 → 04-pii-boundary.md
+   * 「토큰화 제외 목록」. 기관명이 여기 들어가고 **NER 결과보다 우선**합니다 —
+   * 안 넘기면 「토스로 보냈어요」가 「[이름-1]로 보냈어요」가 되어
+   * 경유 서비스를 특정할 수 없습니다.
+   */
+  tokenize(
+    text: string,
+    ctx?: { allowedTerms?: readonly string[] },
+  ): Promise<{ masked: string }>
 }
 
 /** 이 모듈이 밖에 요구하는 것 — KB 조회 (`kb-finder`) */

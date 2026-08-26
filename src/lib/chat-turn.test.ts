@@ -312,6 +312,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
     const chat = createChatReceiver({
       // 아직 없는 자리. 1차 마스킹이 이미 지난 텍스트가 들어온다
       tokenizer: { tokenize: async (text) => ({ masked: text }) },
+      orgTerms: { list: async (): Promise<readonly string[]> => [] },
       kb: { find: (query) => asPromptEntries(kbFinder, query) },
       prompts: builder,
       // 모델 대역 — 발급받은 ref 만 쓴다
@@ -398,6 +399,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
 
     const chat = createChatReceiver({
       tokenizer: { tokenize: async (text) => ({ masked: text }) },
+      orgTerms: { list: async (): Promise<readonly string[]> => [] },
       kb: { find: (query) => asPromptEntries(kbFinder, query) },
       prompts: createPromptBuilder(),
       llm: {

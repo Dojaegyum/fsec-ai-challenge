@@ -44,6 +44,14 @@ const MAX_ATTEMPTS = 2
 
 export function createChatReceiver(deps: {
   tokenizer: PiiTokenizer
+  /**
+   * 토큰화하지 않을 낱말 → 04-pii-boundary.md 「토큰화 제외 목록」.
+   *
+   * **선택 인자로 두지 않았습니다.** 이 자리가 비어 있어도 챗은 멀쩡히 돌고,
+   * 기관명만 조용히 `[이름-N]` 이 됩니다 — 실제로 그 상태였습니다.
+   * 필수로 두면 **안 넘기는 순간 빌드가 깨집니다.**
+   */
+  orgTerms: { list(kbVersion: string): Promise<readonly string[]> }
   kb: KbSource
   prompts: PromptSource
   llm: LlmClient
@@ -51,14 +59,21 @@ export function createChatReceiver(deps: {
   retry: RetryJudge
   clock: Clock
 }): ChatReceiver {
-  const { tokenizer, kb, prompts, llm, citations, retry, clock } = deps
+  const { tokenizer, orgTerms, kb, prompts, llm, citations, retry, clock } = deps
 
   return {
     async receive(input: TurnInput): Promise<TurnOutcome> {
       const { caseContext: ctx } = input
 
-      // 1. 격리 경계. 여기를 지나지 않은 텍스트는 모델로 갈 수 없습니다
-      const { masked } = await tokenizer.tokenize(input.utterance)
+      // 1. 격리 경계. 여기를 지나지 않은 텍스트는 모델로 갈 수 없습니다.
+      //
+      // **제외 목록을 함께 넘깁니다** → 04-pii-boundary.md. 안 넘기면 NER 이
+      // 「토스로 보냈어요」의 기관명을 사람 이름으로 집어 유형 분기가 무너집니다.
+      // 목록을 못 가져와도 발화는 그대로 진행합니다 — 불변 규칙 5
+      const allowedTerms = await orgTerms
+        .list(input.kbVersion)
+        .catch((): readonly string[] => [])
+      const { masked } = await tokenizer.tokenize(input.utterance, { allowedTerms })
 
       // 2. 조회 조건은 서버가 전부 압니다 — 모델에게 묻지 않습니다
       const groups = await kb.find({
