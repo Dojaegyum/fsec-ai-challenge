@@ -150,8 +150,13 @@ export async function collectReading(
     shortfalls: [
       ...progress.result.shortfalls,
       // **조용히 넘어가지 않습니다.** 목록을 못 가져오면 절차는 그대로 가되
-      // 기관명이 가려졌을 수 있고, 그건 화면이 「직접 확인해 주세요」로 쓸
-      // 종류의 사실입니다 → `Shortfall` 의 「무엇을 못 했는지는 숨기지 않습니다」
+      // 기관명이 가려졌을 수 있습니다 → `Shortfall` 의 「무엇을 못 했는지는
+      // 숨기지 않습니다」.
+      //
+      // ⬜ **여기까지는 응답이고 화면은 아직입니다.** `evidence/[id]` 응답에는
+      // 실리지만 `shortfalls` 를 그리는 화면이 아직 없습니다 — 이 값만 그런 것이
+      // 아니라 `no_layout`·`no_speakers` 도 마찬가지입니다. 새 자리를 만드는 것은
+      // 시안 결정 대기 줄에 있어 여기서 정하지 않습니다
       ...(masked.orgGuardMissing ? ['no_org_allowlist'] : []),
     ],
   }
@@ -213,9 +218,14 @@ function fromStored(text: string): ReadState {
  * 서로 다른 줄의 `[계좌-1]` 이 다른 계좌를 가리키고, **복원이 엉뚱한 값을
  * 되살립니다** → 04-pii-boundary.md.
  */
-async function maskLines(
+export async function maskLines(
   lines: readonly Line[],
-  container: Container,
+  /**
+   * **컨테이너 전체를 받지 않습니다.** 쓰는 것이 토크나이저 하나뿐이고,
+   * 좁혀야 시험이 이 함수를 **행동으로** 걸 수 있습니다 — 글자를 보는 시험은
+   * 조건을 뒤집어 써도 통과합니다(실제로 그런 시험을 쓴 적이 있습니다).
+   */
+  container: Pick<Container, 'piiTokenizer'>,
   /** 토큰화하지 않을 낱말 — 기관명이 여기 들어옵니다 → `lib/allowed-terms.ts` */
   allowedTerms: readonly string[],
 ): Promise<{

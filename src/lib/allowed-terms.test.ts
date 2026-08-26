@@ -23,7 +23,9 @@ import { describe, expect, it } from 'vitest'
 import { createPiiTokenizer } from '@/modules/pii-tokenizer'
 import type { NerModel } from '@/modules/pii-tokenizer'
 
-import { allowedTermsFor, createAllowedTermSource } from './allowed-terms'
+import { maskLines } from '@/flows/read-evidence'
+
+import { allowedTermsFor } from './allowed-terms'
 
 /** 그 낱말을 사람 이름으로 집어 주는 대역 */
 function nerFinding(text: string, ...words: string[]): NerModel {
@@ -160,11 +162,46 @@ describe('목록이 안 걸린 것을 숨기지 않는다', () => {
     expect(result.masked).toBe(text)
   })
 
-  it('전사 흐름이 그 사실을 shortfall 로 내보낸다', () => {
-    // 화면이 「이건 직접 확인해 주세요」로 쓰는 통로입니다 — API·화면까지 갑니다
-    const source = readFileSync(new URL('../flows/read-evidence.ts', import.meta.url), 'utf8')
-    expect(source).toContain('no_org_allowlist')
-    expect(source).toMatch(/nerApplied && !result\.allowedTermsApplied/)
+  /**
+   * **행동으로 겁니다.**
+   *
+   * 처음에는 `read-evidence.ts` 소스에 그 조건이 적혀 있는지만 봤습니다.
+   * 그러면 **조건을 뒤집어 써도 통과합니다** — 이 파일이 고치려던 것과 같은
+   * 종류의 헛도는 시험이었습니다. `maskLines` 가 토크나이저 하나만 쓰므로
+   * 좁혀 내보내 대역으로 겁니다.
+   */
+  describe('전사 흐름이 그 사실을 실제로 집어낸다', () => {
+    const line = { speaker: 'A', text: '토스로 300만원 보냈어요', at: null } as never
+
+    /** `tokenize` 가 무엇을 냈다고 할지 우리가 정하는 대역 */
+    const fake = (nerApplied: boolean, allowedTermsApplied: boolean) => ({
+      piiTokenizer: {
+        tokenize: async (text: string) => ({
+          masked: text,
+          added: [],
+          mappings: [],
+          counts: {},
+          nerApplied,
+          allowedTermsApplied,
+          foreignTokens: 0,
+        }),
+      },
+    })
+
+    it('모델이 돌았는데 목록이 안 걸렸으면 집어냅니다', async () => {
+      const out = await maskLines([line], fake(true, false) as never, [])
+      expect(out.orgGuardMissing).toBe(true)
+    })
+
+    it('목록이 걸렸으면 아닙니다', async () => {
+      const out = await maskLines([line], fake(true, true) as never, ['토스'])
+      expect(out.orgGuardMissing).toBe(false)
+    })
+
+    it('**모델이 안 돌았으면 목록이 비어도 아닙니다** — 둘이 겹칠 때만 위험합니다', async () => {
+      const out = await maskLines([line], fake(false, false) as never, [])
+      expect(out.orgGuardMissing).toBe(false)
+    })
   })
 })
 
