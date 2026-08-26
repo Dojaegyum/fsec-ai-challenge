@@ -197,6 +197,21 @@ describe('재생성 시 병합 — 09-data-model.md §6.1', () => {
 
     expect(skipped).toEqual([])
   })
+
+  it('**건너뛴 단계가 다시 들어오면 `not_started` 로 되살린다** → §6.1', async () => {
+    // 지우지 않고 `skipped` 로 두는 이유가 되살아나기 위해서입니다.
+    // 대면편취의 지급정지가 실제로 이 길을 지납니다 — 경유 서비스가 정해지며
+    // 한 번 꺼졌다가, 112 를 끝내면 「수사기관이 계좌를 특정한 뒤」로 다시 켜집니다
+    const { upsert } = planner().build(
+      input({
+        applied: [step('a')],
+        existing: [{ stepKey: 'a', state: 'skipped' }],
+      }),
+    )
+
+    expect(upsert[0].stepKey).toBe('a')
+    expect(upsert[0].state).toBe('not_started')
+  })
 })
 
 describe('슈퍼셋 플랜 — 02-slot-tiering.md', () => {
