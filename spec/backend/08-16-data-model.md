@@ -370,7 +370,8 @@ CREATE TABLE plan_step (
   step_key      VARCHAR(64)   NOT NULL,   -- KB 절차 항목 식별자
   title         VARCHAR(255)  NOT NULL,
   actor         TEXT          NOT NULL
-                CHECK (actor IN ('victim','police','bank','prosecutor','carrier','issuer')),
+                CHECK (actor IN ('victim','police','bank','prosecutor','carrier',
+                                 'issuer','agency')),
   body          JSONB         NOT NULL,   -- 단계 본문(설명·연락처·채널)
   conditional   VARCHAR(255)  NULL,       -- 슈퍼셋 플랜의 조건 라벨.
                                           -- 예: "카카오페이로 보냈다면"
@@ -400,6 +401,12 @@ CREATE TRIGGER trg_plan_step_touch BEFORE UPDATE ON plan_step
 **`kb_entry_id`·`kb_version`·`source_url`·`effective_from`이 비면 저장을 거부합니다.**
 
 `CLAUDE.md` 불변 규칙 1이 "LLM은 절차를 창작하지 않는다. 전부 버전드 KB에서 인용하며 답변에는 근거와 시행일이 붙는다"입니다. **근거 없는 단계가 저장될 수 있으면 이 규칙이 강제되지 않습니다.**
+
+> **`agency`는 2026-08-26에 더했습니다** ([0006](../../src/migrations/0006_plan_step_actor_agency.sql)).
+> 채권소멸공고를 내고 2개월을 세는 주체는 금융감독원인데(통신사기피해환급법 제5조제2항·제9조제1항),
+> 여섯 값 중 어느 것도 아니어서 `bank`로 대신 적고 있었습니다. **[§11.4.2](#1142-기한의-주인을-명시합니다)의
+> `deadline.owner`에는 처음부터 `agency`가 있었고**, 그 기한이 `kind: "info"`로 가는 근거가 바로
+> 그것입니다 — 같은 주체를 단계 쪽에서만 못 적던 것을 맞춘 것입니다.
 
 ### 6.1 재생성 시 보존
 

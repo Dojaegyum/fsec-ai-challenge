@@ -22,6 +22,11 @@ export type StepState =
  *
  * **기본값을 두지 않습니다.** 채권소멸공고는 금감원이 하는 일인데 `victim` 으로
  * 떨어지면 사용자가 자기 할 일로 오인합니다 → §8.3.
+ *
+ * `agency` 는 감독기관입니다 — 채권소멸공고를 내고 2개월을 세는 것이
+ * 금융감독원입니다(통신사기피해환급법 제5조제2항·제9조제1항). `deadline.owner`
+ * 에는 처음부터 있었는데 여기만 없어 **같은 주체를 단계 쪽에서 못 적었습니다**
+ * → 마이그레이션 0006.
  */
 export type Actor =
   | 'victim'
@@ -30,6 +35,7 @@ export type Actor =
   | 'prosecutor'
   | 'carrier'
   | 'issuer'
+  | 'agency'
 
 /** 09-data-model.md §5.2 */
 export type SlotState =

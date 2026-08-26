@@ -61,7 +61,7 @@ const DEADLINE_PERIODS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * 이 단계를 **누가 하나** — `plan_step.actor` 의 `CHECK` 와 같은 여섯.
+ * 이 단계를 **누가 하나** — `plan_step.actor` 의 `CHECK` 와 같은 일곱.
  *
  * ⬜ **정본끼리 어긋나 있습니다.** §11.4 는 *"칼럼으로 이미 있는 것(제목·주체·
  * 근거·시행일)은 여기 넣지 않습니다"* 라고 적혀 있는데, **`kb_entry` 에 `actor`
@@ -78,6 +78,10 @@ const ACTORS: ReadonlySet<string> = new Set([
   'prosecutor',
   'carrier',
   'issuer',
+  // 감독기관 → 마이그레이션 0006. **`bank` 로 대신 적으면 안 됩니다** —
+  // 공고를 요청하는 것은 금융회사지만 공고를 내고 2개월을 세는 것은
+  // 금융감독원입니다(법 제5조제2항·제9조제1항)
+  'agency',
 ])
 
 /**

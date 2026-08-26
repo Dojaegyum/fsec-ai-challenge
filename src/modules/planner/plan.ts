@@ -30,6 +30,8 @@ const ACTORS: readonly Actor[] = [
   'prosecutor',
   'carrier',
   'issuer',
+  // 감독기관. 채권소멸공고를 내는 것이 금융감독원입니다 → 마이그레이션 0006
+  'agency',
 ]
 
 /**
