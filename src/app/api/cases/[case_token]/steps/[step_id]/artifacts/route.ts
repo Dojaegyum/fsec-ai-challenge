@@ -26,6 +26,7 @@ import { BadRequestError, readJsonObject } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
 import { newUlid } from '@/lib/ids'
 
+import { anchorFromArtifact } from '@/flows/anchor-from-artifact'
 import { regeneratePlan } from '@/flows/regenerate-plan'
 
 import type { ArtifactSubmission } from '@/modules/completion-checker'
@@ -117,9 +118,23 @@ export async function POST(
     // 따라서 영영 안 생깁니다** — 이 서비스가 막으려는 바로 그 실패입니다.
     //
     // 기한도 여기서 함께 다시 계산됩니다(`regeneratePlan` 안).
-    const before = new Set(
-      (await container.ports.casePlan.readSteps(caseId)).map((one) => one.stepKey),
-    )
+    const stored = await container.ports.casePlan.readSteps(caseId)
+    const before = new Set(stored.map((one) => one.stepKey))
+
+    // ── 기산점 → 08-14-completion-hook.md ① ──────────────────────────
+    //
+    // **부산물이 기한의 기산점을 남깁니다.** 이 줄이 없어서 `GET …/deadlines`
+    // 가 모든 경로에서 빈 배열이었습니다 — KB 가 기산점으로 쓰는 슬롯 둘을
+    // 아무도 안 채우고 있었습니다 (2026-08-27 걸어서 확인).
+    //
+    // `regeneratePlan` **앞**입니다. 기한 계산이 그 안에서 돌기 때문에,
+    // 뒤에 두면 기한이 한 번 늦게 섭니다.
+    if (verdict.stepState === 'done_verified') {
+      const stepKey = stored.find((one) => one.planStepId === stepId)?.stepKey
+      if (stepKey) {
+        await anchorFromArtifact({ caseId, stepKey, container }).catch(() => null)
+      }
+    }
 
     const unlocked =
       // **완료로 판정됐을 때만 돕니다.** L3 자기신고(`unconfirmed`)는 「했다」의
