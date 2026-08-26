@@ -34,6 +34,47 @@
 
 ---
 
+## ⛔ 2026-08-26 — CI 와 배포가 멈췄습니다. **이게 지금 가장 위입니다**
+
+```
+13:51  워크플로 여덟 전부 success        ← 마지막으로 정상이던 때
+15:14~ 전부 startup_failure (0초)
+15:17  deploy 가 queued 인 채 러너가 안 붙습니다
+```
+
+**`fin-ally-khaki` 는 200 을 냅니다. 그런데 그건 15:14 이전 빌드입니다** —
+그 뒤 deploy 가 하나도 완료되지 않았습니다. 「머지가 곧 배포」([ADR-053](../../decisions/053-deploy-on-merge.md))라
+**머지했으니 올라갔다고 보면 안 됩니다.**
+
+⛔ **#63 은 검사 0개로 머지됐습니다**(`gh pr checks 63` → *"no checks reported"*).
+`src/lib/org-repair.ts` 가 CI 를 한 번도 안 거치고 `main` 에 있습니다.
+
+⚠️ **#64 의 실패는 startup 이 아니라 진짜입니다** — `code-check` 15분53초 뒤 failure,
+`module-sync` 1분2초 뒤 failure. 둘을 섞어 보면 진짜 결함을 놓칩니다.
+
+- [ ] **사람이 GitHub → Settings → Billing 을 봐야 합니다.** 비공개 저장소 + 0초
+      startup_failure + queued 인 채 러너 미할당은 **무료 Actions 분 소진**의 전형입니다.
+      워크플로 파일은 최근에 안 바뀌었고(마지막 18ebd70), 여덟 다 `active`, Actions 는 `enabled`.
+      과금 API 는 `user` 스코프를 요구해 에이전트가 확인하지 못합니다.
+- [x] **그동안 CI 를 로컬로 대신합니다.** 워크플로 여덟이 하는 일 그대로입니다.
+
+```bash
+cd src && npm run typecheck && npm test && npm run build   # code-check
+python .github/scripts/doc-integrity.py                     # doc-integrity
+python .github/scripts/doc-integrity.py --base origin/main --head HEAD   # repo-structure-gate
+python .claude/skills/module-inventory/scripts/inventory.py --check --base origin/main --head HEAD
+python .github/scripts/route-contract.py
+python .github/scripts/schema-names.py
+python -m unittest discover -s services/transcriber -t .    # services-check
+```
+
+> ⚠️ **워크트리에서 돌린다면 `node_modules` 를 보세요.** 메인 저장소를 가리키는
+> 심링크면 Turbopack 이 빌드를 거부합니다(`Symlink … points out of the filesystem root`).
+> `unlink node_modules && npm ci` 로 따로 세우세요 — **`npm ci` 를 먼저 돌리면 링크
+> 너머 메인 것을 지웁니다.**
+
+---
+
 ## Task 1: 환경변수를 채운다 — 이게 없으면 라우트가 전부 500
 
 **Files:** `src/.env.local` (커밋하지 않습니다) · 배포 환경 설정
@@ -571,18 +612,25 @@ relief_applied_at = 2026-08-17 (월)
 | **증거 연쇄가 안 돌았습니다** | 부산물로 단계를 끝내도 `after` 로 걸린 다음 단계가 안 열립니다. 지급정지를 끝내도 피해구제 신청이 플랜에 안 나타나고, **그 뒤에 붙는 3영업일 기한도 영영 안 생깁니다** | ✅ 부산물 라우트가 플랜을 다시 만들고 `unlocked_steps` 를 냅니다 |
 | **기한이 매번 「바뀐 것」으로 나갈 뻔** | 칼럼이 `TIMESTAMPTZ(3)` 이라 읽어 온 값에는 밀리초가 붙고 계산기가 내는 값에는 안 붙습니다. 글자로 견주면 같은 순간인데 매번 다릅니다 | ✅ 순간으로 견줍니다. **DB 통합시험이 잡았습니다** |
 
-### ⛔ 챗이 안 됩니다 — 코드가 아니라 결제입니다
+### ✅ 챗이 돕니다 — 다만 **남의 열쇠**로 돕니다
 
-```
-POST /api/cases/{t}/messages  →  500
-서버 로그: 모델이 거절했습니다 (403)
-xAI 응답: permission-denied · "team doesn't have any credits or licenses yet"
-```
+xAI 는 크레딧이 없어 403(`team doesn't have any credits or licenses yet`)을 냈고,
+**2026-08-25 에 Gemini 무료 한도로 옮겼습니다.** 네 모델이 인용 검증까지 통과합니다
+(`gemini-3-flash-preview`·`3.6`·`3.7`·`3.5`) — 실측 표는 `src/.env.local` 주석에.
 
-- [ ] **xAI 콘솔에 크레딧을 넣습니다** (도재겸). 이게 없으면 *진술을 받아 매뉴얼을
-      고르는* 핵심 동작을 한 번도 못 봅니다.
-- [x] 그동안 다른 제공자로 돌 수 있게 했습니다 — `LLM_BASE_URL`·`LLM_MODEL`·`LLM_API_KEY`.
-      셋 다 비면 지금까지와 똑같이 xAI 입니다. 보기는 `src/.env.local` 주석에.
+- [x] 다른 제공자로 돌 수 있게 했습니다 — `LLM_BASE_URL`·`LLM_MODEL`·`LLM_API_KEY`.
+      셋 다 비면 xAI 로 돌아갑니다.
+- [x] **모델을 재는 도구가 생겼습니다** — `npx tsx scripts/probe-llm.ts --model <이름>`.
+      DB·서버 없이 모델만 갈라 봅니다(실제 `prompt-builder`·`citation-checker` 로 채점).
+      **모델을 바꾸면 여기서 먼저 재세요** — 형식을 못 지키는 모델은 200 을 받고도
+      인용 검증에서 502 가 됩니다.
+- [ ] ⚠️ **FSEC 전용 열쇠를 받습니다** (도재겸). 지금 `LLM_API_KEY` 는
+      **다른 프로젝트(FinAI)의 것**이라 무료 한도를 나눠 씁니다 — 저쪽이 많이 쓰면
+      이쪽이 429 를 받고, **시연 중에 터지면 그때 원인을 못 찾습니다.**
+      aistudio.google.com 에서 1분이면 됩니다.
+- [ ] ⬜ **로컬 모델은 이 기기에서 답이 아닙니다** — GPU 가 없어 ollama 가 100% CPU 로
+      돕니다(4B·1B 모두 6 tok/s). 답변 한 턴이 50~80초라 예산 45초·Vercel 60초를
+      못 맞춥니다. `gemma3:1b` 은 형식은 지키면서 **없는 근거를 인용**했습니다.
 
 ### ✅ 배포 자리가 생겼습니다
 
@@ -595,21 +643,26 @@ xAI 응답: permission-denied · "team doesn't have any credits or licenses yet"
       워크플로는 `.github/workflows/deploy.yml`, 근거는 [ADR-053](../../decisions/053-deploy-on-merge.md).
       `VERCEL_TOKEN` 시크릿은 사람이 넣어야 처음 돕니다 → [`deploy/README.md`](../../deploy/README.md) 「올리는 방법」
 
-### ✅ KB 유형 파일 둘 — 분기 엔진을 증명하는 바로 그 둘
+### ✅ KB 유형 파일 여섯
 
 | 파일 | 무엇을 증명하나 |
 | --- | --- |
 | `ch-facetoface.json` | **순서가 뒤집힙니다.** 112 가 출발점이고 지급정지는 수사기관이 합니다(`actor: police`) |
 | `ch-crypto.json` | **같은 step_key 가 시행일로 갈립니다.** 배포 없이 2026-10-01 에 답이 바뀝니다 |
+| `ch-card.json` | **근거법이 다릅니다** — 여신전문금융업법 → [ADR-055](../../decisions/055-channel-card.md) |
+| `ch-giftcard.json`·`ch-carrier.json` | **사각지대를 사각지대로** 말합니다 → [research/19](../research/19-남은유형-근거보강.md) |
+| `ch-easypay.json` | `freeze-request` 만 덮습니다 — 환급법 안이라 나머지는 공통이 맞습니다 |
 
-**나머지 다섯은 근거가 모자라 못 씁니다** — 빠뜨린 것이 아닙니다.
-[`src/kb/README.md`](../../src/kb/README.md) 가 무엇이 막고 있는지 유형별로 적습니다.
-`CH-giftcard`·`CH-carrier` 는 [research/02](../research/02-경유서비스-8유형.md) §2.7 이
-*"확인 전까지 사용자 응답에 쓰지 않습니다"* 로 못 박은 것이라 **넣으면 안 됩니다.**
+**`CH-bank`·`CH-neobank`·`CH-securities` 는 파일이 없는 것이 맞습니다** — 셋 다 환급법
+안이라 공통 절차가 그대로 맞습니다. 빠뜨린 것이 아닙니다.
 
-- [ ] `src/kb/org.json` — `contact_ref` 가 가리킬 곳이 아직 없습니다. 플랜 응답의
-      `channels: []` 가 그 증상입니다. [research/04](../research/04-기관정보.md) 에
-      공통 창구 넷과 은행 일곱의 사고신고 전화가 확인돼 있어 **그만큼은 지금 쓸 수 있습니다**
+> ~~`CH-giftcard`·`CH-carrier` 는 research/02 §2.7 이 못 박아 넣으면 안 됩니다~~ —
+> **[research/19](../research/19-남은유형-근거보강.md) 가 근거를 채워 풀렸습니다.**
+
+- [x] `src/kb/org.json` — **기관 51곳 · 그중 42곳에 신고 전화**가 붙어 있습니다
+      (은행 16 · 카드 9 · 증권 8 · 소액결제 5 · 간편송금 4 · 가상자산 4 · 인터넷은행 3 · 상품권 2).
+      `contact_ref` 가 풀립니다. 절차는 [`org-materialization`](../../.claude/skills/org-materialization/SKILL.md) 스킬에.
+- [ ] 남은 아홉 곳의 신고 전화 → [research/04](../research/04-기관정보.md) §9.1
 
 ### ⬜ 실측하다 걸린 것 — 연결이 하나뿐입니다
 

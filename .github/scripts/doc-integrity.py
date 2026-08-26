@@ -241,7 +241,11 @@ def check_ids(root: Path, docs: list[Path]) -> list[Finding]:
             )
             defined[kind] = set()
             continue
-        text = strip_code(src_path.read_text(encoding="utf-8", errors="replace"))
+        # `inline=False` — **정의하는 쪽은 인라인 코드 안까지 읽습니다.**
+        # 채널 매트릭스는 아홉 유형을 전부 `CH-bank` 처럼 백틱 안에 적어서,
+        # 인라인까지 지우면 **정의가 0개가 되고 검사가 통째로 죽습니다**
+        # (F·S 는 맨몸으로도 적혀 있어 드러나지 않았습니다) — 2026-08-27 발견.
+        text = strip_code(src_path.read_text(encoding="utf-8", errors="replace"), inline=False)
         defined[kind] = set(ID_PATTERNS[kind].findall(text))
 
     adr_nums = {int(p.name[:3]) for p in (root / "decisions").glob("[0-9][0-9][0-9]-*.md")}
