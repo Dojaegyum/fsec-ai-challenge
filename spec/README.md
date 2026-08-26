@@ -45,7 +45,7 @@ spec/backend/08-14-channel-matrix.md
 | [08-14-features.md](common/08-14-features.md) | 기능명세 F-01 ~ F-11, 우선순위 |
 | [08-14-pii-boundary.md](common/08-14-pii-boundary.md) | PII 격리 경계·토큰 규격·인젝션 방어 |
 | [08-16-domain-model.md](common/08-16-domain-model.md) | 엔티티·관계·상태 집합·저장 경계. **DB 스키마 설계의 입력** |
-| [08-16-module-boundaries.md](common/08-16-module-boundaries.md) | 모듈의 책임·입출력·금지. 모듈 역할 정의의 입력 |
+| [08-16-module-boundaries.md](common/08-16-module-boundaries.md) | 모듈 33개의 **받는 것 · 내놓는 것 · 절대 하지 않는 것**. 새 모듈의 금지는 코드보다 먼저 여기에 — `types.ts` 머리가 이 표의 줄을 옮겨 적습니다 |
 | [08-16-deadline-rules.md](common/08-16-deadline-rules.md) | 기한을 어떻게 세는가 — 기산점·영업일·표시 규칙 |
 | [08-16-module-names.md](common/08-16-module-names.md) | 모듈 명칭 — 동작 단위의 이름. 서버 네 층 + **브라우저 층 C** |
 | [08-14-api.md](common/08-14-api.md) | API 계약 — 엔드포인트 13개(관리자 2개는 미구현), 요청·응답, 계측 헤더. 라우트 12개가 머리말에서 이 문서를 정본으로 인용합니다 |

@@ -50,7 +50,7 @@
 | ⑧ | `spec/frontend/design-system/08-16-components.md` | 첫 표 9종 파일 0(절 단위 은퇴) · 둘째 표 6칸(PlanBoard ◇ · WaitCard 「미결」→ADR-048 · FileRail·IssuedLink 위치 · 「모듈 넷」→일곱 · 귀속표) · `ui/` 규칙 위반 2(`Icon.tsx`, `saa-s-template.tsx` 302줄 import 0) · 복사 폴백 `doc.tsx` 만 | plan-viewer·deadline-viewer README 가 앞섬 |
 | ⑨ | `spec/common/08-14-glossary.md` | §전제 데스크톱 우선 · §기술스택(Whisper+Web Speech ADR-038 폐기 · Vision OCR→EasyOCR · 서버 NER 미선정 · docx ADR-037 · `ManualKB` 코드 없음) 전부 폐기된 전제 · 합성데이터 여전히 미반영 | 개념 표만 남기고 축소. 스택은 ARCHITECTURE §2·§6, 전제는 service-concept |
 | ⑩ | `spec/common/08-14-features.md` | F-06 타이머(ADR-036 T0 레일로 대체) · F-04 case-reader·F-05b slot-extractor 미조립 · 통화동반·스크립트·F-10 코드 0 · `doc-filler` 폴더 없음 · F-07 표에 kb-finder·prompt-builder 누락 | F-ID 정의처(검사기 `ID_SOURCES`)라 은퇴 불가 — 상태 열(구현/폐기/미착수) 추가 |
-| ⑪ | `spec/common/08-16-module-boundaries.md` | 금지 규칙은 각 `types.ts` 머리 + ARCHITECTURE:307-319 에 흡수 · :38,42 자리별 복원 ↔ pii-boundary ADR-034 **spec 끼리 충돌** · doc-filler 「완성 문서」(ADR-037) · API Gateway·Case Store 행 · :119 물리배치 TODO 해소(ADR-028) | **거취 판단** — RFC-001 이 「types.ts 머리에 이 표의 줄을 옮긴다」고 인용하므로 표만 남기거나, RFC-001 을 types.ts 로 돌리고 은퇴 |
+| ~~⑪~~ | ~~`spec/common/08-16-module-boundaries.md`~~ | ~~금지 규칙은 각 `types.ts` 머리 + ARCHITECTURE:307-319 에 흡수 · :38,42 자리별 복원 ↔ pii-boundary ADR-034 **spec 끼리 충돌** · doc-filler 「완성 문서」(ADR-037) · API Gateway·Case Store 행 · :119 물리배치 TODO 해소(ADR-028)~~ | **2026-08-26 갱신 완료** — 유지하기로 판단(금지를 코드보다 먼저 설계하는 자리가 이것뿐). 표 33행만 남기고 경계 규칙·흐름도·미결 절은 걷어냄. `pii-restorer` 행은 ADR-034 대로 적고 코드 뒤처짐은 4절 ① 에. API Gateway·Case Store 행 제거, `types.ts` 의 추가 금지를 표로 흡수. **남은 것** — 표 ↔ `types.ts` 머리 대조를 검사기로 묶기(`inventory --check` 확장 후보) |
 
 ## 3. 살아 있는 문서에 남은 낡은 표시 — 첫 손질에서 못 닫은 것
 
