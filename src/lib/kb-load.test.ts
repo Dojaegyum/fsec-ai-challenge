@@ -510,6 +510,105 @@ describe('⚠️ 유형 파일도 함께 실린다', () => {
   })
 
   /**
+   * **가상자산은 시행일로 갈립니다** → ADR-058 · U-34.
+   *
+   * 2026-09-30 까지는 환급법 절차가 이 경로를 타지 않습니다. 덮지 않았을 때
+   * 한 화면이 이렇게 됐습니다 — 실제로 그랬고, 빗썸 번호를 넣어 보다 드러났습니다.
+   *
+   *     crypto-status    「지금은 가상자산이 피해금 환급 대상이 아닙니다」
+   *     relief-apply     「피해구제도 함께 신청합니다라고 분명히 말합니다」
+   *     relief-documents 「별지 제1호서식」 + **3영업일 기한**
+   *
+   * **그리고 두 줄에 거래소 번호가 붙었습니다** — `contact_ref` 가 매칭된 org 를
+   * 그대로 풀기 때문입니다. 거래소는 그 문장이 가리키는 금융회사가 아닙니다.
+   */
+  describe('가상자산은 시행일로 갈린다', () => {
+    const FOUR = ['freeze-request', 'relief-apply', 'relief-documents', 'debt-extinction-notice']
+
+    /** `body` 가 `Record<string, unknown>` 이라 단계를 꺼낼 때 모양을 한 번 좁힙니다 */
+    const stepsOf = (row: (typeof plan.rows)[number]) =>
+      (row.body.steps ?? []) as readonly { text: string; contact_ref: string | null }[]
+
+    /** §11.2 의 조회를 그대로 흉내 냅니다 — 시행일로 거르고, 유형이 공통을 이깁니다 */
+    const screen = (date: string, channel: string) => {
+      const best = new Map<string, (typeof plan.rows)[number]>()
+      for (const row of plan.rows) {
+        if (row.effective_from > date) continue
+        if (row.effective_until !== null && row.effective_until < date) continue
+        if (row.channel_id !== null && row.channel_id !== channel) continue
+        const found = best.get(row.step_key)
+        if (!found || (row.channel_id !== null && found.channel_id === null)) {
+          best.set(row.step_key, row)
+        }
+      }
+      return [...best.values()].sort((a, b) => a.step_seq - b.step_seq)
+    }
+
+    it('9월 30일에는 네 자리가 유형 파일에서 온다', () => {
+      const mine = screen('2026-09-30', 'CH-crypto')
+      for (const key of FOUR) {
+        expect(mine.find((r) => r.step_key === key)?.channel_id).toBe('CH-crypto')
+      }
+    })
+
+    it('**「피해구제도 함께 신청합니다」가 안 나간다** — 대상이 아니라고 말하는 화면에서', () => {
+      // 이것이 U-34 였습니다. 한 화면이 「대상 아님」과 「신청하세요」를 함께 했습니다
+      const said = screen('2026-09-30', 'CH-crypto')
+        .flatMap((r) => [r.title, r.body.summary, ...stepsOf(r).map((one) => one.text)])
+      for (const line of said) {
+        expect(line).not.toMatch(/피해구제도\s*함께\s*신청/)
+        expect(line).not.toMatch(/별지\s*제1호서식 피해구제신청서를 작성/)
+      }
+    })
+
+    it('**넷에 연락처를 달지 않는다** — 거래소는 그 문장의 금융회사가 아니다', () => {
+      const mine = screen('2026-09-30', 'CH-crypto').filter((r) => FOUR.includes(r.step_key))
+      const refs = mine.flatMap((r) => stepsOf(r).map((one) => one.contact_ref))
+      expect(refs.filter((one) => one !== null)).toEqual([])
+    })
+
+    it('**기한을 하나도 싣지 않는다** — 못 지킬 3영업일이 붙지 않게', () => {
+      const mine = screen('2026-09-30', 'CH-crypto').filter((r) => FOUR.includes(r.step_key))
+      expect(mine.map((r) => r.body.deadline)).toEqual([null, null, null, null])
+    })
+
+    it('10월 1일에는 셋이 공통으로 돌아간다 — 일부러 비워 둔 자리다', () => {
+      // 법 제3조·제4조가 그날 「계좌등」·「금융회사등」으로 넓어져 거래소가 들어옵니다.
+      // 확인 안 된 것을 덮으면 지금보다 나쁜 안내가 됩니다 → common.json `_todo`
+      const mine = screen('2026-10-01', 'CH-crypto')
+      for (const key of ['freeze-request', 'relief-apply', 'debt-extinction-notice']) {
+        expect(mine.find((r) => r.step_key === key)?.channel_id).toBeNull()
+      }
+    })
+
+    it('**10월 1일에도 3영업일이 되살아나지 않는다** — 걸리는지 확인 안 됐다', () => {
+      // 넷째만 10/1 이후로 이어집니다. 공통에 맡기면 별지 제1호서식과 3영업일이
+      // 붙는데, `crypto-status` 는 같은 화면에서 「서식은 시행령이 확정되면」이라고
+      // 말합니다 — 서로 어긋나고, **근거 없는 기한**이 붙습니다 (rfc/002 자기점검)
+      const documents = screen('2026-10-01', 'CH-crypto').find(
+        (r) => r.step_key === 'relief-documents',
+      )
+      expect(documents?.channel_id).toBe('CH-crypto')
+      expect(documents?.body.deadline).toBeNull()
+      expect(documents?.legal_basis).toContain('확인되지 않았습니다')
+    })
+
+    it('어느 날짜에도 한 자리에 항목이 둘 겹치지 않는다', () => {
+      // 겹치면 mergeByPriority 가 순위 동률을 **먼저 온 것**으로 조용히 정합니다
+      for (const date of ['2026-08-27', '2026-09-30', '2026-10-01', '2027-01-01']) {
+        const live = plan.rows.filter(
+          (r) =>
+            r.channel_id === 'CH-crypto' &&
+            r.effective_from <= date &&
+            (r.effective_until === null || date <= r.effective_until),
+        )
+        const keys = live.map((r) => r.step_key)
+        expect(new Set(keys).size).toBe(keys.length)
+      }
+    })
+  })
+
+  /**
    * **`org.json` 은 여기까지 아무도 안 봤습니다.**
    *
    * 유형 파일은 위에서 실어 보는데 기관 파일은 시험이 없었고, 그 사이 사전이
