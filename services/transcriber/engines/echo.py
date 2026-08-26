@@ -122,6 +122,9 @@ class EchoNer:
 
         return {"engine": "echo", "spans": locate(text, list(self.KNOWN))}
 
+    def warm(self) -> None:
+        """올릴 것이 없습니다 — 목록이 전부입니다."""
+
 
 def enabled() -> bool:
     """대역으로 돌고 있는가. 설정 현황과 응답에 그대로 실립니다."""

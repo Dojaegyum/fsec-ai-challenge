@@ -17,10 +17,15 @@
 
 from __future__ import annotations
 
+import json
 import unittest
+import urllib.request
+from typing import Any
+from unittest import mock
 
+from .engines import warm_all
 from .engines.echo import EchoNer
-from .engines.ollama_ner import _names
+from .engines.ollama_ner import OllamaNer, _names
 from .engines.spans import MAX_NAME_LEN, locate
 
 
@@ -110,6 +115,127 @@ class EchoTellsThatItIsEcho(unittest.TestCase):
     def test_모르는_이름은_못_찾는다(self) -> None:
         # 대역은 경계가 아닙니다. 그 사실이 이 시험으로 남습니다
         self.assertEqual(EchoNer().find("여보세요 홍길동입니다")["spans"], [])
+
+    def test_미리_올리기가_있다(self) -> None:
+        # 앱이 엔진을 안 가리고 부릅니다. 대역에 없으면 대역일 때만 뜨다 맙니다
+        self.assertIsNone(EchoNer().warm())
+
+
+class WarmingUpDoesNotSendText(unittest.TestCase):
+    """**첫 요청이 통째로 실패하던 것을 없앤 자리** — 2026-08-27 RTX 4090.
+
+    ```
+    처음 한 번        60초 넘김 → 요청 타임아웃    ⛔
+    내렸다가 다시     5.5초
+    따뜻할 때         0.27~0.39초
+    ```
+
+    이름 찾기가 죽으면 앱은 슬롯 저장을 **503 으로 막습니다**(경계라서 못 가리면
+    안 내보냅니다). 그래서 첫 적재를 사용자가 맞으면 **사건 진행이 멈춥니다.**
+    """
+
+    def _sent(self, call) -> dict[str, Any]:
+        return json.loads(call.args[0].data.decode("utf-8"))
+
+    def test_미리_올릴_때_글을_안_보낸다(self) -> None:
+        # ⚠️ 이 길로 원문이 지나가면 안 됩니다 → 08-14-pii-boundary.md
+        engine = OllamaNer(base_url="http://x", model="gemma3:4b")
+        with mock.patch.object(urllib.request, "urlopen") as opened:
+            opened.return_value = _Res({"done": True})
+            engine.warm()
+
+        body = self._sent(opened.call_args)
+        self.assertEqual(body["model"], "gemma3:4b")
+        self.assertNotIn("prompt", body)
+
+    def test_미리_올리기는_요청보다_오래_기다린다(self) -> None:
+        # 첫 적재가 60초를 넘겼습니다. 그렇다고 요청 쪽을 늘리면 **정말 죽었을 때**
+        # 사용자가 몇 분을 기다립니다 — 긴 기다림은 뜰 때, 짧은 실패는 요청할 때
+        engine = OllamaNer(base_url="http://x", model="m")
+        with mock.patch.object(urllib.request, "urlopen") as opened:
+            opened.return_value = _Res({"done": True})
+            engine.warm()
+        warm_timeout = opened.call_args.kwargs["timeout"]
+
+        with mock.patch.object(urllib.request, "urlopen") as opened:
+            opened.return_value = _Res({"response": '{"names": []}'})
+            engine.find("여보세요")
+        self.assertGreater(warm_timeout, opened.call_args.kwargs["timeout"])
+
+    def test_요청마다_얼마나_둘지_함께_보낸다(self) -> None:
+        # Ollama 기본이 5분이라, 안 보내면 그 사이 쉰 다음 사람이 5.5초를 맞습니다
+        engine = OllamaNer(base_url="http://x", model="m", keep_alive="7m")
+        with mock.patch.object(urllib.request, "urlopen") as opened:
+            opened.return_value = _Res({"response": '{"names": ["김민수"]}'})
+            got = engine.find("여보세요 김민수입니다")
+
+        self.assertEqual(self._sent(opened.call_args)["keep_alive"], "7m")
+        self.assertEqual([one["value"] for one in got["spans"]], ["김민수"])
+
+    def test_안_내림은_글자가_아니라_숫자다(self) -> None:
+        # ⛔ 문자열 "-1" 은 400 입니다 — `time: missing unit in duration "-1"`.
+        # 환경변수는 전부 글자로 들어오니 이 시험이 없으면 **기본값이 그대로 400**
+        engine = OllamaNer(base_url="http://x", model="m")  # 기본 -1
+        with mock.patch.object(urllib.request, "urlopen") as opened:
+            opened.return_value = _Res({"done": True})
+            engine.warm()
+
+        sent = self._sent(opened.call_args)["keep_alive"]
+        self.assertIsInstance(sent, int)
+        self.assertEqual(sent, -1)
+
+
+class WarmUpLeavesNobodyOut(unittest.TestCase):
+    """**빠졌던 것은 「부르는 쪽」이었습니다.**
+
+    `OllamaNer.warm()` 이 아무리 옳아도 뜰 때 아무도 안 부르면 첫 사용자가 그
+    60초를 맞습니다. 실제로 그렇게 빠져 있었으므로 **부르는 쪽에도 시험을 답니다.**
+    """
+
+    def _spy(self) -> tuple[list[str], dict[str, Any]]:
+        touched: list[str] = []
+        engine = mock.Mock()
+        engine.warm.side_effect = lambda: touched.append("ner")
+        return touched, {
+            "stt": lambda: touched.append("stt"),
+            "ocr": lambda: touched.append("ocr"),
+            "ner": lambda: engine,
+        }
+
+    def test_모델을_쓸_때는_셋_다_올린다(self) -> None:
+        touched, getters = self._spy()
+        warm_all(_Cfg(is_echo=False), **getters)
+        self.assertEqual(sorted(touched), ["ner", "ocr", "stt"])
+
+    def test_대역일_때도_이름_찾기는_부른다(self) -> None:
+        # 대역이면 아무것도 안 하지만, **부르는 것을 건너뛰지는 않습니다** —
+        # 건너뛰면 `FINALLY_ENGINE` 을 local 로 바꾼 날 조용히 빠집니다
+        touched, getters = self._spy()
+        warm_all(_Cfg(is_echo=True), **getters)
+        self.assertEqual(touched, ["ner"])
+
+
+class _Cfg:
+    """`warm_all` 이 보는 칸은 하나뿐입니다."""
+
+    def __init__(self, *, is_echo: bool) -> None:
+        self.is_echo = is_echo
+
+
+class _Res:
+    """`urlopen` 이 내주는 것 시늉 — 컨텍스트 매니저 하나면 됩니다."""
+
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self._payload = payload
+
+    def __enter__(self) -> _Res:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self._payload).encode("utf-8")
 
 
 if __name__ == "__main__":

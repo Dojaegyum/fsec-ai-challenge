@@ -34,7 +34,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from .config import load
-from .engines import build_ner, build_ocr, build_stt
+from .engines import build_ner, build_ocr, build_stt, warm_all
 from .jobs import JobStore
 
 log = logging.getLogger("transcriber")
@@ -73,8 +73,13 @@ def ocr():
 def ner():
     """이름을 찾는 엔진.
 
-    **미리 올리지 않습니다.** 모델이 이 프로세스가 아니라 Ollama 안에 있어서,
-    여기서 만드는 것은 주소를 든 객체뿐입니다 — 올릴 것이 없습니다.
+    여기서 만드는 것은 주소를 든 객체뿐입니다 — 모델은 이 프로세스가 아니라
+    Ollama 안에 있습니다.
+
+    ⚠️ **그렇다고 미리 올릴 것이 없는 게 아닙니다.** 한때 이 자리에 *"올릴 것이
+    없다"* 라고 적혀 있었는데, **모델을 GPU 로 올리는 일은 Ollama 쪽에서 여전히
+    일어납니다.** 처음 한 번이 60초를 넘겨 첫 요청이 통째로 타임아웃하는 것을
+    2026-08-27 RTX 4090 에서 실제로 봤습니다 → `_warm` · `OllamaNer.warm`.
     """
     global _ner
     with _lock:
@@ -86,15 +91,18 @@ def ner():
 def _warm() -> None:
     """모델을 미리 올려 둡니다.
 
-    **첫 요청이 20초 더 걸리는 것을 없애려는 것뿐입니다.** 게으르게 올려도
-    동작은 같습니다. 배포판에서 켜는 이유는 첫 사용자가 그 20초를 안 맞게
-    하려는 것입니다 → `FINALLY_WARMUP`.
+    **첫 사용자가 첫 적재를 안 맞게 하려는 것입니다** → `FINALLY_WARMUP`.
+    게으르게 올려도 결과는 같지만, 기다리는 사람이 달라집니다.
+
+    ⛔ **이름 찾기는 「같다」가 아닙니다.** 2026-08-27 RTX 4090 에서 처음 한 번이
+    60초를 넘겨 **첫 요청이 통째로 실패**했습니다(두 번째부터 5.5초 · 따뜻하면
+    0.3초). 이름 찾기가 죽으면 앱은 슬롯 저장을 503 으로 막습니다 — 경계라서
+    못 가리면 안 내보냅니다. 그러니 여기서 미리 올리는 것이 **가장 중요한 하나**입니다.
     """
     global _ready
     try:
-        if not cfg.is_echo:
-            stt()
-            ocr()
+        # 무엇을 올릴지는 조립표 옆에 있습니다 — 빠진 것이 거기서 보이도록
+        warm_all(cfg, stt=stt, ocr=ocr, ner=ner)
         _ready = True
         log.info("모델 적재 완료")
     except Exception:
