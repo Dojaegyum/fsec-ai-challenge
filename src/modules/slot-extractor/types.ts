@@ -87,7 +87,7 @@ export interface ModelSlot {
   readonly confidence?: unknown
 }
 
-/** `channel` 슬롯이 가질 수 있는 값 → 03-channel-matrix.md 의 8유형 */
+/** `channel` 슬롯이 가질 수 있는 값 → 03-channel-matrix.md 의 9유형 */
 export type ChannelId =
   | 'CH-bank'
   | 'CH-neobank'
@@ -97,6 +97,8 @@ export type ChannelId =
   | 'CH-facetoface'
   | 'CH-giftcard'
   | 'CH-carrier'
+  /** 카드 부정사용·카드론. 근거법이 여신전문금융업법이라 별개입니다 → ADR-055 */
+  | 'CH-card'
 
 /** 이 모듈이 밖에 요구하는 것 — 모델 한 번 부르기 */
 export interface LlmClient {

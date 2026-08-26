@@ -77,6 +77,7 @@ const CHANNEL_IDS = [
   'CH-facetoface',
   'CH-giftcard',
   'CH-carrier',
+  'CH-card',
 ] as const
 
 /** 사람이 읽는 설명. 정본 03-channel-matrix.md 의 「무엇」 열입니다 */
@@ -89,6 +90,7 @@ const CHANNEL_HINT: Readonly<Record<(typeof CHANNEL_IDS)[number], string>> = {
   'CH-facetoface': '대면편취 (현금 전달)',
   'CH-giftcard': '상품권 (핀번호 전달)',
   'CH-carrier': '휴대폰 소액결제',
+  'CH-card': '카드 부정사용·카드론',
 }
 
 /**

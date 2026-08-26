@@ -1,6 +1,7 @@
 {
-  "orgs": 19,
-  "forms": 73,
+  "draft": false,
+  "orgs": 28,
+  "forms": 87,
   "channels": {
     "CH-bank": 16,
     "CH-neobank": 3,
@@ -9,7 +10,8 @@
     "CH-crypto": 0,
     "CH-facetoface": 0,
     "CH-giftcard": 0,
-    "CH-carrier": 0
+    "CH-carrier": 0,
+    "CH-card": 9
   },
   "coverage": {
     "전사 large-v3": {
@@ -25,7 +27,6 @@
           "삼성증권",
           "서울중앙지검",
           "서초경찰서",
-          "신한카드",
           "업비트",
           "카카오페이",
           "코빗",
@@ -107,7 +108,7 @@
       "cap": 2,
       "recovered": 2,
       "recoverable": 2,
-      "false": 200
+      "false": 226
     },
     {
       "case": "화면 GPU",
@@ -128,7 +129,7 @@
       "cap": 2,
       "recovered": 7,
       "recoverable": 7,
-      "false": 133
+      "false": 143
     }
   ]
 }

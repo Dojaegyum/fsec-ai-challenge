@@ -23,11 +23,30 @@
     "「국민은행」으로, 「신한은행」을 「우리은행」으로 붙여 놨습니다. 갱신할 때는 원문의",
     "`<li><span class=\"bankName\">이름</span>번호</li>` 구조를 그대로 읽으세요.",
     "",
+    "## 카드사 아홉 — 여신금융협회 회원사 (2026-08-26 확인)",
+    "",
+    "`CH-card` 가 ADR-055 로 서면서 들어왔습니다. 출처는 여신금융협회 회원사 안내",
+    "한 페이지이고, 정회원 8 + 준회원 1(NH농협카드) 이 그대로 실려 있습니다.",
+    "",
+    "**요약해 읽지 않았습니다.** 위 사고를 되풀이하지 않으려고, 원문을 받아",
+    "**우리가 이미 아는 이름이 그 안에 있는지 문자열로 대조**했습니다 — 9/9.",
+    "방향이 반대라 없는 이름을 만들 수 없고, 밀릴 이름도 없습니다.",
+    "",
+    "그래서 `name` 이 「비씨카드」입니다 — source_url 이 그렇게 적고 있습니다.",
+    "「BC카드」는 별칭으로 뒀습니다.",
+    "",
+    "⚠️ **연락처는 안 넣었습니다.** 그 페이지에 대표전화가 함께 있지만 그것은",
+    "회사 대표번호이지 **부정사용 신고 창구가 아닙니다.** `contact.report_tel` 에",
+    "넣으면 뜻이 어긋납니다 — 카드는 「카드 뒷면·앱의 고객센터」로 안내하는 편이",
+    "언제나 맞습니다(`ch-card.json`). 채우려면 그 페이지에 번호가 있습니다.",
+    "",
     "## 아직 없는 것",
     "",
     "간편송금(`CH-easypay`)·증권·가상자산·통신사·상품권 발행사는 여기 없습니다.",
-    "은행연합회 페이지에 없고, 각 사 공식 창구를 아직 확인하지 못했습니다 →",
-    "docs/research/04-기관정보.md §3~§7. **없으면 절차만 안내합니다** (§11.4.3)."
+    "이름 초안은 assets/datasets/08-26-org-dict/org-draft.json 에 있고, **막힌 것은",
+    "출처 한 줄**입니다 — 등록부가 스크립트로 그려지거나(FIU·금융투자협회)",
+    "명단이 첨부파일에 있어(금융위 선불업 공고) 원문 대조가 안 됩니다.",
+    "**없으면 절차만 안내합니다** (§11.4.3)."
   ],
   "orgs": [
     {
@@ -224,6 +243,87 @@
       },
       "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
       "verified_at": "2026-08-25"
+    },
+    {
+      "org_id": "shinhan-card",
+      "channel_id": "CH-card",
+      "name": "신한카드",
+      "aliases": ["신한 카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "samsung-card",
+      "channel_id": "CH-card",
+      "name": "삼성카드",
+      "aliases": ["삼성 카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "kb-card",
+      "channel_id": "CH-card",
+      "name": "KB국민카드",
+      "aliases": ["국민카드", "케이비국민카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "hyundai-card",
+      "channel_id": "CH-card",
+      "name": "현대카드",
+      "aliases": ["현대 카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "lotte-card",
+      "channel_id": "CH-card",
+      "name": "롯데카드",
+      "aliases": ["롯데 카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "woori-card",
+      "channel_id": "CH-card",
+      "name": "우리카드",
+      "aliases": ["우리 카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "hana-card",
+      "channel_id": "CH-card",
+      "name": "하나카드",
+      "aliases": ["하나 카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "bc-card",
+      "channel_id": "CH-card",
+      "name": "비씨카드",
+      "aliases": ["BC카드", "비씨 카드", "BC 카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
+    },
+    {
+      "org_id": "nh-card",
+      "channel_id": "CH-card",
+      "name": "NH농협카드",
+      "aliases": ["농협카드", "엔에이치농협카드"],
+      "contact": {},
+      "source_url": "https://www.crefia.or.kr/portal/company/membership/membershipIntroduction.xx?coCodeSubId=1",
+      "verified_at": "2026-08-26"
     }
   ]
 }

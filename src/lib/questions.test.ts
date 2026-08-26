@@ -44,7 +44,7 @@ const ASKED: readonly SlotKey[] = [
   'relief_applied_at',
 ]
 
-/** 08-14-channel-matrix.md 「8유형」 표의 경유 서비스 칸 그대로 */
+/** 08-14-channel-matrix.md 「9유형」 표의 경유 서비스 칸 그대로 */
 const CHANNEL_OPTIONS = [
   '시중은행 계좌이체',
   '인터넷은행 (토스뱅크 등)',
@@ -54,6 +54,8 @@ const CHANNEL_OPTIONS = [
   '대면편취 (현금 전달)',
   '상품권 (핀번호 전달)',
   '휴대폰 소액결제',
+  // ADR-055 로 더해진 아홉째. 근거법이 여신전문금융업법이라 별개 유형입니다
+  '카드 부정사용·카드론',
 ]
 
 describe('문진 문구 표', () => {
@@ -94,7 +96,7 @@ describe('문진 문구 표', () => {
     }
   })
 
-  it('경유 서비스 선택지는 8유형 전부다', () => {
+  it('경유 서비스 선택지는 9유형 전부다', () => {
     // 하나라도 빠지면 그 유형 피해자는 자기 경로를 고를 수 없습니다
     expect(source.formFor('channel')?.options).toEqual(CHANNEL_OPTIONS)
   })
@@ -129,7 +131,7 @@ describe('문진 문구 표', () => {
 })
 
 describe('경유 서비스 선택지를 슬롯 값으로 되돌리기', () => {
-  it('선택지 여덟이 전부 8유형 값으로 되돌아간다', () => {
+  it('선택지 아홉이 전부 9유형 값으로 되돌아간다', () => {
     // 화면에 나가는 것은 라벨이고 case_slot 에 적재되는 것은 CH-* 입니다
     // → 08-14-api.md §3.4 (options 는 string[]) · §3.5 (value 는 "CH-bank")
     expect(CHANNEL_OPTIONS.map(channelForOption)).toEqual([
@@ -141,6 +143,7 @@ describe('경유 서비스 선택지를 슬롯 값으로 되돌리기', () => {
       'CH-facetoface',
       'CH-giftcard',
       'CH-carrier',
+      'CH-card',
     ])
   })
 
