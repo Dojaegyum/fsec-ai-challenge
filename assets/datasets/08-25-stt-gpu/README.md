@@ -18,6 +18,7 @@
 | `results-repeat.json` | 같은 조건 3회 반복 — 흔들림 폭 | `repeat_bench.py` |
 | `results-ship.json` | 실제로 붙일 조합(배치 + 낱말 시각) 3회 | `ship_bench.py` |
 | `results-notation.json` | **보존 · 자리표기 변형 · 소실** 셋으로 가른 것 → [15 §6](../../../docs/research/15-STT-GPU-실측.md) | `notation.py` |
+| `results-ner.json` · `results-ner-fixed.json` | **이름** 누출·과차단. ⚠️ **과차단은 인용하지 마세요** — 실행마다 답이 달라집니다([15 §8](../../../docs/research/15-STT-GPU-실측.md)) | `ner_probe.py` |
 
 **음성과 평가셋은 여기 없습니다.** [08-25-stt-preprocess](../08-25-stt-preprocess/)
 의 `make_audio.py` 로 만든 것과 [08-21-local-llm-pii/eval-set.json](../08-21-local-llm-pii/eval-set.json)
