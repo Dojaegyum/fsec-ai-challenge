@@ -1,0 +1,237 @@
+{
+  "_note": [
+    "CH-giftcard — 상품권(핀번호 전달). 조회 2순위(channel_id 일치 · org_id NULL).",
+    "작성 규약: rfc/002-kb-authoring.md · 필드 구조: spec/backend/08-16-data-model.md §11.4",
+    "근거 조사: docs/research/18-남은유형-근거보강.md §3",
+    "",
+    "## 이 파일이 있는 이유는 **환급법 절차가 이 경로를 타지 않기 때문**입니다",
+    "",
+    "지급정지는 사기이용계좌를 대상으로 하는 조치인데(법 제4조제1항) 핀번호를 알려준",
+    "경우에는 정지할 계좌가 없습니다. 유형 파일이 없으면 common.json 의 환급법 절차가",
+    "**기한과 함께** 그대로 나갑니다.",
+    "",
+    "    freeze-request         -> 발행사에 핀번호 사용정지를 요청합니다",
+    "    relief-apply           -> 한국소비자원에 분쟁조정을 신청합니다",
+    "    relief-documents       -> 조정 결과를 기다립니다",
+    "    debt-extinction-notice -> 이 유형에는 채권소멸공고가 없습니다",
+    "",
+    "report-112 는 덮지 않습니다 — 경찰 신고는 이 유형에서도 그대로 맞습니다.",
+    "",
+    "## ⚠️ 「환급 대상이 아닙니다」라고 쓰지 않았습니다",
+    "",
+    "**그렇게 밝힌 정부 문헌을 찾지 못했습니다** → 18 §3.2. 법 제2조의 「피해금」 정의는",
+    "「피해자의 계좌에서 사기이용계좌로 송금·이체된 금전, 피해자가 교부한 금전 또는",
+    "피해자의 계좌에서 출금된 금전」인데, 셋 다 **금전**이라 상품권 핀번호는 아니라는",
+    "읽기가 자연스럽습니다. 다만 그것은 조문 해석이지 정부의 판단이 아닙니다.",
+    "",
+    "그래서 **사실만** 씁니다 — 지급정지는 계좌를 대상으로 하는데 이 경로에는 정지할",
+    "계좌가 없을 수 있고, 확실한 것은 1332 에 물어 확인하라고. 「대상 아님」을 단정해",
+    "포기하게 만드는 것도, 「환급됩니다」로 기대를 부풀리는 것도 하지 않습니다.",
+    "",
+    "## ⚠️ 배상 금액을 약속하지 않습니다",
+    "",
+    "한국소비자원 분쟁조정에서 문화상품권 핀번호 편취 건에 **상품권 금액의 10%**가",
+    "인정된 사례가 있습니다. 전자금융거래법의 배상책임 요건은 충족하지 못했지만",
+    "사업자가 이상거래를 의심할 수 있었는데 예방조치를 안 한 점이 인정된 건입니다.",
+    "**한 건의 결과이고 사업자의 예방조치 여부로 갈렸습니다** — 일반화하지 않습니다",
+    "(불변 규칙 8).",
+    "",
+    "⬜ **발행사 사용정지 절차는 1차 출처를 못 찾았습니다.** 경유 서비스 매트릭스가",
+    "「발행사 고객센터(사용정지 시도)」로 적어 둔 것을 따랐고, 신뢰도는 「추론」입니다",
+    "→ docs/research/02-경유서비스-8유형.md §2.7. 발행사가 실제로 그 창구를 두는지",
+    "확인되면 legal_basis 와 steps 를 고쳐야 합니다.",
+    "",
+    "⬜ **발행사를 org.json 에 안 넣었습니다.** 상품권 발행사가 여럿이고 대표번호를",
+    "공식 페이지로 확인하지 못했습니다 — 지금은 연락처 없이 절차만 나갑니다(§11.4.3)."
+  ],
+  "channel_id": "CH-giftcard",
+  "track": "victim",
+  "entries": [
+    {
+      "kb_entry_id": "giftcard-suspend-pin",
+      "step_key": "freeze-request",
+      "step_seq": 20,
+      "org_id": null,
+      "title": "상품권 발행사에 핀번호 사용정지를 요청합니다",
+      "legal_basis": "통신사기피해환급법 제4조제1항의 지급정지는 사기이용계좌를 대상으로 하는 조치입니다. 핀번호를 알려준 경우에는 정지할 계좌가 없어 이 조치가 걸리지 않고, 대신 발행사가 그 핀번호의 사용을 막을 수 있는지를 확인하는 것이 가장 빠른 대응입니다.",
+      "source_url": "https://www.law.go.kr/법령/전기통신금융사기피해방지및피해금환급에관한특별법/제4조",
+      "effective_from": "2023-11-17",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "victim",
+        "action": "call",
+        "requires_slots": [],
+        "after": [],
+        "conditional": null,
+        "summary": "은행에 전화해도 막을 계좌가 없습니다. 상품권은 핀번호가 곧 돈이라 아직 안 쓰였다면 발행사가 막을 수 있는지가 갈림길입니다. 시간이 가장 중요합니다.",
+        "steps": [
+          {
+            "text": "상품권 발행사 고객센터에 전화해 핀번호가 아직 사용되지 않았는지 확인하고 사용정지를 요청합니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": "org.contact.report_tel",
+            "url": null
+          },
+          {
+            "text": "상품권을 산 곳과 산 시각, 핀번호를 알려준 경위를 그대로 전합니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "구매 영수증과 핀번호를 보낸 대화 화면을 남겨 두세요. 이후 절차에서 계속 쓰입니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "통화한 날짜와 접수번호를 받아 적으세요.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_no",
+          "label": "발행사 접수번호"
+        },
+        "caveat": "이미 사용된 핀번호는 되돌릴 수 없습니다. 사용정지가 안 된다는 답을 받으셨더라도 아래 단계는 그대로 진행하세요."
+      }
+    },
+    {
+      "kb_entry_id": "giftcard-consumer-mediation",
+      "step_key": "relief-apply",
+      "step_seq": 30,
+      "org_id": null,
+      "title": "한국소비자원에 분쟁조정을 신청합니다",
+      "legal_basis": "한국소비자원 분쟁조정에서 성명불상자가 메신저로 속여 문화상품권 핀번호를 받아 사용한 사건에 대해, 전자금융거래법상 배상책임의 요건(접근매체의 위조·변조 또는 전자적 전송 과정의 사고)은 충족하지 않으나 사업자가 이상거래를 의심할 수 있었음에도 사고 예방조치를 하지 않은 점을 인정해 상품권 금액의 일부를 지급하도록 한 사례가 공개돼 있습니다.",
+      "source_url": "https://www.consumer.go.kr/user/ftc/consumer/trublmdatcase/116/selectTrublMdatCaseView.do?trublMdatCaseSn=13571",
+      "effective_from": "2024-01-01",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "victim",
+        "action": "call",
+        "requires_slots": [],
+        "after": ["freeze-request"],
+        "conditional": null,
+        "summary": "발행사가 사용정지를 못 해 준 경우에도 길이 하나 더 있습니다. 사업자가 이상거래를 걸러내지 못한 책임이 인정된 조정 사례가 있습니다.",
+        "steps": [
+          {
+            "text": "한국소비자원 소비자상담센터에 전화해 상품권 핀번호 편취 피해로 분쟁조정을 신청하고 싶다고 말합니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": "https://www.consumer.go.kr/"
+          },
+          {
+            "text": "앞 단계에서 모아 둔 구매 영수증, 대화 화면, 발행사 통화 기록을 함께 냅니다.",
+            "action": "upload",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "접수번호를 받아 적으세요.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_no",
+          "label": "분쟁조정 접수번호"
+        },
+        "caveat": "조정이 열려도 전액이 돌아온다는 뜻은 아닙니다. 공개된 사례에서는 상품권 금액의 일부만 인정됐고, 사업자가 이상거래를 의심할 수 있었는지에 따라 갈렸습니다. 얼마가 인정될지는 사건마다 다릅니다."
+      }
+    },
+    {
+      "kb_entry_id": "giftcard-mediation-wait",
+      "step_key": "relief-documents",
+      "step_seq": 40,
+      "org_id": null,
+      "title": "조정 결과를 기다립니다",
+      "legal_basis": "한국소비자원 분쟁조정은 신청 후 사실조사와 당사자 의견 청취를 거쳐 조정 결정이 나옵니다. 위 공개 사례가 그 절차를 거쳐 결정된 것입니다.",
+      "source_url": "https://www.consumer.go.kr/user/ftc/consumer/trublmdatcase/116/selectTrublMdatCaseView.do?trublMdatCaseSn=13571",
+      "effective_from": "2024-01-01",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "agency",
+        "action": "wait",
+        "requires_slots": [],
+        "after": ["relief-apply"],
+        "conditional": null,
+        "summary": "사실조사와 의견 청취를 거쳐 결정이 나옵니다. 그동안 사용자가 할 일은 자료를 추가로 요청받았을 때 내는 것뿐입니다.",
+        "steps": [
+          {
+            "text": "소비자원이 사업자에게 사실을 확인하고 양쪽 의견을 듣습니다. 이 단계는 기다리는 단계입니다.",
+            "action": "wait",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "추가 자료를 요청받으면 그때 냅니다. 결과 통지가 오면 올려 주세요.",
+            "action": "upload",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_doc",
+          "label": "분쟁조정 결과 통지"
+        },
+        "caveat": "조정 결정은 양쪽이 받아들여야 효력이 생깁니다. 사업자가 받아들이지 않으면 소송으로 가야 할 수 있습니다."
+      }
+    },
+    {
+      "kb_entry_id": "giftcard-no-notice",
+      "step_key": "debt-extinction-notice",
+      "step_seq": 50,
+      "org_id": null,
+      "title": "이 유형에는 채권소멸공고가 없습니다",
+      "legal_basis": "통신사기피해환급법 제5조·제9조의 채권소멸절차는 같은 법 제4조에 따라 지급정지된 사기이용계좌를 전제로 합니다. 핀번호를 알려준 경우에는 지급정지 대상 계좌가 없어 공고 절차가 개시되지 않습니다.",
+      "source_url": "https://www.law.go.kr/법령/전기통신금융사기피해방지및피해금환급에관한특별법/제5조",
+      "effective_from": "2023-11-17",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "agency",
+        "action": "read",
+        "requires_slots": [],
+        "after": ["relief-documents"],
+        "conditional": null,
+        "summary": "다른 유형에서 보이는 「금융감독원 공고 2개월」은 이 유형에 오지 않습니다. 기다릴 공고가 없습니다.",
+        "steps": [
+          {
+            "text": "다른 안내에서 「2개월 공고를 기다리라」는 말을 보셨더라도 그것은 계좌이체 사건의 절차입니다.",
+            "action": "read",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "상품권을 사려고 계좌에서 돈을 보내신 경우처럼 계좌이체가 함께 있었다면, 그쪽은 환급법 절차를 탈 수 있습니다. 금융감독원 상담에서 확인해 보세요.",
+            "action": "read",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": null,
+        "caveat": "이 유형이 환급 대상인지 아닌지를 저희가 단정해 드리지 않습니다. 지급정지·환급은 계좌를 대상으로 하는 절차라 이 경로에는 걸 계좌가 없을 수 있다는 것까지가 저희가 아는 것입니다."
+      }
+    }
+  ]
+}
