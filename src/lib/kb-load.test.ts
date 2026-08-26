@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { planLoad, type KbFile } from './kb-load'
+import { planLoad, planOrgLoad, type KbFile, type OrgFile } from './kb-load'
 
 const OPTS = { kbVersion: '2026.08.1', releasedAt: '2026-08-24T00:00:00.000Z' }
 
@@ -401,12 +401,103 @@ describe('⚠️ 유형 파일도 함께 실린다', () => {
   })
 
   const plan = planLoad(
-    [read('common.json'), read('ch-facetoface.json'), read('ch-crypto.json')] as KbFile[],
+    [
+      read('common.json'),
+      read('ch-facetoface.json'),
+      read('ch-crypto.json'),
+      read('ch-card.json'),
+    ] as KbFile[],
     OPTS,
   )
 
   it('폴더 전부가 검증을 통과한다', () => {
     expect(plan.problems).toEqual([])
+  })
+
+  /**
+   * 카드는 **근거법이 다른 유형**입니다 → ADR-055.
+   *
+   * 유형 파일이 없으면 공통(환급법 절차)이 그대로 붙습니다. 그러면 카드
+   * 피해자에게 지급정지·피해구제 신청·**3영업일 서류**·채권소멸공고가
+   * 나갑니다 — 여신전문금융업법으로 다루는 사안에 다른 법의 기한이 붙는 것이라,
+   * 조용히 틀린 안내가 됩니다.
+   */
+  describe('카드가 환급법 네 단계를 덮는다', () => {
+    const mine = plan.rows.filter((r) => r.channel_id === 'CH-card')
+
+    it('덮는 자리가 공통의 그 네 자리다', () => {
+      expect(mine.map((r) => r.step_key)).toEqual([
+        'freeze-request',
+        'relief-apply',
+        'relief-documents',
+        'debt-extinction-notice',
+      ])
+    })
+
+    it('**기한을 하나도 싣지 않는다** — 3영업일도 2개월도 이 유형엔 없다', () => {
+      // 소급 60일은 date-checker 가 셀 수 없습니다(앞으로만 셉니다 → 06 §2.2).
+      // 못 세는 것을 억지로 넣느니 caveat 로 말합니다
+      expect(mine.map((r) => r.body.deadline)).toEqual([null, null, null, null])
+    })
+
+    it('14일을 기한으로 싣지 않는다 — 표준약관이지 법정 기한이 아니다', () => {
+      // 06 §1.4 — 법정 기한처럼 안내하면 14일이 지난 피해자가 다툴 권리를
+      // 잃었다고 오해하고 포기합니다
+      const documents = mine.find((r) => r.step_key === 'relief-documents')
+      expect(documents?.body.deadline).toBeNull()
+      expect(documents?.legal_basis).toContain('신청 기한을 두지 않습니다')
+    })
+
+    it('공고 항목은 사용자 할 일로 그려지지 않는다', () => {
+      // victim 으로 두면 화면이 「당신이 해야 할 것」으로 그립니다. 이 항목은
+      // 공통을 덮으려고 있는 것이지 사용자가 할 일이 아닙니다
+      const notice = mine.find((r) => r.step_key === 'debt-extinction-notice')
+      expect(notice?.body.actor).toBe('issuer')
+    })
+  })
+
+  /**
+   * **`org.json` 은 여기까지 아무도 안 봤습니다.**
+   *
+   * 유형 파일은 위에서 실어 보는데 기관 파일은 시험이 없었고, 그 사이 사전이
+   * 19곳에서 28곳으로 늘었습니다. `planOrgLoad` 가 *"하나라도 어기면 통째로
+   * 거부합니다"* 라 **한 곳이 틀리면 열아홉 곳도 같이 안 실립니다.**
+   */
+  describe('⚠️ 기관 사전도 실린다', () => {
+    const plan = planOrgLoad([read('org.json')] as OrgFile[], { kbVersion: OPTS.kbVersion })
+
+    it('`src/kb/org.json` 이 검증을 통과한다', () => {
+      expect(plan.problems).toEqual([])
+    })
+
+    it('카드사가 실제로 실려 있다', () => {
+      // 위아래 시험이 행을 훑기만 해서, 사전이 비어도 통과합니다.
+      // ADR-055 로 들어온 아홉을 여기서 못 박습니다 — 여신금융협회 회원사
+      // 정회원 8 + 준회원 1(NH농협카드)
+      const card = plan.rows.filter((r) => r.channel_id === 'CH-card')
+      expect(card).toHaveLength(9)
+      expect(card.map((r) => r.name)).toContain('비씨카드')
+    })
+
+    it('근거 없는 기관이 없다 — 출처와 확인일이 전부 붙어 있다', () => {
+      // TODO(근거 필요) 인 채로 초안이 딸려 들어오는 것을 막습니다
+      for (const row of plan.rows) {
+        expect(row.source_url, row.org_id).toMatch(/^https:\/\//)
+        expect(row.verified_at, row.org_id).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+      }
+    })
+
+    it('사전의 유형이 전부 9유형 안이다', () => {
+      // 목록 밖 유형이 붙으면 그 기관은 어느 분기에도 안 걸립니다.
+      // 08-14-channel-matrix.md 의 ID 칸 그대로 — 손으로 옮겨 어긋남을 잡습니다
+      const known = new Set([
+        'CH-bank', 'CH-neobank', 'CH-securities', 'CH-easypay', 'CH-crypto',
+        'CH-facetoface', 'CH-giftcard', 'CH-carrier', 'CH-card',
+      ])
+      for (const row of plan.rows) {
+        expect(known.has(row.channel_id), `${row.org_id} — ${row.channel_id}`).toBe(true)
+      }
+    })
   })
 
   it('대면편취가 공통의 두 단계를 덮는다 — 순서가 뒤집히는 유형이다', () => {

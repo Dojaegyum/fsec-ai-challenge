@@ -68,6 +68,7 @@ const CHANNEL_CHOICES: readonly { readonly label: string; readonly value: Channe
   { label: '대면편취 (현금 전달)', value: 'CH-facetoface' },
   { label: '상품권 (핀번호 전달)', value: 'CH-giftcard' },
   { label: '휴대폰 소액결제', value: 'CH-carrier' },
+  { label: '카드 부정사용·카드론', value: 'CH-card' },
 ]
 
 const CHANNEL_OPTIONS: readonly string[] = CHANNEL_CHOICES.map((one) => one.label)

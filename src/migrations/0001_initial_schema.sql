@@ -68,7 +68,10 @@ CREATE TABLE case_channel (
   channel_id      VARCHAR(32)  NOT NULL,
                   -- CH-bank | CH-neobank | CH-securities | CH-easypay
                   -- CH-crypto | CH-facetoface | CH-giftcard | CH-carrier
-                  -- 목록 검증은 코드가 합니다. CHECK 로 굳히지 않는 이유는 §4 참조
+                  -- CH-card (ADR-055 로 나중에 더해진 아홉째)
+                  -- ⚠️ 이 주석은 사본입니다. 정본은 08-14-channel-matrix.md 이고
+                  --    목록 검증은 코드(slot-extractor)가 합니다.
+                  --    CHECK 로 굳히지 않는 이유는 §4 참조 — 유형은 늘어납니다
   org_id          VARCHAR(32)  NULL,       -- 기관 식별자. org 테이블 논리 참조. §4.1
   org_name_raw    VARCHAR(100) NULL,       -- 사용자·증거에 나온 표기 그대로.
                                            -- 토큰화 대상 아님 → ADR-011

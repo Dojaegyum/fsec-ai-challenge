@@ -1,0 +1,97 @@
+{
+  "draft": true,
+  "orgs": 57,
+  "forms": 162,
+  "channels": {
+    "CH-bank": 16,
+    "CH-neobank": 3,
+    "CH-securities": 8,
+    "CH-easypay": 4,
+    "CH-crypto": 5,
+    "CH-facetoface": 0,
+    "CH-giftcard": 6,
+    "CH-carrier": 6,
+    "CH-card": 9
+  },
+  "coverage": {
+    "전사 large-v3": {
+      "기관": {
+        "total": 24,
+        "missing": [
+          "금융감독원",
+          "서울중앙지검",
+          "서초경찰서"
+        ]
+      },
+      "상품권사": {
+        "total": 5,
+        "missing": []
+      },
+      "통신사": {
+        "total": 4,
+        "missing": []
+      }
+    },
+    "화면 GPU": {
+      "기관": {
+        "total": 18,
+        "missing": [
+          "금융감독원",
+          "서울중앙지검"
+        ]
+      },
+      "상품권사": {
+        "total": 2,
+        "missing": []
+      },
+      "통신사": {
+        "total": 2,
+        "missing": []
+      }
+    }
+  },
+  "sweep": [
+    {
+      "case": "전사 large-v3",
+      "cap": 0,
+      "recovered": 5,
+      "recoverable": 9,
+      "false": 0
+    },
+    {
+      "case": "전사 large-v3",
+      "cap": 1,
+      "recovered": 5,
+      "recoverable": 9,
+      "false": 17
+    },
+    {
+      "case": "전사 large-v3",
+      "cap": 2,
+      "recovered": 7,
+      "recoverable": 9,
+      "false": 457
+    },
+    {
+      "case": "화면 GPU",
+      "cap": 0,
+      "recovered": 0,
+      "recoverable": 10,
+      "false": 0
+    },
+    {
+      "case": "화면 GPU",
+      "cap": 1,
+      "recovered": 5,
+      "recoverable": 10,
+      "false": 5
+    },
+    {
+      "case": "화면 GPU",
+      "cap": 2,
+      "recovered": 9,
+      "recoverable": 10,
+      "false": 246
+    }
+  ]
+}

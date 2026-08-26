@@ -40,6 +40,8 @@ CHANNELS = {
     "CH-bank": "시중은행", "CH-neobank": "인터넷은행", "CH-securities": "증권사",
     "CH-easypay": "간편송금", "CH-crypto": "가상자산", "CH-facetoface": "대면편취",
     "CH-giftcard": "상품권", "CH-carrier": "소액결제",
+    # ADR-055 로 선 아홉째. 근거법이 여신전문금융업법이라 별개 유형입니다
+    "CH-card": "카드",
 }
 ORG_KINDS = ("기관", "상품권사", "통신사")
 
@@ -54,8 +56,17 @@ CASES = [
 ]
 
 
-def load_dict() -> tuple[list[dict], dict[str, str]]:
+def load_dict(with_draft: bool = False) -> tuple[list[dict], dict[str, str]]:
+    """사전을 읽는다. `with_draft` 면 아직 적재 안 된 초안까지 합쳐 본다.
+
+    **초안은 `src/kb/org.json` 이 아닙니다.** `source_url`·`verified_at` 이 비어
+    있어 `kb-load.ts` 가 적재를 거부합니다. 그래도 여기서 합쳐 보는 이유는
+    **출처를 채우면 얼마나 나아지는지**를 미리 알아야 채울 값이 있는지 알기
+    때문입니다 — 넓혀도 안 오르면 다른 데를 봐야 합니다.
+    """
     orgs = json.loads((ROOT / "src/kb/org.json").read_text(encoding="utf-8"))["orgs"]
+    if with_draft:
+        orgs = orgs + json.loads((HERE / "org-draft.json").read_text(encoding="utf-8"))["orgs"]
     forms: dict[str, str] = {}
     for o in orgs:
         for f in [o["name"], *o.get("aliases", [])]:
@@ -102,12 +113,15 @@ def find(text: str, forms: dict[str, str], cap: int) -> set[str]:
 
 
 def main() -> int:
-    orgs, forms = load_dict()
+    with_draft = "--with-draft" in sys.argv
+    orgs, forms = load_dict(with_draft)
     have = {o["channel_id"] for o in orgs}
-    out: dict = {"orgs": len(orgs), "forms": len(forms), "channels": {}, "coverage": {}, "sweep": []}
+    out: dict = {"draft": with_draft, "orgs": len(orgs), "forms": len(forms),
+                 "channels": {}, "coverage": {}, "sweep": []}
 
-    print(f"사전: 기관 {len(orgs)}곳 · 표기 {len(forms)}가지\n")
-    print("8유형 중 사전이 있는 곳")
+    where = "org.json + org-draft.json" if with_draft else "org.json"
+    print(f"사전: 기관 {len(orgs)}곳 · 표기 {len(forms)}가지  ({where})\n")
+    print("9유형 중 사전이 있는 곳")
     for ch, ko in CHANNELS.items():
         n = sum(1 for o in orgs if o["channel_id"] == ch)
         out["channels"][ch] = n
@@ -158,7 +172,8 @@ def main() -> int:
             print(f"{label if cap == 0 else '':16}{cap:>4}  {got:>4}/{need:<4}  {false:>6}")
         print()
 
-    (HERE / "results-dict.json").write_text(
+    name = "results-dict-draft.json" if with_draft else "results-dict.json"
+    (HERE / name).write_text(
         json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     return 0
 
