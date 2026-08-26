@@ -73,8 +73,22 @@ export function createAllowedTermSource(deps: {
  * 잡았습니다). 제외 목록은 **절차의 부속**이지 절차 자체가 아닙니다 —
  * 못 가져와도 하던 일은 계속해야 합니다 → 불변 규칙 5 · §11.4.3 의 취지.
  *
- * 빈 목록으로 떨어지면 기관명이 가려질 수 있지만, **그것 때문에 사건 진행을
- * 막는 것이 더 나쁩니다.**
+ * ## 「못 가리면 안 내보낸다」와 왜 다른가
+ *
+ * 한 파일 건너에 **반대 저울**이 있습니다 — NER 이 죽으면
+ * `PiiTokenizerUnavailableError` 로 **슬롯 저장을 막습니다.** 둘이 어긋나 보이는데,
+ * **막는 해와 안 막는 해가 다릅니다.**
+ *
+ *     NER 실패      가려야 할 원문이 안 가려진 채 **밖으로 나갑니다** — 되돌릴 수 없습니다
+ *     목록 실패      가리지 않아도 될 것이 가려집니다 — **안내가 나빠질 뿐 새지 않습니다**
+ *
+ * 앞엣것은 피해자의 개인정보가 사업자에게 가는 일이고, 뒤엣것은 유형을 못 좁혀
+ * 슈퍼셋 플랜이 나가는 일입니다. **그래서 앞은 막고 뒤는 진행합니다.**
+ *
+ * ⚠️ **다만 조용하면 안 됩니다.** 조용히 빈 목록이 되는 것이 바로 이 파일이
+ * 생긴 이유였습니다. 그래서 `tokenize()` 결과가 `allowedTermsApplied` 로 사실을
+ * 실어 내고, 전사 흐름은 그것을 `shortfalls` 의 `no_org_allowlist` 로 화면까지
+ * 보냅니다 — `nerApplied` 와 같은 규칙입니다.
  */
 export async function allowedTermsFor(deps: {
   readonly channels: Pick<ChannelWriter, 'allCandidates'>

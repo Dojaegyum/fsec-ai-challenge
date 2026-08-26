@@ -155,6 +155,21 @@ export interface TokenizeResult {
    */
   readonly nerApplied: boolean
   /**
+   * 제외 목록이 **실제로 걸렸는가** (비어 있지 않았는가).
+   *
+   * **`nerApplied` 와 함께 봐야 뜻이 생깁니다.** NER 이 안 돌면 목록이 비어도
+   * 아무 일이 없고, **둘이 겹칠 때만 위험합니다** —
+   *
+   *     nerApplied && !allowedTermsApplied
+   *       모델이 이름을 집는데 기관명을 지켜 줄 것이 없습니다.
+   *       「토스로 300만원」이 「[이름-1]로 300만원」이 되고,
+   *       **에러 없이 엉뚱한 매뉴얼이 나갑니다** → 04-pii-boundary.md · 17 §2.
+   *
+   * 목록을 못 가져오는 것은 **막을 일이 아닙니다**(아래 참고). 대신
+   * **숨기지 않습니다** — `nerApplied` 를 실어 내는 것과 같은 규칙입니다.
+   */
+  readonly allowedTermsApplied: boolean
+  /**
    * 입력에 **우리가 만들지 않은 토큰 모양 문자열**이 몇 개 있었나.
    *
    * ⬜ **어떻게 다룰지 정본에 없습니다.** 사기범이 보낸 캡처에 `[계좌-1]` 이라는
