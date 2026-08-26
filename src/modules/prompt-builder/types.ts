@@ -34,6 +34,8 @@ export interface CaseStateItem {
    * 같은 이유입니다(§5).
    */
   readonly stepId?: string
+  /** 이 줄이 어느 기한인가 — 위와 같습니다 (§3.9 `referenced_deadlines`) */
+  readonly deadlineId?: string
 }
 
 /** 사건 대화 한 줄 — 사기범과 피해자가 주고받은 것. 이미 토큰화된 상태 */
@@ -70,6 +72,8 @@ export interface IssuedRef {
   readonly label: string
   /** `case-` 줄이 단계일 때만 있습니다 → §3.9 `referenced_steps` */
   readonly stepId?: string
+  /** `case-` 줄이 기한일 때만 있습니다 → §3.9 `referenced_deadlines` */
+  readonly deadlineId?: string
   /** kb- 항목에만 있습니다 */
   readonly kbEntryId?: string
   readonly kbVersion?: string

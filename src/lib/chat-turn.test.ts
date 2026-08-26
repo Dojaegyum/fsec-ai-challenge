@@ -17,7 +17,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { stepsCited } from '@/flows/chat-turn'
+import type { ApiDeadline } from '@/flows/api-deadlines'
+import { deadlineState, deadlinesCited, stepsCited } from '@/flows/chat-turn'
 
 import { createAuditLogger } from '@/modules/audit-logger'
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
@@ -545,5 +546,109 @@ describe('인용을 단계로 되짚는 규칙', () => {
   it('발급하지 않은 번호를 지어내도 조용히 버린다', () => {
     // 모델이 없는 `case-9` 를 쓸 수 있습니다 — 던지면 답 전체가 날아갑니다
     expect(cited([{ ref: 'case-9' }], [{ ref: 'case-1', stepId: '01JA' }])).toEqual([])
+  })
+})
+
+describe('기한이 프롬프트에 실린다 — §3.3 · §3.4', () => {
+  /**
+   * **계약이 정한 것이 안 들어가고 있었습니다.** §3.4 는 *"`case-` 는 슬롯·단계·
+   * **기한**·부산물을 가리킨다"* 이고 §3.3 은 넣을 모양까지 적어 뒀는데,
+   * `case_state` 에는 슬롯과 단계만 들어갔습니다. 그래서 *"언제까지죠"* 에
+   * 답할 근거가 없었고 `referenced_deadlines` 도 늘 빈 배열이었습니다.
+   */
+  const one = (over: Partial<ApiDeadline> = {}): ApiDeadline => ({
+    deadline_id: '01JDL',
+    step_id: '01JSTEP',
+    title: '피해구제 신청 서류를 냅니다',
+    kind: 'primary',
+    due_at: '2026-08-20T23:59:59+09:00',
+    status: 'open',
+    ...over,
+  })
+
+  it('날짜가 **사람이 읽는 형태**로 들어간다 — 「현재 날짜」와 같은 표기', () => {
+    expect(deadlineState([one()])[0].value).toContain('2026년 8월 20일')
+  })
+
+  it('종류가 라벨에 드러난다 — 본 기한과 추가 기간을 합치지 않습니다 (§8.1)', () => {
+    expect(deadlineState([one()])[0].label).toBe('기한: 피해구제 신청 서류를 냅니다')
+    expect(deadlineState([one({ kind: 'grace' })])[0].label).toContain('추가 기간')
+  })
+
+  it('**남은 날은 서버가 센 값을 그대로** 옮긴다 — 모델이 세지 않습니다 (불변 규칙 7)', () => {
+    expect(deadlineState([one({ days_left: 3 })])[0].value).toContain('3일 남았습니다')
+    expect(deadlineState([one({ days_left: 0 })])[0].value).toContain('오늘이 마지막 날')
+  })
+
+  it('지난 기한을 지났다고 말한다 — 안 그러면 아직 시간이 있다고 답합니다', () => {
+    expect(deadlineState([one({ status: 'missed' })])[0].value).toContain('이미 지났습니다')
+  })
+
+  it('유예의 조건이 붙는다 — 없으면 추가 기간을 본 기한으로 말합니다 (§8.1)', () => {
+    const value = deadlineState([
+      one({ kind: 'grace', condition: '3영업일을 넘기면 금융회사가 14일의 추가 기간을 정해 통지합니다' }),
+    ])[0].value
+
+    expect(value).toContain('14일의 추가 기간')
+  })
+
+  it('**기관이 진행하는 기간에는 「까지」를 안 붙인다** — 사용자 기한으로 오인시킵니다 (§8.3)', () => {
+    const value = deadlineState([
+      one({ kind: 'info', note: '금융감독원이 진행하는 절차의 길이입니다' }),
+    ])[0].value
+
+    expect(value).not.toContain('까지')
+    expect(value).toContain('금융감독원이 진행하는')
+  })
+
+  it('붙는 말이 없으면 안 붙는다 — **지어내지 않습니다** (불변 규칙 1)', () => {
+    expect(deadlineState([one()])[0].value).toBe('2026년 8월 20일까지')
+  })
+
+  it('날짜를 못 읽으면 **줄을 안 만든다** — 날짜 없는 「기한이 있습니다」를 막습니다', () => {
+    expect(deadlineState([one({ due_at: '언젠가' })])).toEqual([])
+  })
+
+  it('**식별자는 프롬프트에 안 들어간다** — 발급 기록에만 실립니다', () => {
+    const prompt = createPromptBuilder().build({
+      kbApplied: KB_APPLIED,
+      kbReference: [],
+      caseTalk: [],
+      caseState: deadlineState([one()]),
+      history: [{ speaker: 'user', text: '언제까지죠' }],
+      currentDate: '2026년 8월 18일',
+    })
+
+    expect(prompt.user).toContain('2026년 8월 20일까지')
+    expect(prompt.user).not.toContain('01JDL')
+    expect(prompt.issued.find((i) => i.ref === 'case-1')?.deadlineId).toBe('01JDL')
+  })
+})
+
+describe('인용을 기한으로 되짚는 규칙 — §3.9 `referenced_deadlines`', () => {
+  const cited = (
+    citations: readonly { ref: string }[],
+    issued: readonly { ref: string; stepId?: string; deadlineId?: string }[],
+  ) => deadlinesCited({ reply: { citations }, issued })
+
+  it('`case-` 가 가리킨 기한을 낸다', () => {
+    expect(cited([{ ref: 'case-2' }], [
+      { ref: 'case-1', deadlineId: '01JA' },
+      { ref: 'case-2', deadlineId: '01JB' },
+    ])).toEqual(['01JB'])
+  })
+
+  it('**단계는 안 온다** — 한 단계에 기한이 둘 설 수 있어 번호가 다릅니다 (§8.1)', () => {
+    expect(cited([{ ref: 'case-1' }], [{ ref: 'case-1', stepId: '01JSTEP' }])).toEqual([])
+  })
+
+  it('같은 기한을 두 번 인용해도 한 번만 낸다', () => {
+    expect(
+      cited([{ ref: 'case-1' }, { ref: 'case-1' }], [{ ref: 'case-1', deadlineId: '01JA' }]),
+    ).toEqual(['01JA'])
+  })
+
+  it('발급하지 않은 번호를 지어내도 조용히 버린다', () => {
+    expect(cited([{ ref: 'case-9' }], [{ ref: 'case-1', deadlineId: '01JA' }])).toEqual([])
   })
 })

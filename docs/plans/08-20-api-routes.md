@@ -353,8 +353,12 @@ Server Function rather than relying on Proxy alone"* 라고 경고합니다 — 
 - §1.1 이 **「모든 응답에 붙습니다」** 인데 계측 헤더를 조건부로 두면 그걸 뒤집습니다
 - `GET deadlines` 를 확정 슬롯만으로 여과하면 **기한 목록이 조용히 비어서 200 으로 나갑니다.**
   §3.7 에 그런 여과 규칙이 없습니다
-- `unlocked_steps` · `referenced_steps` · `referenced_deadlines` 세 배열이 계약 예시에
-  있는데 「주인이 없다」로 빠졌습니다
+- ~~`unlocked_steps` · `referenced_steps` · `referenced_deadlines` 세 배열이 계약 예시에
+  있는데 「주인이 없다」로 빠졌습니다~~ → ✅ **셋 다 실렸습니다** (2026-08-26).
+  `referenced_deadlines` 가 마지막이었는데, 되짚을 번호가 없어서가 아니라
+  **기한이 프롬프트의 `case_state` 에 아예 안 들어가고 있어서**였습니다 —
+  [11-chat-context.md](../../spec/backend/08-16-chat-context.md) §3.3 이 넣을 모양까지
+  적어 뒀는데 슬롯과 단계만 실렸습니다
 - 모든 슬롯을 「모름」으로 답한 사용자가 근거 부족 턴을 만나면 **갈래가 없습니다** —
   `citation-checker` 는 물을 슬롯이 있는지 안 보는데 `chat-publisher` 는 질문을 필수로 받습니다
 

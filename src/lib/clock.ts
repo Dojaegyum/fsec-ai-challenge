@@ -92,6 +92,21 @@ export function seoulDay(at: Date): string {
 }
 
 /**
+ * `2026-08-20T23:59:59+09:00` → `2026년 8월 20일`. **못 읽으면 `null`** 입니다.
+ *
+ * 프롬프트에 기한을 사람이 읽는 날짜로 넣을 때 씁니다 → 11-chat-context.md §3.3
+ * *"프롬프트에 넣는 것: 기한: 2026년 8월 20일까지"*. **모델은 이 날짜를 문장에
+ * 넣기만 하고 세지 않습니다** (불변 규칙 7).
+ *
+ * `todayLabel()` 과 같은 형식이라야 합니다 — 프롬프트에 「현재 날짜」와 기한이
+ * 나란히 들어가는데 표기가 다르면 모델이 둘을 다른 종류로 읽습니다.
+ */
+export function seoulDayLabel(iso: string): string | null {
+  const at = new Date(iso)
+  return Number.isNaN(at.getTime()) ? null : LABEL_PARTS.format(at)
+}
+
+/**
  * 어느 순간을 `2026-08-20T23:59:59.000+09:00` 로.
  *
  * **저장소에서 읽은 시각을 응답에 실을 때 씁니다.** `toISOString()` 을 쓰면

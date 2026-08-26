@@ -75,7 +75,12 @@ export interface PromptSource {
     kbApplied: readonly KbEntry[]
     kbReference: readonly KbEntry[]
     caseTalk: readonly { speaker: string; text: string }[]
-    caseState: readonly { label: string; value: string }[]
+    caseState: readonly {
+      label: string
+      value: string
+      stepId?: string
+      deadlineId?: string
+    }[]
     history: readonly { speaker: 'user' | 'assistant'; text: string }[]
     currentDate: string
   }): {
@@ -92,6 +97,8 @@ export interface IssuedRef {
   readonly label: string
   /** `case-` 줄이 단계일 때만 → §3.9 `referenced_steps` */
   readonly stepId?: string
+  /** `case-` 줄이 기한일 때만 → §3.9 `referenced_deadlines` */
+  readonly deadlineId?: string
   readonly kbEntryId?: string
   readonly kbVersion?: string
 }
@@ -155,8 +162,18 @@ export interface CaseContext {
   readonly orgId: string | null
   /** 토큰화된 사건 대화 (사기범과 주고받은 것) */
   readonly caseTalk: readonly { speaker: string; text: string }[]
-  /** 슬롯·단계·기한·부산물. **날짜는 이미 계산된 문자열입니다** → §3.3 */
-  readonly caseState: readonly { label: string; value: string }[]
+  /**
+   * 슬롯·단계·기한·부산물. **날짜는 이미 계산된 문자열입니다** → §3.3
+   *
+   * `stepId`·`deadlineId` 는 **프롬프트에 안 들어갑니다.** 모델이 그 줄을
+   * 인용했을 때 서버가 무엇이었는지 되짚는 데만 씁니다 → §3.9.
+   */
+  readonly caseState: readonly {
+    label: string
+    value: string
+    stepId?: string
+    deadlineId?: string
+  }[]
   /** 이전 턴들. 이번 발화는 여기 붙습니다 */
   readonly history: readonly { speaker: 'user' | 'assistant'; text: string }[]
 }
