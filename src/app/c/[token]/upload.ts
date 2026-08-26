@@ -154,7 +154,14 @@ export interface Uploads {
   readonly files: readonly RailFile[];
   readonly busy: boolean;
   readonly fail: LoadFail | null;
-  readonly add: (file: File) => Promise<void>;
+  /**
+   * 파일 한 장을 올립니다.
+   *
+   * **올라간 뒤의 `evidence_id` 를 돌려줍니다** — 그것을 부산물로 낼 수 있어야
+   * 하기 때문입니다(§3.8 `receipt_doc`). 못 올렸으면 `null` 이고, 그때도
+   * 목록에는 남습니다(ADR-026).
+   */
+  readonly add: (file: File) => Promise<string | null>;
   readonly select: (id: string) => void;
   readonly selectedId: string | undefined;
 }
@@ -177,8 +184,8 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
   const [fail, setFail] = useState<LoadFail | null>(null);
 
   const add = useCallback(
-    async (file: File) => {
-      if (!caseToken || busy) return;
+    async (file: File): Promise<string | null> => {
+      if (!caseToken || busy) return null;
 
       // **이름도 경계를 지납니다** — 「입금내역_110-2345-678901.png」가 실제로 흔합니다.
       // 레일에 그리는 이름은 `screenName` 을 지난 것입니다 (`RailFile.name` 의 뜻)
@@ -201,7 +208,7 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
         setFiles((prev) =>
           prev.map((one) => (one.id === id ? { ...one, status: "failed" } : one)),
         );
-        return;
+        return null;
       }
 
       setFiles((prev) =>
@@ -211,6 +218,10 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
             : one,
         ),
       );
+
+      // **부산물로 낼 수 있게 돌려줍니다.** 전사가 끝나기를 기다리지 않습니다 —
+      // §3.8 은 `evidence_id` 만 요구하고, 올린 것 자체가 L2 증빙입니다
+      return sent.evidenceId;
     },
     [busy, caseToken],
   );
