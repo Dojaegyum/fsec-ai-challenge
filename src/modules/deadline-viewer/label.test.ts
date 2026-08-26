@@ -31,23 +31,29 @@ describe("배지는 세 변형뿐이다", () => {
     expect(badgeOf(mk({ days_left: 2 }))).toEqual({
       variant: "user",
       text: "8월 20일까지 · D-2",
+      estimated: false,
     });
   });
 
   it("잔여일이 없으면 D-day 없이 날짜만 — 화면이 세지 않는다", () => {
-    expect(badgeOf(mk())).toEqual({ variant: "user", text: "8월 20일까지" });
+    expect(badgeOf(mk())).toEqual({ variant: "user", text: "8월 20일까지", estimated: false });
   });
 
   it("지난 본 기한은 중립이고 지우지 않는다", () => {
     expect(badgeOf(mk({ status: "missed" }))).toEqual({
       variant: "passed",
       text: "본 기한 8월 20일 · 지남",
+      estimated: false,
     });
   });
 
   it("유예는 앰버이되 유예라고 밝힌다 — 본 기한과 합치지 않는다", () => {
     const grace = mk({ kind: "grace", due_at: "2026-09-03T23:59:59+09:00", days_left: 11 });
-    expect(badgeOf(grace)).toEqual({ variant: "user", text: "유예 9월 3일까지 · D-11" });
+    expect(badgeOf(grace)).toEqual({
+      variant: "user",
+      text: "유예 9월 3일까지 · D-11",
+      estimated: false,
+    });
   });
 
   it("제도 시간은 중립이고 D-day 가 없다 — 두 달을 카운트다운으로 만들지 않는다", () => {
@@ -57,10 +63,40 @@ describe("배지는 세 변형뿐이다", () => {
       due_at: "2026-10-30T23:59:59+09:00",
       days_left: 60,
     });
-    expect(badgeOf(info)).toEqual({ variant: "system", text: "채권소멸공고 10월 30일" });
+    expect(badgeOf(info)).toEqual({
+      variant: "system",
+      text: "채권소멸공고 10월 30일",
+      estimated: false,
+    });
   });
 
   it("날짜를 못 읽으면 배지를 그리지 않는다", () => {
     expect(badgeOf(mk({ due_at: "" }))).toBeNull();
+  });
+});
+
+describe("추정 기한을 확정처럼 보이게 두지 않는다 — 기한 규칙", () => {
+  /**
+   * 기산점이 부산물로 확인 안 된 기한입니다. 사용자가 기억으로 댄 날짜에서
+   * 나온 것이라 **확정 기한처럼 그리면 틀린 날짜를 법정 기한으로 믿습니다.**
+   * 기한 규칙이 「미확인 배지와 함께 추정만」이라고 못 박은 자리입니다.
+   */
+  it("확인된 기한에는 표시가 없다", () => {
+    expect(badgeOf(mk())?.estimated).toBe(false);
+    expect(badgeOf(mk({ estimated: false }))?.estimated).toBe(false);
+  });
+
+  it("**본 기한도 유예도 제도 시간도** 추정일 수 있다 — 종류와 다른 축이다", () => {
+    expect(badgeOf(mk({ estimated: true }))?.estimated).toBe(true);
+    expect(badgeOf(mk({ kind: "grace", estimated: true }))?.estimated).toBe(true);
+    expect(badgeOf(mk({ kind: "info", estimated: true }))?.estimated).toBe(true);
+  });
+
+  it("지난 기한에도 남는다 — 「지났다」가 추정이면 그것도 추정이다", () => {
+    expect(badgeOf(mk({ status: "missed", estimated: true }))?.estimated).toBe(true);
+  });
+
+  it("**색은 바뀌지 않는다** — 종류가 색을 정하고 확실성은 표시가 말합니다", () => {
+    expect(badgeOf(mk({ estimated: true }))?.variant).toBe("user");
   });
 });

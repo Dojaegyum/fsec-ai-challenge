@@ -563,6 +563,7 @@ describe('기한이 프롬프트에 실린다 — §3.3 · §3.4', () => {
     kind: 'primary',
     due_at: '2026-08-20T23:59:59+09:00',
     status: 'open',
+    estimated: false,
     ...over,
   })
 
@@ -650,5 +651,36 @@ describe('인용을 기한으로 되짚는 규칙 — §3.9 `referenced_deadline
 
   it('발급하지 않은 번호를 지어내도 조용히 버린다', () => {
     expect(cited([{ ref: 'case-9' }], [{ ref: 'case-1', deadlineId: '01JA' }])).toEqual([])
+  })
+})
+
+describe('추정 기한은 추정이라고 말한다 — 화면의 「미확인」과 같은 말', () => {
+  const one = (over: Partial<ApiDeadline> = {}): ApiDeadline => ({
+    deadline_id: '01JDL',
+    step_id: '01JSTEP',
+    title: '피해구제 신청 서류를 냅니다',
+    kind: 'primary',
+    due_at: '2026-08-20T23:59:59+09:00',
+    status: 'open',
+    estimated: false,
+    ...over,
+  })
+
+  it('확인된 기한에는 아무 말도 안 붙는다', () => {
+    expect(deadlineState([one()])[0].value).not.toContain('확정이 아닙니다')
+  })
+
+  it('**확인 안 된 기한은 확정이 아니라고 말한다** — 모델이 사실로 옮겨 적습니다', () => {
+    const value = deadlineState([one({ estimated: true })])[0].value
+    expect(value).toContain('2026년 8월 20일까지')
+    expect(value).toContain('확정이 아닙니다')
+  })
+
+  it('**날짜 바로 뒤에 온다** — 뒤에 붙이면 모델이 날짜만 옮기고 흘립니다', () => {
+    const value = deadlineState([
+      one({ kind: 'grace', estimated: true, condition: '3영업일을 넘겼을 때 주어집니다' }),
+    ])[0].value
+
+    expect(value.indexOf('확정이 아닙니다')).toBeLessThan(value.indexOf('3영업일을 넘겼을 때'))
   })
 })

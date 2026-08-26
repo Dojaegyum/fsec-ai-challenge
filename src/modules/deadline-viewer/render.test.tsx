@@ -113,3 +113,36 @@ describe("공고 대기 카드 — 두 달을 세지 않는다", () => {
     expect(textOf(renderToStaticMarkup(card))).toContain("연락이 없는 것이 정상입니다");
   });
 });
+
+describe("추정 기한에 「미확인」이 실제로 그려진다", () => {
+  const estimated = (over: Partial<Deadline> = {}): Deadline => ({
+    deadline_id: "01JE",
+    title: "피해구제 신청서 제출",
+    kind: "primary",
+    due_at: "2026-08-20T23:59:59+09:00",
+    status: "open",
+    estimated: true,
+    ...over,
+  });
+
+  it("확인 안 된 기한에는 「미확인」이 붙는다", () => {
+    const text = textOf(renderToStaticMarkup(<DeadlineBadge deadline={estimated()} />));
+    expect(text).toContain("8월 20일까지");
+    expect(text).toContain("미확인");
+  });
+
+  it("**확인된 기한에는 안 붙는다** — 확정에 미확인을 달면 그쪽이 더 나쁜 오해다", () => {
+    const text = textOf(
+      renderToStaticMarkup(<DeadlineBadge deadline={estimated({ estimated: false })} />),
+    );
+    expect(text).toContain("8월 20일까지");
+    expect(text).not.toContain("미확인");
+  });
+
+  it("칸이 아예 없으면 확정으로 본다 — 옛 응답이 미확인으로 뒤집히지 않게", () => {
+    const without: Deadline = { ...estimated() };
+    delete without.estimated;
+    const text = textOf(renderToStaticMarkup(<DeadlineBadge deadline={without} />));
+    expect(text).not.toContain("미확인");
+  });
+});

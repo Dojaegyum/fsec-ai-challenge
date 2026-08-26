@@ -33,6 +33,14 @@ export type BadgeVariant =
 export interface DeadlineBadgeText {
   variant: BadgeVariant;
   text: string;
+  /**
+   * 기산점이 확인 안 된 기한 — **「미확인」을 함께 그립니다** (기한 규칙).
+   *
+   * **변형을 넷으로 늘리지 않았습니다.** 시안이 셋으로 못 박았고(2b), 추정
+   * 여부는 「어떤 종류의 기한인가」와 **다른 축**입니다 — 본 기한도 유예도
+   * 추정일 수 있습니다. 색은 종류가 정하고, 확실성은 이 표시가 말합니다.
+   */
+  estimated: boolean;
 }
 
 /**
@@ -47,11 +55,15 @@ export function badgeOf(d: Deadline): DeadlineBadgeText | null {
   const date = dueLabel(d);
   if (date === null) return null;
 
+  const estimated = d.estimated === true;
+
   // 제도 시간 — 사용자가 지킬 기한이 아닙니다. `days_left` 가 있어도 안 씁니다
-  if (d.kind === "info") return { variant: "system", text: `${d.title} ${date}` };
+  if (d.kind === "info") {
+    return { variant: "system", text: `${d.title} ${date}`, estimated };
+  }
 
   if (d.status === "missed") {
-    return { variant: "passed", text: `본 기한 ${date} · 지남` };
+    return { variant: "passed", text: `본 기한 ${date} · 지남`, estimated };
   }
 
   const prefix = d.kind === "grace" ? "유예 " : "";
@@ -59,5 +71,6 @@ export function badgeOf(d: Deadline): DeadlineBadgeText | null {
   return {
     variant: "user",
     text: dday === null ? `${prefix}${date}까지` : `${prefix}${date}까지 · ${dday}`,
+    estimated,
   };
 }
