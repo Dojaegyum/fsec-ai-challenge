@@ -1,0 +1,245 @@
+{
+  "_note": [
+    "CH-carrier — 휴대폰 소액결제(통신과금서비스). 조회 2순위(channel_id 일치 · org_id NULL).",
+    "작성 규약: rfc/002-kb-authoring.md · 필드 구조: spec/backend/08-16-data-model.md §11.4",
+    "근거 조사: docs/research/18-남은유형-근거보강.md §2",
+    "",
+    "## 이 파일이 있는 이유는 **근거법이 다르기 때문**입니다",
+    "",
+    "이 유형은 통신사기피해환급법이 아니라 **정보통신망법 제58조**(통신과금서비스이용자의",
+    "권리 등)로 돌아갑니다. 나간 것이 계좌의 돈이 아니라 **통신요금에 붙은 청구**라",
+    "정지할 사기이용계좌가 없습니다.",
+    "",
+    "## 그래서 공통 넷을 덮습니다",
+    "",
+    "유형 파일이 없으면 common.json 이 그대로 붙습니다. 거기 들어 있는 것은 지급정지·",
+    "피해구제 신청·서류 3영업일·채권소멸공고, 즉 **환급법 절차 전부**입니다. 소액결제",
+    "피해자에게 그게 나가면 엉뚱한 법의 절차가 **기한과 함께** 나갑니다.",
+    "",
+    "    freeze-request         -> 경찰서에서 사건사고사실확인원을 받습니다",
+    "    relief-apply           -> 통신사에 정정요구 (제58조)",
+    "    relief-documents       -> 사업자 심사를 기다립니다. 법이 2주를 줍니다",
+    "    debt-extinction-notice -> 이 유형에는 채권소멸공고가 없습니다",
+    "",
+    "report-112 는 덮지 않습니다 — 경찰 신고가 이 유형에서도 첫 단계이고, 경찰청이",
+    "공개한 7단계도 신고에서 시작합니다.",
+    "",
+    "## ⚠️ 이 유형에서 특히 조심할 것",
+    "",
+    "**① 2주를 deadline 칸에 넣지 않았습니다.** 제58조의 2주는 **사업자가 지켜야 하는**",
+    "기한이고, 기산점은 「정정 요구를 받은 날」입니다. 그 날짜를 담을 슬롯이 없어",
+    "date-checker 로 셀 수 없습니다. 숫자를 지어내 D-day 로 그리는 것보다 본문으로",
+    "말하는 편이 낫습니다 → ch-card.json 이 소급 60일에 대해 내린 것과 같은 판단.",
+    "",
+    "**② 「고의 또는 중과실」 단서가 있습니다.** 제58조는 이용자에게 고의·중과실이 있는",
+    "경우를 정정요구에서 제외합니다. 환불된다고 약속하지 않습니다 → 불변 규칙 8.",
+    "",
+    "**③ 통신사 고객센터 번호를 org.json 에 안 넣었습니다.** 사설 안내 페이지에서만",
+    "봤습니다. 공식 페이지로 확인하기 전에는 넣지 않습니다(§11.1 ①) — 지금은 연락처",
+    "없이 절차만 나갑니다(§11.4.3).",
+    "",
+    "⬜ **제58조의 항 번호 대조가 남았습니다.** 자료마다 「정정요구·지급유보·2주 통지」를",
+    "제1~3항 중 어디에 붙이는지가 갈립니다. 조 단위로만 인용했습니다 → 18 §2.",
+    "",
+    "## ④ 첫 단계를 report-112 에 매지 않았습니다 — 일부러입니다",
+    "",
+    "경찰 신고가 먼저인 것은 맞지만 `after: [\"report-112\"]` 로 매면 **112 를 끝내기",
+    "전까지 이 항목이 활성이 아니고**, 그동안 사건을 열 때 심어진 **공통 문구가 그대로",
+    "남습니다** — 소액결제 피해자에게 「돈이 빠져나간 금융회사에 지급정지를 요청하세요」가",
+    "나갑니다. 실제로 걸어 보고 확인했습니다.",
+    "",
+    "순서는 `step_seq`(10 → 20)가 이미 말하고, 본문 첫 줄도 「경찰서 사이버수사팀에",
+    "신고한 뒤」로 시작합니다. **ch-facetoface 가 매어 두는 것과는 다릅니다** — 그쪽은",
+    "순서가 뒤집힌다는 것 자체가 안내의 요점이라 매는 편이 맞습니다."
+  ],
+  "channel_id": "CH-carrier",
+  "track": "victim",
+  "entries": [
+    {
+      "kb_entry_id": "carrier-police-confirm",
+      "step_key": "freeze-request",
+      "step_seq": 20,
+      "org_id": null,
+      "title": "경찰서에서 사건사고사실확인원을 받습니다",
+      "legal_basis": "경찰청 사이버안전지킴이가 스미싱으로 인한 소액결제 피해의 구제 절차를 일곱 단계로 공개하고 있고, 그 둘째가 사건사고사실확인원 발급 요청입니다. 이후 통신사에 내는 정정요구의 소명 자료가 됩니다. 법정 절차가 아니라 통신사·결제대행사가 요구하는 처리 절차입니다.",
+      "source_url": "https://cyberbureau.police.go.kr/mobile/sub/sub_08_f.jsp",
+      "effective_from": "2024-01-01",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "victim",
+        "action": "visit",
+        "requires_slots": [],
+        "after": [],
+        "conditional": null,
+        "summary": "소액결제는 막을 계좌가 없습니다. 통신사에 청구를 바로잡아 달라고 요구하는 것이 절차이고, 그러려면 경찰이 발급하는 확인원이 먼저 필요합니다.",
+        "steps": [
+          {
+            "text": "경찰서 사이버수사팀에 신고한 뒤 사건사고사실확인원 발급을 요청합니다.",
+            "action": "visit",
+            "channel": ["visit"],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "결제 문자와 결제 내역 화면을 함께 가져가세요. 결제된 시각·금액·상품명이 보이는 것이면 됩니다.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "받은 확인원을 여기 올려 두세요. 다음 단계에서 통신사에 낼 것입니다.",
+            "action": "upload",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_doc",
+          "label": "사건사고사실확인원"
+        },
+        "caveat": "링크를 눌러 앱이 깔렸다면 그 휴대전화에 악성앱이 남아 있을 수 있습니다. 경찰에 함께 말하세요."
+      }
+    },
+    {
+      "kb_entry_id": "carrier-correction-request",
+      "step_key": "relief-apply",
+      "step_seq": 30,
+      "org_id": null,
+      "title": "이동통신사에 통신과금 정정요구를 냅니다",
+      "legal_basis": "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제58조(통신과금서비스이용자의 권리 등)는 통신과금서비스이용자가 통신과금서비스가 자신의 의사에 반하여 제공되었음을 안 때에는 통신과금서비스제공자에게 정정을 요구할 수 있도록 정합니다. 다만 이용자에게 고의 또는 중과실이 있는 경우는 제외합니다.",
+      "source_url": "https://www.law.go.kr/법령/정보통신망 이용촉진 및 정보보호 등에 관한 법률/제58조",
+      "effective_from": "2026-07-07",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "victim",
+        "action": "call",
+        "requires_slots": [],
+        "after": ["freeze-request"],
+        "conditional": null,
+        "summary": "「내 뜻과 상관없이 결제됐다」고 통신사에 요구하는 것이 이 유형의 핵심 절차입니다. 법이 이용자에게 준 권리입니다.",
+        "steps": [
+          {
+            "text": "이동통신사 고객센터에 전화해 결제 내역을 확인하고 통신과금 정정요구를 접수합니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": "org.contact.report_tel",
+            "url": null
+          },
+          {
+            "text": "같은 통화에서 소액결제 차단도 함께 요청하세요. 남은 한도로 또 결제되는 것을 막습니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "앞 단계에서 받은 사건사고사실확인원을 통신사가 요구하는 방법으로 냅니다.",
+            "action": "upload",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "끊기 전에 접수번호를 받아 적으세요.",
+            "action": "write",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_no",
+          "label": "정정요구 접수번호"
+        },
+        "caveat": "정정요구는 「청구를 바로잡아 달라」는 요구이지 환불 확정이 아닙니다. 법이 이용자에게 고의나 중대한 과실이 있는 경우를 제외하고 있어, 심사 결과에 따라 청구가 그대로 갈 수도 있습니다."
+      }
+    },
+    {
+      "kb_entry_id": "carrier-review-wait",
+      "step_key": "relief-documents",
+      "step_seq": 40,
+      "org_id": null,
+      "title": "통신사와 결제대행사의 심사를 기다립니다 — 법이 2주를 줍니다",
+      "legal_basis": "정보통신망법 제58조는 통신과금서비스제공자가 이용자의 정정요구를 받으면 정정 요구를 받은 날부터 2주 이내에 처리 결과를 이용자에게 알리도록 정하고, 정정이 필요하다고 인정될 때까지 판매자에 대한 이용 대금의 지급을 유보하도록 정합니다. 경찰청 사이버안전지킴이도 통상 14일 정도 소요된다고 안내합니다.",
+      "source_url": "https://www.law.go.kr/법령/정보통신망 이용촉진 및 정보보호 등에 관한 법률/제58조",
+      "effective_from": "2026-07-07",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "carrier",
+        "action": "wait",
+        "requires_slots": [],
+        "after": ["relief-apply"],
+        "conditional": null,
+        "summary": "통신사가 결제대행사에 취소를 요청하고 콘텐츠사업자와 협의합니다. 그동안 사용자가 할 일은 없습니다. 법은 정정요구를 받은 날부터 2주 안에 결과를 알리도록 하고 있습니다.",
+        "steps": [
+          {
+            "text": "통신사가 결제대행사에 취소를 요청하고, 결제대행사가 콘텐츠사업자와 협의합니다. 이 단계는 기다리는 단계입니다.",
+            "action": "wait",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "결과가 오면 알려 주세요. 취소가 인정되면 아직 안 낸 요금은 청구에서 빠지고, 이미 낸 요금은 돌려받습니다.",
+            "action": "upload",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          },
+          {
+            "text": "2주가 지나도 아무 연락이 없거나 결과에 다툴 것이 있으면, 휴대폰결제 중재센터에 민원을 넣을 수 있습니다. 한국소비자원과 금융감독원 상담도 열려 있습니다.",
+            "action": "call",
+            "channel": ["phone"],
+            "contact_ref": null,
+            "url": "https://www.spayment.org/"
+          }
+        ],
+        "deadline": null,
+        "required_artifact": {
+          "kind": "receipt_doc",
+          "label": "정정요구 처리 결과 통지"
+        },
+        "caveat": "이 2주는 사용자가 지켜야 하는 기한이 아니라 사업자가 결과를 알려야 하는 기한입니다. 화면에 D-day 로 세어 드리지 않는 이유는 정정요구를 낸 날짜를 저희가 확인할 방법이 아직 없기 때문입니다."
+      }
+    },
+    {
+      "kb_entry_id": "carrier-no-notice",
+      "step_key": "debt-extinction-notice",
+      "step_seq": 50,
+      "org_id": null,
+      "title": "이 유형에는 채권소멸공고가 없습니다",
+      "legal_basis": "통신사기피해환급법 제5조·제9조의 채권소멸절차는 같은 법 제4조에 따라 지급정지된 사기이용계좌를 전제로 합니다. 소액결제는 계좌에서 송금·이체된 것이 아니라 통신요금에 붙은 청구라 지급정지 대상 계좌가 없고, 따라서 공고 절차가 개시되지 않습니다.",
+      "source_url": "https://www.law.go.kr/법령/전기통신금융사기피해방지및피해금환급에관한특별법/제5조",
+      "effective_from": "2023-11-17",
+      "effective_until": null,
+      "verified_at": "2026-08-26",
+      "body": {
+        "actor": "carrier",
+        "action": "read",
+        "requires_slots": [],
+        "after": ["relief-documents"],
+        "conditional": null,
+        "summary": "다른 유형에서 보이는 「금융감독원 공고 2개월」은 이 유형에 오지 않습니다. 기다릴 공고가 없고, 대신 통신사의 심사 결과를 기다립니다.",
+        "steps": [
+          {
+            "text": "다른 안내에서 「2개월 공고를 기다리라」는 말을 보셨더라도 그것은 계좌이체 사건의 절차입니다.",
+            "action": "read",
+            "channel": [],
+            "contact_ref": null,
+            "url": null
+          }
+        ],
+        "deadline": null,
+        "required_artifact": null,
+        "caveat": "소액결제와 함께 계좌이체 피해도 있었다면 그쪽은 환급법 절차를 그대로 탑니다. 두 피해를 함께 겪으셨다면 말씀해 주세요."
+      }
+    }
+  ]
+}

@@ -406,6 +406,9 @@ describe('⚠️ 유형 파일도 함께 실린다', () => {
       read('ch-facetoface.json'),
       read('ch-crypto.json'),
       read('ch-card.json'),
+      read('ch-easypay.json'),
+      read('ch-carrier.json'),
+      read('ch-giftcard.json'),
     ] as KbFile[],
     OPTS,
   )
@@ -453,6 +456,56 @@ describe('⚠️ 유형 파일도 함께 실린다', () => {
       // 공통을 덮으려고 있는 것이지 사용자가 할 일이 아닙니다
       const notice = mine.find((r) => r.step_key === 'debt-extinction-notice')
       expect(notice?.body.actor).toBe('issuer')
+    })
+  })
+
+  /**
+   * **상품권과 소액결제도 환급법 밖입니다** → 18-남은유형-근거보강.md §2 §3.
+   *
+   * 카드와 같은 이유로 공통 넷을 덮습니다. 덮지 않으면 지급정지·피해구제 신청·
+   * **3영업일 서류**·채권소멸공고가 그대로 나가는데, 이 두 경로에는 정지할
+   * 계좌가 없습니다.
+   */
+  describe('상품권·소액결제도 환급법 네 단계를 덮는다', () => {
+    const FOUR = ['freeze-request', 'relief-apply', 'relief-documents', 'debt-extinction-notice']
+
+    it.each(['CH-giftcard', 'CH-carrier'])('%s 가 그 네 자리를 덮는다', (channel) => {
+      const mine = plan.rows.filter((r) => r.channel_id === channel)
+      expect(mine.map((r) => r.step_key)).toEqual(FOUR)
+    })
+
+    it.each(['CH-giftcard', 'CH-carrier'])('%s 는 기한을 하나도 싣지 않는다', (channel) => {
+      // 3영업일도 2개월도 이 경로엔 없습니다. 소액결제의 2주는 **사업자가**
+      // 지킬 기한이고 기산점(정정요구일)을 담을 슬롯이 없어 못 셉니다
+      const mine = plan.rows.filter((r) => r.channel_id === channel)
+      expect(mine.map((r) => r.body.deadline)).toEqual([null, null, null, null])
+    })
+
+    it('**「환급 대상이 아닙니다」라고 단정하지 않는다** — 그 문헌을 못 찾았습니다', () => {
+      // 조문 해석이지 정부의 판단이 아닙니다 → 18 §3.2.
+      // 단정해 포기하게 만드는 것도, 환급된다고 부풀리는 것도 하지 않습니다
+      const said = plan.rows
+        .filter((r) => r.channel_id === 'CH-giftcard' || r.channel_id === 'CH-carrier')
+        .flatMap((r) => [r.title, r.body.summary, r.body.caveat])
+        .filter((one): one is string => typeof one === 'string')
+
+      for (const line of said) {
+        expect(line).not.toMatch(/환급\s*대상이\s*아[닙니]/)
+        expect(line).not.toMatch(/받으실\s*수\s*있습니다/)
+      }
+    })
+
+    it('소액결제의 2주는 **사업자의 기한**이라고 말한다', () => {
+      const wait = plan.rows.find(
+        (r) => r.channel_id === 'CH-carrier' && r.step_key === 'relief-documents',
+      )
+      expect(wait?.legal_basis).toContain('2주 이내')
+      expect(wait?.body.caveat).toContain('사용자가 지켜야 하는 기한이 아니라')
+    })
+
+    it('간편송금은 **덮지 않습니다** — 환급법 안이라 공통이 그대로 맞습니다', () => {
+      const mine = plan.rows.filter((r) => r.channel_id === 'CH-easypay')
+      expect(mine.map((r) => r.step_key)).toEqual(['freeze-request'])
     })
   })
 
