@@ -106,12 +106,18 @@ jobs:
       # 기다렸습니다. `.git` 이 없는 사본(`git archive HEAD:src`)을 올리면 배포 주체는
       # 토큰 주인(소유자)이고 커밋 작성자는 검사 대상이 아닙니다. 올린 커밋은 `--meta commit=`
       # 과 아래 요약에 남습니다. 제대로 된 답은 Pro 플랜 또는 공개 저장소 — deploy/README.md.
+      #
+      # 사본은 `src` 의 **내용물**입니다 — CLI 가 프로젝트의 Root Directory(`src`)에 맞춰
+      # 현재 디렉터리에 `src/` 접두를 붙여 올립니다(체크아웃에서 `src` 안에서 부를 때와 같은
+      # 모양). `src/` 를 한 겹 더 두면 `src/src/` 가 되어 빌드가 앱을 못 찾습니다.
+      # `git archive` 는 현재 디렉터리를 경로 접두로 쓰므로 저장소 루트에서(`-C`) 부릅니다 —
+      # 여기서 그냥 부르면 `src` 안의 `src/` 를 찾아 빈 아카이브가 나옵니다.
       - name: Vercel Production 에 올리기
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           stage=$(mktemp -d)
-          git archive "HEAD:src" | tar -x -C "$stage"
+          git -C "$GITHUB_WORKSPACE" archive "HEAD:src" | tar -x -C "$stage"
           cd "$stage"
           url=$(npx --yes vercel@59 deploy --prod --yes --token "$VERCEL_TOKEN" --meta commit="$DEPLOY_SHA")
           echo "올라간 주소: $url"
