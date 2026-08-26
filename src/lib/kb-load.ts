@@ -269,6 +269,23 @@ export function planLoad(
         where('ACTOR', `\`body.actor\` 가 없거나 여섯 밖입니다 — \`${String(actor)}\``)
       }
 
+      // ── 어떤 패널을 여나 ─────────────────────────────────────────
+      //
+      // **계약이 `body.action` 하나로 정했습니다** (§3.6 · ADR-024) —
+      // 화면이 `actor`·`channel`·`required_artifact` 로 추론하지 않습니다.
+      //
+      // `steps[].action` 과 다릅니다. 그쪽은 **줄마다의 행동**이고 이것은
+      // **그 단계에서 사용자가 하는 일 하나**입니다. 첫 줄로 대신할 수 없습니다 —
+      // 서류 제출은 `download` 로 시작해 `visit` 로 끝나고, 핵심은 제출입니다.
+      //
+      // **없으면 화면이 패널을 못 엽니다.** `panelFor` 가 `null` 을 내고
+      // 그 단계는 워크스페이스에 아무것도 안 그립니다 — 사용자가 부산물을
+      // 낼 자리가 사라지고, 완료 판정도 사슬도 멈춥니다
+      const lead = (body as { action?: unknown }).action
+      if (typeof lead !== 'string' || !ACTIONS.has(lead)) {
+        where('ACTION', `\`body.action\` 이 없거나 일곱 밖입니다 — \`${String(lead)}\``)
+      }
+
       // ── 슬롯 이름 ───────────────────────────────────────────────
       const requires = Array.isArray(body.requires_slots) ? (body.requires_slots as unknown[]) : []
       for (const slot of requires) {

@@ -33,6 +33,7 @@
       "verified_at": "2026-08-25",
       "body": {
         "actor": "victim",
+        "action": "call",
         "requires_slots": [],
         "after": [],
         "conditional": null,
@@ -41,7 +42,9 @@
           {
             "text": "112로 전화해 현금을 직접 건넸다는 사실을 그대로 말합니다. 365일 24시간 받습니다.",
             "action": "call",
-            "channel": ["phone"],
+            "channel": [
+              "phone"
+            ],
             "contact_ref": null,
             "url": null
           },
@@ -88,8 +91,11 @@
       "verified_at": "2026-08-25",
       "body": {
         "actor": "police",
+        "action": "wait",
         "requires_slots": [],
-        "after": ["report-112"],
+        "after": [
+          "report-112"
+        ],
         "conditional": null,
         "summary": "은행 콜센터에 전화해도 막을 계좌 번호가 없습니다. 이 단계는 수사기관이 합니다. 사용자가 할 일은 수사에 필요한 것을 대는 것입니다.",
         "steps": [

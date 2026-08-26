@@ -34,6 +34,7 @@
       "verified_at": "2026-08-25",
       "body": {
         "actor": "victim",
+        "action": "call",
         "requires_slots": [],
         "after": [],
         "conditional": null,
@@ -42,7 +43,9 @@
           {
             "text": "112로 신고합니다. 지금 이 유형에서 절차가 실제로 진행되는 길은 수사입니다.",
             "action": "call",
-            "channel": ["phone"],
+            "channel": [
+              "phone"
+            ],
             "contact_ref": null,
             "url": null
           },
@@ -56,7 +59,9 @@
           {
             "text": "이용한 거래소 고객센터에 피해 사실을 알리고 협조를 요청할 수 있습니다. 지금은 법이 강제하는 조치가 아니라 거래소의 협조에 달려 있습니다.",
             "action": "call",
-            "channel": ["phone"],
+            "channel": [
+              "phone"
+            ],
             "contact_ref": "org.contact.report_tel",
             "url": null
           }
@@ -90,6 +95,7 @@
       "verified_at": "2026-08-25",
       "body": {
         "actor": "victim",
+        "action": "call",
         "requires_slots": [],
         "after": [],
         "conditional": null,
@@ -98,7 +104,9 @@
           {
             "text": "112로 신고합니다.",
             "action": "call",
-            "channel": ["phone"],
+            "channel": [
+              "phone"
+            ],
             "contact_ref": null,
             "url": null
           },
@@ -112,7 +120,9 @@
           {
             "text": "이용한 거래소에 피해 사실을 알립니다. 구체적인 신청 창구와 서식은 시행령이 확정되면 이 안내에 붙습니다.",
             "action": "call",
-            "channel": ["phone"],
+            "channel": [
+              "phone"
+            ],
             "contact_ref": "org.contact.report_tel",
             "url": null
           }

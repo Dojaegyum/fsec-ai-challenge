@@ -29,6 +29,8 @@ export {
   PANEL_EYEBROW,
 } from "./panels";
 export type { PanelProps } from "./panels";
+export { Workspace } from "./workspace";
+export type { FullStep, Submission, WorkspaceProps } from "./workspace";
 export type {
   Exit,
   PanelId,
