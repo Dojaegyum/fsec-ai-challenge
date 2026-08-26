@@ -321,7 +321,7 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
   it('공고 단계는 슬롯을 요구하지 않는다 — 안내는 늘 나갑니다', () => {
     // 슬롯을 요구하면 그것이 확정되기 전에 **단계 자체가 안 뜹니다**(planner).
     // 공고는 사용자의 답과 무관하게 진행되므로 절차 안내는 늘 나가야 하고,
-    // 날짜(기한)만 슬롯이 채워질 때 붙습니다 → ADR-053
+    // 날짜(기한)만 슬롯이 채워질 때 붙습니다 → ADR-054
     const notice = plan.rows.find((r) => r.step_key === 'debt-extinction-notice')
     expect(notice?.body.requires_slots).toEqual([])
   })
