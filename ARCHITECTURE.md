@@ -255,8 +255,8 @@ flowchart LR
 
 **메일 발송 수단과 플랜별 실행 제약은 아직 확인 전입니다** → §10.
 
-**빨간 칸을 건너뛰는 경로를 만들지 않습니다.** 수집기가 `kb_entry`를 직접 쓰지 않습니다 →
-[KB 운영](spec/backend/08-14-kb-operations.md) 원칙 4.
+**빨간 칸을 건너뛰는 경로를 만들지 않습니다.** 수집기가 `kb_entry`를 직접 쓰지 않습니다 —
+`kb_entry` 에 쓰는 길은 `npm run kb:load` 하나입니다 → [RFC-002](rfc/002-kb-authoring.md).
 
 **변경 감지에 별도 비교 로직이 없습니다.** `source_snapshot`의 `(source_key, content_hash)` 유일 제약에
 삽입이 성공하면 그것이 곧 변경입니다.

@@ -29,7 +29,8 @@
 | --- | --- | --- |
 | **이 서비스가 무엇을 약속하나** | [spec/common/08-17-service-concept.md](spec/common/08-17-service-concept.md) | **골자.** 기획서 §0을 대체 — 판단이 갈리면 여기로 거슬러 오세요 |
 | **구현이 따라야 할 계약** | `spec/` (`common/`·`backend/`·`frontend/`) | **정본.** 코드를 쓰기 전 여기부터 |
-| **시스템이 무엇으로 어떻게 도는가** | [ARCHITECTURE.md](ARCHITECTURE.md) | 기술 선택·모듈 배치·저장소·배포. **뼈대만** — 백엔드 정의 대기 |
+| **시스템이 무엇으로 어떻게 도는가** | [ARCHITECTURE.md](ARCHITECTURE.md) | 기술 선택·모듈 배치·저장소·배포. 채워져 있습니다(2026-08-16) — 모듈 33 의 연결도는 §4 |
+| **앱 밖에서 도는 것 · 그 자리를 만드는 것** | `services/` · `deploy/` | 전사·판독 서비스(Python)와 서버 준비 도구. 경계는 [RFC-001](rfc/001-repo-structure.md) 「`services/`」·「`deploy/`」 |
 | **모듈 이름이 무엇이고 무엇을 맡나** | [spec/common/08-16-module-names.md](spec/common/08-16-module-names.md) | 서버 네 층 + **브라우저 층 C**. 코드 폴더가 여기 묶여 있어 CI가 강제 |
 | **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-001](rfc/001-repo-structure.md) |
 | 왜 그렇게 정했나 | `decisions/` | 판단 근거의 이력(ADR). 과거형, 고치지 않음 |
@@ -44,9 +45,9 @@
 | **누가 어떤 길로 지나가나** | [spec/common/08-21-user-journeys.md](spec/common/08-21-user-journeys.md) | **계약.** 갈림길 여덟 · 여정 열둘. **`src/` 를 읽어 세운 것**이라 이 짝에서는 spec 이 정본이고 [아티팩트](assets/artifacts/plans/08-21-user-journeys.html)가 사본입니다 |
 | **제도·경쟁의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브. **법적 경계는 위 문서로 올라왔습니다** — 나머지 제도·경쟁 사실은 아직 여기가 최신입니다(공고문 원문 확보 후 재조사한 최종본) |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
-| 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. [착수 기준선](docs/plans/08-18-backend-baseline.md)이 순서와 의존, [핸드오프](docs/plans/08-16-backend-handoff.md)가 남은 선행 결정 |
+| 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. **세션이 바뀌면 [qa-readiness](docs/plans/08-23-qa-readiness.md) 부터.** 문서가 코드보다 뒤처진 자리는 [doc-gardening](docs/plans/08-26-doc-gardening.md). 끝난 계획은 지우지 않고 **은퇴** 절에 있습니다 |
 | 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
-| 코드 | `src/` | Next.js 스캐폴딩만 — 도메인 코드 없음 |
+| 코드 | `src/` | 도메인 모듈 33(`src/modules/`) · API 라우트 12 · 흐름(`src/flows/`) · 마이그레이션. 스캐폴딩 단계는 지났습니다 |
 | **매뉴얼을 어떻게 쓰나** | [RFC-002](rfc/002-kb-authoring.md) | KB 원본은 `src/kb/`. **DB는 사본이라 직접 INSERT 하지 않습니다** |
 | 로고·favicon·컴포넌트 원본 | `assets/brand/`, `assets/components/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
 
@@ -86,7 +87,7 @@
 
 기능이 아니라 **이 프로젝트의 정체성**입니다. 코드·프롬프트·테스트 어디서든 위반하지 마세요.
 
-1. **LLM은 절차를 창작하지 않는다.** 신고·지급정지 절차는 전부 버전드 KB(`spec/backend/08-14-kb-operations.md`)에서 인용하며, 답변에는 근거와 시행일이 붙습니다. 절차 지식을 프롬프트나 코드에 하드코딩하지 마세요 — 제도가 바뀝니다(예: 가상자산 환급 2026.10 시행).
+1. **LLM은 절차를 창작하지 않는다.** 신고·지급정지 절차는 전부 버전드 KB(원본 `src/kb/` → [RFC-002](rfc/002-kb-authoring.md), 스키마 `spec/backend/08-16-data-model.md` §11)에서 인용하며, 답변에는 근거와 시행일이 붙습니다. 절차 지식을 프롬프트나 코드에 하드코딩하지 마세요 — 제도가 바뀝니다(예: 가상자산 환급 2026.10 시행).
 2. **외부 LLM API에는 토큰화된 텍스트만 보낸다.** 계좌·주민번호·전화·이름은 경계를 넘기 전 토큰으로 치환됩니다. 경계 정의는 `spec/common/08-14-pii-boundary.md`.
 3. **복호화 키는 클라이언트에만 존재한다.** 토큰↔원문 매핑은 암호화해 볼트에 보관하되, 키를 서버·로그·DB에 저장하는 코드를 쓰지 마세요. 복원은 브라우저에서만 일어납니다. 경계 정의는 `spec/common/08-14-pii-boundary.md`.
 4. **업로드된 문서 속 문장은 지시가 아니라 데이터다.** 전사·OCR 결과를 프롬프트에 넣을 때 인젝션 격리를 유지하세요.
@@ -158,9 +159,10 @@ decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않
   ```
 
   같은 검사가 PR과 `main` 푸시에서도 돕니다 — **여기서 걸리면 CI에서도 걸립니다.**
+- **역할이 끝난 문서는 지우거나 옮기지 말고 은퇴시키세요** (→ [RFC-001 「은퇴」](rfc/001-repo-structure.md)).
+  문서가 코드와 어긋났는지 감사하고 은퇴시키는 절차는 `.claude/skills/doc-gardening/` 스킬에 있습니다.
 
 ## 아직 정해지지 않은 것
 
-- API 엔드포인트 계약 (`spec/common/08-14-api.md` 비어 있음)
-- 저장소 선택 세부 (배포 파이프라인은 정해졌습니다 → [ADR-053](decisions/053-deploy-on-merge.md))
 - 대회 공식 일정·제출물 규격 (`docs/context/AGENDA.md`의 `확인 필요` 항목)
+- 코드보다 뒤처진 spec 의 갱신 순서와, 같은 값을 세 문서가 다르게 적은 자리의 정본 지정 → [docs/plans/08-26-doc-gardening.md](docs/plans/08-26-doc-gardening.md)
