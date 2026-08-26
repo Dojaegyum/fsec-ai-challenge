@@ -173,13 +173,19 @@ describe('누가 하는 단계인가 — **없으면 사건 생성이 500 으로
     expect(rulesOf([good({}, { actor: undefined })])).toContain('ACTOR')
   })
 
-  it('여섯 밖이면 거부', () => {
+  it('일곱 밖이면 거부', () => {
     expect(rulesOf([good({}, { actor: 'user' })])).toContain('ACTOR')
   })
 
   it('**기본값을 두지 않는다** — 기관이 할 일이 사용자 할 일로 뜨면 안 된다', () => {
     expect(rulesOf([good({}, { actor: 'bank' })])).toEqual([])
     expect(rulesOf([good({}, { actor: 'victim' })])).toEqual([])
+  })
+
+  it('**`agency` 를 받는다** — 채권소멸공고를 내는 것은 금융감독원이다 (0006)', () => {
+    // `deadline.owner` 에는 처음부터 있었는데 `actor` 에만 없어 `bank` 로
+    // 대신 적고 있었습니다. 거부하면 그 항목이 다시 `bank` 로 내려갑니다
+    expect(rulesOf([good({}, { actor: 'agency' })])).toEqual([])
   })
 })
 
@@ -342,6 +348,14 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
       // 주인이 기관이라 `kind: "info"` 가 됩니다 — **사용자가 지킬 기한이 아닙니다**
       owner: 'agency',
     })
+  })
+
+  it('**공고 단계의 주체는 `agency` 다** — 기한의 주인과 같아야 합니다 (0006)', () => {
+    // `bank` 로 적혀 있었습니다. 그러면 같은 절차를 두고 단계는 「은행이 함」,
+    // 기한은 「기관이 함」이라고 말하게 됩니다 — 화면이 둘을 나란히 그립니다
+    const notice = plan.rows.find((r) => r.step_key === 'debt-extinction-notice')
+    expect(notice?.body.actor).toBe('agency')
+    expect((notice?.body.deadline as Record<string, unknown>).owner).toBe('agency')
   })
 
   it('공고 단계는 슬롯을 요구하지 않는다 — 안내는 늘 나갑니다', () => {

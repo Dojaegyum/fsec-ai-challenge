@@ -20,11 +20,14 @@
 
 import 'server-only'
 
+import { seoulDayLabel } from '@/lib/clock'
 import type { Container } from '@/lib/container'
 import { newUlid } from '@/lib/ids'
 
 import type { Citation } from '@/modules/chat-publisher'
 import type { CaseContext } from '@/modules/chat-receiver'
+
+import { readApiDeadlines, type ApiDeadline } from './api-deadlines'
 
 /** 한 턴의 결과 — 라우트가 그대로 내보냅니다 */
 export interface TurnResult {
@@ -86,10 +89,7 @@ export async function chatTurn(
   return {
     body: body as unknown as Record<string, unknown>,
     referencedSteps: stepsCited(outcome),
-    // ⬜ **기한은 아직 안 나갑니다.** 프롬프트의 `case_state` 에 기한이 들어가지
-    // 않아 되짚을 `ref` 자체가 없습니다 — 단계와 슬롯만 들어갑니다.
-    // 기한을 넣으려면 무엇을 어떤 문장으로 넣을지부터 정해야 합니다 → §3.9
-    referencedDeadlines: [],
+    referencedDeadlines: deadlinesCited(outcome),
   }
 }
 
@@ -111,14 +111,52 @@ export function stepsCited(outcome: {
   reply: { citations: readonly { ref: string }[] }
   issued: readonly { ref: string; stepId?: string }[]
 }): readonly string[] {
-  const stepOf = new Map(
-    outcome.issued.filter((one) => one.stepId).map((one) => [one.ref, one.stepId!]),
-  )
+  return cited(outcome, (one) => one.stepId)
+}
+
+/**
+ * 모델이 인용한 것 중 **기한을 가리키는 것**만 → §3.9 `referenced_deadlines`.
+ *
+ * *"8월 20일까지 하셔야 합니다"* 라고 답하면서 `case-3`(피해구제 신청 기한)을
+ * 인용하면 그 기한 번호가 나갑니다. 화면이 그 카드를 짚을 수 있습니다.
+ *
+ * **단계와 나뉘는 이유는 셈이 다르기 때문입니다.** 한 단계에 본 기한과 추가
+ * 기간이 **각각 한 줄**로 서고(09-data-model.md §8.1), 단계 없이 선 기한도
+ * 있습니다 — 그래서 단계 번호로 기한을 찾을 수 없습니다.
+ */
+export function deadlinesCited(outcome: {
+  reply: { citations: readonly { ref: string }[] }
+  issued: readonly { ref: string; deadlineId?: string }[]
+}): readonly string[] {
+  return cited(outcome, (one) => one.deadlineId)
+}
+
+/**
+ * 인용된 `ref` 를 이번 턴의 발급 기록으로 되짚는다.
+ *
+ * **모델이 발급하지 않은 번호를 지어내면 조용히 버립니다** — 던지면 답 전체가
+ * 날아갑니다. 형식 검증은 `citation-checker` 의 일이고, 여기는 화면에 보낼
+ * 신호를 고르는 자리입니다.
+ *
+ * **같은 줄을 두 번 인용해도 한 번만** 냅니다.
+ */
+function cited<T extends { ref: string }>(
+  outcome: {
+    reply: { citations: readonly { ref: string }[] }
+    issued: readonly T[]
+  },
+  pick: (one: T) => string | undefined,
+): readonly string[] {
+  const idOf = new Map<string, string>()
+  for (const one of outcome.issued) {
+    const id = pick(one)
+    if (id) idOf.set(one.ref, id)
+  }
 
   const out: string[] = []
   for (const one of outcome.reply.citations) {
-    const stepId = stepOf.get(one.ref)
-    if (stepId && !out.includes(stepId)) out.push(stepId)
+    const id = idOf.get(one.ref)
+    if (id && !out.includes(id)) out.push(id)
   }
   return out
 }
@@ -152,14 +190,19 @@ async function gatherContext(
   caseId: string,
   container: Container,
 ): Promise<CaseContext> {
-  const [found, channel, slots, steps, history, transcript] = await Promise.all([
-    container.ports.casePlan.readCase(caseId),
-    container.ports.casePlan.readChannel(caseId),
-    container.slots.read(caseId),
-    container.ports.casePlan.readSteps(caseId),
-    container.messages.history(caseId),
-    container.messages.transcript(caseId),
-  ])
+  const [found, channel, slots, steps, history, transcript, deadlines] =
+    await Promise.all([
+      container.ports.casePlan.readCase(caseId),
+      container.ports.casePlan.readChannel(caseId),
+      container.slots.read(caseId),
+      container.ports.casePlan.readSteps(caseId),
+      container.messages.history(caseId),
+      container.messages.transcript(caseId),
+      // **화면과 같은 경로로 읽습니다** → §3.7 · §3.10 이 부르는 그것입니다.
+      // 따로 읽으면 지난 기한을 화면은 「지났습니다」로, 챗은 「아직 시간이
+      // 있습니다」로 말할 수 있습니다 — `sweepOverdue` 가 저 안에 있습니다
+      readApiDeadlines(caseId, container),
+    ])
 
   return {
     caseId,
@@ -181,7 +224,77 @@ async function gatherContext(
         value: one.state,
         stepId: one.planStepId,
       })),
+      ...deadlineState(deadlines),
     ],
     history,
   }
+}
+
+/** 기한 종류를 사람 말로 → §3.7 `kind`. **셋을 합치지 않습니다** (09 §8.1) */
+const KIND_LABEL: Readonly<Record<string, string>> = {
+  primary: '기한',
+  grace: '추가 기간',
+  // 사용자가 지킬 기한이 아닙니다 — 기관이 진행하는 절차의 길이입니다 (09 §8.3)
+  info: '기관 진행 기간',
+}
+
+/**
+ * 기한을 **사건 정보 줄로** 옮긴다 → 11-chat-context.md §3.3 §3.4.
+ *
+ * ## 여기 오기까지 모델은 기한을 몰랐습니다
+ *
+ * 계약이 *"`case-` 는 슬롯·단계·**기한**·부산물을 가리킨다"* 라고 정했는데
+ * (§3.4) 프롬프트에는 슬롯과 단계만 들어갔습니다. 그래서 *"언제까지죠"* 에
+ * 답할 근거가 없었고, `referenced_deadlines` 도 되짚을 번호가 없어 늘
+ * 빈 배열이었습니다.
+ *
+ * ## 날짜는 이미 세어져 있습니다
+ *
+ * **모델은 이 날짜를 문장에 넣기만 합니다** — 「3영업일 뒤」를 세지 않습니다
+ * (불변 규칙 7 · §3.3). 남은 날도 서버가 센 `days_left` 를 그대로 옮깁니다.
+ *
+ * ## 붙는 말은 전부 KB 가 쓴 것입니다
+ *
+ * 유예의 조건(`condition`)과 기관 절차의 설명(`note`)을 그대로 붙입니다.
+ * 없으면 안 붙입니다 — **지어내지 않습니다**(불변 규칙 1). 조건이 빠지면
+ * 모델이 추가 기간을 본 기한처럼 말합니다(09 §8.1).
+ *
+ * ⬜ **추정 기한을 그렇게 표시하지 못합니다.** 사용자가 기억으로 댄 날짜에서
+ * 나온 기한은 `rule_snapshot.estimated` 로 남는데, §3.7 응답에 그 칸이 없어
+ * 화면도 챗도 확정 기한과 구분하지 못합니다. 계약에 칸을 더해야 합니다.
+ */
+export function deadlineState(
+  rows: readonly ApiDeadline[],
+): readonly { label: string; value: string; deadlineId: string }[] {
+  const out: { label: string; value: string; deadlineId: string }[] = []
+
+  for (const one of rows) {
+    const day = seoulDayLabel(one.due_at)
+    // 날짜를 못 읽으면 **줄을 안 만듭니다** — 이름만 있는 기한을 넣으면
+    // 모델이 날짜 없이 「기한이 있습니다」라고 말합니다
+    if (!day) continue
+
+    out.push({
+      label: `${KIND_LABEL[one.kind] ?? '기한'}: ${one.title}`,
+      value: [dayText(one, day), one.condition, one.note].filter(Boolean).join(' · '),
+      deadlineId: one.deadline_id,
+    })
+  }
+
+  return out
+}
+
+/** 날짜 한 마디 — 지났는지·며칠 남았는지까지 */
+function dayText(one: ApiDeadline, day: string): string {
+  // 기관이 진행하는 기간에는 「까지」를 안 붙입니다 — 사용자가 그때까지
+  // 무엇을 해야 하는 것으로 읽힙니다 (09 §8.3)
+  if (one.kind === 'info') return `${day}에 끝납니다`
+
+  if (one.status === 'missed') return `${day}까지였고 이미 지났습니다`
+  if (one.status === 'met') return `${day}까지였고 지켰습니다`
+
+  // **서버가 센 값입니다** — 없으면 안 말합니다 (불변 규칙 7)
+  if (one.days_left === 0) return `${day}까지 (오늘이 마지막 날입니다)`
+  if (one.days_left !== undefined) return `${day}까지 (${one.days_left}일 남았습니다)`
+  return `${day}까지`
 }
