@@ -383,17 +383,18 @@ export function unconfiguredPorts(env: Env): Ports {
     llm: createLlmClient(env) ?? unconfigured('LlmClient', ['XAI_API_KEY']),
     // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
     mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
-    // ⬜ 접수번호 형식의 근거가 없습니다
     /**
-     * **부르면 터지는 대역을 두지 않습니다.**
+     * **아무 기관의 형식도 모른다고 답합니다 — 그리고 그건 이제 실패가 아닙니다.**
      *
-     * `completion-checker` 가 「형식을 모른다」를 **정상 결과로** 다룹니다 —
-     * `matches()` 가 `undefined` 를 내면 `format_unknown` 으로 실패하고,
-     * 사용자에게 다른 길(L2·L3)을 냅니다. 여기에 던지는 대역을 끼우면
-     * 그 설계가 무력화되고 접수번호 입력이 500 이 됩니다.
+     * ❌ 형식의 정본이 없습니다(U-18). 112·은행·금감원 어디에도 공개된 규격이 없고,
+     * 기다릴 근거도 없어 **L1 의 뜻을 바꿨습니다** → ADR-056.
+     * L1 은 「형식이 맞나」가 아니라 **「받아 적었나」**를 묻습니다.
      *
-     * ⬜ **형식의 정본이 없습니다** → 08-14-completion-hook.md TODO(근거 필요).
-     * 기관별 접수번호 규칙을 확보하면 여기만 바뀝니다.
+     * `matches()` 가 `undefined` 면 `completion-checker` 가 모양만 보고 통과시키고,
+     * `verify_detail.reason` 에 `format_unchecked` 를 남깁니다 — 형식 정본이
+     * 생기는 날 **다시 볼 것을 그 표시로 셉니다.**
+     *
+     * **부르면 터지는 대역을 두지 않습니다.** 여기서 던지면 접수번호 입력이 500 이 됩니다.
      */
     receiptFormat: { matches: () => undefined },
     ...{ env },

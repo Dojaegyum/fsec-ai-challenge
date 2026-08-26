@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ReceiptNumberFormat } from './types'
-import { createCompletionChecker } from './verify'
+import { createCompletionChecker, looksLikeReceiptNumber } from './verify'
 
 /** 형식을 아는 기관 — 2026-1234567 꼴만 받는다 */
 const knownFormat: ReceiptNumberFormat = {
@@ -36,8 +36,9 @@ describe('L1 — 접수번호를 직접 입력', () => {
 
   it('형식이 다르면 실패지만 길을 막지 않는다', () => {
     // L1 이 실패했다고 사용자를 막지 마세요. L2 → L3 경로가 항상 열려 있어야 합니다
+    // 모양은 맞는데(영숫자 12자) 그 기관 형식(4-7)과 다른 값입니다
     const verdict = checker.verify({
-      submission: { kind: 'receipt_no', value: '12345' },
+      submission: { kind: 'receipt_no', value: '2026-12345678' },
     })
 
     expect(verdict.verifyResult).toBe('failed')
@@ -50,25 +51,60 @@ describe('L1 — 접수번호를 직접 입력', () => {
     ])
   })
 
-  it('그 기관의 형식을 모르면 통과시키지 않는다', () => {
-    // 모르는 것과 틀린 것을 구분한다. 모른다고 통과시키면
-    // 아무 숫자나 넣어도 완료가 된다
+  // → ADR-056. 정본이 없는데 막아 세우면 **제대로 받아 적은 피해자가 실패 화면을
+  //   봅니다.** 그 사람은 할 일을 다 한 사람입니다
+  it('그 기관의 형식을 모르면 모양만 보고 통과시킨다', () => {
     const noFormat = createCompletionChecker({ receiptFormat: unknownFormat })
     const verdict = noFormat.verify({
-      submission: { kind: 'receipt_no', value: '무엇이든' },
+      submission: { kind: 'receipt_no', value: '2026-004821' },
     })
 
-    expect(verdict.verifyResult).toBe('failed')
-    expect(verdict.verifyDetail).toEqual({ reason: 'format_unknown' })
-    expect(verdict.nextOptions).toHaveLength(2)
+    expect(verdict.verifyResult).toBe('passed')
+    expect(verdict.stepState).toBe('done_verified')
+    // **통과에도 이유를 남긴다** — 형식 정본이 생기는 날 재검증할 것을 여기서 센다
+    expect(verdict.verifyDetail).toEqual({ reason: 'format_unchecked' })
   })
 
-  it('빈 값도 실패다', () => {
+  it('형식을 대조해 통과한 것에는 이유를 안 붙인다', () => {
+    // 「모양만 봤다」와 「형식을 봤다」가 구분돼야 셀 수 있다
     const verdict = checker.verify({
-      submission: { kind: 'receipt_no', value: '   ' },
+      submission: { kind: 'receipt_no', value: '2026-1234567' },
     })
-    expect(verdict.verifyResult).toBe('failed')
-    expect(verdict.stepState).toBe('in_progress')
+    expect(verdict.verifyDetail).toBeUndefined()
+  })
+
+  it('모양이 아니면 형식을 몰라도 실패다', () => {
+    // 모른다고 **아무 글자나** 통과시키지는 않는다
+    const noFormat = createCompletionChecker({ receiptFormat: unknownFormat })
+
+    for (const value of ['   ', 'ㅇㅇ', '9', '했음', '-----']) {
+      const verdict = noFormat.verify({ submission: { kind: 'receipt_no', value } })
+      expect(verdict.verifyResult, value).toBe('failed')
+      expect(verdict.verifyDetail, value).toEqual({ reason: 'not_identifier' })
+      expect(verdict.stepState, value).toBe('in_progress')
+      expect(verdict.nextOptions, value).toHaveLength(2)
+    }
+  })
+})
+
+describe('looksLikeReceiptNumber — 형식 규격이 아니라 오타 거르개', () => {
+  it('구분자를 뗀 영숫자 6자 이상에 숫자가 있으면 통과', () => {
+    for (const value of ['2026-004821', 'KB-20260826-0001', '2026 004 821', 'A12345']) {
+      expect(looksLikeReceiptNumber(value), value).toBe(true)
+    }
+  })
+
+  it('짧거나 · 숫자가 없거나 · 영숫자가 아니면 거른다', () => {
+    for (const value of ['', '   ', '9', '12345', 'ㅇㅇ', '접수했어요', 'ABCDEFG', '2026-08-26 접수']) {
+      expect(looksLikeReceiptNumber(value), value).toBe(false)
+    }
+  })
+
+  // 어느 기관의 형식도 주장하지 않는다 → CLAUDE.md 「모르는 수치를 지어내지 마세요」
+  it('자릿수나 접두어를 특정하지 않는다', () => {
+    expect(looksLikeReceiptNumber('000000')).toBe(true)
+    expect(looksLikeReceiptNumber('ZZZZ99')).toBe(true)
+    expect(looksLikeReceiptNumber('1'.repeat(60))).toBe(true)
   })
 })
 
