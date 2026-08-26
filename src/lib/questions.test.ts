@@ -38,6 +38,10 @@ const ASKED: readonly SlotKey[] = [
   'occurred_at',
   'elapsed_hint',
   'contact_method',
+  // 이미 밟은 절차의 날짜 둘. **자동 추출로는 못 채웁니다** —
+  // 이체내역에도 전사에도 「언제 지급정지를 요청했나」가 없습니다
+  'freeze_requested_at',
+  'relief_applied_at',
 ]
 
 /** 08-14-channel-matrix.md 「8유형」 표의 경유 서비스 칸 그대로 */
@@ -59,14 +63,26 @@ describe('문진 문구 표', () => {
     }
   })
 
-  it('증거·부산물에서 오는 슬롯은 묻지 않는다', () => {
-    // 물어서 채우는 값이 아니다 → 08-14-slot-tiering.md T2 「증거에서 자동 추출 우선」
+  it('증거에서 뽑아 오는 슬롯은 묻지 않는다', () => {
+    // 물어서 채우는 값이 아니다 → 08-14-slot-tiering.md T2 「증거에서 자동 추출 우선」.
+    // 이체내역·전사에 실제로 들어 있는 값들입니다
     expect(source.formFor('counterpart_account')).toBeUndefined()
     expect(source.formFor('impersonated_org')).toBeUndefined()
-    expect(source.formFor('freeze_requested_at')).toBeUndefined()
-    expect(source.formFor('relief_applied_at')).toBeUndefined()
     expect(source.formFor('report_filed_at')).toBeUndefined()
     expect(source.formFor('objection_submitted_at')).toBeUndefined()
+  })
+
+  it('**절차 날짜 둘은 묻습니다** — 물어야만 채울 수 있습니다', () => {
+    // 「언제 지급정지를 요청했나」는 이체내역 OCR 에도 전사에도 없습니다.
+    // 부산물에도 없습니다 — 거기 있는 것은 **올린 날**이고, 늦게 올리면
+    // 기한이 그만큼 늦게 잡힙니다(틀리는 방향이 나쁩니다 → ADR-054).
+    //
+    // 정본이 이 경우를 이미 말하고 있습니다 — *"자동 추출 실패는 정상
+    // 경로입니다. 예외로 처리하지 말고 질문 경로로 흘려보내세요"*.
+    //
+    // **이 둘이 비면 3영업일도 14일 유예도 서지 않습니다.**
+    expect(source.formFor('freeze_requested_at')).toBeDefined()
+    expect(source.formFor('relief_applied_at')).toBeDefined()
   })
 
   it('버튼 질문에는 선택지가 반드시 붙는다', () => {
@@ -176,6 +192,7 @@ describe('slot-checker 와 함께', () => {
   })
 
   it('문진 대상이 전부 차면 더 묻지 않고 그래도 보드는 열린다', () => {
+    // `ASKED` 에 절차 날짜 둘이 들어와 있습니다 — 그것까지 다 차야 질문이 끝납니다
     const result = checker.check({
       slots: ASKED.map((slotKey) => ({
         slotKey,

@@ -295,14 +295,35 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
     expect(plan.problems).toEqual([])
   })
 
-  it('네 항목이 전부 행이 된다', () => {
-    expect(plan.rows).toHaveLength(4)
+  it('다섯 항목이 전부 행이 된다', () => {
+    expect(plan.rows).toHaveLength(5)
     expect(plan.rows.map((r) => r.step_key)).toEqual([
       'report-112',
       'freeze-request',
       'relief-apply',
       'relief-documents',
+      'debt-extinction-notice',
     ])
+  })
+
+  it('**채권소멸공고 2개월이 실제로 실린다** — 민법 제160조로 셉니다', () => {
+    const notice = plan.rows.find((r) => r.step_key === 'debt-extinction-notice')
+    const deadline = notice?.body.deadline as Record<string, unknown>
+    expect(deadline).toMatchObject({
+      kind: 'months',
+      amount: 2,
+      from: 'notice_started_at',
+      // 주인이 기관이라 `kind: "info"` 가 됩니다 — **사용자가 지킬 기한이 아닙니다**
+      owner: 'agency',
+    })
+  })
+
+  it('공고 단계는 슬롯을 요구하지 않는다 — 안내는 늘 나갑니다', () => {
+    // 슬롯을 요구하면 그것이 확정되기 전에 **단계 자체가 안 뜹니다**(planner).
+    // 공고는 사용자의 답과 무관하게 진행되므로 절차 안내는 늘 나가야 하고,
+    // 날짜(기한)만 슬롯이 채워질 때 붙습니다 → ADR-054
+    const notice = plan.rows.find((r) => r.step_key === 'debt-extinction-notice')
+    expect(notice?.body.requires_slots).toEqual([])
   })
 
   it('**3영업일 기한이 실제로 실린다**', () => {

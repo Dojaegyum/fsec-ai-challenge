@@ -591,7 +591,9 @@ xAI 응답: permission-denied · "team doesn't have any credits or licenses yet"
 - [x] `src/vercel.json` — 리전 `icn1`. DB·저장소가 서울이라 함수만 다른 대륙이면 왕복이 붙습니다
 - [x] 챗 라우트 `maxDuration = 60` — 모델을 45초 기다리는데 기본 상한이 그보다 짧습니다
 - [x] `npm run migrate` — `psql` 없이 스키마를 옮깁니다. **이게 없어서 DB 통합시험을 못 돌리고 있었습니다**
-- [ ] **실제로 올리는 것은 아직입니다.** 제출물 다섯 중 하나가 배포 주소입니다
+- [x] **올라갔고, 이제 `main` 머지마다 올라갑니다** — `fin-ally-khaki.vercel.app` (2026-08-25).
+      워크플로는 `.github/workflows/deploy.yml`, 근거는 [ADR-053](../../decisions/053-deploy-on-merge.md).
+      `VERCEL_TOKEN` 시크릿은 사람이 넣어야 처음 돕니다 → [`deploy/README.md`](../../deploy/README.md) 「올리는 방법」
 
 ### ✅ KB 유형 파일 둘 — 분기 엔진을 증명하는 바로 그 둘
 

@@ -370,6 +370,11 @@ python -m unittest discover -s services/transcriber -t .
 **게이트 밖에 하나가 더 있습니다** — `npm run test:db`. CI 에서 안 돌아서 게이트가
 아니고, 그래서 더 잊기 쉽습니다. 스키마나 `lib/db.ts` 를 건드렸으면 돌리세요 (→ 아래).
 
+**막는 게 아니라 올리는 것도 하나 있습니다** — `deploy.yml`. `main` 에 `src/**` 가
+푸시되면 typecheck·test 를 다시 돌고 Vercel Production 에 올립니다. **머지가 곧 배포입니다.**
+순서와 시크릿은 [`deploy/README.md`](../deploy/README.md), 왜 이 모양인지는
+[ADR-053](../decisions/053-deploy-on-merge.md).
+
 ### 폴더 구조 (→ [ADR-008](../decisions/008-structure-gate-ci.md))
 
 **폴더가 생기거나 사라지거나 이름이 바뀌면, 같은 변경에 `rfc/` 수정이 없으면 CI가 막습니다**
@@ -540,3 +545,4 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-24 | DB 통합시험(`npm run test:db`) 신설 — **CI 밖에 두는 첫 검사입니다.** 이름 대조로는 정렬 순서·`ON CONFLICT`·`GREATEST` 를 못 봅니다 | 커밋 메시지 |
 | 2026-08-24 | `deploy/` 신설 — 서버를 만들고 올리는 도구의 자리. `services/` 는 거기서 도는 것, `deploy/` 는 그 자리를 만드는 것 | 커밋 메시지 |
 | 2026-08-24 | KB 적재기(`npm run kb:load`) 신설 — `src/kb/*.json` 을 `kb_entry` 로. 판정은 `lib/kb-load.ts` 에 두어 `npm test` 가 봅니다 | [RFC-002](002-kb-authoring.md) · [ADR-045](../decisions/045-kb-release-pin.md) |
+| 2026-08-25 | 배포 워크플로(`deploy`) 신설 — `main` 머지가 곧 배포. 손으로 올린 주소가 `main` 보다 뒤처져 있었습니다 | [ADR-053](../decisions/053-deploy-on-merge.md) |
