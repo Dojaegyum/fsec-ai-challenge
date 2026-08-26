@@ -131,7 +131,33 @@ npm run kb:load -- --version 2026.08.1
 Project Settings → Deployment Protection → Vercel Authentication 을 Disabled 로
 바꿔야 하고, **그건 주소를 완전히 공개하는 것이라 사람이 정합니다.**
 
-CLI 로 올렸습니다 — 대시보드를 안 거칩니다.
+## 올리는 방법 — `main` 머지가 곧 배포
+
+[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) 이 합니다 → [ADR-053](../decisions/053-deploy-on-merge.md).
+
+```
+main 에 src/** 가 푸시됨
+  → npm run typecheck · npm test      (code-check 와 같은 명령 — 브랜치 보호가 없어 여기서 다시 봅니다)
+  → npx vercel deploy --prod          (소스를 올리고 Vercel 이 빌드. 실패하면 이전 배포가 남습니다)
+```
+
+**PR 미리보기는 안 만듭니다** — 위 §1 의 `service_role` 경고가 그 이유입니다. 올라가는 것은 `main` 뿐입니다.
+
+같은 커밋을 다시 올려야 할 때(환경변수만 바꿨을 때 등)는 Actions 탭 → `deploy` → **Run workflow**.
+
+### 시크릿 셋 — Settings → Secrets and variables → Actions
+
+| 이름 | 값 | 상태 |
+| --- | --- | --- |
+| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens 에서 만든 것. Scope 는 `finai` 팀 | ✅ 2026-08-26 — 팀 범위 토큰이라 `/v2/user` 는 404, 프로젝트 조회(`/v9/projects/{id}?teamId=`)로 확인했습니다 |
+| `VERCEL_ORG_ID` | `src/.vercel/project.json` 의 `orgId` | ✅ 2026-08-25 |
+| `VERCEL_PROJECT_ID` | `src/.vercel/project.json` 의 `projectId` | ✅ 2026-08-25 |
+
+셋 중 하나라도 비면 워크플로가 **첫 단계에서 이름을 찍고** 멈춥니다 — 검사를 다 돌고 나서 터지지 않습니다.
+
+### 손으로 올리려면 — Actions 가 막혔을 때
+
+워크플로가 하는 일이 정확히 이 명령입니다. 대시보드를 안 거칩니다.
 
 ```
 cd src
@@ -140,6 +166,7 @@ npx vercel deploy --prod --yes
 ```
 
 `vercel link` 를 **`src` 안에서** 부르면 그 디렉터리가 루트가 됩니다.
+CI 에서는 `VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` 환경변수가 그 링크를 대신합니다.
 
 ## 4. 올린 뒤 — 한 바퀴 확인
 

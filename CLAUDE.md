@@ -162,5 +162,5 @@ decisions/  왜 그렇게 정했나        (과거형 · 이력 · 고치지 않
 ## 아직 정해지지 않은 것
 
 - API 엔드포인트 계약 (`spec/common/08-14-api.md` 비어 있음)
-- 저장소 선택, 배포 파이프라인 세부
+- 저장소 선택 세부 (배포 파이프라인은 정해졌습니다 → [ADR-053](decisions/053-deploy-on-merge.md))
 - 대회 공식 일정·제출물 규격 (`docs/context/AGENDA.md`의 `확인 필요` 항목)
