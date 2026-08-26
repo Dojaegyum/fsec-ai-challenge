@@ -29,6 +29,8 @@ export type SlotKey =
   | 'relief_applied_at'
   | 'report_filed_at'
   | 'objection_submitted_at'
+  /** 채권소멸공고가 시작된 날. **통지문에서 옵니다** — 추정하지 않습니다 → ADR-053 */
+  | 'notice_started_at'
 
 export type SlotTier = 'T1' | 'T2'
 

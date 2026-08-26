@@ -294,6 +294,7 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | **`relief_applied_at`** | T2 | **피해구제를 신청한 시각. 3영업일 기한의 기산점** | `datetime` |
 | `report_filed_at` | T2 | 신고 접수 시각 | `datetime` |
 | `objection_submitted_at` | T2 | 이의제기 제출 시각 (통장묶기) | `datetime` |
+| **`notice_started_at`** | T2 | **채권소멸공고가 시작된 날. 2개월 기한의 기산점** | `datetime` |
 
 **T0에는 슬롯이 없습니다.** 진입 자체로 충분합니다 → [02-slot-tiering.md](08-14-slot-tiering.md).
 

@@ -127,6 +127,7 @@
 | [049](049-vault-in-postgres.md) | 볼트를 같은 Postgres 안 별도 스키마에 둔다 | 채택 |
 | [050](050-history-and-vault-read.md) | 대화 이력과 볼트를 되받는 경로를 만든다 | 채택 |
 | [051](051-idempotent-ingest.md) | 읽기 접수는 멱등하고, 재시도는 막지 않는다 | 채택 |
+| [053](053-notice-anchor.md) | 채권소멸공고의 기산일은 통지문에서 온다 | 채택 |
 
 ## 아직 안 쓴 것
 
