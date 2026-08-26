@@ -53,9 +53,12 @@ const step = (i: number) => ({ animationDelay: `${520 + i * 120}ms` });
 export default function PlanView({
   steps,
   deadlines,
+  onPickStep,
 }: {
   steps: readonly PlanStep[];
   deadlines: readonly Deadline[];
+  /** 단계를 누르면 워크스페이스가 그리로 옮겨집니다. 없으면 안 눌립니다 */
+  onPickStep?: (stepId: string) => void;
 }) {
   // 본 기한·추가 기간·안내를 가릅니다. **합치지 않습니다** → 데이터 모델 §8.1
   const groups = groupDeadlines(deadlines);
@@ -188,6 +191,7 @@ export default function PlanView({
       <div style={step(2)} className="rise">
         <PlanBoard
           steps={steps}
+          onPickStep={onPickStep}
           hasDeadline={(id) => deadlines.some((d) => d.step_id === id)}
           deadlineFor={(id) => {
             const d = groups.primary.find((x) => x.step_id === id);

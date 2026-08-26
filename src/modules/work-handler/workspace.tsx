@@ -24,7 +24,7 @@
  * 씁니다. 절차 문구를 화면이 지어내지 않습니다(불변 규칙 1).
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { panelForStep } from "./panel";
 import {
@@ -58,8 +58,13 @@ export interface WorkspaceProps {
     unlocked_steps?: readonly { step_id: string; title: string }[];
     note?: string;
   } | null;
-  /** 파일을 고르는 자리로 보냅니다 — 증거함이 올리고 `evidence_id` 를 냅니다 */
-  onPickFile?(stepId: string): void;
+  /**
+   * 고른 파일을 올려 **부산물로 냅니다** — 두 걸음입니다.
+   *
+   * 증거로 올려 `evidence_id` 를 받고, 그것으로 §3.8 을 부릅니다.
+   * 넘기지 않으면 올리기 버튼을 안 그립니다.
+   */
+  onPickFile?(stepId: string, file: File): void;
 }
 
 /** `PlanStep` 에 본문까지 — 판정에 쓰는 것보다 넓습니다 */
@@ -159,9 +164,11 @@ function ArtifactSlot({
   onTyped(v: string): void;
   onSendNumber(): void;
   onSelfReport(): void;
-  onPickFile?: () => void;
+  onPickFile?: (file: File) => void;
   busy?: boolean;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="mt-3.5 border-t border-hairline pt-3.5">
       {label ? (
@@ -191,14 +198,30 @@ function ArtifactSlot({
       </div>
 
       {onPickFile ? (
-        <button
-          type="button"
-          className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-[11px] bg-ink-1 text-[14.5px] font-[660] text-ground transition-[transform,opacity] duration-200 hover:-translate-y-px hover:opacity-95 disabled:opacity-50"
-          onClick={onPickFile}
-          disabled={busy}
-        >
-          접수증·캡처 올리기
-        </button>
+        <>
+          {/* 받는 것은 §3.2 가 정한 셋입니다 — 소리 아니면 사진 */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,audio/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              // **같은 파일을 다시 고를 수 있어야** 합니다 — 값을 비우지 않으면
+              // 두 번째 선택에서 change 가 안 옵니다
+              e.target.value = "";
+              if (file) onPickFile(file);
+            }}
+          />
+          <button
+            type="button"
+            className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-[11px] bg-ink-1 text-[14.5px] font-[660] text-ground transition-[transform,opacity] duration-200 hover:-translate-y-px hover:opacity-95 disabled:opacity-50"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+          >
+            {busy ? "올리는 중…" : "접수증·캡처 올리기"}
+          </button>
+        </>
       ) : null}
 
       {/* **완료가 되지 않습니다** — 리마인더 추적 대상으로만 남습니다 (L3) */}
@@ -278,7 +301,7 @@ export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: Workspa
         onTyped={setTyped}
         onSendNumber={sendNumber}
         onSelfReport={sendSelfReport}
-        onPickFile={onPickFile ? () => onPickFile(step.step_id) : undefined}
+        onPickFile={onPickFile ? (file) => onPickFile(step.step_id, file) : undefined}
         busy={busy}
       />
 

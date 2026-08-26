@@ -148,20 +148,46 @@ function CaseScreen({
   const artifact = useArtifact(dataToken, onPlanChanged);
 
   /**
-   * 지금 손댈 단계 하나 — **아직 안 끝난 것 중 앞선 것**입니다.
+   * 사용자가 직접 연 단계. **누르지 않았으면 `null`** 이고, 그때는 아래
+   * 기본 규칙이 고릅니다 → `work-handler` 의 `openStep`.
+   */
+  const [picked, setPicked] = useState<string | null>(null);
+
+  /**
+   * 지금 손댈 단계 하나.
    *
-   * ⬜ 챗의 `referenced_steps` 로 옮기는 것(`applySignal`)과 보드에서 눌러
-   * 여는 것(`openStep`)은 아직 안 이어져 있습니다. 지금은 규칙 하나로만
-   * 고릅니다 — 그래도 **부산물을 낼 자리가 생깁니다.**
+   * | | |
+   * | --- | --- |
+   * | 보드에서 눌렀으면 | **그 단계** — 사용자의 뜻이 우선입니다 |
+   * | 안 눌렀으면 | 아직 안 끝난 것 중 **앞선 것** |
+   *
+   * ⬜ 챗의 `referenced_steps` 로 옮기는 것(`applySignal`)은 아직입니다 —
+   * **서버가 그 값을 빈 배열로만 냅니다**(§3.9 · `flows/chat-turn.ts`).
+   * 모델이 돌려준 `ref` 를 단계 번호로 되짚는 자리가 먼저 필요합니다.
    */
   const activeStep = useMemo(() => {
     const open = bundle.steps.filter((one) => isOpen(one as WorkStep));
     if (open.length === 0) return null;
+
     // §3.6 이 `title` 과 `body` 를 보장합니다 — 두 모듈의 타입이 각자
     // 필요한 만큼만 선언해 놓아서 여기서 한 번 넓힙니다
-    return open.reduce((best, one) =>
-      (one.seq < best.seq ? one : best)) as unknown as FullStep;
-  }, [bundle.steps]);
+    const chosen =
+      (picked && open.find((one) => one.step_id === picked)) ||
+      open.reduce((best, one) => (one.seq < best.seq ? one : best));
+    return chosen as unknown as FullStep;
+  }, [bundle.steps, picked]);
+
+  /**
+   * 파일을 부산물로 냅니다 — **두 걸음입니다.**
+   *
+   * 증거로 올려 `evidence_id` 를 받고(§3.2), 그것으로 §3.8 을 부릅니다.
+   * 못 올렸으면 두 번째 걸음을 안 밟습니다 — 자료 레일에 실패가 남습니다.
+   */
+  const submitFile = async (stepId: string, file: File) => {
+    const evidenceId = await uploads.add(file);
+    if (!evidenceId) return;
+    await artifact.submit(stepId, { kind: "receipt_doc", evidenceId });
+  };
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
   const [side, setSide] = useState<Side>(
@@ -375,7 +401,16 @@ function CaseScreen({
             />
           )}
           {focus === "plan" && (
-            <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
+            <PlanView
+              steps={bundle.steps}
+              deadlines={bundle.deadlines}
+              onPickStep={(id) => {
+                setPicked(id);
+                // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
+                // 아무 일도 안 일어난 것처럼 보입니다
+                setSide("work");
+              }}
+            />
           )}
           {focus === "evidence" && <EvidenceView token={dataToken} uploads={uploads} />}
           {focus === "doc" && <DocGuide caseToken={token} />}
@@ -398,8 +433,9 @@ function CaseScreen({
               <Workspace
                 step={activeStep}
                 onSubmit={(stepId, one) => void artifact.submit(stepId, one)}
-                busy={artifact.sendingStepId !== null}
+                busy={artifact.sendingStepId !== null || uploads.busy}
                 verdict={artifact.verdict}
+                onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
               />
               {chatIsMain ? (
                 <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
@@ -537,7 +573,16 @@ function CaseScreen({
                 />
               )}
               {ghost.from === "plan" && (
-                <PlanView steps={bundle.steps} deadlines={bundle.deadlines} />
+                <PlanView
+              steps={bundle.steps}
+              deadlines={bundle.deadlines}
+              onPickStep={(id) => {
+                setPicked(id);
+                // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
+                // 아무 일도 안 일어난 것처럼 보입니다
+                setSide("work");
+              }}
+            />
               )}
               {ghost.from === "evidence" && <EvidenceView token={dataToken} uploads={uploads} />}
               {ghost.from === "doc" && <DocGuide caseToken={token} />}

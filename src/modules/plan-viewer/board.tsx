@@ -38,6 +38,8 @@ export interface StepRowProps {
   deadlineLabel?: string | null;
   /** 부산물 한 줄 — 「◆ 통화 접수번호」. §3.6 `artifacts`·`required_artifact` 에서 */
   artifactLabel?: string | null;
+  /** 누르면 워크스페이스가 이 단계로 옮겨집니다. 없으면 안 눌립니다 */
+  onPick?: () => void;
 }
 
 export function StepRow({
@@ -47,13 +49,36 @@ export function StepRow({
   number,
   deadlineLabel,
   artifactLabel,
+  onPick,
 }: StepRowProps) {
   const mark = MARK[tone];
   return (
     <li
       className={`flex items-center gap-3 border-b border-hairline px-1.5 py-3 last:border-b-0 ${
         tone === "now" ? "rounded-[8px] bg-[oklch(0.77_0.117_70.9/8%)]" : ""
-      } ${tone === "na" ? "opacity-50" : ""}`}
+      } ${tone === "na" ? "opacity-50" : ""} ${
+        onPick
+          ? "cursor-pointer transition-colors duration-200 hover:bg-[oklch(1_0_0/3%)] " +
+            "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-pii"
+          : ""
+      }`}
+      /* **줄 전체가 눌립니다** — 시안이 버튼을 따로 두지 않았고, 손가락으로
+         누르는 자리는 넓을수록 좋습니다.
+         **키보드로도 같은 자리가 열려야 합니다** — 이 서비스는 마우스를 못 쓰는
+         사람도 씁니다. 그래서 `role`·`tabIndex`·Enter·Space 를 함께 답니다 */
+      {...(onPick
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            onClick: onPick,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              // Space 는 기본이 스크롤입니다 — 누르는 자리에서는 막습니다
+              e.preventDefault();
+              onPick();
+            },
+          }
+        : {})}
     >
       {/* 순번이 있으면 숫자, 없으면 상태 기호. **한 칸만 씁니다** —
           두 칸으로 나누면 어느 쪽이 순서인지가 더 헷갈립니다 (시안 설계 노트)
@@ -105,6 +130,14 @@ export function StepRow({
 
 export interface PlanBoardProps {
   steps: readonly PlanStep[];
+  /**
+   * 단계를 눌렀을 때 — **워크스페이스를 그 단계로 옮깁니다.**
+   *
+   * 넘기지 않으면 줄이 눌리지 않습니다(버튼이 아니라 그냥 목록입니다).
+   * **무엇을 열지는 이 모듈이 정하지 않습니다** — `work-handler` 의
+   * `openStep` 이 정합니다 → ADR-023.
+   */
+  onPickStep?: (stepId: string) => void;
   /** 그 단계의 기한 문자열. 없으면 `null`. **서버가 준 값만** */
   deadlineFor?: (stepId: string) => string | null;
   /** 그 단계에 기한이 있는가 — `toneOf` 가 「언제든」을 가릅니다 */
@@ -134,6 +167,7 @@ export function PlanBoard({
   hasDeadline,
   artifactFor,
   afterStep,
+  onPickStep,
 }: PlanBoardProps) {
   const numbers = numberSteps(steps);
   const numbered = [...numbers.values()].some((n) => n !== null);
@@ -165,6 +199,7 @@ export function PlanBoard({
                 number={numbers.get(s.step_id) ?? null}
                 deadlineLabel={deadlineFor?.(s.step_id) ?? null}
                 artifactLabel={artifactFor?.(s.step_id) ?? null}
+                onPick={onPickStep ? () => onPickStep(s.step_id) : undefined}
               />
               {after && <li>{after}</li>}
             </Fragment>
