@@ -15,9 +15,10 @@
 | 파일 | 무엇 |
 | --- | --- |
 | `dict_probe.py` | 커버리지·회수·오탐을 한 번에 잽니다. **GPU 불필요** |
-| `results-dict.json` | 그 출력 — 지금 사전(44곳)만 |
+| `results-dict.json` | 그 출력 — 지금 사전(51곳)만 |
 | `results-dict-draft.json` | `--with-draft` 출력 — 초안까지 합친 57곳 |
-| `org-draft.json` | **사전 초안 13곳** — 04 §3~§7 에서 옮긴 이름·별칭·유형. `source_url` 이 비어 있어 **아직 `src/kb/org.json` 이 아닙니다** |
+| `org-draft.json` | **사전 초안 6곳** — 04 §3~§7 에서 옮긴 이름·별칭·유형. `source_url` 이 비어 있어 **아직 `src/kb/org.json` 이 아닙니다** |
+| `dart_lookup.py` | **DART 전자공시로 법인의 실재·홈페이지·업종을 확인합니다.** 비상장이 여기서 풀립니다. `DART_API_KEY` 필요(무료 · 앱은 안 씁니다) |
 | `verify_source.py` | **등록부 원문에 이 이름들이 있는지 문자열로 대조합니다.** 초안을 사전으로 올리기 전에 통과해야 하는 관문. 큰 목록에는 `--table` (표의 회사명 칸과 **정확히 일치**) |
 
 ## 초안 → 사전, 한 바퀴 돈 첫 사례

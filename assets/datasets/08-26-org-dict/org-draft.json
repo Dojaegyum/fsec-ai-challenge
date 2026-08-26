@@ -38,21 +38,21 @@
     "    3. 태그를 벗기고, 초안의 이름·별칭이 그대로 있는지 대조한다",
     "    4. 전부 찾히면 그 URL 을 source_url 로 쓴다. 하나라도 없으면 넣지 않는다",
     "",
-    "## 남은 열셋이 막힌 지점 (2026-08-26)",
+    "## 남은 여섯이 막힌 지점 (2026-08-26)",
     "",
-    "업권 등록부가 **하나도 안 열립니다** — 금융투자협회 회원사 목록 본문 83자,",
-    "KTOA 회원사 38자, FIU 신고현황 2KB 껍데기. 전부 자바스크립트로 그립니다.",
-    "그래서 한국거래소 상장법인 목록과 각 사 공식 페이지로 갔고, 거기서도 안 되는",
-    "것이 이 열셋입니다.",
+    "업권 등록부 → 한국거래소 상장법인 목록 → DART 전자공시(11만 곳) 순으로 갔고,",
+    "거기서도 안 되는 것이 이 여섯입니다. **「자동으로 못 찾는다」가 아니라",
+    "「연결 근거가 없다」입니다.**",
     "",
-    "    KB증권 · 신한투자증권 · 하나증권    지주 자회사라 상장법인 목록에 없음",
-    "    업비트 · 빗썸 · 코빗 · 고팍스        비상장 + 사이트 본문이 18~63자(제목뿐)",
-    "    해피머니 · 북앤라이프 · 신세계상품권   같음",
-    "    구글 · 애플 기프트카드               한국 법인명과 상품명이 어긋나 「구글」 같은",
-    "                                      헐거운 표기로만 걸림 — 근거가 못 됩니다",
-    "    KG모빌리언스                       상장법인 목록에서 못 찾음",
+    "    고팍스        DART 법인 「스트리미」의 홈페이지가 streami.co 이고",
+    "                  gopax.co.kr 이 아닙니다 — 이름도 도메인도 안 이어집니다",
+    "    북앤라이프     DART 에 없음(「페이즈북앤라이프」는 업종이 금융업인 다른 회사)",
+    "    신세계상품권    그 이름의 법인이 없음",
+    "    구글·애플     법인(구글코리아·애플코리아)과 상품(기프트카드)이 다름",
+    "    KG모빌리언스   DART 에도 상장법인 목록에도 없음",
     "",
-    "**제목만 걸린 곳은 올리지 않았습니다.** 자바스크립트 사이트라 본문이 6~63자뿐이고,",
+    "**남은 길은 사람이 그 회사의 법인명을 확인해 별칭으로 넣는 것**입니다 —",
+    "그러면 dart_lookup.py 가 바로 이어 줍니다.",
     "그건 근거라 하기에 얇습니다. **남은 길은 사람이 화면에서 확인하는 것**입니다.",
     "",
     "## contact 는 비워 둡니다",
@@ -68,91 +68,11 @@
   ],
   "orgs": [
     {
-      "org_id": "kb-sec",
-      "channel_id": "CH-securities",
-      "name": "KB증권",
-      "aliases": [
-        "케이비증권"
-      ],
-      "contact": {},
-      "source_url": "TODO(근거 필요)",
-      "verified_at": "TODO(근거 필요)"
-    },
-    {
-      "org_id": "shinhan-inv-sec",
-      "channel_id": "CH-securities",
-      "name": "신한투자증권",
-      "aliases": [
-        "신한금융투자",
-        "신한투자"
-      ],
-      "contact": {},
-      "source_url": "TODO(근거 필요)",
-      "verified_at": "TODO(근거 필요)"
-    },
-    {
-      "org_id": "hana-sec",
-      "channel_id": "CH-securities",
-      "name": "하나증권",
-      "aliases": [
-        "하나금융투자"
-      ],
-      "contact": {},
-      "source_url": "TODO(근거 필요)",
-      "verified_at": "TODO(근거 필요)"
-    },
-    {
-      "org_id": "upbit",
-      "channel_id": "CH-crypto",
-      "name": "업비트",
-      "aliases": [
-        "UPbit",
-        "Upbit",
-        "두나무"
-      ],
-      "contact": {},
-      "source_url": "TODO(근거 필요)",
-      "verified_at": "TODO(근거 필요)"
-    },
-    {
-      "org_id": "bithumb",
-      "channel_id": "CH-crypto",
-      "name": "빗썸",
-      "aliases": [
-        "Bithumb"
-      ],
-      "contact": {},
-      "source_url": "TODO(근거 필요)",
-      "verified_at": "TODO(근거 필요)"
-    },
-    {
-      "org_id": "korbit",
-      "channel_id": "CH-crypto",
-      "name": "코빗",
-      "aliases": [
-        "Korbit"
-      ],
-      "contact": {},
-      "source_url": "TODO(근거 필요)",
-      "verified_at": "TODO(근거 필요)"
-    },
-    {
       "org_id": "gopax",
       "channel_id": "CH-crypto",
       "name": "고팍스",
       "aliases": [
         "GOPAX"
-      ],
-      "contact": {},
-      "source_url": "TODO(근거 필요)",
-      "verified_at": "TODO(근거 필요)"
-    },
-    {
-      "org_id": "happymoney",
-      "channel_id": "CH-giftcard",
-      "name": "해피머니",
-      "aliases": [
-        "해피머니상품권"
       ],
       "contact": {},
       "source_url": "TODO(근거 필요)",

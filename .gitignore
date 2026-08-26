@@ -33,3 +33,6 @@ __pycache__/
 
 # 브레인스토밍 비주얼 컴패니언 세션 파일 — 저장소에 올리지 않습니다
 .superpowers/
+
+# DART 전체 법인 목록 캐시 (11MB · 매일 바뀜) — dart_lookup.py 가 받아 둡니다
+assets/datasets/08-26-org-dict/.dart-corp.zip
