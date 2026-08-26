@@ -114,7 +114,9 @@ export const FIXTURE_DEADLINES: { deadlines: Deadline[] } = {
       kind: "info",
       // §3.7 예시는 10월 20일인데 시안 「wait-card」가 10월 30일을 그립니다.
       // 한 화면에 두 날짜가 나오지 않게 시안 쪽으로 맞췄습니다 — 둘 다 예시 값입니다
+      starts_at: "2026-08-30T00:00:00+09:00",
       due_at: "2026-10-30T23:59:59+09:00",
+      elapsed: 0.45,
       status: "open",
       note: "금융감독원이 진행합니다. 사용자가 할 일은 없습니다",
     },
@@ -128,13 +130,6 @@ export const FIXTURE_DEADLINES: { deadlines: Deadline[] } = {
  * 화면이 대신 만들 수 없습니다 — 만들려면 기기 시계를 읽어야 하고 그건
  * 「화면이 날짜를 세지 않는다」 위반입니다 (불변 규칙 7).
  */
-export const FIXTURE_NOTICE = {
-  /** §3.7 `starts_at` — 공고가 시작된 시점 */
-  startAt: "2026-08-30T00:00:00+09:00",
-  /** §3.7 `elapsed` — 시작~만료 사이에서 지금이 어디인가. 0~1 */
-  progress: 0.45,
-};
-
 /**
  * §3.3 `GET /api/cases/{case_token}/evidence/{evidence_id}` 완료 응답.
  *

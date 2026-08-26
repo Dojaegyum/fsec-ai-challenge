@@ -16,6 +16,7 @@
  * 같은 것을 두 번 구현합니다 → §3.10 「구조를 다시 정의하지 않습니다」.
  */
 
+import { readApiDeadlines } from '@/flows/api-deadlines'
 import { toApiChannel, toApiStep } from '@/flows/api-plan'
 import { readCasePlan } from '@/flows/regenerate-plan'
 import { CaseNotFoundError } from '@/lib/http'
@@ -35,7 +36,9 @@ export async function GET(
       container.caseRead.read(caseId),
       readCasePlan(caseId, { container, store: container.ports.casePlan }),
       container.slots.read(caseId),
-      container.deadlines.read(caseId),
+      // **§3.7 과 같은 자리를 지납니다** — 지난 기한 정리와 `days_left`·
+      // `starts_at`·`elapsed` 가 여기서만 빠져 있었습니다 → flows/api-deadlines.ts
+      readApiDeadlines(caseId, container),
     ])
 
     // 링크 토큰으로는 찾았는데 사건 행이 없으면 파기된 것입니다
@@ -83,19 +86,7 @@ export async function GET(
         },
 
         // §3.7 그대로
-        deadlines: {
-          deadlines: deadlines.map((one) => ({
-            deadline_id: one.deadlineId,
-            step_id: one.stepId,
-            title: one.title,
-            kind: one.kind,
-            due_at: one.dueAt,
-            status: one.status,
-            ...(one.computedFrom === null ? {} : { computed_from: one.computedFrom }),
-            ...(one.onMiss === null ? {} : { on_miss: one.onMiss }),
-            ...(one.note === null ? {} : { note: one.note }),
-          })),
-        },
+        deadlines: { deadlines },
       },
     }
   })

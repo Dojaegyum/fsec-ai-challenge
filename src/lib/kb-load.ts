@@ -53,7 +53,12 @@ const CHANNELS: ReadonlySet<string> = new Set(['app', 'phone', 'visit', 'web'])
 const DEADLINE_OWNERS: ReadonlySet<string> = new Set(['user', 'bank', 'agency'])
 
 /** `date-checker` 가 아는 두 단위 → 08-16-deadline-rules.md */
-const DEADLINE_PERIODS: ReadonlySet<string> = new Set(['business_days', 'calendar_days'])
+const DEADLINE_PERIODS: ReadonlySet<string> = new Set([
+  'business_days',
+  'calendar_days',
+  // 채권소멸공고 2개월 — 민법 제160조 「역에 의한 계산」 → date-checker/compute.ts
+  'months',
+])
 
 /**
  * 이 단계를 **누가 하나** — `plan_step.actor` 의 `CHECK` 와 같은 여섯.

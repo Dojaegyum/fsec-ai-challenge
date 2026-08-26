@@ -87,9 +87,15 @@ describe('기한 규칙 — §11.4.2', () => {
     expect(withDeadline({ owner: 'victim' })).toContain('DEADLINE')
   })
 
-  it('단위가 둘 밖이면 거부한다', () => {
-    // ⬜ `months`(채권소멸공고 2개월)는 계산기에 아직 없습니다
-    expect(withDeadline({ kind: 'months' })).toContain('DEADLINE')
+  it('단위가 셋 밖이면 거부한다', () => {
+    // 세는 방법이 각각 다릅니다 — 영업일·달력일·달(민법 제160조).
+    // 여기 없는 단위가 통과하면 `date-checker` 가 달력일로 세어 **조용히 틀립니다**
+    expect(withDeadline({ kind: 'weeks' })).toContain('DEADLINE')
+    expect(withDeadline({ kind: 'years' })).toContain('DEADLINE')
+  })
+
+  it('채권소멸공고의 `months` 는 받는다 — 민법 제160조', () => {
+    expect(withDeadline({ kind: 'months' })).toEqual([])
   })
 
   it('일수가 1 이상의 정수가 아니면 거부한다', () => {

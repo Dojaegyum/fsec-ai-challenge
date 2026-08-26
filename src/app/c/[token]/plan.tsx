@@ -31,8 +31,6 @@ import type { Deadline } from "@/modules/deadline-viewer";
 import { PlanBoard } from "@/modules/plan-viewer";
 import type { PlanStep } from "@/modules/plan-viewer";
 
-import { FIXTURE_NOTICE } from "./fixtures";
-
 /**
  * 사건 진행 레일 — 지금 어디쯤인지. 색만으로 가르지 않고 라벨을 함께 둡니다.
  *
@@ -205,14 +203,18 @@ export default function PlanView({
           /* 공고 대기 카드는 **단계 행 사이**에 같은 폭으로 들어갑니다 — 시안 「wait-card」.
              1b 의 풀폭 진행 스트립은 카운트다운으로 읽혀 폐기됐습니다 */
           afterStep={(id) =>
-            notice && now && id === now.step_id ? (
+            /* **서버가 두 값을 다 보낼 때만 그립니다.** 화면이 대신 만들 수
+               없습니다 — 만들려면 기기 시계를 읽어야 하고, 날짜가 틀린
+               사용자에게 「공고가 끝났다」를 잘못 보여줍니다. 기준 시계는
+               서버입니다 → spec/common/08-16-deadline-rules.md */
+            notice?.starts_at !== undefined &&
+            notice.elapsed !== undefined &&
+            now &&
+            id === now.step_id ? (
               <WaitCard
                 deadline={notice}
-                /* ⬜ **`starts_at`·`elapsed` 는 아직 서버가 안 보냅니다** (§3.7 에 2026-08-23
-                   확정, 미구현 — QA 계획 Task 4). 화면이 대신 만들 수 없습니다:
-                   만들려면 기기 시계를 읽어야 하고 그건 불변 규칙 7 위반입니다 */
-                startAt={FIXTURE_NOTICE.startAt}
-                progress={FIXTURE_NOTICE.progress}
+                startAt={notice.starts_at}
+                progress={notice.elapsed}
                 onUpload={() => {}}
               />
             ) : null
