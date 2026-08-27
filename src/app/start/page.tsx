@@ -43,6 +43,10 @@ import { openCase, trackOf } from "./open";
  *    없습니다. 화면은 「기한이 다가오면 알려드립니다」라고 적어 두었지만
  *    **지금은 아무 데도 안 갑니다** → QA 계획 Task 9 ⑤
  *  · ⬜ **「잘 모르겠어요」가 갈 `track` 이 없습니다** — `open.ts` 의 `trackOf` 참고
+ *  · ⬜ **자료 카드는 목록입니다 — 여기서는 못 올립니다.** 사건이 아직 없어
+ *    올릴 엔드포인트가 없습니다(§3.2 는 `case_token` 을 요구합니다). 2026-08-27
+ *    까지 **눌러도 안 되는 버튼**이었던 것을 목록으로 바꿨습니다. 여기서 받으려면
+ *    고른 파일을 브라우저에 들고 있다가 사건이 만들어진 뒤 올려야 합니다
  *  · 업로드 슬롯 채택 시 POST …/evidence 에 kind 필드 협의 (Task 6)
  */
 
@@ -334,33 +338,38 @@ export default function Start() {
                 })}
               </div>
 
-              {/* 업로드 — 종류가 곧 안내이자 분류입니다 */}
+              {/* 자료 — 종류가 곧 안내이자 분류입니다.
+                  ⚠️ **버튼이 아닙니다.** 이 시점에는 사건이 아직 없어서 올릴 데가
+                  없습니다 — `POST /api/cases/{'{'}token{'}'}/evidence` 는 토큰을 요구하고,
+                  토큰은 [다음]을 눌러 사건을 만든 뒤에 생깁니다.
+                  **눌러도 안 되는 버튼으로 두면 사용자가 여기서 멈춥니다**(2026-08-27
+                  실제로 눌러 확인). 미리 챙길 것을 알려주는 목록으로 두고, 올리는 것은
+                  사건 화면의 증거함이 합니다 → 아래 「아직 안 붙은 것」 */}
               <div style={step(3)} className="rise mt-[26px]">
                 <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
                   <span className="text-[14px] text-ink-2">
-                    이런 자료가 있으면 올려 주세요 <span className="text-ink-3">(선택)</span>
+                    이런 자료가 있으면 챙겨 두세요 <span className="text-ink-3">(선택)</span>
                   </span>
                   <span className="text-[13px] text-ink-3">
-                    종류를 눌러 올리면 저희가 바로 알아봅니다
+                    시작한 다음 화면에서 올리실 수 있습니다
                   </span>
                 </div>
-                <div className="grid gap-2 md:grid-cols-2">
+                <ul className="grid gap-2 md:grid-cols-2">
                   {자료종류.map(([name, hint]) => (
-                    <button
+                    <li
                       key={name}
-                      type="button"
-                      className="flex min-h-[52px] items-center gap-3 rounded-[12px] border border-dashed border-hairline px-[14px] py-[11px] text-left transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/45%)] hover:bg-[oklch(1_0_0/3%)]"
+                      className="flex min-h-[52px] items-center gap-3 rounded-[12px] border border-dashed border-hairline px-[14px] py-[11px] text-left"
                     >
                       <span aria-hidden className="w-[18px] shrink-0 text-center text-icon">
-                        ＋
+                        ◆
                       </span>
                       <span>
                         <span className="block text-[14px] font-[580] text-ink-1">{name}</span>
                         <span className="block text-[13px] text-ink-3">{hint}</span>
                       </span>
-                    </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
                 <div className="mt-2.5 flex flex-wrap gap-x-[18px] gap-y-1.5 text-[13px] text-ink-3">
                   <span>없어도 괜찮습니다 — 진술만으로 시작할 수 있습니다</span>
                   <span>

@@ -54,11 +54,20 @@ export default function PlanView({
   steps,
   deadlines,
   onPickStep,
+  onOpenDoc,
 }: {
   steps: readonly PlanStep[];
   deadlines: readonly Deadline[];
   /** 단계를 누르면 워크스페이스가 그리로 옮겨집니다. 없으면 안 눌립니다 */
   onPickStep?: (stepId: string) => void;
+  /**
+   * 「무엇을 적는지 보기」 — 기재 안내 화면으로.
+   *
+   * **없으면 그 버튼을 안 그립니다.** 히어로 본문이 그 버튼을 이름으로
+   * 가리키고 있어서(「‘무엇을 적는지 보기’의 첫 줄에 있습니다」), 눌러도
+   * 안 열리는 채로 두면 사용자가 그 첫 줄을 영영 못 찾습니다.
+   */
+  onOpenDoc?: () => void;
 }) {
   // 본 기한·추가 기간·안내를 가릅니다. **합치지 않습니다** → 데이터 모델 §8.1
   const groups = groupDeadlines(deadlines);
@@ -142,24 +151,34 @@ export default function PlanView({
         </div>
         {now && (
           <div className="mt-4 flex flex-wrap gap-2">
+            {/* **누르면 그 단계의 작업 자리로 옮겨갑니다** — 아래 단계 줄을 누르는 것과
+                같은 길입니다(`onPickStep`). 히어로가 「지금 하실 일은 하나」라고 해 놓고
+                눌러도 안 움직이면 그 말이 거짓이 됩니다 */}
             <button
               type="button"
-              className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] bg-ink-1 px-5 text-[14px] font-[660] text-ground"
+              onClick={onPickStep ? () => onPickStep(now.step_id) : undefined}
+              disabled={!onPickStep}
+              className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] bg-ink-1 px-5 text-[14px] font-[660] text-ground disabled:opacity-40"
             >
               지금 하기
             </button>
-            <button
-              type="button"
-              className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] border border-hairline bg-chip px-5 text-[14px] font-[560] text-ink-2 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)]"
-            >
-              무엇을 적는지 보기
-            </button>
+            {onOpenDoc && (
+              <button
+                type="button"
+                onClick={onOpenDoc}
+                className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] border border-hairline bg-chip px-5 text-[14px] font-[560] text-ink-2 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)]"
+              >
+                무엇을 적는지 보기
+              </button>
+            )}
             {/* 제출처는 히어로가 말하지 않습니다 (ADR-042) — 대신 어디서 보는지를 알립니다.
                 기재 안내 화면의 첫 카드가 `org.contact.submit` 을 순서 그대로 그립니다 */}
-            <p className="w-full text-[12.5px] leading-[1.6] text-ink-3">
-              내는 곳은 은행마다 다릅니다 —{" "}
-              <b className="font-[620] text-ink-2">「무엇을 적는지 보기」</b>의 첫 줄에 있습니다.
-            </p>
+            {onOpenDoc && (
+              <p className="w-full text-[12.5px] leading-[1.6] text-ink-3">
+                내는 곳은 은행마다 다릅니다 —{" "}
+                <b className="font-[620] text-ink-2">「무엇을 적는지 보기」</b>의 첫 줄에 있습니다.
+              </p>
+            )}
           </div>
         )}
       </section>

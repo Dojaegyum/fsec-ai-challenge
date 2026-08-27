@@ -87,9 +87,12 @@ def once(base: str, key: str, model: str) -> tuple[str, float]:
 
 def main() -> None:
     env = read_env()
-    key = env.get("LLM_API_KEY") or env.get("XAI_API_KEY")
-    base = env.get("LLM_BASE_URL") or "https://api.x.ai/v1"
-    models = [one.strip() for one in (env.get("LLM_MODEL") or "").split(",") if one.strip()]
+    # 제공자를 바꿔 견주려면 환경변수로 덮어씁니다 —
+    #   BENCH_KEY=XAI_API_KEY BENCH_BASE=https://api.x.ai/v1 BENCH_MODELS=grok-4.5,grok-4.6
+    key = env.get(os.environ.get("BENCH_KEY", "")) or env.get("LLM_API_KEY") or env.get("XAI_API_KEY")
+    base = os.environ.get("BENCH_BASE") or env.get("LLM_BASE_URL") or "https://api.x.ai/v1"
+    raw_models = os.environ.get("BENCH_MODELS") or env.get("LLM_MODEL") or ""
+    models = [one.strip() for one in raw_models.split(",") if one.strip()]
     if not key or not models:
         print("열쇠나 모델 목록이 없습니다")
         raise SystemExit(1)

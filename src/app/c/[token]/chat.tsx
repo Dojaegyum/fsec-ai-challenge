@@ -393,32 +393,101 @@ export function PendingBubble({ currentIndex }: { currentIndex: number }) {
  * 진짜 폼**이고, 원본 챗이 사라지는 자리에서 교차로 이어받습니다
  * (`absorb.ts` 의 `CROSSFADE`).
  */
-export function MiniChat() {
+export function MiniChat({
+  chat,
+  token,
+}: {
+  /** **셸이 들고 있는 그 한 벌입니다** — 위 컴포저와 같은 것을 봐야 합니다 */
+  chat: ChatSend;
+  /** `null` 이면 개발 경로라 서버를 안 부릅니다 */
+  token: string | null;
+}) {
+  const { lines, sending, fail, send } = chat;
+  const [draft, setDraft] = useState("");
+  const dev = token === null;
+
+  const submit = () => {
+    if (dev || sending) return;
+    // 위 컴포저와 **같은 규칙** — 보낸 것이 확인되면 그때 비웁니다
+    void send(draft).then((ok) => {
+      if (ok) setDraft("");
+    });
+  };
+
+  // **좁은 자리라 최근 것만** 보여줍니다. 전부는 「대화」로 넘어가면 있습니다
+  const recent = lines.slice(-4);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2.5 text-[12.5px] tracking-[0.12em] text-ink-4">대응 비서</div>
-      <div className="grid flex-1 content-start gap-2">
-        <p className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5 text-[13px] leading-[1.55] text-ink-2">
-          다음은 <b className="font-[640] text-ink-1">피해구제 신청</b>입니다.{" "}
-          <b className="font-[640] text-deadline-urgent">8월 20일</b>까지요.
-        </p>
-        <p className="ml-auto rounded-[13px] rounded-br-[4px] bg-[oklch(1_0_0/11%)] px-3 py-2.5 text-[13px] text-ink-1">
-          뭐부터 하면 돼요?
-        </p>
+      <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
+        {recent.length === 0 && (
+          <p className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5 text-[13px] leading-[1.55] text-ink-2">
+            궁금한 것을 여기서 바로 물어보셔도 됩니다.
+          </p>
+        )}
+        {recent.map((line, i) =>
+          line.who === "me" ? (
+            /* **원문 그대로입니다** — 나간 것은 가려진 형태였습니다 (ADR-034) */
+            <p
+              key={"me-" + i}
+              className="ml-auto max-w-[85%] rounded-[13px] rounded-br-[4px] bg-[oklch(1_0_0/11%)] px-3 py-2.5 text-[13px] text-ink-1"
+            >
+              {line.text}
+            </p>
+          ) : (
+            /* **근거를 떼고 보여주지 않습니다.** 좁다고 인용을 지우면 답만 남습니다 */
+            <div
+              key={line.message_id}
+              className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5"
+            >
+              <p className="text-[13px] leading-[1.55] text-ink-2">{line.reply}</p>
+              {line.sourceNote && (
+                <p className="mt-1.5 text-[11.5px] leading-[1.5] text-ink-4">
+                  {line.sourceNote}을 보고 안내했습니다
+                </p>
+              )}
+            </div>
+          ),
+        )}
+        {/* 스트리밍을 안 쓰는 대가 — 기다리는 동안 무엇을 하는지 말합니다 (ADR-022) */}
+        {sending && (
+          <p className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5 text-[13px] text-ink-3">
+            근거를 찾아보고 있습니다
+          </p>
+        )}
+        {/* **스스로 다시 보내지 않습니다** — 못 보낸 글은 입력칸에 남아 있습니다 (에러 §3.1) */}
+        {fail && (
+          <p
+            role="alert"
+            className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] px-3 py-2.5 text-[12.5px] leading-[1.55] text-ink-1"
+          >
+            {fail.fail.message}
+          </p>
+        )}
       </div>
       <div className="mt-2.5 flex items-center gap-2 rounded-[12px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-3 shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
         {/* 입력칸은 히트 영역이 아니라 **실제 높이**가 44px 여야 합니다 —
             눌러서 끝이 아니라 그 안에 커서를 두고 타이핑하는 자리입니다 */}
         <input
           aria-label="대응 비서에게 묻기"
-          placeholder="무엇이든 물어보세요"
-          className="min-h-[var(--size-touch)] min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            // 조합 중(한글 입력)에 Enter 를 먹으면 마지막 글자가 잘립니다
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+          }}
+          disabled={dev || sending}
+          placeholder={dev ? "예시 화면입니다" : sending ? "보내는 중입니다" : "무엇이든 물어보세요"}
+          className="min-h-[var(--size-touch)] min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed"
         />
         <button
           type="button"
           data-hit
           aria-label="보내기"
-          className="grid size-[26px] shrink-0 place-items-center rounded-full bg-ink-1 text-[12px] font-bold text-ground"
+          onClick={submit}
+          disabled={dev || sending || draft.trim().length === 0}
+          className="grid size-[26px] shrink-0 place-items-center rounded-full bg-ink-1 text-[12px] font-bold text-ground disabled:opacity-40"
         >
           <span aria-hidden>↑</span>
         </button>

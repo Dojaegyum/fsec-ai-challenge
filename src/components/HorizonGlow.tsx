@@ -30,7 +30,7 @@ const HORIZON = [
 
 export function HorizonGlow({
   attach = "page",
-  opacity = 1,
+  opacity = 0.6,
 }: {
   /**
    * `page` — 부모의 아래 끝(문서 끝)에 놓입니다. 스크롤해 내려가면 나타납니다.
@@ -38,7 +38,12 @@ export function HorizonGlow({
    */
   attach?: "page" | "viewport";
   /**
-   * 세기 0~1. 오래 머무는 화면(사건 화면)은 낮춥니다 — 2026-08-25 검수에서 0.7.
+   * 세기 0~1. 오래 머무는 화면(사건 화면)은 더 낮춥니다.
+   *
+   * **2026-08-27 에 전부 40% 연하게 낮췄습니다** — 기본 1 → 0.6, 사건 화면
+   * 0.7 → 0.42. 눌러 보니 바닥이 너무 셌습니다. 둘의 관계(사건 화면이 7할)는
+   * 그대로 두었습니다.
+   *
    * inline `opacity` 가 아니라 `--appear-to` 로 넘기는 이유는 globals.css 의 `appear` 참고
    */
   opacity?: number;
