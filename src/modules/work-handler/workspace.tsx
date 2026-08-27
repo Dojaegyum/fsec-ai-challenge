@@ -26,7 +26,7 @@
 
 import { useRef, useState } from "react";
 
-import { panelForStep } from "./panel";
+import { panelForStep, panelRule } from "./panel";
 import {
   CallPanel,
   DownloadPanel,
@@ -247,6 +247,13 @@ function ArtifactSlot({
  * 패널에는 **`title` 과 본문만** 넘깁니다. 유형별 고유 props(대본·들고 갈 것·
  * 기재 항목)는 시안이 쓰던 자리이고, 그 값들의 서버 계약이 아직 없습니다 —
  * 본문은 KB 가 준 `summary`·`steps[].text` 를 그대로 씁니다(불변 규칙 1).
+ *
+ * ⚠️ **여기서 안 넘긴 것을 패널이 그리면 안 됩니다.** 2026-08-27 까지 패널들은
+ * 안 받은 값을 조건 없이 그려서, 빈 상자와 **라벨이 빈 전폭 버튼**과 「계좌번호는
+ * 그대로 적혀 있습니다」 같은 **없는 것을 가리키는 지시문**을 남겼습니다.
+ * 결함은 패널 안이 아니라 **호출부와 패널 사이의 틈**에 있었습니다 —
+ * 그래서 이 짝은 `panels.test.tsx`(패널 단독)와 `workspace.test.tsx`(일곱 유형을
+ * 이 호출부로 통과시키는 것) **양쪽에서** 지킵니다.
  */
 export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: WorkspaceProps) {
   const [typed, setTyped] = useState("");
@@ -295,15 +302,22 @@ export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: Workspa
         <p className="mt-2.5 text-[12.5px] leading-[1.6] text-ink-3">{step.body.caveat}</p>
       ) : null}
 
-      <ArtifactSlot
-        label={artifactLabel(step)}
-        typed={typed}
-        onTyped={setTyped}
-        onSendNumber={sendNumber}
-        onSelfReport={sendSelfReport}
-        onPickFile={onPickFile ? (file) => onPickFile(step.step_id, file) : undefined}
-        busy={busy}
-      />
+      {/* **완료 개념이 있는 유형에만** 냅니다 → `panel.ts` 의 규칙 표 `hasCompletion`.
+          `WS-read` 는 「완료 개념이 없습니다. 체크박스를 두지 마세요」이고 `WS-wait` 은
+          「사용자가 하지 않음」입니다(spec 「유형별로 다른 것」). 읽기만 하면 되는 자리에
+          「번호 없이 했다고 표시」를 두면, 사용자는 **아무 절차도 밟지 않고 단계를
+          「미확인」으로 만들고** 그걸 한 것으로 기억합니다 — 불변 규칙 6 이 막는 모양입니다 */}
+      {panelRule(panel).hasCompletion ? (
+        <ArtifactSlot
+          label={artifactLabel(step)}
+          typed={typed}
+          onTyped={setTyped}
+          onSendNumber={sendNumber}
+          onSelfReport={sendSelfReport}
+          onPickFile={onPickFile ? (file) => onPickFile(step.step_id, file) : undefined}
+          busy={busy}
+        />
+      ) : null}
 
       {verdict ? <Verdict verdict={verdict} /> : null}
     </>

@@ -160,3 +160,104 @@ describe("판정을 그립니다 — L1 실패가 막다른 길이 아닙니다"
     expect(text).toContain("피해구제를 신청합니다");
   });
 });
+
+/**
+ * 일곱 유형을 **이 호출부로** 통과시킵니다.
+ *
+ * 이번 결함은 패널 안이 아니라 **호출부와 패널 사이의 틈**에서 났습니다 —
+ * `Workspace` 는 `title` 과 `children` 만 넘기는데 패널들은 안 받은 값
+ * (`script`·`exitLabel`·`fileLabel`·`from`·`to`·`source`…)을 조건 없이 그려서,
+ * 빈 상자와 라벨 없는 버튼과 **없는 것을 가리키는 지시문**이 남았습니다.
+ * 패널 단독 시험(`panels.test.tsx`)만으로는 이 틈이 안 잡힙니다.
+ */
+const emptyBoxes = (html: string) =>
+  [...html.matchAll(/<(div|p|span)\b([^>]*)>\s*<\/\1>/g)]
+    .map((m) => m[2])
+    .filter((attrs) => /class="[^"]*(bg-|border|rounded)/.test(attrs));
+
+const buttonLabels = (html: string) =>
+  [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((m) => textOf(m[1]));
+
+const SEVEN: readonly [string, string][] = [
+  ["call", "통화"],
+  ["visit", "외부 이동"],
+  ["write", "받아적기"],
+  ["upload", "제출"],
+  ["download", "받기"],
+  ["wait", "기다리기"],
+  ["read", "읽기"],
+];
+
+describe("일곱 유형이 호출부를 통과합니다 — 빈 자리를 남기지 않고", () => {
+  /** 유형만 바꿔 같은 본문을 통과시킵니다 — `step()` 의 `over.body` 는 본문을 통째로 갈아탑니다 */
+  const drawAction = (action: string) =>
+    draw({
+      step: step({
+        body: {
+          action,
+          summary: "112는 24시간 받습니다.",
+          steps: [{ text: "끊기 전에 사건접수번호를 받아 적으세요." }],
+          required_artifact: { kind: "receipt_no", label: "사건접수번호" },
+        },
+      } as Partial<FullStep>),
+    });
+
+  for (const [action, eyebrow] of SEVEN) {
+    it(`\`${action}\` → ${eyebrow} · 빈 상자가 없다`, () => {
+      const html = drawAction(action);
+      expect(textOf(html)).toContain(eyebrow);
+      expect(emptyBoxes(html)).toEqual([]);
+    });
+
+    it(`\`${action}\` → ${eyebrow} · **라벨이 빈 버튼이 없다**`, () => {
+      for (const label of buttonLabels(drawAction(action))) {
+        expect(label).not.toBe("");
+        expect(label).not.toMatch(/^[↗◆·—\s]+$/);
+      }
+    });
+
+    it(`\`${action}\` → ${eyebrow} · 폭이 박힌 막대가 없다`, () => {
+      // 화면은 날짜를 세지 않습니다(불변 규칙 7)
+      expect(drawAction(action)).not.toMatch(/w-\[\d+(\.\d+)?%\]/);
+    });
+  }
+
+  it("**「계좌번호는 그대로 적혀 있습니다」는 어느 유형에서도 안 나온다**", () => {
+    // `WS-call` 은 `allowsFullRestore: false` 입니다 — 원문이 올 수 없는 패널이라
+    // 값이 채워질 자리가 아니라 계약상 영원히 거짓인 문장이었습니다(불변 규칙 2)
+    for (const [action] of SEVEN) {
+      expect(textOf(drawAction(action))).not.toContain("계좌번호는 그대로 적혀 있습니다");
+    }
+  });
+
+  it("서버가 준 본문은 일곱 어디서나 그대로 나온다", () => {
+    for (const [action] of SEVEN) {
+      expect(textOf(drawAction(action))).toContain("112는 24시간 받습니다.");
+    }
+  });
+});
+
+describe("부산물 칸은 **완료 개념이 있는 유형에만** 냅니다", () => {
+  const has = (action: string) =>
+    draw({ step: step({ body: { action } } as Partial<FullStep>) }).includes(
+      'placeholder="접수번호"',
+    );
+
+  it("`call`·`visit`·`write`·`upload`·`download` 에는 낸다", () => {
+    for (const action of ["call", "visit", "write", "upload", "download"]) {
+      expect(has(action)).toBe(true);
+    }
+  });
+
+  it("**`read`·`wait` 에는 안 낸다** — 완료 개념이 없는 유형입니다", () => {
+    // spec 「WS-read 에 체크박스를 두지 마세요」·「WS-wait 은 사용자가 하지 않음」 ·
+    // panel.ts 의 규칙 표 `hasCompletion: false`. 읽기만 하면 되는 자리에
+    // 「번호 없이 했다고 표시」를 두면 **아무 절차도 안 밟고 단계가 「미확인」이 됩니다**
+    for (const action of ["read", "wait"]) {
+      expect(has(action)).toBe(false);
+      expect(textOf(draw({ step: step({ body: { action } } as Partial<FullStep>) }))).not.toContain(
+        "번호 없이 했다고 표시",
+      );
+    }
+  });
+});
