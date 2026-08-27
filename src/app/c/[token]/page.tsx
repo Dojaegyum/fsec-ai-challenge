@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { openCase } from "@/modules/case-opener";
+import { ddayLabel, groupDeadlines } from "@/modules/deadline-viewer";
 import { HorizonGlow } from "@/components/HorizonGlow";
 import { isOpen, pickStep, Workspace } from "@/modules/work-handler";
 import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
@@ -205,6 +206,30 @@ function CaseScreen({
   const atWork = side === "work";
   const chatIsMain = focus === "chat";
 
+  /**
+   * 헤더의 기한 배지 — **서버가 센 값이 있을 때만** 뜹니다.
+   *
+   * ⚠️ **2026-08-27 까지 이 자리에 칩 셋이 하드코딩돼 있었습니다.**
+   * 「국민은행 계좌이체」·「✓ 지급정지 완료」·「피해구제 신청까지 D-2」가 데이터가
+   * 아니라 **지금 어느 화면을 보고 있는지**(`focus !== "chat"`)로 켜졌습니다 —
+   * 아무것도 안 한 사람에게 지급정지가 끝났다고 말하고 있었습니다.
+   *
+   * 「국민은행 계좌이체」는 아예 뺐습니다. **경유 서비스를 내리는 칸이 §3.10 에
+   * 없습니다** — 없는 값을 지어내지 않습니다 (불변 규칙 1).
+   *
+   * **화면이 날짜를 세지 않습니다** (불변 규칙 7). `days_left` 가 없으면 배지가
+   * 통째로 안 뜹니다 — 히어로가 D-day 를 다루는 방식과 같습니다 (`plan.tsx`).
+   */
+  const headerDue = useMemo(() => {
+    const running = bundle.steps.find((one) => one.state === "in_progress");
+    if (!running) return null;
+    const due = groupDeadlines(bundle.deadlines).primary.find(
+      (one) => one.step_id === running.step_id,
+    );
+    const dday = due ? ddayLabel(due) : null;
+    return dday ? { title: running.title, dday } : null;
+  }, [bundle.deadlines, bundle.steps]);
+
   // ── 흡수 ────────────────────────────────────────────────
   // 챗 본문과 미니 챗 자리의 **실제 위치를 재서** 그 사이를 잇습니다.
   // 시안은 1280×720 고정 캔버스라 픽셀이 박혀 있지만 우리는 반응형이라
@@ -343,25 +368,17 @@ function CaseScreen({
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
               사건 {token.slice(0, 5)}…
             </span>
-            {/* 경유 서비스 유형 — CH-bank (spec/backend/08-14-channel-matrix.md) */}
-            <span className="inline-flex items-center rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3">
-              국민은행 계좌이체
-            </span>
-            {!chatIsMain && (
-              <span className="inline-flex items-center gap-2 rounded-full border border-[oklch(0.697_0.16_258.2/40%)] bg-[oklch(0.697_0.16_258.2/12%)] px-3 py-[5px] text-[13px] text-pii">
-                <span aria-hidden>✓</span>
-                지급정지 완료
-              </span>
-            )}
             {focus === "evidence" && (
               <span className="inline-flex items-center rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3">
                 증거함
               </span>
             )}
-            {/* 기한은 서버가 계산한 값입니다 — 화면이 날짜를 세지 않습니다 */}
-            {(atWork || !chatIsMain) && (
-              <span className="inline-flex items-center rounded-full border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/10%)] px-3 py-[5px] text-[13px] font-[620] text-deadline-urgent">
-                피해구제 신청까지 D-2
+            {/* 기한은 **서버가 계산한 값**입니다 — 화면이 날짜를 세지 않습니다
+                (불변 규칙 7). 없으면 배지가 통째로 안 뜹니다 */}
+            {headerDue && (
+              <span className="inline-flex max-w-[260px] items-center gap-2 rounded-full border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/10%)] px-3 py-[5px] text-[13px] font-[620] text-deadline-urgent">
+                <span className="min-w-0 truncate font-[560] text-ink-2">{headerDue.title}</span>
+                <span data-numeric>{headerDue.dday}</span>
               </span>
             )}
             <button
@@ -462,6 +479,8 @@ function CaseScreen({
                   }
                   className="mt-4 flex min-h-[220px] flex-col border-t border-hairline pt-4"
                 >
+                  {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
+                      봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
                   <MiniChat chat={chat} token={dataToken} />
                 </div>
               )}
