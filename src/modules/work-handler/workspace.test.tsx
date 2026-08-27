@@ -129,6 +129,23 @@ describe("판정을 그립니다 — L1 실패가 막다른 길이 아닙니다"
     expect(text).toContain("아직 완료로 기록하지 않았습니다");
   });
 
+  it("**서버가 `note` 를 주면 그것을 그린다** — 왜 완료가 아닌지는 서버가 말합니다", () => {
+    // 「번호 없이 했다고 표시」를 누른 자리입니다. 이유를 안 그리면 사용자에게는
+    // 버튼이 안 먹은 것처럼 보입니다 → 08-14-api.md §3.8 「L3 자기 신고」
+    const text = textOf(
+      draw({
+        verdict: {
+          verify_result: "not_applicable",
+          step_state: "unconfirmed",
+          note: "완료로 기록되지 않습니다. 접수번호를 확인하시면 알려주세요",
+        },
+      }),
+    );
+    expect(text).toContain("완료로 기록되지 않습니다. 접수번호를 확인하시면 알려주세요");
+    // 화면이 지어낸 기본 문구가 대신 나오면 안 됩니다
+    expect(text).not.toContain("아직 완료로 기록하지 않았습니다");
+  });
+
   it("**끝났으면 열린 단계를 함께 보여준다** — 증거 연쇄가 눈에 보여야 합니다", () => {
     const text = textOf(
       draw({

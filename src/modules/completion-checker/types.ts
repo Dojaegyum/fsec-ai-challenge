@@ -67,6 +67,14 @@ export interface CompletionVerdict {
   readonly stepState: StepState
   /** 실패했을 때만. 사용자가 막히지 않도록 다음 길을 함께 냅니다 */
   readonly nextOptions?: readonly NextOption[]
+  /**
+   * **완료가 안 됐을 때 그 이유를 사람 말로.** 문구의 정본은 08-14-api.md §3.8 입니다.
+   *
+   * 이것이 없으면 L3 자기 신고가 화면에 「아직 완료로 기록하지 않았습니다」 한 줄로만
+   * 떨어져 **버튼이 안 먹은 것처럼** 보입니다. 완료가 안 되는 것 자체는 맞습니다
+   * (불변 규칙 6) — 말을 안 해 주는 것이 틀린 것이었습니다.
+   */
+  readonly note?: string
 }
 
 /**

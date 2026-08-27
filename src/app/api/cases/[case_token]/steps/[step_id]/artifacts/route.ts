@@ -179,6 +179,10 @@ export async function POST(
         ...(verdict.verifyDetail ? { verify_detail: verdict.verifyDetail } : {}),
         // **막히지 않게 다음 길을 함께 냅니다** → 08-14-completion-hook.md
         ...(verdict.nextOptions ? { next_options: verdict.nextOptions } : {}),
+        // **왜 완료가 안 됐는지 말합니다** → §3.8 「L3 자기 신고」. 이 칸이 비면
+        // 화면은 「아직 완료로 기록하지 않았습니다」만 그리고, 사용자에게는
+        // **버튼이 안 먹은 것처럼** 보입니다
+        ...(verdict.note ? { note: verdict.note } : {}),
         // **증거 연쇄를 보여줍니다** → §3.8. 부산물이 다음 단계의 입력이
         // 되는 구조를 사용자가 이해하게 만드는 칸입니다
         unlocked_steps: unlockedSteps,
