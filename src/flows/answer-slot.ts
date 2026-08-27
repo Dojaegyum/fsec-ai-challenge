@@ -128,24 +128,20 @@ export async function answerSlot(
       // 섞인 값에서 기관 쪽이 다시 가려집니다
       allowedTerms: [raw, ...orgTerms],
     })
-    await container.slotWrite.write({
-      caseId: input.caseId,
-      slotKey: input.slotKey,
-      tier,
-      valueType,
-      state: 'confirmed',
-      valueMasked: rechecked.masked,
-      source: 'user',
-    })
-    await recordChannel(input.caseId, input.slotKey, raw, rechecked.masked, container)
-
-    return {
-      slotKey: input.slotKey,
-      state: 'confirmed',
-      value: rechecked.masked,
-      piiConfirm: null,
-      planRegenerated: true,
-    }
+    // **보통 답과 같은 자리를 지납니다.** 여기만 따로 적으면 「아니에요」를 지난
+    // 답은 경유 서비스를 못 알아봤어도, 기관을 못 골랐어도 `confirmed` 로
+    // 닫힙니다 — 되묻기가 그 경로에서만 조용히 사라집니다
+    return storeAnswer(
+      {
+        caseId: input.caseId,
+        slotKey: input.slotKey,
+        tier,
+        valueType,
+        raw,
+        masked: rechecked.masked,
+      },
+      container,
+    )
   }
 
   // ── 개인정보 후보가 있으면 저장을 미룬다 → ADR-041 ─────────────────
@@ -176,40 +172,106 @@ export async function answerSlot(
   }
 
   // ── 개인정보가 없거나 「가릴게요」 ─────────────────────────────────
-  //
-  // **기관 정규화를 먼저 합니다.** 그 결과가 슬롯 상태를 가릅니다 — 말한 곳을
-  // 못 알아봤으면 `confirmed` 로 닫으면 안 됩니다. 닫으면 슬롯 체커가 다시
-  // 묻지 않고(질문 대상은 `empty` 와 기관 재확인뿐), 사용자는 아무 말도 못
-  // 들은 채 유형 기본 절차로 떨어집니다 → §11.4.4 ①
-  const { orgUnresolved } = await recordChannel(
-    input.caseId,
-    input.slotKey,
-    raw,
-    masked.masked,
+  return storeAnswer(
+    {
+      caseId: input.caseId,
+      slotKey: input.slotKey,
+      tier,
+      valueType,
+      raw,
+      masked: masked.masked,
+    },
     container,
   )
+}
+
+/**
+ * 답 하나를 적는다 — **경유 서비스·기관을 먼저 보고, 그 결과가 슬롯 상태를 가릅니다.**
+ *
+ * 말한 곳을 못 알아봤으면 `confirmed` 로 닫으면 안 됩니다. 닫으면 슬롯 체커가
+ * 다시 묻지 않고(질문 대상은 `empty` 와 기관 재확인뿐), 사용자는 아무 말도 못
+ * 들은 채 유형 기본 절차로 떨어집니다 → §11.4.4 ①
+ *
+ * 갈래는 셋입니다.
+ *
+ * | 무엇 | 슬롯 | 왜 |
+ * | --- | --- | --- |
+ * | 표에 없는 경유 서비스 라벨 | **안 적습니다** | 값이 아니라 답으로 못 받은 것입니다 |
+ * | 기관을 사전에서 못 골랐다 | `extracted` | 값은 사실이고 **어느 곳인지가 확인 전**입니다 |
+ * | 그 밖 | `confirmed` | |
+ */
+async function storeAnswer(
+  one: {
+    readonly caseId: string
+    readonly slotKey: string
+    readonly tier: ReturnType<typeof tierOf>
+    readonly valueType: ReturnType<typeof valueTypeOf>
+    /** 매칭에 쓰는 원문 */
+    readonly raw: string
+    /** 표에 남기는 가린 값 */
+    readonly masked: string
+  },
+  container: Container,
+): Promise<AnswerResult> {
+  const record = await recordChannel(one.caseId, one.slotKey, one.raw, one.masked, container)
+
+  // ── 표에 없는 경유 서비스 라벨 → **답으로 받지 않습니다** ───────────
+  //
+  // ⚠️ **2026-08-27 까지 이 자리가 없었습니다.** 「은행 계좌이체」처럼 표와 글자가
+  // 다른 값이 오면 `case_channel` 은 비는데 슬롯만 `confirmed` 로 닫혔습니다.
+  // 그리고 `channel` 은 T1 이라 그 상태가 **채워진 것으로 세어져**(slot-checker
+  // `tierStatus`) 슈퍼셋 플랜조차 안 나갔습니다 — 「모름」을 누른 것보다 나쁩니다.
+  //
+  // **값을 안 남기는 것이 맞습니다.** 이 슬롯의 문자열을 읽는 코드가 없고
+  // (분기는 `case_channel.channel_id` 만 봅니다), 안 적어야 상태가 `empty` 로
+  // 남아 슬롯 체커가 **같은 문항을 버튼으로 다시 냅니다.** 버튼은 반드시 표
+  // 안의 라벨이라 다음 답에서 확정됩니다 — 되풀이가 구조적으로 안 생깁니다.
+  if (record.channelUnrecognized) {
+    return {
+      slotKey: one.slotKey,
+      // 안 적었으므로 **없는 값과 같습니다.** 플랜도 다시 만들지 않습니다
+      state: 'empty',
+      value: null,
+      piiConfirm: null,
+      planRegenerated: false,
+    }
+  }
 
   // 값은 남깁니다 — 사용자가 그렇게 말한 것은 사실입니다. 다만 **어느 기관인지
   // 정해지지 않았으므로 확인 전**입니다
-  const state = orgUnresolved ? 'extracted' : 'confirmed'
+  const state = record.orgUnresolved ? 'extracted' : 'confirmed'
 
   await container.slotWrite.write({
-    caseId: input.caseId,
-    slotKey: input.slotKey,
-    tier,
-    valueType,
+    caseId: one.caseId,
+    slotKey: one.slotKey,
+    tier: one.tier,
+    valueType: one.valueType,
     state,
-    valueMasked: masked.masked,
+    valueMasked: one.masked,
     source: 'user',
   })
 
   return {
-    slotKey: input.slotKey,
+    slotKey: one.slotKey,
     state,
-    value: masked.masked,
+    value: one.masked,
     piiConfirm: null,
     planRegenerated: true,
   }
+}
+
+/** `recordChannel` 이 부르는 쪽에 알려야 하는 것 — **둘 다 거짓인 것이 보통입니다** */
+interface ChannelRecord {
+  /** 말한 기관을 사전에서 하나로 못 좁혔다. **값은 남기고 되묻습니다** → §11.4.4 ① */
+  readonly orgUnresolved: boolean
+  /**
+   * 경유 서비스 라벨이 표에 없다. **값을 안 남기고 같은 문항을 다시 냅니다.**
+   *
+   * `org` 와 다르게 다루는 이유는 남길 값이 없기 때문입니다 — 분기가 보는 것은
+   * `case_channel.channel_id` 하나뿐이라, 알아보지 못한 라벨은 슬롯에 적어도
+   * 아무도 안 읽는 죽은 값이면서 **T1 을 채워진 것으로 세게** 만듭니다
+   */
+  readonly channelUnrecognized: boolean
 }
 
 /**
@@ -236,18 +298,19 @@ async function recordChannel(
   raw: string,
   masked: string,
   container: Container,
-): Promise<{ readonly orgUnresolved: boolean }> {
+): Promise<ChannelRecord> {
   // **못 알아본 것만 참입니다.** 유형을 아직 모르거나 이 답이 기관이 아니거나
   // 여기서 터진 경우는 전부 거짓입니다 — 되물어도 사용자가 고를 것이 없습니다
-  const resolved = { orgUnresolved: false }
-  const unresolved = { orgUnresolved: true }
+  const resolved: ChannelRecord = { orgUnresolved: false, channelUnrecognized: false }
+  const unresolved: ChannelRecord = { orgUnresolved: true, channelUnrecognized: false }
+  const unrecognized: ChannelRecord = { orgUnresolved: false, channelUnrecognized: true }
 
   try {
     if (slotKey === 'channel') {
-      // 화면이 보내는 것은 사람이 읽는 라벨입니다. **8유형 밖의 값을 만들지
+      // 화면이 보내는 것은 사람이 읽는 라벨입니다. **표 밖의 값을 만들지
       // 않습니다** — 표에 없으면 답으로 못 받은 것으로 둡니다 (questions.ts)
       const channelId = channelForOption(raw) ?? channelForOption(masked)
-      if (!channelId) return resolved
+      if (!channelId) return unrecognized
       await container.channelWrite.write({
         caseId,
         channelId,
