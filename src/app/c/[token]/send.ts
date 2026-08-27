@@ -39,6 +39,7 @@ import type {
 import {
   createSessionKey,
   indexedDbKeyStore,
+  memoryKeyStore,
   loadOrCreateKey,
   sealAll,
 } from "@/modules/key-handler";
@@ -298,7 +299,23 @@ export function useChatSend(
    */
   onReferenced?: (stepIds: readonly string[]) => void,
 ): ChatSend {
-  const store = useMemo<KeyStore>(() => indexedDbKeyStore(), []);
+  /**
+   * 열쇠 보관소.
+   *
+   * ⚠️ **`useMemo` 는 서버 렌더에서도 돕니다.** `indexedDbKeyStore()` 는 그
+   * 자리에서 던지도록 만들어져 있어(조용히 메모리로 떨어지면 새로고침 뒤에
+   * 서류를 못 만드는데 이유를 아무도 모릅니다), 이 화면이 서버에서 한 번이라도
+   * 그려지면 **500 이 났습니다** — `?view=` 로 여는 시연·스크린샷 경로가 그랬고,
+   * 2026-08-27 에 배포에서 확인했습니다.
+   *
+   * 서버 렌더에서는 메모리 보관소를 씁니다. **그 자리에서는 아무것도 저장하지
+   * 않습니다** — 브라우저에서 다시 그려질 때 진짜 보관소로 바뀌고, 열쇠를
+   * 만드는 것은 그 뒤의 일입니다(불변 규칙 3: 열쇠는 클라이언트에만).
+   */
+  const store = useMemo<KeyStore>(
+    () => (typeof indexedDB === "undefined" ? memoryKeyStore() : indexedDbKeyStore()),
+    [],
+  );
   const [lines, setLines] = useState<readonly Line[]>([]);
   const [mappings, setMappings] = useState<PiiMapping[]>([]);
   const [sending, setSending] = useState(false);
