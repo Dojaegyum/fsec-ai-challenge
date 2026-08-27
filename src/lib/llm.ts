@@ -106,6 +106,23 @@ const ROUND_BACKOFF_MS = 1_000
 const MIN_ATTEMPT_MS = 5_000
 
 /**
+ * **한 후보가 예산을 통째로 먹지 못하게 합니다.**
+ *
+ * 2026-08-27 실측: `LLM_MODEL` 에 적힌 셋 중 `gemini-3.7-flash` 는 일곱 번 다
+ * 실패했는데, **실패하는 데 31초·37초·55초·120초가 걸렸습니다.** 예산이 통틀어
+ * 하나뿐이라 그 한 번이 나머지 후보의 차례를 지워 버립니다 — 같은 순간
+ * `gemini-3.6-flash` 는 일곱 번 다 3~7초에 답했는데도 그렇습니다.
+ *
+ * 그래서 **마지막 시도를 뺀 나머지에는 상한을 둡니다.** 마지막에는 남은 것을
+ * 다 줍니다 — 더 시도할 후보가 없으니 아낄 이유가 없습니다.
+ *
+ * 20초는 배포 환경에서 성공한 응답들(7.3 · 8.2 · 17.9 · 31.8 · 48.1초) 중
+ * 앞의 셋을 덮는 값입니다. 여기서 잘리는 느린 성공은 **다음 후보가 3~7초에
+ * 답하는 편이 사용자에게 낫습니다.**
+ */
+const PER_ATTEMPT_MS = 20_000
+
+/**
  * 한 번의 시도가 어떻게 끝났는지 남긴다.
  *
  * ⚠️ **열쇠도 프롬프트도 안 담습니다.** 프롬프트에는 사건 내용이 들어 있고
@@ -230,18 +247,26 @@ export function createLlmClient(env: Env): TextLlmClient | null {
       const tries = models.length * MAX_ROUNDS
 
       let res: Response | null = null
+      // 늦거나 닿지 못한 것을 담아 둡니다 — 예산이 다 되면 **마지막으로 본
+      // 것을 그대로** 알립니다. 사람이 로그를 보고 무엇이 문제였는지 압니다
+      let lastFailure: LlmError | null = null
 
       for (let attempt = 0; ; attempt += 1) {
         const left = deadline - Date.now()
         // 남은 시간이 한 번 왕복도 못 할 만큼이면 더 시도하지 않습니다
-        if (left < MIN_ATTEMPT_MS) throw new LlmError('모델이 제때 답하지 않았습니다')
+        if (left < MIN_ATTEMPT_MS) {
+          throw lastFailure ?? new LlmError('모델이 제때 답하지 않았습니다')
+        }
 
         const sent = requestBody(models[attempt % models.length]!, prompt)
 
         const model = models[attempt % models.length]!
         const startedAt = Date.now()
         const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), left)
+        // **마지막이 아니면 상한을 둡니다** — 뒤에 기다리는 후보의 차례를
+        // 이 한 번이 지우지 못하게. 마지막에는 남은 것을 다 씁니다
+        const last = attempt >= tries - 1
+        const timer = setTimeout(() => controller.abort(), last ? left : Math.min(left, PER_ATTEMPT_MS))
 
         try {
           res = await fetch(endpoint, {
@@ -259,7 +284,15 @@ export function createLlmClient(env: Env): TextLlmClient | null {
           // 내용이 들어 있고, 이 메시지는 로그와 감사 기록으로 갑니다
           const timedOut = error instanceof Error && error.name === 'AbortError'
           logAttempt(model, timedOut ? '시간 초과' : '닿지 못함', Date.now() - startedAt)
-          throw new LlmError(timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다')
+          lastFailure = new LlmError(
+            timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다',
+          )
+          // **여기서 끝내지 않습니다.** 늦은 것도 닿지 못한 것도 「이 후보가
+          // 안 된다」는 뜻일 뿐이라, 503 과 똑같이 다음 후보로 넘어갑니다.
+          // 전에는 그 자리에서 던져서, 뒤에 선 멀쩡한 후보를 한 번도 못 불렀습니다
+          if (attempt >= tries - 1) throw lastFailure
+          res = null
+          continue
         } finally {
           clearTimeout(timer)
         }
