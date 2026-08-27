@@ -5,9 +5,11 @@ import { HorizonGlow } from "@/components/HorizonGlow";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { LoadFail } from "@/app/c/[token]/load";
+import { kindOf, uploadFile } from "@/app/c/[token]/upload";
+import { screenName } from "@/modules/file-sender";
 import { openCase, trackOf } from "./open";
 
 /**
@@ -43,19 +45,58 @@ import { openCase, trackOf } from "./open";
  *    없습니다. 화면은 「기한이 다가오면 알려드립니다」라고 적어 두었지만
  *    **지금은 아무 데도 안 갑니다** → QA 계획 Task 9 ⑤
  *  · ⬜ **「잘 모르겠어요」가 갈 `track` 이 없습니다** — `open.ts` 의 `trackOf` 참고
- *  · ⬜ **자료 카드는 목록입니다 — 여기서는 못 올립니다.** 사건이 아직 없어
- *    올릴 엔드포인트가 없습니다(§3.2 는 `case_token` 을 요구합니다). 2026-08-27
- *    까지 **눌러도 안 되는 버튼**이었던 것을 목록으로 바꿨습니다. 여기서 받으려면
- *    고른 파일을 브라우저에 들고 있다가 사건이 만들어진 뒤 올려야 합니다
- *  · 업로드 슬롯 채택 시 POST …/evidence 에 kind 필드 협의 (Task 6)
+ *
+ * ## 자료 슬롯 — 2026-08-27 에 붙었습니다
+ *
+ * ⚠️ **그전까지 버튼 넷에 `onClick` 이 없었습니다.** 이 파일에 파일 선택 입력이
+ * 하나도 없어서, 눌러도 고르는 창조차 안 떴습니다 — 계약(§S-05)은 여기를 증거
+ * 자리로 못박아 두었는데(*"증거 · 선택. 올리면 … `file-sender`가 보냅니다"*)
+ * 모양만 배포돼 있었습니다.
+ *
+ * **고른 파일은 바로 안 올라갑니다.** 올릴 주소(`POST …/evidence`)의 경로가
+ * `{case_token}` 이라 **사건이 있어야** 합니다. 그래서 브라우저가 들고 있다가
+ * [다음]으로 사건이 만들어진 직후에 함께 올립니다 — **파일을 골랐다고 사건이
+ * 생기지는 않습니다.** 관문은 동의 하나입니다 (ADR-031).
+ *
+ *  · **같은 자리를 2026-08-27 에 둘이 따로 고쳤습니다.** 한쪽은 눌러도 안 되는 버튼을
+ *    **목록으로 바꿔** 정직하게 만들었고(「시작한 다음 화면에서 올리실 수 있습니다」),
+ *    이쪽은 **실제로 올라가게** 이었습니다. 뒤엣것이 앞엣것을 대신합니다 — 이제
+ *    여기서 고를 수 있고, 사건이 만들어진 직후에 함께 올라갑니다
+ *  · ⬜ 슬롯 종류를 `POST …/evidence` 의 `kind` 필드로 보낼지는 아직 미정입니다
+ *    (§S-05 의 TODO). 지금은 파일의 MIME 으로만 가립니다
  */
 
+/**
+ * 종류별 슬롯 넷 → §S-05 「자료 — 종류가 곧 안내입니다」.
+ *
+ * 셋째 칸은 그 슬롯이 받는 파일입니다. **§3.2 의 `kind` 셋(audio·image·text)에서
+ * 이 슬롯에 올 수 있는 것만 좁힌 것**이고, 좁히는 이유는 종류가 곧 분류라서입니다.
+ *
+ * ⬜ **PDF 를 안 넣었습니다.** `kind` 에 자리가 없어 잘못된 종류로 올리면 전사기가
+ * 다른 일을 합니다 (`upload.ts` 의 `kindOf`) → QA 계획 Task 9 ⑧.
+ * 우편 통지는 사진으로 찍어 올리면 됩니다.
+ */
 const 자료종류 = [
-  ["통화 녹음", "사기범과의 통화 파일"],
-  ["문자·메신저 캡처", "받은 문자, 카톡 대화 화면"],
-  ["이체 내역", "은행 앱의 보낸 기록 캡처"],
-  ["은행·기관에서 받은 통지", "지급정지 문자, 우편 통지"],
+  ["통화 녹음", "사기범과의 통화 파일", "audio/*"],
+  ["문자·메신저 캡처", "받은 문자, 카톡 대화 화면", "image/*"],
+  ["이체 내역", "은행 앱의 보낸 기록 캡처", "image/*"],
+  ["은행·기관에서 받은 통지", "지급정지 문자, 우편 통지", "image/*"],
 ] as const;
+
+/**
+ * 고른 자료 한 장 — **아직 안 올라간 것**입니다.
+ *
+ * `File` 을 그대로 들고 있습니다. 사건이 만들어지기 전에는 올릴 주소가 없어서
+ * 브라우저 밖으로 아무것도 안 나갑니다.
+ */
+interface Picked {
+  readonly id: number;
+  /** 몇 번째 슬롯에서 골랐나 */
+  readonly slot: number;
+  /** 화면에 그리는 이름. **`screenName` 을 지난 것**입니다 — 「입금내역_110-2345-678901.png」 */
+  readonly name: string;
+  readonly file: File;
+}
 
 const Q1 = [
   ["내 돈이 나갔어요", false],
@@ -69,6 +110,194 @@ const btnPrimary =
   "inline-flex min-h-[50px] items-center justify-center rounded-[12px] bg-ink-1 text-[15.5px] font-[660] text-ground transition-[transform,opacity] duration-200 hover:-translate-y-px hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pii";
 const btnGhost =
   "inline-flex min-h-[50px] items-center justify-center rounded-[12px] border border-hairline bg-chip text-[15.5px] font-[560] text-ink-2 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)]";
+
+/**
+ * 발급 화면에서 자료가 어떻게 됐는지 한 줄.
+ *
+ * **셋을 가릅니다** — 올리는 중 · 다 올렸다 · 일부를 못 올렸다. 「끝났는데 실패」와
+ * 「아직 안 끝남」을 같은 문구로 두면, 올리는 중인 사람이 실패한 줄 압니다.
+ *
+ * **못 올려도 앰버까지입니다.** 사건은 이미 만들어졌고 절차 안내는 그대로
+ * 나갑니다 — 빨강을 쓰지 않습니다 (§S-07 「색」).
+ */
+export function UploadNote({
+  total,
+  sending,
+  done,
+  notSent,
+}: {
+  total: number;
+  /** 지금 몇 번째를 올리는 중인가. `0` 이면 안 올리는 중 */
+  sending: number;
+  done: boolean;
+  notSent: readonly string[];
+}) {
+  if (!done) {
+    return (
+      <p className="mt-2.5 text-[13.5px] leading-[1.6] text-ink-3">
+        <span aria-hidden className="mr-1.5">
+          ◷
+        </span>
+        자료를 올리고 있습니다{" "}
+        <span data-numeric>
+          ({Math.max(sending, 1)}/{total})
+        </span>{" "}
+        — <b className="font-[620] text-ink-2">주소는 이미 유효합니다.</b> 지금 복사해 두세요.
+      </p>
+    );
+  }
+
+  if (notSent.length === 0) {
+    return (
+      <p className="mt-2.5 text-[13.5px] leading-[1.6] text-pii">
+        <span aria-hidden className="mr-1.5">
+          ◆
+        </span>
+        자료 <span data-numeric>{total}</span>개를 함께 올렸습니다. 읽는 데 조금 걸리고, 끝나면
+        사건 화면에 뜹니다.
+      </p>
+    );
+  }
+
+  return (
+    <p
+      role="alert"
+      className="mt-3 rounded-[12px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px] text-[13.5px] leading-[1.6] text-ink-1"
+    >
+      자료 <span data-numeric>{notSent.length}</span>개를 올리지 못했습니다 —{" "}
+      {notSent.join(" · ")}. <b className="font-[620] text-ink-2">사건은 그대로 진행됩니다.</b>{" "}
+      자료가 없어도 절차 안내는 나갑니다.
+    </p>
+  );
+}
+
+/**
+ * 자료 슬롯 넷 — §S-05 「자료 — 종류가 곧 안내입니다」.
+ *
+ * **여기서 아무것도 안 보냅니다.** 고른 것을 위로 넘길 뿐이고, 올리는 것은
+ * 사건이 만들어진 뒤 `Start` 가 합니다 — 올릴 주소가 그때 생깁니다.
+ *
+ * 떼어 둔 이유는 **시험이 마운트할 수 있어야** 하기 때문입니다. `Start` 는
+ * `useRouter` 를 부르므로 라우터 문맥 없이는 못 그리는데, 이 자리에 붙어 있던
+ * 결함(**버튼에 `onClick` 도 파일 입력도 없어 눌러도 아무 일이 없던 것**)은
+ * 정확히 렌더 시험이 잡는 종류입니다 → `page.test.tsx`.
+ */
+export function EvidenceSlots({
+  picked,
+  busy,
+  rejected,
+  onPick,
+  onUnpick,
+}: {
+  picked: readonly Picked[];
+  /** 사건을 만드는 중. 이때는 고르는 것도 빼는 것도 막습니다 */
+  busy: boolean;
+  /** 못 받는 종류를 골랐을 때의 문구. 없으면 `null` */
+  rejected: string | null;
+  onPick: (slot: number, file: File) => void;
+  onUnpick: (id: number) => void;
+}) {
+  /** 슬롯마다 숨은 파일 선택 입력 하나. 버튼이 이걸 대신 누릅니다 */
+  const slotRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  return (
+    <div style={step(3)} className="rise mt-[26px]">
+      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
+        <span className="text-[14px] text-ink-2">
+          이런 자료가 있으면 올려 주세요 <span className="text-ink-3">(선택)</span>
+        </span>
+        <span className="text-[13px] text-ink-3">
+          종류를 눌러 고르면 사건을 만들 때 함께 올라갑니다
+        </span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        {자료종류.map(([name, hint, accept], i) => {
+          const mine = picked.filter((one) => one.slot === i);
+          return (
+            <div key={name}>
+              {/* 받는 것은 §3.2 가 정한 셋입니다 — 이 슬롯은 그중 하나뿐 */}
+              <input
+                ref={(el) => {
+                  slotRefs.current[i] = el;
+                }}
+                type="file"
+                accept={accept}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // **같은 파일을 다시 고를 수 있어야** 합니다 — 값을 안 비우면
+                  // 두 번째 선택에서 change 가 안 옵니다
+                  e.target.value = "";
+                  if (file) onPick(i, file);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => slotRefs.current[i]?.click()}
+                disabled={busy}
+                className="flex min-h-[52px] w-full items-center gap-3 rounded-[12px] border border-dashed border-hairline px-[14px] py-[11px] text-left transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/45%)] hover:bg-[oklch(1_0_0/3%)] disabled:opacity-60"
+              >
+                <span aria-hidden className="w-[18px] shrink-0 text-center text-icon">
+                  ＋
+                </span>
+                <span>
+                  <span className="block text-[14px] font-[580] text-ink-1">{name}</span>
+                  <span className="block text-[13px] text-ink-3">{hint}</span>
+                </span>
+              </button>
+              {/* 고른 것 — **아직 안 올라갔습니다.** 그 사실을 여기서 말합니다 */}
+              {mine.map((one) => (
+                <div
+                  key={one.id}
+                  className="mt-1.5 flex items-center gap-2 rounded-[10px] border border-hairline bg-chip px-[12px] py-[9px]"
+                >
+                  <span aria-hidden className="shrink-0 text-[12px] text-pii">
+                    ◆
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
+                    {one.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onUnpick(one.id)}
+                    disabled={busy}
+                    className="shrink-0 px-1.5 py-1 text-[12.5px] text-ink-3 transition-colors duration-200 hover:text-ink-1 disabled:opacity-60"
+                  >
+                    빼기
+                  </button>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      {/* 못 받는 종류를 골랐을 때. **막지 않습니다** — 그 파일만 안 받습니다 */}
+      {rejected && (
+        <p
+          role="alert"
+          className="mt-2.5 rounded-[10px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] px-[13px] py-[10px] text-[13px] leading-[1.6] text-ink-1"
+        >
+          {rejected}
+        </p>
+      )}
+      <div className="mt-2.5 flex flex-wrap gap-x-[18px] gap-y-1.5 text-[13px] text-ink-3">
+        {picked.length > 0 && (
+          <span>
+            <b className="font-[620] text-ink-2">아직 올리지 않았습니다</b> — [다음]을
+            누르면 사건이 만들어지고 그때 함께 올라갑니다
+          </span>
+        )}
+        <span>없어도 괜찮습니다 — 진술만으로 시작할 수 있습니다</span>
+        <span>
+          <b className="font-[620] text-deadline-urgent">
+            신분증·주민등록증은 올리지 마세요
+          </b>{" "}
+          — 저희는 주민등록번호를 받지 않습니다
+        </span>
+      </div>
+    </div>
+  );
+}
 
 /** 레일 점 — done(파랑) / now(앰버 링) / todo */
 function RailDot({ state, tail }: { state: "done" | "now" | "todo"; tail?: boolean }) {
@@ -139,6 +368,41 @@ export default function Start() {
   const [opening, setOpening] = useState(false);
   const [fail, setFail] = useState<LoadFail | null>(null);
 
+  /**
+   * 고른 자료 — **아직 안 올라갔습니다.** [다음]으로 사건이 만들어진 뒤에 함께
+   * 올라갑니다. 파일을 골랐다고 사건이 생기지는 않습니다 (관문은 동의 하나).
+   */
+  const [picked, setPicked] = useState<readonly Picked[]>([]);
+  /** 못 받는 종류를 골랐을 때. **막지 않고 그 파일만 안 받습니다** */
+  const [rejected, setRejected] = useState<string | null>(null);
+  /** 지금 몇 번째를 올리는 중인가. `0` 이면 안 올리는 중 */
+  const [sending, setSending] = useState(0);
+  /** 사건은 만들어졌는데 못 올린 자료. **되돌리지 않습니다** — 사건은 그대로 진행됩니다 */
+  const [notSent, setNotSent] = useState<readonly string[]>([]);
+  /** 올리기가 끝났나. 끝나기 전과 「하나도 못 올렸다」를 가릅니다 */
+  const [sentDone, setSentDone] = useState(false);
+  const seq = useRef(0);
+
+  /**
+   * 슬롯에서 파일을 골랐다.
+   *
+   * **여기서 아무것도 안 보냅니다.** 올릴 주소가 아직 없습니다 — 들고만 있습니다.
+   * 종류가 표 밖이면 그 파일만 안 받고 **나머지는 그대로 둡니다** (불변 규칙 5).
+   */
+  const pick = (slot: number, file: File) => {
+    if (kindOf(file.type) === null) {
+      setRejected("이 종류의 파일은 아직 받지 못합니다. 사진이나 녹음 파일로 올려 주세요.");
+      return;
+    }
+    setRejected(null);
+    seq.current += 1;
+    // **이름도 경계를 지납니다** — 「입금내역_110-2345-678901.png」가 실제로 흔합니다
+    const name = screenName(file.name).safe;
+    setPicked((prev) => [...prev, { id: seq.current, slot, name, file }]);
+  };
+
+  const unpick = (id: number) => setPicked((prev) => prev.filter((one) => one.id !== id));
+
   const checkedCount = checks.filter(Boolean).length;
   const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
   const toggle = (i: number) => setChecks((c) => c.map((v, j) => (j === i ? !v : v)));
@@ -161,8 +425,37 @@ export default function Start() {
       setFail(made.fail);
       return;
     }
+
+    // **주소를 먼저 보여줍니다** → §S-05 「발급 즉시 복사할 수 있어야」.
+    //
+    // 자료를 다 올린 뒤에 국면을 넘기면, 올리는 동안 창을 닫은 사용자는 **이미
+    // 만들어진 사건의 주소를 영영 잃습니다** — 계정이 없어 되찾아 드릴 수
+    // 없습니다 (ADR-021). 자료보다 주소가 급합니다
     setLinkToken(made.linkToken);
     setPhase("issued");
+
+    void sendPicked(made.linkToken);
+  };
+
+  /**
+   * 고른 자료를 올립니다 — **사건이 생긴 뒤에야 올릴 주소가 생깁니다**
+   * (§3.2 의 경로가 `{case_token}`). 그 전에는 브라우저가 들고만 있었습니다.
+   *
+   * **막지 않습니다.** 하나가 실패해도 나머지를 계속 올리고, 못 올린 것은
+   * 발급 화면에서 이름으로 말합니다 — 사건은 그대로 진행됩니다 (불변 규칙 5).
+   */
+  const sendPicked = async (caseToken: string) => {
+    if (picked.length === 0) return;
+
+    const failed: string[] = [];
+    for (const [i, one] of picked.entries()) {
+      setSending(i + 1);
+      const sent = await uploadFile({ caseToken, file: one.file });
+      if (!sent.ok) failed.push(one.name);
+    }
+    setSending(0);
+    setNotSent(failed);
+    setSentDone(true);
   };
   // 주소 복사는 `case-opener` 의 `LinkHandoff` 안으로 옮겼습니다
 
@@ -338,48 +631,13 @@ export default function Start() {
                 })}
               </div>
 
-              {/* 자료 — 종류가 곧 안내이자 분류입니다.
-                  ⚠️ **버튼이 아닙니다.** 이 시점에는 사건이 아직 없어서 올릴 데가
-                  없습니다 — `POST /api/cases/{'{'}token{'}'}/evidence` 는 토큰을 요구하고,
-                  토큰은 [다음]을 눌러 사건을 만든 뒤에 생깁니다.
-                  **눌러도 안 되는 버튼으로 두면 사용자가 여기서 멈춥니다**(2026-08-27
-                  실제로 눌러 확인). 미리 챙길 것을 알려주는 목록으로 두고, 올리는 것은
-                  사건 화면의 증거함이 합니다 → 아래 「아직 안 붙은 것」 */}
-              <div style={step(3)} className="rise mt-[26px]">
-                <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
-                  <span className="text-[14px] text-ink-2">
-                    이런 자료가 있으면 챙겨 두세요 <span className="text-ink-3">(선택)</span>
-                  </span>
-                  <span className="text-[13px] text-ink-3">
-                    시작한 다음 화면에서 올리실 수 있습니다
-                  </span>
-                </div>
-                <ul className="grid gap-2 md:grid-cols-2">
-                  {자료종류.map(([name, hint]) => (
-                    <li
-                      key={name}
-                      className="flex min-h-[52px] items-center gap-3 rounded-[12px] border border-dashed border-hairline px-[14px] py-[11px] text-left"
-                    >
-                      <span aria-hidden className="w-[18px] shrink-0 text-center text-icon">
-                        ◆
-                      </span>
-                      <span>
-                        <span className="block text-[14px] font-[580] text-ink-1">{name}</span>
-                        <span className="block text-[13px] text-ink-3">{hint}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-2.5 flex flex-wrap gap-x-[18px] gap-y-1.5 text-[13px] text-ink-3">
-                  <span>없어도 괜찮습니다 — 진술만으로 시작할 수 있습니다</span>
-                  <span>
-                    <b className="font-[620] text-deadline-urgent">
-                      신분증·주민등록증은 올리지 마세요
-                    </b>{" "}
-                    — 저희는 주민등록번호를 받지 않습니다
-                  </span>
-                </div>
-              </div>
+              <EvidenceSlots
+                picked={picked}
+                busy={opening}
+                rejected={rejected}
+                onPick={pick}
+                onUnpick={unpick}
+              />
 
               {/* 못 만들었으면 앰버로. **스스로 다시 부르지 않습니다** — 누르는 것은
                   사용자입니다 (에러 §3.1) */}
@@ -455,6 +713,12 @@ export default function Start() {
                 이 주소가 <b className="font-[640] text-ink-1">사건의 열쇠</b>입니다. 다시 오실 때
                 이 주소로 들어오세요.
               </p>
+
+              {/* 자료가 어떻게 됐는지를 **여기서 말합니다.** 안 말하면 사용자는 자기
+                  파일이 올라갔는지 알 방법이 없습니다 — 발급 화면은 되돌아갈 수 없고,
+                  올린 자료를 보는 자리는 사건 화면에 있습니다.
+                  **못 올렸어도 되돌리지 않습니다** — 사건은 이미 있습니다 (불변 규칙 5) */}
+              {picked.length > 0 && <UploadNote total={picked.length} sending={sending} done={sentDone} notSent={notSent} />}
 
               {/* 주소 카드는 `case-opener` 가 그립니다 — 재발급 경로가 없어(ADR-039 ⑥)
                   「이 순간에 확실히 넘기기」가 그 모듈의 규칙이기 때문입니다 */}
