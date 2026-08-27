@@ -50,16 +50,24 @@ export interface AllowedTermSource {
  * 를 쓰는 이유가 `org-repair` 와 같습니다.
  */
 export function createAllowedTermSource(deps: {
-  readonly channels: Pick<ChannelWriter, 'allCandidates'>
+  readonly channels: Pick<ChannelWriter, 'allCandidates' | 'allPublicNames'>
 }): AllowedTermSource {
   return {
     async list(kbVersion) {
-      const rows = await deps.channels.allCandidates(kbVersion)
       const out = new Set<string>()
+
+      const rows = await deps.channels.allCandidates(kbVersion)
       for (const row of rows) {
         out.add(row.name)
         for (const alias of row.aliases) out.add(alias)
       }
+
+      // **경유 서비스가 아닌 기관도 가리면 안 됩니다** → 05 U-35.
+      // 경계 문서의 제외 목록에 *공공기관·수사기관명*이 있는데 그 데이터가
+      // `org` 에 못 들어가(=`channel_id` 필수) 그동안 비어 있었습니다.
+      // 실측에서 「금융감독원에 전화해서…」가 `[이름-1]` 이 됐습니다 (09 §7.2)
+      for (const name of await deps.channels.allPublicNames(kbVersion)) out.add(name)
+
       return [...out]
     },
   }
@@ -91,7 +99,7 @@ export function createAllowedTermSource(deps: {
  * 보냅니다 — `nerApplied` 와 같은 규칙입니다.
  */
 export async function allowedTermsFor(deps: {
-  readonly channels: Pick<ChannelWriter, 'allCandidates'>
+  readonly channels: Pick<ChannelWriter, 'allCandidates' | 'allPublicNames'>
   readonly kbVersion: { current(): Promise<string> }
 }): Promise<readonly string[]> {
   try {

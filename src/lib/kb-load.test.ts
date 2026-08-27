@@ -327,14 +327,17 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
     expect(plan.problems).toEqual([])
   })
 
-  it('다섯 항목이 전부 행이 된다', () => {
-    expect(plan.rows).toHaveLength(5)
+  it('여섯 항목이 전부 행이 된다', () => {
+    expect(plan.rows).toHaveLength(6)
     expect(plan.rows.map((r) => r.step_key)).toEqual([
       'report-112',
       'freeze-request',
       'relief-apply',
       'relief-documents',
       'debt-extinction-notice',
+      // 2026-08-27 추가 — 골자가 「할 수 있는 일」의 예로 든 F-10 이 그동안
+      // KB 에 한 줄도 없었습니다 → 05 U-36
+      'identity-check',
     ])
   })
 

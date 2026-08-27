@@ -921,6 +921,14 @@ export interface ChannelWriter {
    * 고르지 않고 `null` 을 내기 때문입니다.
    */
   allCandidates(kbVersion: string): Promise<readonly OrgCandidateRow[]>
+  /**
+   * 그 릴리스의 **공공기관 표기 전부** — 이름과 별칭을 한 배열로.
+   *
+   * `allCandidates` 와 갈라 둔 이유는 **쓰는 데가 다르기 때문**입니다.
+   * 저쪽은 유형을 고르는 후보이고, 이쪽은 **가리지 말 이름**입니다 —
+   * 경찰청은 유형 후보가 될 수 없습니다 → 05 U-35.
+   */
+  allPublicNames(kbVersion: string): Promise<readonly string[]>
 }
 
 export interface OrgCandidateRow {
@@ -942,6 +950,19 @@ export function createChannelWriter(sql: Sql): ChannelWriter {
         VALUES (${input.caseId}, ${input.channelId}, ${input.orgId},
                 ${input.orgNameRaw}, ${confidence}, ${input.source})
       `
+    },
+
+    async allPublicNames(kbVersion) {
+      // **경유 서비스가 아닌 기관**입니다 → `org_public` (마이그레이션 0007).
+      // 화면에 아무것도 안 그리고 토큰화 제외 목록으로만 쓰입니다
+      const rows = await sql<{ name: string; aliases: unknown }[]>`
+        SELECT name, aliases FROM org_public
+        WHERE kb_version = ${kbVersion}
+      `
+      return rows.flatMap((one) => [
+        one.name,
+        ...(Array.isArray(one.aliases) ? (one.aliases as string[]) : []),
+      ])
     },
 
     async allCandidates(kbVersion) {

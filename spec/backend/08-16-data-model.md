@@ -67,6 +67,7 @@ erDiagram
     deadline }o..|| kb_entry : "근거 (논리 참조)"
     case_channel }o..|| org : "기관 (논리 참조)"
     kb_entry }o..o| org : "기관 전용 항목"
+    org_public ||..o{ kb_entry : "가리지 말 이름 (같은 릴리스)"
     source_registry ||..o{ source_snapshot : "감시 소스 (논리 참조)"
     source_snapshot ||..o{ source_change : "변경 감지 (논리 참조)"
     source_change }o..o| kb_entry : "승인 후 반영 (논리 참조)"
@@ -963,6 +964,47 @@ CREATE INDEX idx_org_channel ON org (channel_id);
 **`aliases`로 표기 흔들림을 흡수합니다.** 정규화 후 비교하되, 못 찾아도 실패시키지 않고 유형 기본으로 내려갑니다.
 
 **이 테이블도 KB 릴리스에 포함됩니다.** 연락처가 바뀌면 코드 배포가 아니라 KB 릴리스로 반영됩니다 → [07-kb-operations.md](08-14-kb-operations.md).
+
+### 11.1.1 `org_public` — 경유 서비스가 **아닌** 기관
+
+> 2026-08-27 신설 (마이그레이션 0007). 근거: [research/05](../../docs/research/05-미확인-목록.md) U-35.
+
+```sql
+CREATE TABLE org_public (
+  org_id      VARCHAR(32)   NOT NULL,   -- 예: fss, police-agency, kftc
+  name        VARCHAR(100)  NOT NULL,   -- 정식 표기. 예: 금융감독원
+  aliases     JSONB         NOT NULL,   -- 별칭·줄임말. 매칭에 쓴다
+  source_url  VARCHAR(500)  NOT NULL,   -- 표기 근거. 비면 적재 거부
+  verified_at DATE          NOT NULL,
+  kb_version  VARCHAR(32)   NOT NULL,
+  PRIMARY KEY (org_id, kb_version)
+);
+```
+
+**하는 일이 하나뿐입니다 — 「가리지 말 이름」.**
+[PII 경계](../common/08-14-pii-boundary.md)의 토큰화 제외 목록에 *공공기관·수사기관명*이
+있는데 **그 데이터가 놓일 자리가 없었습니다.** `org` 는 `channel_id` 가 필수라 못
+들어갑니다([research/04](../../docs/research/04-기관정보.md) §8 이 「`org` 테이블이 아니라
+3순위 공통 KB 항목」으로 가른 자리). 그래서 NER 을 켜면 「금융감독원에 전화해서…」의
+기관명이 `[이름-1]` 이 됐습니다 — 문장 모양에 따라 **5~70%**
+([research/09](../../docs/research/09-로컬모델-PII인식-실측.md) §7.2).
+
+| 왜 `org` 를 안 열었나 | |
+| --- | --- |
+| `channel_id` 는 **「이 기관은 어느 유형인가」**입니다 | nullable 로 열면 `allCandidates`·`org-repair`·유형 매칭이 전부 **채널을 못 답하는 행**을 다뤄야 합니다 |
+| 경찰청은 「유형을 모르는 경유 서비스」가 아닙니다 | **경유 서비스가 아닙니다.** 표에 넣으면 그 구분이 사라집니다 |
+
+⛔ **연락처를 담지 않습니다.** 창구 번호는 절차 항목(`kb_entry.body`)이 갖습니다 —
+두 곳에 같은 번호가 생기면 어느 쪽이 정본인지 없어집니다. `source_url` 은
+**그 표기를 어디서 봤나**이지 연락처 근거가 아닙니다.
+
+**이 표도 KB 릴리스에 묶입니다.** 제외 목록은 이미 `KB_VERSION` 을 받아 만들어지므로
+(`lib/allowed-terms.ts`), 여기만 릴리스 밖에 두면 **버전을 되감아도 사전은 안 되감깁니다.**
+
+⬜ **경찰서·지방검찰청 개별 이름은 아직 못 담습니다** — 전국 250곳을 열거할 수 없습니다.
+`isAllowed` 에 기관 접미사 규칙을 더하는 안은 **「덜 가리는」 방향**이라 사람 판단이
+먼저입니다 → U-35. 그동안 그것들이 가려져도 **절차는 안 틀어집니다**(8유형 분기의
+입력은 경유 서비스입니다).
 
 ### 11.2 조회 우선순위 — 기관별이 유형 기본을 덮어씁니다
 

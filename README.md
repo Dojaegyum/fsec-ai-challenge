@@ -57,6 +57,7 @@ erDiagram
     deadline }o..|| kb_entry : "근거 (논리 참조)"
     case_channel }o..|| org : "기관 (논리 참조)"
     kb_entry }o..o| org : "기관 전용 항목"
+    org_public ||..o{ kb_entry : "가리지 말 이름 (같은 릴리스)"
     source_registry ||..o{ source_snapshot : "감시 소스 (논리 참조)"
     source_snapshot ||..o{ source_change : "변경 감지 (논리 참조)"
     source_change }o..o| kb_entry : "승인 후 반영 (논리 참조)"
