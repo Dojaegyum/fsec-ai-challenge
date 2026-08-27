@@ -30,6 +30,18 @@ const NEXT_OPTIONS: readonly NextOption[] = [
   { level: 'L3', label: '번호 없이 접수했다고 표시' },
 ]
 
+/**
+ * L3 이 왜 완료가 아닌지 사용자에게 하는 말. **문구의 정본은 08-14-api.md §3.8 입니다.**
+ *
+ * 이 칸을 안 내보내면 화면은 「아직 완료로 기록하지 않았습니다」만 그리고,
+ * 사용자에게는 **버튼이 안 먹은 것처럼** 보인다. 완료로 만들면 안 되는 것은 맞지만
+ * (불변 규칙 6), 이유를 말하지 않는 것은 계약에 없던 일이다.
+ *
+ * ⚠️ **여기에 `nextOptions` 를 붙이지 않는다.** L3 은 실패가 아니라 검증할 것이
+ * 없었다는 뜻이고, 사용자는 할 수 있는 것을 다 했다 → README.
+ */
+const SELF_REPORT_NOTE = '완료로 기록되지 않습니다. 접수번호를 확인하시면 알려주세요'
+
 export function createCompletionChecker(deps: {
   receiptFormat: ReceiptNumberFormat
 }): CompletionChecker {
@@ -68,6 +80,8 @@ function verifyOne(
         verifyResult: 'not_applicable',
         // 종결 상태가 아니라 리마인더 추적 대상으로 남는다
         stepState: 'unconfirmed',
+        // **왜 완료가 아닌지 말해 준다** — 안 그러면 눌러도 아무 일이 없는 것처럼 보인다
+        note: SELF_REPORT_NOTE,
       }
   }
 }

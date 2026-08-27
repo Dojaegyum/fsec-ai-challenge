@@ -140,7 +140,17 @@ describe('L3 — 했다고만 말함', () => {
       verifyLevel: 'L3',
       verifyResult: 'not_applicable',
       stepState: 'unconfirmed',
+      note: '완료로 기록되지 않습니다. 접수번호를 확인하시면 알려주세요',
     })
+  })
+
+  it('**왜 완료가 아닌지 말한다** — 안 그러면 버튼이 안 먹은 것처럼 보인다', () => {
+    // 문구의 정본은 08-14-api.md §3.8 「응답 200 — L3 자기 신고」입니다.
+    // 이 칸이 비면 화면은 「아직 완료로 기록하지 않았습니다」만 그립니다
+    const verdict = checker.verify({
+      submission: { kind: 'other', selfReported: true },
+    })
+    expect(verdict.note).toBe('완료로 기록되지 않습니다. 접수번호를 확인하시면 알려주세요')
   })
 
   it('실패가 아니므로 다음 선택지를 주지 않는다', () => {
