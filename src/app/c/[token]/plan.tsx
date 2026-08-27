@@ -26,6 +26,8 @@
  * 않습니다 — 화면이 둘로 갈라져 부르면 히어로와 보드가 서로 다른 시점을 그립니다.
  */
 
+import { useRef } from "react";
+
 import { ddayLabel, dueLabel, groupDeadlines, WaitCard } from "@/modules/deadline-viewer";
 import type { Deadline } from "@/modules/deadline-viewer";
 import { PlanBoard } from "@/modules/plan-viewer";
@@ -107,19 +109,26 @@ export default function PlanView({
   deadlines,
   onPickStep,
   onOpenDoc,
+  onPickFile,
+  busy = false,
 }: {
   steps: readonly PlanStep[];
   deadlines: readonly Deadline[];
   /** 단계를 누르면 워크스페이스가 그리로 옮겨집니다. 없으면 안 눌립니다 */
   onPickStep?: (stepId: string) => void;
   /**
-   * 「무엇을 적는지 보기」 — 기재 안내 화면으로.
+   * 「무엇을 적는지 보기」가 가는 곳 — S-10 기재 안내.
    *
-   * **없으면 그 버튼을 안 그립니다.** 히어로 본문이 그 버튼을 이름으로
-   * 가리키고 있어서(「‘무엇을 적는지 보기’의 첫 줄에 있습니다」), 눌러도
-   * 안 열리는 채로 두면 사용자가 그 첫 줄을 영영 못 찾습니다.
+   * ⚠️ **2026-08-27 까지 이 버튼에 `onClick` 이 없었습니다.** 그런데 바로 아래
+   * 문장이 *「내는 곳은 은행마다 다릅니다 — 「무엇을 적는지 보기」의 첫 줄에
+   * 있습니다」* 라고 그 버튼을 가리킵니다. [ADR-042](../../../decisions/042-submit-channel.md)가
+   * 히어로에서 제출처를 말하지 못하게 막은 대가로 **그 버튼을 유일한 출구로
+   * 지정**했는데 출구가 닫혀 있었습니다. 3영업일 기한이 걸린 서류입니다
    */
   onOpenDoc?: () => void;
+  /** 통지·우편을 올리는 자리 — 공고 대기 카드가 씁니다 */
+  onPickFile?: (file: File) => void;
+  busy?: boolean;
 }) {
   // 본 기한·추가 기간·안내를 가릅니다. **합치지 않습니다** → 데이터 모델 §8.1
   const groups = groupDeadlines(deadlines);
@@ -139,8 +148,24 @@ export default function PlanView({
 
   const byId = new Map(steps.map((s) => [s.step_id, s]));
 
+  /** 공고 대기 카드의 「통지·우편 받으셨나요」가 여는 파일 선택 */
+  const noticeRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5">
+      {/* 받는 것은 §3.2 가 정한 셋입니다 — 통지는 사진으로 찍어 올립니다 */}
+      <input
+        ref={noticeRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onPickFile?.(file);
+        }}
+      />
+
       {/* ── 히어로 스트립 — 첫 줄이 답입니다 ─────────────── */}
       <section
         style={step(0)}
@@ -319,7 +344,13 @@ export default function PlanView({
                 deadline={notice}
                 startAt={notice.starts_at}
                 progress={notice.elapsed}
-                onUpload={() => {}}
+                /* ⚠️ **빈 함수를 넘기면 모듈이 걸어 둔 안전장치가 열립니다.**
+                   `wait.tsx` 가 *「통지·우편을 올리는 자리. 없으면 버튼을 그리지
+                   않습니다」* 로 막아 뒀는데, 여기서 `() => {}` 를 넘겨 **눌러도
+                   아무 일이 없는 전폭 버튼**이 켜져 있었습니다 */
+                {...(onPickFile
+                  ? { onUpload: () => { if (!busy) noticeRef.current?.click(); } }
+                  : {})}
               />
             ) : null
           }

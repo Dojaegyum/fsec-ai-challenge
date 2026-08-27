@@ -42,9 +42,19 @@ import type { ChatSend } from "./send";
  */
 
 
-/** 서버(poll-checker)가 내준 값 그대로. **화면이 추측하지 않습니다** */
+/**
+ * 기다리는 동안 무엇을 하는지 — **문장으로** 말합니다. 점 3개·스켈레톤·타자기를
+ * 쓰지 않습니다 (§S-06 「스트리밍을 안 하는 대신 무엇을 하는지 말합니다」).
+ *
+ * ⚠️ **첫 줄이 「진술을 확인했습니다 (간편송금 경로)」였습니다.** 바로 위 주석이
+ * *「화면이 추측하지 않습니다」* 라고 적어 놓고, **모든 사용자에게 경유 서비스를
+ * 단정**하고 있었습니다. 유형은 서버가 정하고(§3.4 `channel`) 이 자리에 내려오는
+ * 칸이 없습니다 — 그래서 **말하지 않습니다.**
+ *
+ * ⬜ 서버가 진행 문구를 내리는 칸이 계약에 서면 그때 그대로 씁니다.
+ */
 const PENDING_STEPS = [
-  "진술을 확인했습니다 (간편송금 경로)",
+  "진술을 확인했습니다",
   "맞는 절차를 대조하고 있습니다",
   "근거를 검증합니다. 출처 없는 문장은 나가지 않습니다",
 ] as const;
@@ -64,7 +74,7 @@ export default function ChatView({
   chat: ChatSend;
   onPickChoice: () => void;
 }) {
-  const { lines, sending, fail, send, loading, truncated, locked, ask } = chat;
+  const { lines, sending, fail, send, loading, truncated, pastFailed, locked, ask } = chat;
   const [draft, setDraft] = useState("");
   const dev = token === null;
   const question = ask.question;
@@ -126,7 +136,24 @@ export default function ChatView({
               </p>
             )}
 
-            {!loading && lines.length === 0 && (
+            {/* **못 읽은 것과 대화가 없던 것을 가릅니다.** 뭉치면 며칠 뒤 돌아온
+                사용자가 자기 대화가 사라진 줄 압니다 (ADR-021 · ADR-050) */}
+            {!loading && pastFailed && (
+              <div
+                role="alert"
+                className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px]"
+              >
+                <p className="text-[13.5px] leading-[1.65] text-ink-1">
+                  <b className="font-[620]">지난 대화를 불러오지 못했습니다.</b> 사라진 것이
+                  아니라 지금 못 읽은 것입니다 — 잠시 뒤 새로고침해 보세요.
+                </p>
+                <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-3">
+                  절차와 기한은 그대로 있습니다. 지금 이어서 말씀하셔도 됩니다.
+                </p>
+              </div>
+            )}
+
+            {!loading && !pastFailed && lines.length === 0 && (
               <Bubble who="ai" i={0}>
                 무슨 일이 있으셨는지 편하게 적어주세요. 문장이 아니어도 됩니다.
               </Bubble>

@@ -5,6 +5,8 @@ import { useRef } from "react";
 import { FileRail } from "@/modules/file-sender";
 import { countTokens, TranscriptView } from "@/modules/transcript-viewer";
 
+import type { RestorableMapping } from "@/modules/pii-restorer";
+
 import { FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { useEvidence } from "./load";
 import type { Uploads } from "./upload";
@@ -36,9 +38,17 @@ import type { Uploads } from "./upload";
  *    다시 묻습니다 (`load.ts` 의 `useEvidence`). 간격을 화면이 지어내지 않습니다
  *  · **자료 레일** — 브라우저가 들고 있는 목록입니다(`useUploads`). 못 가려서
  *    **안 올린 파일도 남아야** 해서 서버 응답만으로는 못 만듭니다 (ADR-026)
- *  · **복원 매핑** — 볼트를 여는 것은 `key-handler` 이고 아직 안 붙었습니다.
- *    ⬜ 그때까지 `FIXTURE_MAPPINGS` 입니다 — **원문이 서버에서 오지 않는다**는
- *    사실은 그대로입니다 (ADR-009 · ADR-027)
+ *  · **복원 매핑** — **셸이 볼트에서 열어 온 것**을 그대로 받습니다 (`chat.restorable`).
+ *
+ *    ⚠️ **2026-08-27 까지 이 자리가 `FIXTURE_MAPPINGS` 였습니다.** 전사문 줄은 서버에서
+ *    오는데 되살리는 표만 개발용 예시라, **실제 피해자의 전사문에 `김민수`·
+ *    `110-2345-678901` 이 끼워져** 그려졌습니다. 그리고 바로 아래 푸터가 「이 화면은
+ *    원문입니다」라고 단언했습니다 — 이 사건 어디에도 없는 값을 원문이라고 말한 것입니다.
+ *    사용자가 그 번호를 피해구제 신청서에 옮겨 적을 수 있었습니다.
+ *
+ *    머리말의 옛 ⬜ (「볼트를 여는 것은 `key-handler` 이고 아직 안 붙었습니다」)는
+ *    낡은 것이었습니다 — `openVault` 는 이미 있고 챗이 쓰고 있었으며 **증거함만
+ *    안 이어져** 있었습니다 (ADR-009 · ADR-027 · ADR-050)
  *
  * `token` 이 `null` 이면 **서버를 부르지 않고 픽스처로 그립니다** (`?view=` 개발 경로).
  */
@@ -50,6 +60,8 @@ export default function EvidenceView({
   token,
   uploads,
   onContinue,
+  restorable,
+  locked = false,
 }: {
   token: string | null;
   /** 자료 레일 한 벌. **셸이 들고 있습니다** — 유령까지 같은 것을 봐야 합니다 */
@@ -61,23 +73,51 @@ export default function EvidenceView({
    * 놓고 눌러도 아무 데도 안 가면 그 말이 거짓이 됩니다.
    */
   onContinue?: () => void;
+  /**
+   * 볼트에서 열어 온 복원 매핑. **셸이 한 벌만 들고 챗과 함께 내려줍니다.**
+   * 개발 경로(`token === null`)에서는 안 넘어오고 픽스처를 씁니다
+   */
+  restorable?: readonly RestorableMapping[];
+  /** 이 기기에 열쇠가 없나 — 가족이 링크를 받아 연 경우입니다 (ADR-050) */
+  locked?: boolean;
 }) {
   const pick = useRef<HTMLInputElement>(null);
   const files = uploads.files;
   const selected = uploads.selectedId;
-  const file = files.find((f) => f.id === selected) ?? files[0];
+  /**
+   * ⚠️ **`files[0]` 을 그냥 쓰면 자료가 0개일 때 화면이 통째로 죽습니다.**
+   * 아래 「아직 올리신 자료가 없습니다」 분기가 이미 있는데, 그 앞줄에서 먼저
+   * 터져 **영영 도달하지 않았습니다.** `noUncheckedIndexedAccess` 가 없어
+   * 타입 검사로는 안 잡히는 자리입니다
+   */
+  const file = files.find((f) => f.id === selected) ?? files.at(0);
 
   // 올라간 파일만 서버에 물을 것이 있습니다 — `evidence_id` 가 없으면 안 부릅니다
-  const server = useEvidence(token, file.evidence_id);
+  const server = useEvidence(token, file?.evidence_id);
   const read = server.phase === "ready" ? server.read : null;
 
   /**
    * **처리 상태의 주인은 서버입니다.** 레일의 값은 브라우저가 방금 올리며 적어 둔
    * 것이라, 응답이 오면 그쪽이 이깁니다 — 다른 기기에서 올린 파일도 있을 수 있습니다.
+   *
+   * ⚠️ **둘을 뭉치지 않습니다.** 서버의 실패는 **전사·판독이 안 됐다**는 뜻이고
+   * (데이터 모델 §3), 레일의 실패는 **올리다 끊겼다**는 뜻입니다. `file-sender` 가
+   * *"뭉치면 진짜 전사 실패가 났을 때 화면에 「가릴 수 없는 정보가 있어 올리지
+   * 않았습니다」라는 거짓 문구가 나갑니다"* 라고 이미 경고해 둔 자리입니다
    */
-  const status = read?.ingest_status ?? file.status;
+  const readFailed = read?.ingest_status === "failed";
+  const sendFailed = !read && file?.status === "failed";
+  const status = read?.ingest_status ?? file?.status;
   const lines = read?.transcript ?? (token === null ? FIXTURE_EVIDENCE.transcript : []);
   const tokens = read?.pii_tokens ?? (token === null ? FIXTURE_EVIDENCE.pii_tokens : []);
+
+  /**
+   * 되살리는 표 — **개발 경로에서만 픽스처**입니다.
+   *
+   * 실서버 경로에서 픽스처를 쓰면 **이 사건에 없는 값이 원문으로 그려집니다.**
+   * 열쇠가 없으면 빈 목록이고, 그때는 아래에서 그 이유를 말합니다
+   */
+  const mappings = token === null ? FIXTURE_MAPPINGS : (restorable ?? []);
 
   return (
     <div className="grid w-full gap-4 md:grid-cols-[220px_1fr]">
@@ -111,7 +151,15 @@ export default function EvidenceView({
 
         {/* 자료 레일은 `file-sender` 가 그립니다 — 상태 점과 갈림길이
             그쪽 규칙이기 때문입니다(경계 표: 「업로드 + 처리 상태」). 레일은 선택 UI 를 겸합니다 */}
-        <FileRail files={files} selectedId={selected} onSelect={uploads.select} />
+        {/* **갈림길을 실제로 냅니다** — 넘기지 않으면 레일이 버튼을 안 그립니다.
+            「없이 진행」은 고를 것이 없어 안 넘깁니다: 사건은 이미 진행 중이고
+            이 화면이 막고 있지 않습니다 (ADR-026) */}
+        <FileRail
+          files={files}
+          selectedId={selected}
+          onSelect={uploads.select}
+          {...(token === null ? {} : { onRetry: () => pick.current?.click() })}
+        />
 
         {/* 못 올렸으면 앰버로. **스스로 다시 올리지 않습니다** (에러 §3.1) */}
         {uploads.fail && (
@@ -187,13 +235,30 @@ export default function EvidenceView({
               원본은 아직 이 브라우저 안에 있습니다.
             </p>
           </div>
-        ) : status === "failed" ? (
-          /* 갈림길이지 막는 자리가 아닙니다 — 앰버, 빨강 금지 (ADR-026) */
+        ) : readFailed || sendFailed ? (
+          /* 갈림길이지 막는 자리가 아닙니다 — 앰버, 빨강 금지 (ADR-026)
+
+             ⚠️ **여기서 「주민등록번호를 못 가려서」라고 말하면 거짓말입니다.**
+             파일 속 주민번호 검출은 아직 미결이라(ADR-026) 그 판정 자체가
+             일어나지 않습니다. 실제로 일어난 일은 둘 중 하나입니다 —
+             전사·판독이 안 됐거나(서버), 올리다 끊겼거나(브라우저) */
           <div className="grid gap-3 p-[18px_16px]">
             <p className="text-[14px] leading-[1.65] text-ink-2">
-              이 파일은 <b className="font-[620] text-deadline-urgent">주민등록번호를 못 가려서</b>{" "}
-              올리지 않았습니다. <b className="font-[620] text-ink-1">사건은 그대로 진행됩니다.</b>{" "}
-              이 파일 하나만 빠집니다.
+              {readFailed ? (
+                <>
+                  이 파일은{" "}
+                  <b className="font-[620] text-deadline-urgent">읽어내지 못했습니다.</b> 소리가
+                  작거나 글자가 흐리면 그렇습니다.
+                </>
+              ) : (
+                <>
+                  이 파일은{" "}
+                  <b className="font-[620] text-deadline-urgent">올리지 못했습니다.</b> 연결이
+                  끊겼을 수 있습니다.
+                </>
+              )}{" "}
+              <b className="font-[620] text-ink-1">사건은 그대로 진행됩니다.</b> 이 파일 하나만
+              빠집니다.
             </p>
             <div className="flex flex-wrap gap-2">
               {/* 위 「＋ 올리기」와 **같은 파일 선택기**를 엽니다 — 갈림길이 두 개면
@@ -204,7 +269,7 @@ export default function EvidenceView({
                 disabled={token === null || uploads.busy}
                 className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] bg-ink-1 px-4 text-[13.5px] font-[660] text-ground disabled:opacity-45"
               >
-                다른 파일 올리기
+                {uploads.busy ? "올리는 중" : "다른 파일 올리기"}
               </button>
               {onContinue && (
                 <button
@@ -223,10 +288,19 @@ export default function EvidenceView({
           </p>
         ) : (
           <>
-            <div className="p-[18px_16px]">
+            <div className="grid gap-3 p-[18px_16px]">
+              {/* **열쇠가 없는 기기입니다** — 가족이 링크를 받아 연 경우입니다.
+                  아무 말 없이 `[계좌-1]` 이 보이면 고장으로 읽힙니다 (ADR-050) */}
+              {locked && (
+                <p className="rounded-[10px] border border-hairline bg-chip p-3 text-[12.5px] leading-[1.6] text-ink-2">
+                  <b className="font-[620] text-ink-1">이 기기에는 여는 열쇠가 없습니다.</b>{" "}
+                  계좌번호·이름은 <b className="font-[620] text-pii">[계좌-1]</b> 처럼 가려진 채로
+                  보입니다 — 전사 내용과 절차는 그대로 보입니다.
+                </p>
+              )}
               <TranscriptView
                 lines={lines}
-                mappings={FIXTURE_MAPPINGS}
+                mappings={mappings}
                 lineStyle={(i) => step(i + 3)}
               />
             </div>
@@ -236,8 +310,10 @@ export default function EvidenceView({
                 `case-reader`(층 1)가 미구현이고 §3.3 에도 자리가 없어 전사 본문에서
                 빠졌습니다. 문구는 여전히 참이라 두되, 표기가 서면 함께 보여야 합니다 */}
             <footer className="border-t border-hairline p-[11px_16px] text-[12.5px] leading-[1.6] text-ink-3">
-              <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 밖으로 나간 것은
-              가려진 형태였습니다. 복원은 이 브라우저 안에서만 일어납니다.{" "}
+              <b className="font-[620] text-ink-2">
+                {locked ? "이 화면은 가려진 채입니다." : "이 화면은 원문입니다."}
+              </b>{" "}
+              밖으로 나간 것은 가려진 형태였습니다. 복원은 이 브라우저 안에서만 일어납니다.{" "}
               <b className="font-[620] text-ink-2">미확인</b> 구간은 서류에 자동으로 들어가지
               않습니다.
             </footer>

@@ -132,3 +132,45 @@ describe("화면이 날짜를 세지 않는다 — 불변 규칙 7", () => {
     expect(textOf(draw(FRESH))).not.toMatch(/D-\d/);
   });
 });
+
+describe("히어로의 주 버튼 둘이 실제로 눌린다", () => {
+  const RUNNING: readonly PlanStep[] = [stepOf("freeze-request", "in_progress", 20)];
+
+  it("「지금 하기」가 그 단계를 연다", () => {
+    // 2026-08-27 까지 이 버튼에 핸들러가 없었습니다 — 화면에서 가장 크게 읽히는
+    // 버튼인데 눌러도 아무 일이 없었습니다
+    let picked: string | null = null;
+    const html = renderToStaticMarkup(
+      <PlanView
+        steps={RUNNING}
+        deadlines={[]}
+        onPickStep={(id) => {
+          picked = id;
+        }}
+        onOpenDoc={() => {}}
+      />,
+    );
+    expect(html).toContain("지금 하기");
+    expect(picked).toBeNull(); // 렌더만으로는 안 눌립니다
+  });
+
+  it("문을 안 넘기면 **그 버튼을 아예 안 그린다** — 비활성 버튼보다 없는 편이 낫습니다", () => {
+    const text = textOf(renderToStaticMarkup(<PlanView steps={RUNNING} deadlines={[]} />));
+    // 「무엇을 적는지 보기」는 제출처를 가진 유일한 화면으로 가는 문입니다 (ADR-042).
+    // **가리키는 문장도 함께 사라져야** 합니다 — 눌러도 안 열리는 버튼을 가리키면
+    // 사용자가 그 첫 줄을 영영 못 찾습니다
+    expect(text).not.toContain("무엇을 적는지 보기");
+    expect(text).not.toContain("내는 곳은 은행마다 다릅니다");
+  });
+
+  it("그 버튼을 가리키는 문장이 함께 있다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <PlanView steps={RUNNING} deadlines={[]} onOpenDoc={() => {}} onPickStep={() => {}} />,
+      ),
+    );
+    // 제출처는 은행마다 다르므로 히어로가 말하지 않습니다 — 대신 그 문을 가리킵니다
+    expect(text).toContain("무엇을 적는지 보기");
+    expect(text).toContain("내는 곳은 은행마다 다릅니다");
+  });
+});

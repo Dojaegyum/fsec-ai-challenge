@@ -17,7 +17,10 @@ const DOT: Record<EvidenceStatus, { cls: string; label: string }> = {
     label: "가리는 중",
   },
   done: { cls: "bg-pii", label: "전사 완료" },
-  failed: { cls: "bg-deadline-urgent", label: "제외 — 주민번호를 못 가렸습니다" },
+  // **낱말만 같은 두 실패가 있습니다** — 기본 문구는 실제로 일어나는 쪽입니다.
+  // 「제외 — 주민번호를 못 가렸습니다」는 `cause: "masking"` 일 때만 참인데
+  // 그 판정은 아직 아무도 안 합니다 (`send.ts` 의 `FailCause`)
+  failed: { cls: "bg-deadline-urgent", label: "올리지 못했습니다" },
 };
 
 export function StatusDot({ status }: { status: EvidenceStatus }) {
@@ -113,22 +116,32 @@ export function FileRail({
                 <p className="text-[12.5px] leading-[1.6] text-deadline-urgent">
                   {fork.message}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onRetry?.(f.id)}
-                    className="inline-flex min-h-[var(--size-touch)] items-center rounded-[9px] border border-hairline px-3 text-[12.5px] text-ink-2"
-                  >
-                    {fork.choices[0]}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSkip?.(f.id)}
-                    className="inline-flex min-h-[var(--size-touch)] items-center rounded-[9px] border border-hairline px-3 text-[12.5px] text-ink-2"
-                  >
-                    {fork.choices[1]}
-                  </button>
-                </div>
+                {/* ⚠️ **넘겨받지 않은 갈림길은 그리지 않습니다.** 2026-08-27 까지
+                    부르는 쪽이 `onRetry`·`onSkip` 을 안 넘겨서 **눌러도 아무 일이
+                    없는 버튼 둘**이 켜져 있었습니다 — 「막지 않고 갈림길을 준다」가
+                    갈림길 없이 문구만 남은 상태였습니다 */}
+                {(onRetry || onSkip) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {onRetry && (
+                      <button
+                        type="button"
+                        onClick={() => onRetry(f.id)}
+                        className="inline-flex min-h-[var(--size-touch)] items-center rounded-[9px] border border-hairline px-3 text-[12.5px] text-ink-2"
+                      >
+                        {fork.choices[0]}
+                      </button>
+                    )}
+                    {onSkip && (
+                      <button
+                        type="button"
+                        onClick={() => onSkip(f.id)}
+                        className="inline-flex min-h-[var(--size-touch)] items-center rounded-[9px] border border-hairline px-3 text-[12.5px] text-ink-2"
+                      >
+                        {fork.choices[1]}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </li>

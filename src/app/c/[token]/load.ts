@@ -45,6 +45,24 @@ export interface CaseBundle {
   readonly deadlines: readonly Deadline[];
   /** §3.4 `next_question`. 더 물을 것이 없으면 `null` */
   readonly question: NextQuestion | null;
+  /**
+   * §3.4 `slots[]` — **진술에서 파악한 것**. 사건 파일 카드가 그립니다 (§S-06).
+   *
+   * ⚠️ **2026-08-27 까지 이 값을 받아 놓고 버렸습니다.** 그래서 사건 파일 카드가
+   * 하드코딩 상수(「피해 유형: 기관 사칭 (검찰)」·「피해 금액: 300만원」)를 그렸고,
+   * 카드 제목이 「진술에서 파악한 것」이라 **사용자는 그것을 자기 진술에서 뽑은
+   * 값으로 읽었습니다.**
+   */
+  readonly slots: readonly CaseSlot[];
+}
+
+/** §3.4 의 슬롯 한 줄 — 깊이 검사하지 않습니다. 모양은 서버가 지키는 계약입니다 */
+export interface CaseSlot {
+  readonly slot_key: string;
+  readonly tier?: string;
+  readonly state: string;
+  /** 「모름」이면 `null`. 토큰이면 `[계좌-1]` 같은 모양입니다 */
+  readonly value: string | null;
 }
 
 /** 못 읽었을 때 화면이 그리는 재료 — `decidePoll` 의 판정 + 사람이 읽을 한 줄 */
@@ -164,7 +182,7 @@ function toBundle(json: unknown): CaseBundle | null {
     track?: unknown;
     plan?: { steps?: unknown };
     deadlines?: { deadlines?: unknown };
-    slots?: { next_question?: unknown };
+    slots?: { next_question?: unknown; slots?: unknown };
   };
   if (typeof body.case_id !== "string") return null;
 
@@ -173,6 +191,7 @@ function toBundle(json: unknown): CaseBundle | null {
     ? (body.deadlines.deadlines as Deadline[])
     : [];
   const question = (body.slots?.next_question ?? null) as NextQuestion | null;
+  const slots = Array.isArray(body.slots?.slots) ? (body.slots.slots as CaseSlot[]) : [];
 
   return {
     case: {
@@ -183,6 +202,7 @@ function toBundle(json: unknown): CaseBundle | null {
     steps,
     deadlines,
     question,
+    slots,
   };
 }
 
