@@ -85,7 +85,8 @@ const APPLIED: KbRow[] = [
       actor: 'victim',
       // 지급정지가 끝나야 켜진다
       after: ['bank-freeze-request'],
-      requiresSlots: ['relief_applied_at'],
+      // KB 본문의 키는 snake_case 입니다 — camelCase 로 적으면 **조건이 통째로 안 걸립니다**
+        requires_slots: ['relief_applied_at'],
       deadline: { kind: 'business_days', amount: 3, from: 'relief_applied_at' },
     },
   }),

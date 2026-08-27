@@ -129,7 +129,9 @@ function isActive(
   slots: Map<string, SlotState>,
   done: Set<string>,
 ): boolean {
-  const needs = step.body.requiresSlots ?? []
+  // **KB 본문의 표기 그대로 읽습니다** — `requires_slots` → 09-data-model.md §11.4.
+  // camelCase 로 읽으면 언제나 빈 배열이 되어 이 문이 통째로 열립니다
+  const needs = step.body.requires_slots ?? []
   if (needs.some((slotKey) => slots.get(slotKey) !== 'confirmed')) return false
 
   const after = step.body.after ?? []

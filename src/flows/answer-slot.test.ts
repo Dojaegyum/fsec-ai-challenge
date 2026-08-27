@@ -112,6 +112,14 @@ function harness(
     async candidates() {
       return base.orgs ?? ORGS
     },
+    /**
+     * **가리지 말 이름** — 경유 서비스가 아닌 기관입니다. 이 파일이 보는 것은
+     * 슬롯 쪽이라 빈 목록으로 둡니다 (origin/main 에서 넓어진 칸)
+     */
+    async allPublicNames(): Promise<readonly string[]> {
+      return []
+    },
+
     async allCandidates() {
       return base.orgs ?? ORGS
     },
