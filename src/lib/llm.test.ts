@@ -407,6 +407,42 @@ describe('막히면 다음 모델로 넘어간다', () => {
     expect(modelOf(spy, 0)).toBe('first')
   })
 
+  /**
+   * **늦은 것도 다음 후보로 넘어갑니다** — 2026-08-27 에 여기서 막혔습니다.
+   *
+   * 첫 후보가 닿지 않으면 그 자리에서 던져 버려서, 뒤에 선 멀쩡한 후보를
+   * **한 번도 안 불렀습니다.** 같은 순간 `gemini-3.6-flash` 는 3~7초에
+   * 답하고 있었는데 사용자는 503 을 받았습니다.
+   */
+  it('첫 후보가 닿지 않아도 둘째를 부른다 — 503 과 같이 다룹니다', async () => {
+    let call = 0
+    type Fetch = (url: string | URL | Request, init?: RequestInit) => Promise<Response>
+    const impl: Fetch = async () => {
+      call += 1
+      if (call === 1) throw new Error('ECONNREFUSED')
+      return new Response(JSON.stringify({ choices: [{ message: { content: ok } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    const spy = vi.fn(impl)
+    vi.stubGlobal('fetch', spy)
+
+    const reply = await three().complete(ask)
+    expect(reply.insufficient).toBe(false)
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(modelOf(spy, 1)).toBe('second')
+  })
+
+  it('다 닿지 못하면 그때는 그렇게 말한다', async () => {
+    const spy = vi.fn(async () => { throw new Error('ECONNREFUSED') })
+    vi.stubGlobal('fetch', spy)
+
+    await expect(three().complete(ask)).rejects.toThrow('모델에 닿지 못했습니다')
+    // 후보 셋 × 두 바퀴
+    expect(spy).toHaveBeenCalledTimes(6)
+  })
+
   it('**글은 그대로 두고 모델만 바뀝니다**', async () => {
     const spy = failThen([503])
     vi.stubGlobal('fetch', spy)
