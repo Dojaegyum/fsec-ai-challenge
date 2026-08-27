@@ -125,13 +125,13 @@ describe("미니 챗이 실제 대화를 그린다 — 목업이 아니다", () 
     // **이것이 그날의 결함입니다.** 오른쪽 열의 대응 비서는 본문이 플랜일 때
     // 뜨는데, 실사건은 언제나 플랜으로 열립니다 — 여기 문항이 없으면 문진이
     // 프로덕션에서 한 번도 안 그려집니다
-    const text = textOf(renderToStaticMarkup(<MiniChat chat={chatOf()} />));
+    const text = textOf(renderToStaticMarkup(<MiniChat chat={chatOf()} token="T" />));
     expect(text).toContain("돈이 실제로 빠져나갔나요?");
     expect(text).toContain("네, 돈이 나갔어요");
   });
 
   it("하드코딩된 목업 대사가 남아 있지 않다", () => {
-    const text = textOf(renderToStaticMarkup(<MiniChat chat={chatOf()} />));
+    const text = textOf(renderToStaticMarkup(<MiniChat chat={chatOf()} token="T" />));
     // 「다음은 피해구제 신청입니다. 8월 20일까지요」가 박혀 있었습니다 —
     // **화면이 날짜를 만들지 않습니다** (불변 규칙 7)
     expect(text).not.toContain("8월 20일");
@@ -141,7 +141,7 @@ describe("미니 챗이 실제 대화를 그린다 — 목업이 아니다", () 
   it("주고받은 말을 그대로 그린다", () => {
     const text = textOf(
       renderToStaticMarkup(
-        <MiniChat chat={chatOf({ lines: [{ who: "me", text: "카카오페이로 보냈어요" }] })} />,
+        <MiniChat chat={chatOf({ lines: [{ who: "me", text: "카카오페이로 보냈어요" }] })} token="T" />,
       ),
     );
     expect(text).toContain("카카오페이로 보냈어요");
@@ -149,7 +149,7 @@ describe("미니 챗이 실제 대화를 그린다 — 목업이 아니다", () 
 
   it("보내는 중에는 무엇을 하는지 문장으로 말한다 — 점 3개를 쓰지 않습니다", () => {
     const text = textOf(
-      renderToStaticMarkup(<MiniChat chat={chatOf({ sending: true })} />),
+      renderToStaticMarkup(<MiniChat chat={chatOf({ sending: true })} token="T" />),
     );
     expect(text).not.toContain("...");
     expect(text.length).toBeGreaterThan(10);
@@ -159,6 +159,7 @@ describe("미니 챗이 실제 대화를 그린다 — 목업이 아니다", () 
     const text = textOf(
       renderToStaticMarkup(
         <MiniChat
+          token="T"
           chat={chatOf({
             fail: {
               stage: "message",
