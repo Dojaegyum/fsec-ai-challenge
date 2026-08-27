@@ -11,6 +11,13 @@
  * 여기서는 **저장소에서 읽어 그 모듈이 요구하는 모양으로 옮기고**, 결과를
  * `chat-publisher` 에 넘겨 한 형태로 씌우고, 남깁니다.
  *
+ * ## 남기는 것이 둘 더 있습니다 — 감사
+ *
+ * `chat.context_built` 와 `llm.called` 를 여기서 남깁니다 → 11-chat-context.md
+ * §7.2 · 09-data-model.md §10.2. **`chat-receiver` 가 남기지 않습니다** —
+ * 저장도 감사도 부른 쪽의 몫이라고 ADR-022 가 정했습니다. 이 파일이 안 남기면
+ * **이 제품의 유일한 외부 모델 호출이 감사 없이 지나갑니다.**
+ *
  * ## ⚠️ `caseTalk` 이 매 턴 모델에 갑니다
  *
  * 전사문이 맥락으로 들어갑니다 → 11-chat-context.md. **이미 토큰화된 것만
@@ -24,10 +31,12 @@ import { seoulDayLabel } from '@/lib/clock'
 import type { Container } from '@/lib/container'
 import { newUlid } from '@/lib/ids'
 
-import type { Citation } from '@/modules/chat-publisher'
-import type { CaseContext } from '@/modules/chat-receiver'
+import type { Citation, NextQuestion, PublishInput } from '@/modules/chat-publisher'
+import type { CaseContext, SettledOutcome } from '@/modules/chat-receiver'
+import type { NextQuestion as SlotQuestion } from '@/modules/slot-checker'
 
 import { readApiDeadlines, type ApiDeadline } from './api-deadlines'
+import { readCasePlan } from './regenerate-plan'
 
 /** 한 턴의 결과 — 라우트가 그대로 내보냅니다 */
 export interface TurnResult {
@@ -46,8 +55,15 @@ export async function chatTurn(
   input: { readonly caseId: string; readonly content: string },
   container: Container,
 ): Promise<TurnResult> {
-  const context = await gatherContext(input.caseId, container)
-  const kbVersion = await container.ports.kbVersion.current()
+  const [context, kbVersion, plan] = await Promise.all([
+    gatherContext(input.caseId, container),
+    container.ports.kbVersion.current(),
+    // **다음 문항을 화면과 같은 자리에서 구합니다** — §3.9 가 *"만드는 것도
+    // 같은 슬롯 체커입니다"* 라고 못 박았습니다. 여기서 따로 만들면 문진 카드와
+    // 챗이 서로 다른 것을 묻습니다
+    readCasePlan(input.caseId, { container, store: container.ports.casePlan }),
+  ])
+  const nextQuestion = asWireQuestion(plan.nextQuestion)
 
   const outcome = await container.chatReceiver.receive({
     caseContext: context,
@@ -55,28 +71,59 @@ export async function chatTurn(
     kbVersion,
   })
 
+  // 09-data-model.md §10.2 · 11-chat-context.md §7.2 — **건수만 담습니다.**
+  // 식별자도 본문도 토큰도 넣지 않습니다 (불변 규칙 2·3 · §10.1)
+  await container.auditLogger.record({
+    eventType: 'chat.context_built',
+    actorType: 'system',
+    caseId: input.caseId,
+    detail: {
+      applied: outcome.counts.applied,
+      reference: outcome.counts.reference,
+      kb_version: kbVersion,
+      transcript_lines: outcome.counts.transcriptLines,
+    },
+  })
+
+  // **이 제품의 유일한 외부 모델 호출입니다** → 04-pii-boundary.md 「감사」가
+  // *"모든 LLM 호출을 감사 로그로 기록"* 한다고 정했는데 한 줄도 안 남고
+  // 있었습니다. 송출 검사(`publish`)보다 **앞에서** 남깁니다 — 거기서 막혀도
+  // 모델은 이미 불렸습니다.
+  //
+  // ⬜ 정본의 예(§10.2)는 `{"model":…,"token_in":…}` 인데 둘 다 여기까지
+  // 안 옵니다 — `LlmClient.complete` 가 `ModelReply` 만 돌려주고, 어느 후보
+  // 모델이 답했는지는 `lib/llm.ts` 안에서 끝납니다. **지어내면 감사 기록이
+  // 거짓이 되므로** 실제로 아는 것(부른 횟수)만 남깁니다 → TODO(계약 필요)
+  await container.auditLogger.record({
+    eventType: 'llm.called',
+    actorType: 'model',
+    caseId: input.caseId,
+    detail: { attempts: outcome.attempts },
+  })
+
   const messageId = newUlid()
 
   // 갈래를 한 형태로 씌웁니다. **잔여 개인정보가 있으면 여기서 막힙니다** —
   // 통과시키고 로그만 남기는 경로는 없습니다 → 08-16-errors.md 원칙 1
-  const body =
-    outcome.outcome.kind === 'guide_1332'
-      ? container.chatPublisher.publish({ kind: 'guide_1332', messageId })
-      : container.chatPublisher.publish({
-          kind: 'answer',
-          messageId,
-          reply: outcome.reply.reply ?? '',
-          citations: citationsOf(outcome),
-        })
+  const body = container.chatPublisher.publish(
+    publishInputOf(outcome.outcome.kind, {
+      messageId,
+      reply: outcome.reply.reply ?? '',
+      citations: citationsOf(outcome),
+      nextQuestion,
+    }),
+  )
 
   await container.messages.write({
     messageId,
     caseId: input.caseId,
-    // 사용자 발화와 답을 한 턴으로 셉니다
-    turnNo: context.history.length + 1,
     role: 'assistant',
-    // ⚠️ **토큰화된 것만 남깁니다.** 이름이 그 뜻입니다
-    contentMasked: outcome.reply.reply ?? '',
+    // ⚠️ **토큰화된 것만 남깁니다.** 이름이 그 뜻입니다.
+    //
+    // **실제로 나간 문장을 남깁니다.** 되묻기와 1332 갈래에는 모델의 `reply` 가
+    // 아예 없어서(§6.3), 그것을 남기면 §3.12 이력에 **빈 말풍선**이 뜹니다 —
+    // 사용자가 읽은 것과 다릅니다. 이 값은 송출 검사를 이미 지났습니다
+    contentMasked: body.reply,
     promptMasked: outcome.promptMasked,
     reasoningMasked: outcome.reply.reasoning ?? null,
     citations: [...outcome.reply.citations],
@@ -90,6 +137,73 @@ export async function chatTurn(
     body: body as unknown as Record<string, unknown>,
     referencedSteps: stepsCited(outcome),
     referencedDeadlines: deadlinesCited(outcome),
+  }
+}
+
+/**
+ * 판정 셋을 송출 갈래로 옮긴다 → §3.9 · 11-chat-context.md §6.3.
+ *
+ * ## 셋을 다 씁니다
+ *
+ * `guide_1332` 만 갈라 두고 나머지를 답변으로 씌웠더니, 모델이 「답할 근거가
+ * 없다」고 선언한 턴(`ask_slot`)이 답변으로 떨어졌습니다. **그 턴에는 `reply`
+ * 가 아예 없어서 빈 답이 나갔습니다** — `chat-publisher` 에 되묻기 갈래가
+ * 이미 서 있는데 부르는 자리가 없었습니다.
+ *
+ * ## 물을 것이 없으면 되물을 수 없습니다
+ *
+ * 슬롯을 다 채웠는데도 근거를 못 찾은 자리입니다. **그때가 1332 안내입니다**
+ * → §6.3 의 마지막 줄 · 10-errors.md §4.1. 여기서 빈 질문을 실어 보내면
+ * 화면이 답할 수 없는 카드를 띄웁니다.
+ *
+ * **판정 자체는 하지 않습니다.** 그것은 `citation-checker` 의 일이고, 여기는
+ * 그 판정을 송출 모양으로 옮기기만 합니다 → ADR-022.
+ */
+function publishInputOf(
+  kind: SettledOutcome['kind'],
+  one: {
+    readonly messageId: string
+    readonly reply: string
+    readonly citations: readonly Citation[]
+    readonly nextQuestion: NextQuestion | null
+  },
+): PublishInput {
+  if (kind === 'guide_1332') return { kind: 'guide_1332', messageId: one.messageId }
+
+  if (kind === 'ask_slot') {
+    return one.nextQuestion
+      ? { kind: 'ask_slot', messageId: one.messageId, nextQuestion: one.nextQuestion }
+      : { kind: 'guide_1332', messageId: one.messageId }
+  }
+
+  return {
+    kind: 'answer',
+    messageId: one.messageId,
+    reply: one.reply,
+    citations: one.citations,
+    // **답변에도 싣습니다.** 안 실으면 화면이 `null` 을 받아 문진을 **지웁니다** —
+    // 말로 한 마디 했다고 남은 질문이 사라집니다 (`send.ts` 의 `setQuestion`)
+    nextQuestion: one.nextQuestion,
+  }
+}
+
+/**
+ * 슬롯 체커의 문항을 계약의 모양으로 옮긴다 → §3.4.
+ *
+ * **이름이 다릅니다** — 모듈은 `slotKey`, 계약은 `slot_key` 입니다.
+ *
+ * `options` 를 없으면 빈 배열로 둡니다. 같은 문항을 내는 다른 두 자리
+ * (§3.10 의 `route.ts` · §3.5 의 `slots/[slot_key]/route.ts`)가 그렇게 내고
+ * 있어서, 여기만 칸을 빼면 **같은 질문이 경로마다 다른 모양**으로 갑니다.
+ */
+function asWireQuestion(one: SlotQuestion | null): NextQuestion | null {
+  if (!one) return null
+
+  return {
+    slot_key: one.slotKey,
+    text: one.text,
+    input: one.input,
+    options: [...(one.options ?? [])],
   }
 }
 

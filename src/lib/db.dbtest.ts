@@ -175,11 +175,12 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
 
   describe('한 턴 안에서 사용자가 먼저다 — 2026-08-24 에 뒤집혀 있었다', () => {
     beforeAll(async () => {
+      // 순번은 표가 셉니다 — `write` 가 더 이상 받지 않습니다(`db.ts` §9).
+      // 세 번 부르면 1·2·3 이고, 그 순서를 아래 시험이 봅니다
       for (const turnNo of [1, 2, 3]) {
         await messages.write({
           messageId: newUlid(),
           caseId,
-          turnNo,
           role: 'assistant',
           contentMasked: `답 ${turnNo}`,
           promptMasked: `프롬프트 ${turnNo}`,

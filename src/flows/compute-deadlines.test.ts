@@ -215,14 +215,23 @@ describe('`artifact:{kind}` 기산점 — §11.4', () => {
     })
 
   it('검증을 통과한 부산물의 날짜에서 센다', () => {
-    const [primary] = plan([withArtifact('verified')], [])
+    // ⚠️ **값은 `passed` 입니다** — 09-data-model.md §7 의 CHECK 제약이 정본이고
+    // `completion-checker` 도 그 셋만 냅니다. 표 밖의 값을 찾으면 이 기한이
+    // 영영 안 생기는데, 안 생기는 것은 조용해서 시험이 없으면 안 보입니다
+    const [primary] = plan([withArtifact('passed')], [])
     expect(primary.dueAt).toBe('2026-08-20T23:59:59+09:00')
     expect(primary.computedFrom).toBe('artifact:receipt_no')
     expect(primary.ruleSnapshot.estimated).toBe(false)
   })
 
+  it('L1 실패는 기산점이 아니다', () => {
+    expect(plan([withArtifact('failed')], [])).toEqual([])
+  })
+
   it('자기 신고(L3)는 기산점이 아니다 — 「했다」의 근거가 아니다', () => {
-    expect(plan([withArtifact('unverified')], [])).toEqual([])
+    // `completion-checker` 가 L3 에 내는 값입니다 — 「검증할 것이 없었다」이지
+    // 「했다」가 아닙니다
+    expect(plan([withArtifact('not_applicable')], [])).toEqual([])
   })
 
   it('부산물이 없으면 기한도 없다', () => {

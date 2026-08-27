@@ -51,10 +51,26 @@ export type SlotState =
  *
  * 나머지 필드(`summary`·`steps[]`·`caveat` 등)는 그대로 `plan_step.body` 로 옮깁니다 —
  * **이 모듈은 절차 문장을 만들지도 고치지도 않습니다.**
+ *
+ * ## ⚠️ 칸 이름은 KB 본문의 표기 그대로입니다 — camelCase 로 고치지 마세요
+ *
+ * 정본 §11.4 가 `requires_slots` 로 못 박았고, `src/kb/*.json` 스무 자리와
+ * 적재기(`lib/kb-load.ts`)와 `plan_step.body` 가 전부 그 표기입니다.
+ * **`lib/adapters.ts` 의 `kbRowToPlanStep` 은 본문을 그대로 넘깁니다** — 옮겨
+ * 적는 자리가 없으므로, 이 인터페이스가 다른 이름을 쓰면 값이 안 잡힙니다.
+ *
+ * 2026-08-27 까지 이 칸이 `requiresSlots` 였습니다. **조건이 언제나 「없음」으로
+ * 읽혀, 값을 모르는 상태에서도 그 단계가 그대로 나갔습니다** — 아래 `isActive` 가
+ * 막으려던 바로 그 일입니다. `after`·`conditional`·`actor` 는 한 낱말이라
+ * 두 표기가 같아서 멀쩡했고, **여기 하나만 조용히 죽어 있었습니다.**
  */
 export interface KbStepBody {
-  /** 이 슬롯들이 `confirmed` 여야 단계가 활성화됩니다 */
-  readonly requiresSlots?: readonly string[]
+  /**
+   * 이 슬롯들이 `confirmed` 여야 단계가 활성화됩니다.
+   *
+   * **snake_case 입니다** — 위 경고 참고.
+   */
+  readonly requires_slots?: readonly string[]
   /** 이 `step_key` 들이 `done_verified` 여야 활성화됩니다 */
   readonly after?: readonly string[]
   /** 값이 있으면 슈퍼셋 플랜의 조건부 단계. `plan_step.conditional` 로 그대로 갑니다 */

@@ -32,6 +32,17 @@ import { regeneratePlan } from '@/flows/regenerate-plan'
 
 import type { ArtifactSubmission } from '@/modules/completion-checker'
 
+/**
+ * `artifact.value_masked` 의 칸 너비 → 09-data-model.md §7 `VARCHAR(255)`.
+ *
+ * **넘으면 400 입니다.** 안 보면 드라이버가 표에 넣다가 터져 `INTERNAL`(500)로
+ * 나가는데, 그건 **요청이 잘못된 것을 서버 잘못으로 말하는 것**이고 5xx 라
+ * 서버 로그에도 쌓입니다 → `lib/request.ts` 「5xx 만 남깁니다」.
+ *
+ * 접수번호 하나가 255자를 넘을 일은 없습니다 — 붙여넣기 사고를 거르는 그물입니다.
+ */
+const VALUE_MAX = 255
+
 interface ArtifactBody {
   readonly kind?: unknown
   readonly value?: unknown
@@ -46,6 +57,16 @@ function readSubmission(body: ArtifactBody): ArtifactSubmission {
   if (kind === 'receipt_no') {
     if (typeof body.value !== 'string' || body.value.trim().length === 0) {
       throw new BadRequestError('value 가 없습니다', { param: 'value' })
+    }
+    // ⚠️ **길이만 봅니다. 값은 detail 에 안 넣습니다** — 감사 기록으로 갑니다.
+    // 가린 값이 원문보다 짧아질 수는 있어도, 여기서 먼저 걸러야 **255자를 훌쩍
+    // 넘는 글을 토큰화기에 통째로 밀어 넣는 일**이 안 생깁니다
+    if (body.value.length > VALUE_MAX) {
+      throw new BadRequestError('value 가 너무 깁니다', {
+        param: 'value',
+        max: VALUE_MAX,
+        length: body.value.length,
+      })
     }
     return { kind: 'receipt_no', value: body.value }
   }
@@ -85,6 +106,26 @@ export async function POST(
     const submission = readSubmission(await readJsonObject<ArtifactBody>(ctx.request))
     const verdict = container.completionChecker.verify({ submission })
 
+    // ── 이 사건의 단계인가 ────────────────────────────────────────────
+    //
+    // **안 보면 남의 사건 단계에 부산물을 붙일 수 있습니다.** `artifact` 의
+    // 외래키는 `plan_step_id` 만 보므로(09-data-model.md §7), 다른 사건의
+    // 단계 번호를 주면 **제약을 통과합니다** — 그러면 `case_id` 와
+    // `plan_step_id` 가 서로 다른 사건을 가리키는 줄이 남습니다.
+    //
+    // 아예 없는 번호면 외래키에서 터져 `INTERNAL`(500)이 나갔습니다.
+    // **요청이 잘못된 것을 서버 잘못으로 말하는 것**이라 400 이 맞습니다
+    // → 08-16-errors.md §3 `BAD_REQUEST`.
+    //
+    // ⚠️ **「없다」와 「남의 것이다」를 가르지 않습니다** — 가르면 그 번호가
+    // 실재한다는 사실이 밖으로 나갑니다. `CaseNotFoundError` 와 같은 논리입니다
+    // (ADR-039). 이 조회는 아래 `before` 가 어차피 부르던 것입니다
+    const steps = await container.ports.casePlan.readSteps(caseId)
+    if (!steps.some((one) => one.planStepId === stepId)) {
+      // ⚠️ 값을 detail 에 안 넣습니다 — 감사 기록으로 갑니다
+      throw new BadRequestError('그 사건의 단계가 아닙니다', { param: 'step_id' })
+    }
+
     // ── 경계 ─────────────────────────────────────────────────────────
     // 접수번호에 개인정보가 섞여 들어올 수 있습니다 → ADR-040.
     // 파일로 올린 것은 값이 없습니다 — 그쪽은 이미 전사 경로가 다뤘습니다
@@ -92,17 +133,37 @@ export async function POST(
     // **제외 목록을 함께 넘깁니다** → 04-pii-boundary.md. 접수번호에 기관명이
     // 섞여 오는 일이 있고(「국민은행 2026-1234」), 목록이 없으면 그 앞부분이
     // 사람 이름으로 가려집니다
-    const valueMasked =
+    //
+    // **결과를 통째로 잡습니다** — `.masked` 만 꺼내 버리면 §1.1 계측 헤더가
+    // 쓸 건수(`counts`)가 함께 사라집니다
+    const tokenized =
       raw === null
         ? null
-        : (
-            await container.piiTokenizer.tokenize(raw, {
-              allowedTerms: await allowedTermsFor({
-                channels: container.channelWrite,
-                kbVersion: container.ports.kbVersion,
-              }),
-            })
-          ).masked
+        : await container.piiTokenizer.tokenize(raw, {
+            allowedTerms: await allowedTermsFor({
+              channels: container.channelWrite,
+              kbVersion: container.ports.kbVersion,
+            }),
+          })
+    const valueMasked = tokenized?.masked ?? null
+
+    // **가린 값이 길어질 수 있습니다.** `[이름-1]` 은 일곱 자라 두세 자짜리
+    // 이름을 치환하면 늘어납니다 — 원문이 255자 안이어도 표에 안 들어갈 수
+    // 있습니다. 여기서 안 보면 다시 드라이버가 터져 500 이 나갑니다
+    if (valueMasked !== null && valueMasked.length > VALUE_MAX) {
+      // ⚠️ 가린 값도 detail 에 안 넣습니다 — 토큰은 볼트가 살아 있는 동안
+      // 원문으로 되돌릴 수 있어 감사 기록에 담지 않습니다 → 09-data-model.md §10.1
+      throw new BadRequestError('value 가 너무 깁니다', {
+        param: 'value',
+        max: VALUE_MAX,
+        length: valueMasked.length,
+      })
+    }
+
+    // **경계가 돌았다는 것을 응답이 증명합니다** → 08-14-api.md §1.1.
+    // 안 채우면 헤더가 언제나 `none` 이라, 토큰화가 도는지 멈췄는지를 응답만
+    // 봐서는 못 가립니다. **건수만 담습니다 — 값은 안 담습니다**
+    ctx.telemetry.addTokenCounts(tokenized?.counts)
 
     const artifactId = newUlid()
     await container.artifacts.write({
@@ -131,8 +192,9 @@ export async function POST(
     // 따라서 영영 안 생깁니다** — 이 서비스가 막으려는 바로 그 실패입니다.
     //
     // 기한도 여기서 함께 다시 계산됩니다(`regeneratePlan` 안).
-    const stored = await container.ports.casePlan.readSteps(caseId)
-    const before = new Set(stored.map((one) => one.stepKey))
+    // 위에서 이미 읽은 것을 다시 부르지 않습니다 — 같은 요청에서 두 번 왕복하면
+    // 서버 함수에서 그 값이 큽니다
+    const before = new Set(steps.map((one) => one.stepKey))
 
     // ── 기산점 → 08-14-completion-hook.md ① ──────────────────────────
     //
@@ -143,7 +205,7 @@ export async function POST(
     // `regeneratePlan` **앞**입니다. 기한 계산이 그 안에서 돌기 때문에,
     // 뒤에 두면 기한이 한 번 늦게 섭니다.
     if (verdict.stepState === 'done_verified') {
-      const stepKey = stored.find((one) => one.planStepId === stepId)?.stepKey
+      const stepKey = steps.find((one) => one.planStepId === stepId)?.stepKey
       if (stepKey) {
         await anchorFromArtifact({ caseId, stepKey, container }).catch(() => null)
       }
@@ -159,6 +221,13 @@ export async function POST(
             kbVersion: container.ports.kbVersion,
           }).catch(() => null))
         : null
+
+    // **감사 식별자를 응답에 싣습니다** → §1.1 · 08-16-errors.md §5.
+    // `regeneratePlan` 이 `plan.generated` 한 줄을 이미 남기고 그 번호를 돌려주는데,
+    // 여기서 버려져 헤더가 언제나 `none` 이었습니다 — **동작해도 응답이 그것을
+    // 증명하지 못했습니다.** 다시 만들지 않은 경우(L1 실패·L3)에는 남은 기록이
+    // 없으므로 `none` 이 나가고, 그것이 사실입니다
+    ctx.telemetry.useAuditId(unlocked?.auditId)
 
     const unlockedSteps = (unlocked?.steps ?? [])
       .filter((one) => !before.has(one.stepKey))
