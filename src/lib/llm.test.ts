@@ -159,6 +159,59 @@ describe('오류 메시지가 비밀을 흘리지 않는다', () => {
 })
 
 /**
+ * **모델이 안 되는 것은 우리 잘못이 아닙니다** → 08-16-errors.md §1.
+ *
+ * 여기서 맨 `Error` 를 던지면 라우트가 그것을 `INTERNAL` 로 읽어 500 을 냅니다.
+ * 그러면 화면은 「처리 중 문제가 발생했습니다」만 띄우고, **다시 눌러 보라는
+ * 말을 못 합니다** — 잠시 뒤면 될 일인데.
+ *
+ * 2026-08-27 실측: 배포 환경에서 챗 여덟 턴 중 하나가 55초 만에 시간 예산을
+ * 다 써서 500 이 났습니다. 그 자리가 이 시험입니다.
+ */
+describe('모델이 못 답한 것은 503 으로 나간다 — 다시 누를 수 있게', () => {
+  const codeOf = async (fetchImpl: () => Promise<Response> | never) => {
+    vi.stubGlobal('fetch', vi.fn(fetchImpl))
+    const failed = await client().complete(ask).catch((error: unknown) => error)
+    return failed as { code?: string; httpStatus?: number; retryable?: boolean }
+  }
+
+  it('닿지 못하면 잠시 뒤 다시', async () => {
+    const failed = await codeOf(async () => { throw new Error('ECONNREFUSED') })
+    expect(failed.code).toBe('LLM_UNAVAILABLE')
+    expect(failed.httpStatus).toBe(503)
+    expect(failed.retryable).toBe(true)
+  })
+
+  it('시간이 다 되어도 잠시 뒤 다시 — 늦은 것뿐입니다', async () => {
+    const failed = await codeOf(async () => {
+      const error = new Error('aborted')
+      error.name = 'AbortError'
+      throw error
+    })
+    expect(failed.code).toBe('LLM_UNAVAILABLE')
+    expect(failed.httpStatus).toBe(503)
+  })
+
+  it('빈 답도 잠시 뒤 다시', async () => {
+    const failed = await codeOf(async () => new Response('{"choices":[]}', { status: 200 }))
+    expect(failed.code).toBe('LLM_UNAVAILABLE')
+  })
+
+  it('**403 은 다시 눌러도 같습니다** — 잔액은 기다린다고 안 생깁니다', async () => {
+    const failed = await codeOf(async () => new Response('{}', { status: 403 }))
+    expect(failed.code).toBe('LLM_BAD_REQUEST')
+    expect(failed.httpStatus).toBe(500)
+    expect(failed.retryable).toBe(false)
+  })
+
+  it('503 은 다 쓰고 나서도 잠시 뒤 다시', async () => {
+    const failed = await codeOf(async () => new Response('{}', { status: 503 }))
+    expect(failed.code).toBe('LLM_UNAVAILABLE')
+    expect(failed.retryable).toBe(true)
+  })
+})
+
+/**
  * 제공자를 갈아끼우는 자리 — **개발 중에 유료 잔액이 떨어지면 챗을 한 번도
  * 못 봅니다.** 2026-08-25 에 실제로 그랬습니다(403 · 크레딧 없음).
  */
