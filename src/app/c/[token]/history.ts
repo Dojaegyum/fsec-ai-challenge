@@ -143,6 +143,14 @@ export interface History {
   readonly lines: readonly Line[];
   /** 앞부분이 잘렸나 → §3.12. **화면이 그 사실을 말해야 합니다** */
   readonly truncated: boolean;
+  /**
+   * 못 읽었나. **「대화가 없다」와 다릅니다.**
+   *
+   * 조용히 빈 목록으로 떨어뜨리면, 며칠 뒤 링크로 돌아온 사용자가 자기 대화가
+   * **사라진 것인지 못 읽은 것인지** 알 수 없습니다 — 링크가 유일한 열쇠인
+   * 서비스에서 그 구분이 특히 중요합니다 (ADR-021 · ADR-050)
+   */
+  readonly failed?: boolean;
 }
 
 const NO_HISTORY: History = { lines: [], truncated: false };
@@ -167,9 +175,12 @@ export async function fetchHistory(
       headers: { accept: "application/json" },
     });
   } catch {
-    return NO_HISTORY;
+    // ⚠️ **못 읽은 것과 대화가 없던 것을 가릅니다.** 뭉치면 며칠 뒤 링크로 돌아온
+    // 사용자가 자기 대화가 **사라진 것인지 못 읽은 것인지** 알 수 없습니다.
+    // 이 서비스는 링크가 유일한 열쇠라 그 구분이 특히 중요합니다 (ADR-021 · ADR-050)
+    return { ...NO_HISTORY, failed: true };
   }
-  if (!res.ok) return NO_HISTORY;
+  if (!res.ok) return { ...NO_HISTORY, failed: true };
 
   const body = (await res.json()) as {
     messages?: readonly HistoryRow[];

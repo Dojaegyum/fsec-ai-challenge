@@ -48,7 +48,9 @@ const chatOf = (over: Partial<ChatSend> = {}): ChatSend => ({
   send: async () => true,
   loading: false,
   truncated: false,
+  pastFailed: false,
   locked: false,
+  restorable: [],
   ask: askOf(),
   ...over,
 });
