@@ -117,7 +117,22 @@ export interface PanelProps {
   children?: React.ReactNode;
 }
 
-/* ── 유형 일곱 ───────────────────────────────────────────────── */
+/* ── 유형 일곱 ─────────────────────────────────────────────────
+
+   ⚠️ **시안 스탠드인은 그 데이터를 받았을 때만 그립니다.**
+
+   이 패널들은 시안을 옮길 때 버튼과 입력칸을 본문에 박아 뒀는데, 실제
+   호출부(`workspace.tsx`)는 `title` 과 `children` 만 넘깁니다. 그래서
+   **눌러도 아무 일 없는 버튼**이 화면에 그대로 떠 있었습니다 —
+   「저장」·「나중에 할게요」·빈 글자 버튼(2026-08-27 실제로 눌러 확인).
+
+   진짜 조작부는 `children`(=`ArtifactSlot`) 으로 옵니다. 그래서 시안이
+   그리던 자리는 **그 데이터를 받은 경우에만** 그리도록 전부 막았습니다.
+   `CallPanel` 이 `artifactLabel` 로 하던 것을 나머지에도 편 것입니다.
+
+   ⬜ **「나중에」는 기능으로 살아 있어야 합니다** (이 파일 머리말) — 다만
+   미룸을 남길 서버 계약이 아직 없어, 있는 척하는 버튼을 두는 대신
+   지웠습니다. 계약이 서면 `onLater` 를 받아 되살리세요. */
 
 /** 통화 — 전화는 관측 불가한 블랙박스. **대본과 받아적기 칸이 타이머가 도는 동안 이미 떠 있어야** 합니다 */
 export function CallPanel({ title, status, script, artifactLabel, placeholder, children }: PanelProps & {
@@ -132,10 +147,15 @@ export function CallPanel({ title, status, script, artifactLabel, placeholder, c
       title={title}
       status={status && <Chip tone={status.tone}>{status.label}</Chip>}
     >
-      <div className={INNER}>{script}</div>
-      <p className="mt-2 text-[12.5px] text-ink-3">
-        계좌번호는 <b className="font-[620] text-ink-2">그대로 적혀 있습니다.</b> 보고 읽으시면 됩니다
-      </p>
+      {script ? (
+        <>
+          <div className={INNER}>{script}</div>
+          <p className="mt-2 text-[12.5px] text-ink-3">
+            계좌번호는 <b className="font-[620] text-ink-2">그대로 적혀 있습니다.</b> 보고 읽으시면
+            됩니다
+          </p>
+        </>
+      ) : null}
 
       {/* **시안이 그리던 자리입니다.** `artifactLabel` 을 넘기지 않으면 안 그립니다 —
           실제 단계에 붙은 호출부는 부산물 자리를 `children` 으로 받아 오고,
@@ -177,17 +197,23 @@ export function VisitPanel({ title, status, bring, why, exitLabel, note, childre
       title={title}
       status={status && <Chip tone={status.tone}>{status.label}</Chip>}
     >
-      <div className={INNER}>
-        <div className="text-[12.5px] text-ink-3">돌아오실 때 이걸 들고 오세요</div>
-        <div className="mt-1.5 text-[14px] font-[620] text-ink-1">◆ {bring}</div>
-        <p className="mt-1.5 text-[12.5px] text-ink-3">{why}</p>
-      </div>
-      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
-        {exitLabel} ↗
-      </button>
-      <button type="button" className={LATER}>
-        나중에 할게요
-      </button>
+      {bring ? (
+        <div className={INNER}>
+          <div className="text-[12.5px] text-ink-3">돌아오실 때 이걸 들고 오세요</div>
+          <div className="mt-1.5 text-[14px] font-[620] text-ink-1">◆ {bring}</div>
+          {why && <p className="mt-1.5 text-[12.5px] text-ink-3">{why}</p>}
+        </div>
+      ) : null}
+      {exitLabel ? (
+        <>
+          <button type="button" className={`${PRIMARY} mt-3 w-full`}>
+            {exitLabel} ↗
+          </button>
+          <button type="button" className={LATER}>
+            나중에 할게요
+          </button>
+        </>
+      ) : null}
       {note && <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">{note}</p>}
       {children}
     </Shell>
@@ -201,18 +227,24 @@ export function WritePanel({ title, placeholder, why, children }: PanelProps & {
 }) {
   return (
     <Shell active eyebrow="받아적기" title={title}>
-      <input className={`${FIELD} w-full`} placeholder={placeholder} data-numeric />
-      <p className={`mt-2 ${BODY}`}>{why}</p>
-      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
-        저장
-      </button>
-      <button type="button" className={LATER}>
-        기억이 안 나요
-      </button>
-      <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">
-        형식이 달라도 저장됩니다.{" "}
-        <b className="font-[620] text-deadline-urgent">확인 필요</b>로 표시만 합니다
-      </p>
+      {placeholder ? (
+        <>
+          <input className={`${FIELD} w-full`} placeholder={placeholder} data-numeric />
+          {why && <p className={`mt-2 ${BODY}`}>{why}</p>}
+          <button type="button" className={`${PRIMARY} mt-3 w-full`}>
+            저장
+          </button>
+          <button type="button" className={LATER}>
+            기억이 안 나요
+          </button>
+          <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">
+            형식이 달라도 저장됩니다.{" "}
+            <b className="font-[620] text-deadline-urgent">확인 필요</b>로 표시만 합니다
+          </p>
+        </>
+      ) : (
+        why && <p className={BODY}>{why}</p>
+      )}
       {children}
     </Shell>
   );
@@ -222,19 +254,27 @@ export function WritePanel({ title, placeholder, why, children }: PanelProps & {
 export function UploadPanel({ title, children }: PanelProps) {
   return (
     <Shell active eyebrow="제출" title={title}>
-      <div className="grid min-h-[92px] place-items-center rounded-[10px] border border-dashed border-hairline bg-chip px-3 text-center text-[13.5px] text-ink-3">
-        끌어다 놓거나 눌러서 선택
-      </div>
-      <div className={`${INNER} mt-3`}>
+      {/* **올리면 먼저 무엇을 하는지**는 시안이든 실제든 말합니다 — 파일을
+          내놓기 전에 알아야 하는 것이라 이 문단만 늘 있습니다 */}
+      <div className={INNER}>
         <div className="text-[12.5px] text-ink-3">올리면 먼저 하는 일</div>
         <p className="mt-1.5 text-[13.5px] leading-[1.65] text-ink-2">
           이름·계좌·전화번호를{" "}
           <b className="font-[620] text-pii">브라우저에서 가린 뒤</b> 전송합니다
         </p>
       </div>
-      <button type="button" className={LATER}>
-        나중에 올릴게요
-      </button>
+      {/* 진짜 고르는 자리는 `children`(ArtifactSlot) 입니다. 안 왔을 때만
+          시안의 드롭존을 그립니다 — **그건 눌러도 안 열립니다** */}
+      {children ? null : (
+        <>
+          <div className="mt-3 grid min-h-[92px] place-items-center rounded-[10px] border border-dashed border-hairline bg-chip px-3 text-center text-[13.5px] text-ink-3">
+            끌어다 놓거나 눌러서 선택
+          </div>
+          <button type="button" className={LATER}>
+            나중에 올릴게요
+          </button>
+        </>
+      )}
       {children}
     </Shell>
   );
@@ -252,25 +292,33 @@ export function DownloadPanel({ title, status, fields, fileLabel, children }: Pa
       title={title}
       status={status && <Chip tone={status.tone}>{status.label}</Chip>}
     >
-      <div className={INNER}>
-        {(fields ?? []).map((f) => (
-          <div key={f.label} className="flex justify-between gap-3 py-[3px]">
-            <span className="text-[12.5px] text-ink-3">{f.label}</span>
-            {/* 원문입니다 — 이 패널에서만 */}
-            <span className="text-[13.5px] font-[580] text-ink-1">{f.value}</span>
+      {fields?.length ? (
+        <>
+          <div className={INNER}>
+            {fields.map((f) => (
+              <div key={f.label} className="flex justify-between gap-3 py-[3px]">
+                <span className="text-[12.5px] text-ink-3">{f.label}</span>
+                {/* 원문입니다 — 이 패널에서만 */}
+                <span className="text-[13.5px] font-[580] text-ink-1">{f.value}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">
-        <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 복원은 이 브라우저
-        안에서만 일어나고, 서버는 원문을 보지 못합니다.
-      </p>
-      <button type="button" className={`${PRIMARY} mt-3 w-full`}>
-        {fileLabel}
-      </button>
-      <button type="button" className={LATER}>
-        나중에 받을게요
-      </button>
+          <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-3">
+            <b className="font-[620] text-ink-2">이 화면은 원문입니다.</b> 복원은 이 브라우저
+            안에서만 일어나고, 서버는 원문을 보지 못합니다.
+          </p>
+        </>
+      ) : null}
+      {fileLabel ? (
+        <>
+          <button type="button" className={`${PRIMARY} mt-3 w-full`}>
+            {fileLabel}
+          </button>
+          <button type="button" className={LATER}>
+            나중에 받을게요
+          </button>
+        </>
+      ) : null}
       {children}
     </Shell>
   );
@@ -285,16 +333,19 @@ export function WaitPanel({ title, body, from, to, footer, children }: PanelProp
 }) {
   return (
     <Shell active={false} eyebrow="기다리기" title={title}>
-      <p className={BODY}>{body}</p>
-      {/* 진행 구간 — 앰버를 쓰지 않습니다. 기관 대기는 사용자 기한이 아닙니다 */}
-      <div className="mt-3 flex items-center gap-2 text-[12.5px] text-ink-3" data-numeric>
-        <span>{from}</span>
-        <span aria-hidden className="h-1.5 flex-1 rounded-full bg-[oklch(0.305_0.013_267.1/40%)]">
-          <span className="block h-full w-[38%] rounded-full bg-[oklch(0.697_0.16_258.2/55%)]" />
-        </span>
-        <span>{to}</span>
-      </div>
-      <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">{footer}</p>
+      {body && <p className={BODY}>{body}</p>}
+      {/* 진행 구간 — 앰버를 쓰지 않습니다. 기관 대기는 사용자 기한이 아닙니다.
+          **양 끝 날짜가 없으면 안 그립니다** — 빈 막대는 진행을 지어내는 것입니다 */}
+      {from && to ? (
+        <div className="mt-3 flex items-center gap-2 text-[12.5px] text-ink-3" data-numeric>
+          <span>{from}</span>
+          <span aria-hidden className="h-1.5 flex-1 rounded-full bg-[oklch(0.305_0.013_267.1/40%)]">
+            <span className="block h-full w-[38%] rounded-full bg-[oklch(0.697_0.16_258.2/55%)]" />
+          </span>
+          <span>{to}</span>
+        </div>
+      ) : null}
+      {footer && <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">{footer}</p>}
       {children}
     </Shell>
   );
@@ -307,10 +358,13 @@ export function ReadPanel({ title, body, source, children }: PanelProps & {
 }) {
   return (
     <Shell active={false} eyebrow="읽기" title={title}>
-      <p className={BODY}>{body}</p>
-      <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
-        근거 · {source}
-      </p>
+      {body && <p className={BODY}>{body}</p>}
+      {/* **근거가 없으면 「근거 ·」 만 남습니다** — 있을 때만 그립니다 */}
+      {source && (
+        <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
+          근거 · {source}
+        </p>
+      )}
       {children}
     </Shell>
   );

@@ -143,3 +143,76 @@ describe("판정을 그립니다 — L1 실패가 막다른 길이 아닙니다"
     expect(text).toContain("피해구제를 신청합니다");
   });
 });
+
+/**
+ * **눌러도 아무 일 없는 버튼을 그리지 않습니다** — 2026-08-27 에 실제로 눌러
+ * 확인한 것입니다.
+ *
+ * 패널들이 시안을 옮길 때 「저장」·「나중에 할게요」 같은 버튼을 본문에 박아
+ * 뒀는데, 실제 호출부는 `title` 과 `children` 만 넘깁니다. 그래서 동작 없는
+ * 버튼이 화면에 그대로 떠 있었습니다. 진짜 조작부는 `children`(부산물 자리)
+ * 으로 옵니다.
+ */
+describe("죽은 버튼을 그리지 않는다", () => {
+  const DEAD = ["나중에 할게요", "나중에 올릴게요", "나중에 받을게요", "기억이 안 나요", "나중에 입력할게요"];
+
+  for (const action of ["call", "visit", "write", "upload", "download", "wait", "read"]) {
+    it(`\`${action}\` 패널에 죽은 버튼이 없다`, () => {
+      const text = textOf(draw({ step: step({ body: { action } } as Partial<FullStep>) }));
+      for (const dead of DEAD) expect(text).not.toContain(dead);
+      // 빈 글자 버튼도 안 됩니다 — 「받기」의 파일 이름이 안 오면 이름 없는 버튼이 남았습니다
+      expect(text).not.toContain("저장");
+    });
+  }
+
+  it("「읽기」에 근거가 없으면 「근거 ·」 만 남기지 않는다", () => {
+    const text = textOf(draw({ step: step({ body: { action: "read" } } as Partial<FullStep>) }));
+    expect(text).not.toContain("근거 ·");
+  });
+});
+
+/**
+ * **KB 에 적힌 주소와 번호는 눌러서 갑니다** — 옮겨 적게 하면 그 사이에 틀립니다.
+ * `payinfo.or.kr`·`msafer.or.kr` 은 KB 에 있는데 화면에 링크가 없었습니다.
+ */
+describe("바깥으로 나가는 자리 — 눌러서 갑니다", () => {
+  const withUrl = (url: string) =>
+    step({
+      body: {
+        action: "visit",
+        steps: [{ text: "여기서 조회합니다.", action: "visit", url }],
+      },
+    } as Partial<FullStep>);
+
+  it("단계의 `url` 이 링크가 된다 — 새 탭으로", () => {
+    const html = draw({ step: withUrl("https://www.payinfo.or.kr") });
+    expect(html).toContain('href="https://www.payinfo.or.kr"');
+    expect(html).toContain('target="_blank"');
+    // 사건 토큰이 주소에 실려 있어 나가는 곳에 알리지 않습니다
+    expect(html).toContain('rel="noreferrer"');
+    expect(textOf(html)).toContain("payinfo.or.kr 열기");
+  });
+
+  it("**`https:` 가 아니면 안 그립니다** — 주소를 그대로 `href` 에 태우는 자리입니다", () => {
+    const html = draw({ step: withUrl("javascript:alert(1)") });
+    expect(html).not.toContain("javascript:");
+    expect(textOf(html)).not.toContain("열기");
+  });
+
+  it("전화번호는 `tel:` 로 걸립니다", () => {
+    expect(draw()).toContain('href="tel:112"');
+  });
+
+  it("**설명이 붙은 번호는 링크로 만들지 않습니다** — 눌러도 안 걸리는 링크가 더 나쁩니다", () => {
+    const html = draw({
+      step: step({
+        body: {
+          action: "call",
+          steps: [{ text: "전화합니다.", action: "call", contact: "1332 (평일 9~18시)" }],
+        },
+      } as Partial<FullStep>),
+    });
+    expect(html).not.toContain("href=\"tel:");
+    expect(textOf(html)).toContain("1332 (평일 9~18시)");
+  });
+});

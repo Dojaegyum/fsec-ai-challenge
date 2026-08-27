@@ -49,10 +49,18 @@ const step = (i: number) => ({ animationDelay: `${520 + i * 80}ms` });
 export default function EvidenceView({
   token,
   uploads,
+  onContinue,
 }: {
   token: string | null;
   /** 자료 레일 한 벌. **셸이 들고 있습니다** — 유령까지 같은 것을 봐야 합니다 */
   uploads: Uploads;
+  /**
+   * 「없이 진행」 — 이 파일을 못 읽었어도 사건은 그대로 갑니다.
+   *
+   * **없으면 그 버튼을 안 그립니다.** 「사건은 그대로 진행됩니다」라고 써
+   * 놓고 눌러도 아무 데도 안 가면 그 말이 거짓이 됩니다.
+   */
+  onContinue?: () => void;
 }) {
   const pick = useRef<HTMLInputElement>(null);
   const files = uploads.files;
@@ -188,18 +196,25 @@ export default function EvidenceView({
               이 파일 하나만 빠집니다.
             </p>
             <div className="flex flex-wrap gap-2">
+              {/* 위 「＋ 올리기」와 **같은 파일 선택기**를 엽니다 — 갈림길이 두 개면
+                  둘 중 하나만 동작하는 일이 생깁니다 */}
               <button
                 type="button"
-                className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] bg-ink-1 px-4 text-[13.5px] font-[660] text-ground"
+                onClick={() => pick.current?.click()}
+                disabled={token === null || uploads.busy}
+                className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] bg-ink-1 px-4 text-[13.5px] font-[660] text-ground disabled:opacity-45"
               >
                 다른 파일 올리기
               </button>
-              <button
-                type="button"
-                className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] border border-hairline bg-chip px-4 text-[13.5px] text-ink-2"
-              >
-                없이 진행
-              </button>
+              {onContinue && (
+                <button
+                  type="button"
+                  onClick={onContinue}
+                  className="inline-flex min-h-[var(--size-touch)] items-center rounded-[10px] border border-hairline bg-chip px-4 text-[13.5px] text-ink-2 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)]"
+                >
+                  없이 진행
+                </button>
+              )}
             </div>
           </div>
         ) : status === "pending" ? (

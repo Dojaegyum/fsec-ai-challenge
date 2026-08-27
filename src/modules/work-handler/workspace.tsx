@@ -77,6 +77,8 @@ export interface FullStep extends PlanStep {
       text?: string;
       action?: string;
       contact?: string | null;
+      /** KB 가 적어 둔 바깥 주소 — `payinfo.or.kr` 처럼 실제로 가야 하는 곳 */
+      url?: string | null;
     }[];
     required_artifact?: { kind?: string; label?: string } | null;
   };
@@ -99,6 +101,32 @@ function contactOf(step: FullStep): string | null {
     if (typeof one.contact === "string") return one.contact;
   }
   return null;
+}
+
+/**
+ * 그 단계에서 실제로 가야 하는 곳 — 줄 중 처음 붙어 있는 것.
+ *
+ * **KB 에는 있는데 화면에 없었습니다** — `payinfo.or.kr`·`msafer.or.kr` 처럼
+ * 「여기서 조회하세요」라고 적혀 있는데 누를 것이 없었습니다 (2026-08-27).
+ *
+ * `https:` 만 받습니다. KB 는 사람이 검수해 넣지만, 주소를 그대로 `href` 에
+ * 태우는 자리라 여기서 한 번 더 거릅니다 — `javascript:` 가 들어오면 안 됩니다.
+ */
+function linkOf(step: FullStep): string | null {
+  for (const one of step.body.steps ?? []) {
+    if (typeof one.url === "string" && one.url.startsWith("https://")) return one.url;
+  }
+  return null;
+}
+
+/**
+ * 전화번호 모양일 때만 `tel:` 로 겁니다.
+ *
+ * 「1332 (평일 9~18시)」처럼 설명이 붙어 오면 링크로 만들지 않습니다 —
+ * 그대로 태우면 눌러도 안 걸리는 링크가 되어 **더 나쁩니다.**
+ */
+function dialable(contact: string): string | null {
+  return /^[0-9][0-9\-]*[0-9]$/.test(contact.trim()) ? `tel:${contact.trim()}` : null;
 }
 
 /**
@@ -256,6 +284,7 @@ export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: Workspa
   if (!panel) return null;
 
   const contact = contactOf(step);
+  const link = linkOf(step);
 
   const sendNumber = () => {
     const value = typed.trim();
@@ -285,10 +314,34 @@ export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: Workspa
       {contact ? (
         <p className="mt-2.5 text-[13.5px] text-ink-2">
           전화:{" "}
-          <b className="font-[620] text-ink-1" data-numeric>
-            {contact}
-          </b>
+          {/* **눌러서 걸립니다.** 번호를 옮겨 적게 하면 그 사이에 틀립니다 */}
+          {dialable(contact) ? (
+            <a
+              href={dialable(contact)!}
+              className="font-[620] text-ink-1 underline decoration-hairline underline-offset-[3px] transition-colors duration-200 hover:decoration-[oklch(1_0_0/45%)]"
+              data-numeric
+            >
+              {contact}
+            </a>
+          ) : (
+            <b className="font-[620] text-ink-1" data-numeric>
+              {contact}
+            </b>
+          )}
         </p>
+      ) : null}
+
+      {/* 바깥으로 나가는 자리 — **새 탭입니다.** 사건 화면을 덮으면 적던 것을 잃습니다.
+          `noreferrer` 는 우리 주소(사건 토큰이 들어 있습니다)가 새어 나가지 않게 */}
+      {link ? (
+        <a
+          href={link}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex min-h-[var(--size-touch)] w-full items-center justify-center rounded-[11px] bg-ink-1 px-4 text-[14px] font-[660] text-ground transition-[transform,opacity] duration-200 hover:-translate-y-px hover:opacity-95"
+        >
+          {new URL(link).hostname.replace(/^www\./, "")} 열기 ↗
+        </a>
       ) : null}
 
       {step.body.caveat ? (
