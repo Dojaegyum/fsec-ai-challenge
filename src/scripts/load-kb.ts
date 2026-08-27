@@ -32,11 +32,14 @@ import postgres from 'postgres'
 
 import {
   planLoad,
+  planPublicOrgLoad,
   planOrgLoad,
   type KbFile,
   type KbRow,
   type OrgFile,
   type OrgRow,
+  type PublicOrgFile,
+  type PublicOrgRow,
 } from '@/lib/kb-load'
 
 const KB_DIR = fileURLToPath(new URL('../kb/', import.meta.url))
@@ -85,17 +88,24 @@ function fromEnvLocal(key: string): string | undefined {
  * 한 폴더에 두는 이유는 **같은 릴리스로 묶이기 때문**입니다. 번호가 바뀌었는데
  * 절차만 새 버전을 내면, 그 릴리스를 인용한 안내가 옛 번호를 답니다.
  */
-function readFiles(): { kb: readonly KbFile[]; orgs: readonly OrgFile[] } {
+function readFiles(): {
+  kb: readonly KbFile[]
+  orgs: readonly OrgFile[]
+  publicOrgs: readonly PublicOrgFile[]
+} {
   const names = readdirSync(KB_DIR).filter((name) => name.endsWith('.json')).sort()
   const kb: KbFile[] = []
   const orgs: OrgFile[] = []
+  const publicOrgs: PublicOrgFile[] = []
 
   for (const name of names) {
     const raw = JSON.parse(readFileSync(KB_DIR + name, 'utf8')) as Record<string, unknown>
+    // 칸 이름으로 가릅니다 — 파일명으로 가르면 새 파일을 만들 때마다 여기를 고쳐야 합니다
     if (Array.isArray(raw.orgs)) orgs.push({ name, ...raw } as OrgFile)
+    else if (Array.isArray(raw.public_orgs)) publicOrgs.push({ name, ...raw } as PublicOrgFile)
     else kb.push({ name, ...raw } as KbFile)
   }
-  return { kb, orgs }
+  return { kb, orgs, publicOrgs }
 }
 
 async function main(): Promise<number> {
@@ -107,13 +117,14 @@ async function main(): Promise<number> {
     return 1
   }
 
-  const { kb: files, orgs: orgFiles } = readFiles()
+  const { kb: files, orgs: orgFiles, publicOrgs: publicFiles } = readFiles()
   if (files.length === 0) {
     console.error(`KB 파일이 없습니다: ${KB_DIR}`)
     return 1
   }
 
   const orgPlan = planOrgLoad(orgFiles, { kbVersion: args.version })
+  const publicPlan = planPublicOrgLoad(publicFiles, { kbVersion: args.version })
   const { rows, problems } = planLoad(files, {
     kbVersion: args.version,
     releasedAt: new Date().toISOString(),
@@ -121,7 +132,7 @@ async function main(): Promise<number> {
 
   console.log(`파일 ${files.length}개 · 항목 ${rows.length + problems.length}개를 봤습니다.\n`)
 
-  const allProblems = [...problems, ...orgPlan.problems]
+  const allProblems = [...problems, ...orgPlan.problems, ...publicPlan.problems]
   if (allProblems.length > 0) {
     // **하나라도 어기면 통째로 거부합니다** → §11.4.5.
     // 절반만 실으면 「어느 절차가 최신인가」가 사건마다 달라집니다
@@ -146,6 +157,14 @@ async function main(): Promise<number> {
     for (const one of orgPlan.rows) {
       const tel = (one.contact.report_tel as string | undefined) ?? '(번호 미확인)'
       console.log(`  ${one.org_id.padEnd(16)} ${one.channel_id.padEnd(12)} ${tel.padEnd(14)} ${one.name}`)
+    }
+  }
+
+  if (publicPlan.rows.length > 0) {
+    console.log(`
+공공기관 ${publicPlan.rows.length}곳 — 가리지 말 이름`)
+    for (const one of publicPlan.rows) {
+      console.log(`  ${one.org_id.padEnd(16)} ${one.name.padEnd(24)} 별칭 ${one.aliases.length}`)
     }
   }
 
@@ -179,9 +198,14 @@ async function main(): Promise<number> {
     await sql.begin(async (tx) => {
       for (const row of rows) await insert(tx, row)
       for (const row of orgPlan.rows) await insertOrg(tx, row)
+      for (const row of publicPlan.rows) await insertPublicOrg(tx, row)
     })
 
-    console.log(`\n적재했습니다 — 절차 ${rows.length}건 · 기관 ${orgPlan.rows.length}곳, 버전 ${args.version}.`)
+    console.log(
+      `
+적재했습니다 — 절차 ${rows.length}건 · 기관 ${orgPlan.rows.length}곳 · `
+        + `공공기관 ${publicPlan.rows.length}곳, 버전 ${args.version}.`,
+    )
     console.log(`이 버전을 쓰려면 \`KB_VERSION=${args.version}\` 을 환경에 넣으세요 (ADR-045).`)
     return 0
   } finally {
@@ -255,6 +279,27 @@ async function insertOrg(tx: Tx, row: OrgRow): Promise<void> {
       name = EXCLUDED.name,
       aliases = EXCLUDED.aliases,
       contact = EXCLUDED.contact,
+      source_url = EXCLUDED.source_url,
+      verified_at = EXCLUDED.verified_at
+  `
+}
+
+/**
+ * 공공기관 한 곳을 넣는다 → `org_public` (마이그레이션 0007).
+ *
+ * `insertOrg` 와 같은 규칙입니다 — 열쇠가 `(org_id, kb_version)` 이라 **같은
+ * 릴리스 안에서만 덮어씁니다.** 지난 릴리스의 표기는 그대로 남습니다.
+ */
+async function insertPublicOrg(tx: Tx, row: PublicOrgRow): Promise<void> {
+  await tx`
+    INSERT INTO org_public
+      (org_id, kb_version, name, aliases, source_url, verified_at)
+    VALUES
+      (${row.org_id}, ${row.kb_version}, ${row.name},
+       ${tx.json(row.aliases as never)}, ${row.source_url}, ${row.verified_at})
+    ON CONFLICT (org_id, kb_version) DO UPDATE SET
+      name = EXCLUDED.name,
+      aliases = EXCLUDED.aliases,
       source_url = EXCLUDED.source_url,
       verified_at = EXCLUDED.verified_at
   `

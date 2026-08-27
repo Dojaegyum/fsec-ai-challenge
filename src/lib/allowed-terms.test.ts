@@ -50,7 +50,17 @@ const rows = ORGS.orgs.map((one) => ({
   aliases: one.aliases ?? [],
 }))
 
-const channels = { allCandidates: async () => rows }
+/** 경유 서비스가 **아닌** 기관 — 경찰·검찰·금융감독원 → 마이그레이션 0007 */
+const PUBLIC = JSON.parse(
+  readFileSync(new URL('../kb/org-public.json', import.meta.url), 'utf8'),
+) as { public_orgs: { name: string; aliases?: string[] }[] }
+
+const publicNames = PUBLIC.public_orgs.flatMap((one) => [one.name, ...(one.aliases ?? [])])
+
+const channels = {
+  allCandidates: async () => rows,
+  allPublicNames: async () => publicNames,
+}
 const kbVersion = { current: async () => '2026.08.1' }
 
 describe('제외 목록을 사전에서 만든다', () => {
@@ -69,6 +79,7 @@ describe('제외 목록을 사전에서 만든다', () => {
         allCandidates: async () => {
           throw new Error('DB 없음')
         },
+        allPublicNames: async () => [],
       },
       kbVersion,
     })
@@ -83,6 +94,47 @@ describe('제외 목록을 사전에서 만든다', () => {
       },
     })
     expect(noVersion).toEqual([])
+  })
+})
+
+describe('공공기관도 제외 목록에 들어간다 — 05 U-35', () => {
+  /**
+   * **경유 서비스가 아닌 기관**은 `org` 표에 못 들어갑니다(`channel_id` 가 필수).
+   * 그래서 이 목록이 비어 있던 동안 NER 을 켜면 「금융감독원에 전화해서…」의
+   * 기관명이 `[이름-1]` 이 됐습니다 — 실측 09 §7.2.
+   */
+  it.each(['금융감독원', '경찰청', '금융결제원', '한국정보통신진흥협회'])(
+    '%s 가 목록에 있다',
+    async (name) => {
+      expect(await allowedTermsFor({ channels, kbVersion })).toContain(name)
+    },
+  )
+
+  it('별칭도 담는다 — 통화에서는 「금감원」이라고 부릅니다', async () => {
+    const terms = await allowedTermsFor({ channels, kbVersion })
+    expect(terms).toContain('금감원')
+    expect(terms).toContain('엠세이퍼')
+  })
+
+  it.each(['금융감독원', '경찰청'])('%s 가 실제로 안 가려진다', async (name) => {
+    const text = `${name}에 전화해서 물어봤는데 안 된다고 합니다`
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, name) })
+    const { masked } = await tokenizer.tokenize(text, {
+      allowedTerms: await allowedTermsFor({ channels, kbVersion }),
+    })
+    expect(masked).toBe(text)
+  })
+
+  it('**사전이 비면 가려집니다** — 이게 배선이 없을 때의 모습입니다', async () => {
+    const text = '금융감독원에 전화해서 물어봤는데 안 된다고 합니다'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '금융감독원') })
+    const { masked } = await tokenizer.tokenize(text, {
+      allowedTerms: await allowedTermsFor({
+        channels: { allCandidates: async () => rows, allPublicNames: async () => [] },
+        kbVersion,
+      }),
+    })
+    expect(masked).toContain('[이름-1]')
   })
 })
 

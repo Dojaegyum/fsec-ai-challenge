@@ -616,3 +616,107 @@ export function planOrgLoad(
 
   return { rows, problems }
 }
+
+// ── 공공기관 사전 — 경유 서비스가 아닌 기관의 「가리지 말 이름」 ──────────
+
+export interface PublicOrgFile {
+  readonly name: string
+  readonly public_orgs?: unknown
+}
+
+export interface PublicOrgRow {
+  readonly org_id: string
+  readonly name: string
+  readonly aliases: readonly string[]
+  readonly source_url: string
+  readonly verified_at: string
+  readonly kb_version: string
+}
+
+export interface PublicOrgPlan {
+  readonly rows: readonly PublicOrgRow[]
+  readonly problems: readonly KbProblem[]
+}
+
+/**
+ * 공공기관 파일을 검사해 넣을 행을 만든다 → `org_public` (마이그레이션 0007).
+ *
+ * `planOrgLoad` 와 **거의 같지만 두 칸이 없습니다** — `channel_id` 와 `contact`.
+ * 그 둘이 없어서 이 표가 따로 있는 것이라, 있으면 잘못 넣은 것입니다.
+ *
+ * ## 여기서 거부하는 것과 안 하는 것
+ *
+ * **틀린 번호가 나갈 자리가 아닙니다.** 이 표는 화면에 아무것도 안 그리고
+ * 토큰화 제외 목록으로만 쓰입니다. 그래서 `planOrgLoad` 만큼 빡빡하지 않습니다 —
+ * 다만 **출처 없는 표기는 안 싣습니다.** 사람이 나중에 「이 이름을 왜 안 가리나」를
+ * 물었을 때 답할 수 있어야 합니다.
+ */
+export function planPublicOrgLoad(
+  files: readonly PublicOrgFile[],
+  opts: { readonly kbVersion: string },
+): PublicOrgPlan {
+  const problems: KbProblem[] = []
+  const rows: PublicOrgRow[] = []
+  const seen = new Set<string>()
+
+  for (const file of files) {
+    if (!Array.isArray(file.public_orgs)) {
+      problems.push({
+        file: file.name,
+        entry: null,
+        rule: 'FILE',
+        message: '`public_orgs` 가 배열이 아닙니다',
+      })
+      continue
+    }
+
+    for (const raw of file.public_orgs as Record<string, unknown>[]) {
+      const id = isText(raw.org_id) ? raw.org_id : null
+      const where = (rule: string, message: string) =>
+        problems.push({ file: file.name, entry: id, rule, message })
+      const before = problems.length
+
+      if (id === null) {
+        where('ID', '`org_id` 가 없습니다')
+        continue
+      }
+      if (seen.has(id)) where('ID', '`org_id` 가 겹칩니다')
+      seen.add(id)
+
+      if (!isText(raw.name)) where('ORG', '`name` 이 없습니다')
+
+      // ⛔ **이 표에는 그 둘이 들어오면 안 됩니다.** 들어왔다면 `org.json` 에
+      // 넣으려던 것을 잘못 옮긴 것이고, 그대로 두면 유형 분기에서 안 보입니다
+      if (raw.channel_id !== undefined) {
+        where('CHANNEL', '`channel_id` 가 있습니다 — 경유 서비스면 `org.json` 입니다')
+      }
+      if (raw.contact !== undefined) {
+        where('CONTACT', '`contact` 가 있습니다 — 창구 번호는 절차 항목이 갖습니다')
+      }
+
+      if (!isText(raw.source_url) || !raw.source_url.startsWith('http')) {
+        where('EVIDENCE', '`source_url` 이 없습니다 — 표기에도 근거가 있어야 합니다')
+      }
+      if (!isDate(raw.verified_at)) {
+        where('EVIDENCE', '`verified_at` 이 `YYYY-MM-DD` 가 아닙니다')
+      }
+
+      const aliases = Array.isArray(raw.aliases) ? (raw.aliases as unknown[]) : null
+      if (aliases === null) where('ORG', '`aliases` 가 배열이 아닙니다')
+      else if (aliases.some((one) => !isText(one))) where('ORG', '`aliases` 에 빈 값이 있습니다')
+
+      if (problems.length !== before) continue
+
+      rows.push({
+        org_id: id,
+        name: raw.name as string,
+        aliases: (aliases ?? []) as readonly string[],
+        source_url: raw.source_url as string,
+        verified_at: raw.verified_at as string,
+        kb_version: opts.kbVersion,
+      })
+    }
+  }
+
+  return { rows, problems }
+}
