@@ -22,6 +22,7 @@
 import 'server-only'
 
 import type { Env } from './env'
+import { LlmBadRequestError, LlmError } from './errors'
 
 import type { LlmClient, ModelReply } from '@/modules/chat-receiver'
 
@@ -233,7 +234,7 @@ export function createLlmClient(env: Env): TextLlmClient | null {
       for (let attempt = 0; ; attempt += 1) {
         const left = deadline - Date.now()
         // 남은 시간이 한 번 왕복도 못 할 만큼이면 더 시도하지 않습니다
-        if (left < MIN_ATTEMPT_MS) throw new Error('모델이 제때 답하지 않았습니다')
+        if (left < MIN_ATTEMPT_MS) throw new LlmError('모델이 제때 답하지 않았습니다')
 
         const sent = requestBody(models[attempt % models.length]!, prompt)
 
@@ -258,7 +259,7 @@ export function createLlmClient(env: Env): TextLlmClient | null {
           // 내용이 들어 있고, 이 메시지는 로그와 감사 기록으로 갑니다
           const timedOut = error instanceof Error && error.name === 'AbortError'
           logAttempt(model, timedOut ? '시간 초과' : '닿지 못함', Date.now() - startedAt)
-          throw new Error(timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다')
+          throw new LlmError(timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다')
         } finally {
           clearTimeout(timer)
         }
@@ -276,14 +277,21 @@ export function createLlmClient(env: Env): TextLlmClient | null {
         }
       }
 
-      if (!res.ok) throw new Error(`모델이 거절했습니다 (${res.status})`)
+      // **다시 보내면 될 것과 아닌 것을 여기서 가릅니다.** 이 구분이 그대로
+      // HTTP 로 나갑니다 — 503(잠시 뒤 다시) vs 500(다시 눌러도 같습니다)
+      if (!res.ok) {
+        const message = `모델이 거절했습니다 (${res.status})`
+        throw AGAIN_LATER.has(res.status)
+          ? new LlmError(message, { status: res.status })
+          : new LlmBadRequestError(message, { status: res.status })
+      }
 
       const body: unknown = await res.json().catch(() => null)
       const text = (body as { choices?: { message?: { content?: unknown } }[] } | null)
         ?.choices?.[0]?.message?.content
 
       if (typeof text !== 'string' || text.length === 0) {
-        throw new Error('모델이 빈 답을 냈습니다')
+        throw new LlmError('모델이 빈 답을 냈습니다')
       }
 
       return text
