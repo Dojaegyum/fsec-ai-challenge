@@ -134,6 +134,7 @@
 | [056](056-transcript-org-normalization.md) | 전사문의 기관명은 토큰화 뒤에 외부 모델로 교정하고, 확정은 사용자가 한다 | 채택 |
 | [057](057-receipt-number-l1.md) | L1은 「형식이 맞나」가 아니라 「받아 적었나」를 묻는다 — 형식 정본이 없다 | 채택 |
 | [058](058-crypto-not-applicable-overrides.md) | 「적용되지 않는 것을 안다」면 덮는다 — 가상자산이 공통 넷을 덮는 근거 | 채택 |
+| [059](059-public-repo-secrets-out.md) | 저장소를 공개로 — 비밀은 Vercel env 에만 두고, 이력에 남은 값은 새 저장소로 지운다 | 채택 |
 
 ## 아직 안 쓴 것
 

@@ -38,6 +38,10 @@ Vercel → Add New Project → 이 저장소 선택
 [`src/.env.example`](../src/.env.example) 이 무엇이 왜 필요한지의 정본입니다.
 Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으로 넣습니다.
 
+**값의 정본은 Vercel env 입니다** — `src/.env.local` 은 로컬 개발용이고 git 에 없습니다
+(공개 저장소라 넣으면 안 됩니다 → [ADR-059](../decisions/059-public-repo-secrets-out.md)).
+로컬 값은 소유자에게 직접 받습니다. Hobby 팀이라 팀원은 `vercel env pull` 을 못 씁니다.
+
 **반드시 있어야 하는 것**
 
 | 이름 | 없으면 |
@@ -95,7 +99,7 @@ LLM_API_KEY    (그 제공자의 열쇠)
 **형식을 못 지키는 모델은 200 을 받고도 `KB_CITATION_MISSING`(502) 이 됩니다.**
 `gemini-2.5-flash` 가 그랬습니다 — 인용 번호로 프롬프트 안의 블록 이름(`history`)을
 냈습니다. **모델을 바꾸면 챗 한 턴을 끝까지 돌려 보세요.** 재 본 값은
-`src/.env.local` 주석에 있습니다.
+[`src/.env.example`](../src/.env.example) 의 언어모델 절에 있습니다.
 
 ⚠️ **바꾸면 토큰화된 사건 진술이 그 사업자에게 갑니다.** 개발 중에는 무료 제공자를
 쓰더라도, **제출·시연에 무엇을 쓸지는 사람이 정합니다** → `CLAUDE.md` 불변 규칙 2.

@@ -770,7 +770,7 @@ relief_applied_at = 2026-08-17 (월)
 
 xAI 는 크레딧이 없어 403(`team doesn't have any credits or licenses yet`)을 냈고,
 **2026-08-25 에 Gemini 무료 한도로 옮겼습니다.** 네 모델이 인용 검증까지 통과합니다
-(`gemini-3-flash-preview`·`3.6`·`3.7`·`3.5`) — 실측 표는 `src/.env.local` 주석에.
+(`gemini-3-flash-preview`·`3.6`·`3.7`·`3.5`) — 실측 표는 `src/.env.example` 의 언어모델 절에.
 
 - [x] 다른 제공자로 돌 수 있게 했습니다 — `LLM_BASE_URL`·`LLM_MODEL`·`LLM_API_KEY`.
       셋 다 비면 xAI 로 돌아갑니다.
