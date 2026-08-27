@@ -67,11 +67,6 @@ export default function ChatView({
   const { lines, sending, fail, send, loading, truncated, locked, ask } = chat;
   const [draft, setDraft] = useState("");
   const dev = token === null;
-  const question = ask.question;
-
-  /** 답하면 오른쪽 열이 할 일 패널로 넘어갑니다 — 보내기 전에 옮기지 않습니다 */
-  const answer = (value: string) => void ask.answer(value).then(onPickChoice);
-  const skip = () => void ask.skip().then(onPickChoice);
 
   const submit = () => {
     if (dev || sending) return;
@@ -174,67 +169,10 @@ export default function ChatView({
           </div>
         )}
 
-        {/* 질문은 스트림 맨 아래에 붙습니다 — 한 번에 하나 (§3.4 · §S-06) */}
-        {!atWork && question && !sending && (
-          <>
-            {/* 질문 문구도 서버가 준 것입니다 — 화면이 다시 적지 않습니다 (§3.4) */}
-            <Bubble who="ai" i={lines.length}>
-              바로 이어서 여쭐게요. <b className="font-[640] text-ink-1">{question.text}</b>
-              <span className="mt-1.5 block text-[13px] text-ink-3">
-                한 번에 하나만 여쭤봅니다
-              </span>
-            </Bubble>
-
-            {/* 답을 못 보냈을 때. **스스로 다시 보내지 않습니다** — 고른 것은
-                그대로 있고 누르는 것은 사용자입니다 (에러 §3.1) */}
-            {ask.fail && (
-              <div
-                role="alert"
-                className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px]"
-              >
-                <p className="text-[13.5px] leading-[1.6] text-ink-1">{ask.fail.fail.message}</p>
-                {ask.fail.stage === "vault" && (
-                  <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-3">
-                    <b className="font-[620] text-ink-2">답은 보내지 않았습니다.</b> 가린 값을 이
-                    기기에서 풀 수 있게 맡겨 두는 것이 먼저라, 그게 안 되면 보내지 않습니다.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 되묻기가 오면 **선택지 대신** 이 카드입니다 — 아직 답한 것이
-                아니라서입니다 (ADR-041 · §3.5) */}
-            <div style={step(lines.length + 1)} className="rise">
-              {ask.confirm ? (
-                <PiiConfirmCard
-                  confirm={ask.confirm.card}
-                  typed={ask.confirm.typed}
-                  busy={ask.busy}
-                  onPick={(id) => void ask.resolve(id).then(onPickChoice)}
-                />
-              ) : (
-                <>
-                  {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
-                      「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06).
-                      **어느 것이 「모름」인지도 그쪽이 가릅니다** — 색과 `action` 이
-                      같은 판정을 써야 합니다 */}
-                  <QuestionButtons
-                    question={question}
-                    onAnswer={answer}
-                    onSkip={skip}
-                    busy={ask.busy}
-                  />
-                  <QuestionField
-                    question={question}
-                    onAnswer={answer}
-                    onSkip={skip}
-                    busy={ask.busy}
-                  />
-                </>
-              )}
-            </div>
-          </>
-        )}
+        {/* 질문은 스트림 맨 아래에 붙습니다 — 한 번에 하나 (§3.4 · §S-06).
+            **`atWork` 로 가리지 않습니다** — 그 조건이 프로덕션에서 문진을 통째로
+            지우고 있었습니다 (`QuestionBlock` 머리말) */}
+        {!sending && <QuestionBlock ask={ask} onAnswered={onPickChoice} i={lines.length} />}
       </div>
 
       {/* 컴포저 — 포커스 링은 여기에만 */}
@@ -319,6 +257,104 @@ function DemoStream({ atWork }: { atWork: boolean }) {
 
 /* ── 말풍선 ─────────────────────────────────────────────────── */
 
+/**
+ * 문진 한 문항 — **챗 본문과 오른쪽 미니 챗이 같은 것을 그립니다.**
+ *
+ * 계약: spec/common/08-14-api.md §3.4 · spec/frontend/08-14-screens.md §S-06
+ *
+ * ⚠️ **2026-08-27 까지 이 자리가 `!atWork` 로 막혀 있었습니다.** 워크스페이스가
+ * 열려 있으면 문항을 통째로 안 그렸는데, 그건 목업 시절 「작업 중이면 다른 대사를
+ * 보여준다」는 연출 분기가 조건만 남은 것이었습니다. 계약 어디에도 「워크스페이스가
+ * 열리면 문진을 감춘다」는 말이 없습니다.
+ *
+ * **그 조건 하나 때문에 프로덕션에서 문진이 한 번도 안 그려졌습니다** — 사건은
+ * 만들어지자마자 T0 단계가 붙어 언제나 워크스페이스가 열린 채로 열리기 때문입니다
+ * (`case-opener` 의 `side`). 서버는 `next_question` 을 제대로 내고 있었습니다.
+ *
+ * 두 곳이 같은 컴포넌트를 쓰는 것이 중요합니다 — 갈라 적으면 한쪽만 「모름」을
+ * 빠뜨려도 화면은 멀쩡해 보입니다.
+ */
+export function QuestionBlock({
+  ask,
+  /** 답한 뒤 셸이 할 일. 미니 챗에서는 옮길 곳이 없어 아무것도 안 합니다 */
+  onAnswered,
+  /** 계단 등장의 순번 */
+  i,
+}: {
+  ask: ChatSend["ask"];
+  onAnswered: () => void;
+  i: number;
+}) {
+  const question = ask.question;
+  if (!question) return null;
+
+  const answer = (value: string) => void ask.answer(value).then(onAnswered);
+  const skip = () => void ask.skip().then(onAnswered);
+
+  return (
+    <>
+      <>
+        {/* 질문 문구도 서버가 준 것입니다 — 화면이 다시 적지 않습니다 (§3.4) */}
+        <Bubble who="ai" i={i}>
+          바로 이어서 여쭐게요. <b className="font-[640] text-ink-1">{question.text}</b>
+          <span className="mt-1.5 block text-[13px] text-ink-3">
+            한 번에 하나만 여쭤봅니다
+          </span>
+        </Bubble>
+
+        {/* 답을 못 보냈을 때. **스스로 다시 보내지 않습니다** — 고른 것은
+            그대로 있고 누르는 것은 사용자입니다 (에러 §3.1) */}
+        {ask.fail && (
+          <div
+            role="alert"
+            className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px]"
+          >
+            <p className="text-[13.5px] leading-[1.6] text-ink-1">{ask.fail.fail.message}</p>
+            {ask.fail.stage === "vault" && (
+              <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-3">
+                <b className="font-[620] text-ink-2">답은 보내지 않았습니다.</b> 가린 값을 이
+                기기에서 풀 수 있게 맡겨 두는 것이 먼저라, 그게 안 되면 보내지 않습니다.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 되묻기가 오면 **선택지 대신** 이 카드입니다 — 아직 답한 것이
+            아니라서입니다 (ADR-041 · §3.5) */}
+        <div style={step(i + 1)} className="rise">
+          {ask.confirm ? (
+            <PiiConfirmCard
+              confirm={ask.confirm.card}
+              typed={ask.confirm.typed}
+              busy={ask.busy}
+              onPick={(id) => void ask.resolve(id).then(onAnswered)}
+            />
+          ) : (
+            <>
+              {/* 선택지는 `chat-handler` 가 그립니다 — 「모름」을 지우지 않는 것과
+                  「같은 크기·같은 자리, 글자색만」이 그쪽 규칙이기 때문입니다 (§3.4 · §S-06).
+                  **어느 것이 「모름」인지도 그쪽이 가릅니다** — 색과 `action` 이
+                  같은 판정을 써야 합니다 */}
+              <QuestionButtons
+                question={question}
+                onAnswer={answer}
+                onSkip={skip}
+                busy={ask.busy}
+              />
+              <QuestionField
+                question={question}
+                onAnswer={answer}
+                onSkip={skip}
+                busy={ask.busy}
+              />
+            </>
+          )}
+        </div>
+      </>
+    </>
+  );
+}
+
 export function Bubble({
   who,
   i,
@@ -392,33 +428,108 @@ export function PendingBubble({ currentIndex }: { currentIndex: number }) {
  * 흡수 모션의 **착지점**입니다. 축소된 사본을 남기는 게 아니라 **자연 크기의
  * 진짜 폼**이고, 원본 챗이 사라지는 자리에서 교차로 이어받습니다
  * (`absorb.ts` 의 `CROSSFADE`).
+ *
+ * ⚠️ **2026-08-27 까지 안이 전부 하드코딩된 목업이었습니다.** 말풍선 둘(「다음은
+ * 피해구제 신청입니다. 8월 20일까지요」)이 박혀 있었고 입력칸은 아무 데도 안
+ * 이어져 있었습니다. 사건이 만들어지면 화면은 언제나 플랜으로 열리므로
+ * (`case-opener`), **실사건 사용자가 실제로 보던 대응 비서가 이 목업이었습니다.**
+ *
+ * 이제 셸이 들고 있는 대화 한 벌을 그대로 받습니다 — 본문 챗과 **같은 것**을 봐야
+ * 두 자리가 어긋나지 않습니다 (`useChatSend` 의 머리말).
+ *
+ * **문항도 여기 뜹니다.** 프로덕션에는 플랜에서 챗 본문으로 가는 길이 없어서,
+ * 이 자리가 문진을 볼 수 있는 유일한 곳입니다 → `QuestionBlock`.
  */
-export function MiniChat() {
+export function MiniChat({ chat }: { chat: ChatSend }) {
+  const { lines, sending, fail, send, ask } = chat;
+  const [draft, setDraft] = useState("");
+
+  const submit = () => {
+    if (sending) return;
+    // **보낸 것이 확인되면 그때 비웁니다** — 실패했는데 지우면 방금 쓴 글이 사라집니다
+    void send(draft).then((ok) => {
+      if (ok) setDraft("");
+    });
+  };
+
+  // 오른쪽 열은 좁습니다 — **최근 둘만** 그립니다. 전부는 챗 본문에 있습니다
+  const recent = lines.slice(-2);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2.5 text-[12.5px] tracking-[0.12em] text-ink-4">대응 비서</div>
       <div className="grid flex-1 content-start gap-2">
-        <p className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5 text-[13px] leading-[1.55] text-ink-2">
-          다음은 <b className="font-[640] text-ink-1">피해구제 신청</b>입니다.{" "}
-          <b className="font-[640] text-deadline-urgent">8월 20일</b>까지요.
-        </p>
-        <p className="ml-auto rounded-[13px] rounded-br-[4px] bg-[oklch(1_0_0/11%)] px-3 py-2.5 text-[13px] text-ink-1">
-          뭐부터 하면 돼요?
-        </p>
+        {recent.length === 0 && !ask.question && !sending && (
+          <p className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5 text-[13px] leading-[1.55] text-ink-2">
+            무엇이든 물어보세요. 지금 하실 일이나 서류에 적을 것도 괜찮습니다.
+          </p>
+        )}
+
+        {recent.map((line, i) =>
+          line.who === "me" ? (
+            /* **원문 그대로입니다** — 나간 것은 가려진 형태였습니다 (ADR-034) */
+            <p
+              key={"me-" + i}
+              className="ml-auto rounded-[13px] rounded-br-[4px] bg-[oklch(1_0_0/11%)] px-3 py-2.5 text-[13px] text-ink-1"
+            >
+              {line.text}
+            </p>
+          ) : (
+            /* 근거 한 줄은 `chat-handler` 가 답니다 — 좁아도 근거를 떼지 않습니다 (§3.9) */
+            <div key={line.message_id} className="min-w-0">
+              <AnswerBubble turn={line} />
+            </div>
+          ),
+        )}
+
+        {/* 기다리는 동안 **무엇을 하는지 문장으로** — 스트리밍을 안 쓰는 대가입니다 */}
+        {sending && (
+          <p className="flex items-center gap-2 text-[12.5px] text-ink-3">
+            {PENDING_STEPS[1]}
+            <span
+              aria-hidden
+              className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
+            />
+          </p>
+        )}
+
+        {/* 실패는 앰버로. **스스로 다시 보내지 않습니다** (에러 §3.1) */}
+        {fail && (
+          <p
+            role="alert"
+            className="rounded-[12px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] px-3 py-2.5 text-[12.5px] leading-[1.6] text-ink-1"
+          >
+            {fail.fail.message}
+          </p>
+        )}
+
+        {/* 문항 — **본문 챗과 같은 것을 그립니다.** 여기가 프로덕션에서 문진이
+            보이는 유일한 자리입니다 */}
+        {!sending && <QuestionBlock ask={ask} onAnswered={() => undefined} i={recent.length} />}
       </div>
+
       <div className="mt-2.5 flex items-center gap-2 rounded-[12px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-3 shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
         {/* 입력칸은 히트 영역이 아니라 **실제 높이**가 44px 여야 합니다 —
             눌러서 끝이 아니라 그 안에 커서를 두고 타이핑하는 자리입니다 */}
         <input
           aria-label="대응 비서에게 묻기"
-          placeholder="무엇이든 물어보세요"
-          className="min-h-[var(--size-touch)] min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            // 조합 중(한글 입력)에 Enter 를 먹으면 마지막 글자가 잘립니다
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+          }}
+          disabled={sending}
+          placeholder={sending ? "보내는 중입니다" : "무엇이든 물어보세요"}
+          className="min-h-[var(--size-touch)] min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed"
         />
         <button
           type="button"
           data-hit
           aria-label="보내기"
-          className="grid size-[26px] shrink-0 place-items-center rounded-full bg-ink-1 text-[12px] font-bold text-ground"
+          onClick={submit}
+          disabled={sending || draft.trim().length === 0}
+          className="grid size-[26px] shrink-0 place-items-center rounded-full bg-ink-1 text-[12px] font-bold text-ground disabled:opacity-40"
         >
           <span aria-hidden>↑</span>
         </button>
