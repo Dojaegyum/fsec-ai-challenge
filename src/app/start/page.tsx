@@ -104,7 +104,8 @@ const Q1 = [
   ["잘 모르겠어요", true], // 모름 — ink-3 로 낮추되 같은 크기·같은 자리
 ] as const;
 
-const step = (i: number) => ({ animationDelay: `${60 + i * 70}ms` });
+/** 랜딩과 **같은 간격**입니다 — 두 화면을 잇달아 보므로 리듬이 달라지면 걸립니다 */
+const step = (i: number) => ({ animationDelay: `${60 + i * 95}ms` });
 
 const btnPrimary =
   "inline-flex min-h-[50px] items-center justify-center rounded-[12px] bg-ink-1 text-[15.5px] font-[660] text-ground transition-[transform,opacity] duration-200 hover:-translate-y-px hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pii";
