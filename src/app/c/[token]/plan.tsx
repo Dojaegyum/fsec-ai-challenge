@@ -26,25 +26,79 @@
  * 않습니다 — 화면이 둘로 갈라져 부르면 히어로와 보드가 서로 다른 시점을 그립니다.
  */
 
+import { useRef } from "react";
+
 import { ddayLabel, dueLabel, groupDeadlines, WaitCard } from "@/modules/deadline-viewer";
 import type { Deadline } from "@/modules/deadline-viewer";
 import { PlanBoard } from "@/modules/plan-viewer";
-import type { PlanStep } from "@/modules/plan-viewer";
+import type { PlanStep, StepTone } from "@/modules/plan-viewer";
 
 /**
- * 사건 진행 레일 — 지금 어디쯤인지. 색만으로 가르지 않고 라벨을 함께 둡니다.
+ * 사건 진행 레일 — **절차의 전체 흐름**입니다. 진행률이 아닙니다.
  *
- * ⬜ **아직 손으로 적은 다섯입니다.** 계약에 사건의 큰 국면을 내리는 칸이 없어
- * 단계에서 유도할 수 없습니다 — `docs/plans/08-23-qa-readiness.md` Task 4 에서
- * 정본에 올릴지 정합니다. 그때까지 **이 다섯은 예시**입니다.
+ * 계약: spec/frontend/08-14-screens.md §S-07 「사건 진행 레일」
+ *
+ * ⚠️ **2026-08-27 까지 라벨과 상태가 손으로 적힌 상수였습니다.** 「지급정지」에
+ * `"done"` 이 박혀 있어 **아무것도 답하지 않은 진입 직후에도 첫 칸이 칠해졌고**,
+ * 사용자는 「이미 그 단계까지 왔다」로 읽었습니다. 게다가 상태를 색으로만 갈라
+ * §S-07 의 *"색 하나로 가르지 않습니다"* 를 이 레일만 어기고 있었습니다.
+ *
+ * 지금은 **서버가 준 단계에서 유도합니다.** 각 칸에 걸린 `body.step_key` 의
+ * 상태를 보고 정합니다 — 화면이 지어내는 값이 없습니다.
+ *
+ * ## 칸이 넷인 이유
+ *
+ * 채택된 시안(핸드오프 「Board S-07 Options」 1c)이 넷입니다. 다섯짜리는 **탈락한
+ * 1a** 의 개수였고, 그중 「결정」은 **기관이 하는 일이라 KB 에 단계가 없습니다** —
+ * 영영 「미시작」으로 남을 칸을 두느니 「환급」에 합칩니다.
+ *
+ * ## 걸리는 단계가 없으면 「미시작」입니다
+ *
+ * ⬜ **유형에 따라 아예 없는 국면이 있는데 그것을 아직 못 가립니다.** 카드·통신과금·
+ * 상품권은 채권소멸공고를 타지 않고(`src/kb/ch-card.json` 등이 「이 유형에는 …
+ * 없습니다」로 덮습니다) 그 단계의 `state` 는 `not_started` 라, 레일에는 「공고
+ * 2개월 · 미시작」으로 그려집니다. `skipped` 로 오면 「해당 없음」이 됩니다 —
+ * **어느 쪽인지를 서버가 말해 주는 칸이 §3.6 에 없습니다.**
  */
-const RAIL = [
-  ["지급정지", "done"],
-  ["피해구제", "now"],
-  ["공고 2개월", "todo"],
-  ["결정", "todo"],
-  ["환급", "todo"],
-] as const;
+const RAIL: readonly { readonly label: string; readonly keys: readonly string[] }[] = [
+  { label: "지급정지", keys: ["freeze-request"] },
+  { label: "피해구제", keys: ["relief-apply", "relief-documents"] },
+  { label: "공고 2개월", keys: ["debt-extinction-notice"] },
+  // 기관이 하는 일이라 KB 에 단계가 없습니다 — **늘 「미시작」이고 그게 사실입니다**
+  { label: "환급", keys: [] },
+];
+
+/**
+ * §S-07 「단계 상태 어휘」 그대로 — **기호·태그·색 셋이 함께 갑니다.**
+ *
+ * `now` 의 태그만 다릅니다. 단계 목록에서는 서버가 준 D-day 가 그 자리를 채우는데,
+ * 레일의 칸은 국면이라 자기 기한이 없습니다 → §S-07 「사건 진행 레일」.
+ */
+const RAIL_MARK: Record<StepTone, { readonly sign: string; readonly tag: string }> = {
+  done: { sign: "✓", tag: "증빙됨" },
+  now: { sign: "→", tag: "지금 차례" },
+  todo: { sign: "○", tag: "미시작" },
+  anytime: { sign: "◇", tag: "언제든" },
+  na: { sign: "—", tag: "해당 없음" },
+};
+
+/**
+ * 레일 한 칸의 상태를 그 칸에 걸린 단계들에서 정합니다.
+ *
+ * **완료는 부산물이 판정합니다** (불변 규칙 6). `unconfirmed`(사용자가 했다고만
+ * 말한 것)는 `done` 이 아니라 아직 안 끝난 것으로 셉니다 — `plan-viewer` 의
+ * `toneOf` 와 같은 판단입니다.
+ */
+function railTone(steps: readonly PlanStep[], keys: readonly string[]): StepTone {
+  const mine = steps.filter((one) => keys.includes(one.body.step_key ?? ""));
+  // 걸린 단계가 없으면 아직 오지 않은 국면입니다. **비었다고 칠하지 않습니다**
+  if (mine.length === 0) return "todo";
+  if (mine.some((one) => one.state === "in_progress")) return "now";
+  if (mine.every((one) => one.state === "done_verified")) return "done";
+  // 「지우지 않고 흐리게」 — 왜 없는지가 정보입니다 (§S-07)
+  if (mine.every((one) => one.state === "skipped")) return "na";
+  return "todo";
+}
 
 /** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작해야 합니다 —
  *  안 그러면 자식이 다 나타난 뒤에 부모가 페이드인합니다 */
@@ -55,19 +109,26 @@ export default function PlanView({
   deadlines,
   onPickStep,
   onOpenDoc,
+  onPickFile,
+  busy = false,
 }: {
   steps: readonly PlanStep[];
   deadlines: readonly Deadline[];
   /** 단계를 누르면 워크스페이스가 그리로 옮겨집니다. 없으면 안 눌립니다 */
   onPickStep?: (stepId: string) => void;
   /**
-   * 「무엇을 적는지 보기」 — 기재 안내 화면으로.
+   * 「무엇을 적는지 보기」가 가는 곳 — S-10 기재 안내.
    *
-   * **없으면 그 버튼을 안 그립니다.** 히어로 본문이 그 버튼을 이름으로
-   * 가리키고 있어서(「‘무엇을 적는지 보기’의 첫 줄에 있습니다」), 눌러도
-   * 안 열리는 채로 두면 사용자가 그 첫 줄을 영영 못 찾습니다.
+   * ⚠️ **2026-08-27 까지 이 버튼에 `onClick` 이 없었습니다.** 그런데 바로 아래
+   * 문장이 *「내는 곳은 은행마다 다릅니다 — 「무엇을 적는지 보기」의 첫 줄에
+   * 있습니다」* 라고 그 버튼을 가리킵니다. [ADR-042](../../../decisions/042-submit-channel.md)가
+   * 히어로에서 제출처를 말하지 못하게 막은 대가로 **그 버튼을 유일한 출구로
+   * 지정**했는데 출구가 닫혀 있었습니다. 3영업일 기한이 걸린 서류입니다
    */
   onOpenDoc?: () => void;
+  /** 통지·우편을 올리는 자리 — 공고 대기 카드가 씁니다 */
+  onPickFile?: (file: File) => void;
+  busy?: boolean;
 }) {
   // 본 기한·추가 기간·안내를 가릅니다. **합치지 않습니다** → 데이터 모델 §8.1
   const groups = groupDeadlines(deadlines);
@@ -87,8 +148,24 @@ export default function PlanView({
 
   const byId = new Map(steps.map((s) => [s.step_id, s]));
 
+  /** 공고 대기 카드의 「통지·우편 받으셨나요」가 여는 파일 선택 */
+  const noticeRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5">
+      {/* 받는 것은 §3.2 가 정한 셋입니다 — 통지는 사진으로 찍어 올립니다 */}
+      <input
+        ref={noticeRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onPickFile?.(file);
+        }}
+      />
+
       {/* ── 히어로 스트립 — 첫 줄이 답입니다 ─────────────── */}
       <section
         style={step(0)}
@@ -183,35 +260,54 @@ export default function PlanView({
         )}
       </section>
 
-      {/* ── 사건 진행 레일 ──────────────────────────────── */}
+      {/* ── 사건 진행 레일 ────────────────────────────────
+          **가로 막대를 쓰지 않습니다.** 왼쪽부터 채워지는 막대는 진행률의 관용구라
+          「여기까지 왔다」로 읽힙니다 — 이 줄이 말하는 것은 절차의 전체 흐름입니다 */}
       <section style={step(1)} className="rise">
-        <h3 className="text-[12.5px] tracking-[0.12em] text-ink-4">사건 진행</h3>
-        <ol className="mt-2.5 grid grid-cols-5 gap-1.5">
-          {RAIL.map(([label, tone]) => (
-            <li key={label}>
-              <div
-                aria-hidden
-                className={`h-1 rounded-full ${
-                  tone === "done"
-                    ? "bg-pii"
-                    : tone === "now"
-                      ? "bg-deadline-urgent"
-                      : "bg-[oklch(1_0_0/12%)]"
-                }`}
-              />
-              <p
-                className={`mt-1.5 text-[12.5px] ${
-                  tone === "done"
-                    ? "text-pii"
-                    : tone === "now"
-                      ? "font-[620] text-deadline-urgent"
-                      : "text-ink-3"
-                }`}
-              >
-                {label}
-              </p>
-            </li>
-          ))}
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3 className="text-[12.5px] tracking-[0.12em] text-ink-4">사건 진행</h3>
+          {/* 무엇을 보는 줄인지 말합니다 — 안 말하면 색을 진행률로 읽습니다 */}
+          <p className="text-[12.5px] text-ink-4">절차의 전체 흐름입니다</p>
+        </div>
+        <ol className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-4">
+          {RAIL.map(({ label, keys }) => {
+            const tone = railTone(steps, keys);
+            const mark = RAIL_MARK[tone];
+            return (
+              /* **기호·태그·색 셋이 함께 갑니다** — 색만으로 가르지 않습니다 (§S-07).
+                 「해당 없음」은 지우지 않고 흐리게 둡니다 — 왜 없는지가 정보입니다 */
+              <li key={label} className={tone === "na" ? "opacity-55" : ""}>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className={`w-[13px] shrink-0 text-center text-[12px] ${
+                      tone === "done"
+                        ? "text-pii"
+                        : tone === "now"
+                          ? "text-deadline-urgent"
+                          : "text-ink-4"
+                    }`}
+                  >
+                    {mark.sign}
+                  </span>
+                  <span
+                    className={`min-w-0 truncate text-[13px] ${
+                      tone === "now" ? "font-[620] text-ink-1" : "text-ink-2"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </div>
+                <p
+                  className={`mt-0.5 pl-[19px] text-[12px] ${
+                    tone === "now" ? "text-deadline-urgent" : "text-ink-4"
+                  }`}
+                >
+                  {mark.tag}
+                </p>
+              </li>
+            );
+          })}
         </ol>
       </section>
 
@@ -248,7 +344,13 @@ export default function PlanView({
                 deadline={notice}
                 startAt={notice.starts_at}
                 progress={notice.elapsed}
-                onUpload={() => {}}
+                /* ⚠️ **빈 함수를 넘기면 모듈이 걸어 둔 안전장치가 열립니다.**
+                   `wait.tsx` 가 *「통지·우편을 올리는 자리. 없으면 버튼을 그리지
+                   않습니다」* 로 막아 뒀는데, 여기서 `() => {}` 를 넘겨 **눌러도
+                   아무 일이 없는 전폭 버튼**이 켜져 있었습니다 */
+                {...(onPickFile
+                  ? { onUpload: () => { if (!busy) noticeRef.current?.click(); } }
+                  : {})}
               />
             ) : null
           }

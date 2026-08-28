@@ -45,6 +45,7 @@ import {
 } from "@/modules/key-handler";
 import type { KeyStore } from "@/modules/key-handler";
 import type { PiiMapping } from "@/modules/pii-masker";
+import type { RestorableMapping } from "@/modules/pii-restorer";
 
 import { fetchHistory, openVault } from "./history";
 import { postJson, sendJson } from "./load";
@@ -261,10 +262,27 @@ export interface ChatSend {
   /** 앞부분이 잘렸나 → §3.12 */
   readonly truncated: boolean;
   /**
+   * 지난 대화를 **못 읽었나.** 빈 대화와 가릅니다 — 조용히 뭉치면 사용자는
+   * 자기 대화가 사라진 줄 압니다
+   */
+  readonly pastFailed: boolean;
+  /**
    * 이 기기에 볼트를 열 열쇠가 없나 — **가족이 링크를 받아 연 경우**입니다.
    * 그러면 `[계좌-1]` 이 그대로 보이고, 화면이 그 이유를 말해야 합니다 (ADR-050).
    */
   readonly locked: boolean;
+  /**
+   * 볼트에서 열어 온 복원 매핑 — **이 브라우저에만 있습니다** (ADR-009 · ADR-027).
+   *
+   * ⚠️ **증거함이 이것을 못 받아서 픽스처를 쓰고 있었습니다.** 실제 전사문에
+   * 하드코딩된 예시 값(`김민수`·`110-2345-678901`)이 끼워져 그려졌고, 바로 아래
+   * 푸터가 「이 화면은 원문입니다」라고 단언했습니다 — 이 사건에 없는 값을 원문이라고
+   * 말한 것입니다. 사용자가 그 번호를 서류에 옮겨 적을 수 있었습니다.
+   *
+   * **셸이 한 벌만 들고 내려줍니다.** 챗과 증거함이 갈라 열면 같은 값에 번호가
+   * 따로 붙습니다 → PII 경계 「같은 값이 다시 나오면 같은 번호」.
+   */
+  readonly restorable: readonly RestorableMapping[];
   /**
    * 질문 자리 → §3.4 · §3.5.
    *
@@ -322,7 +340,11 @@ export function useChatSend(
   const [fail, setFail] = useState<{ stage: SendStage; fail: LoadFail } | null>(null);
   const [loading, setLoading] = useState(caseToken !== null);
   const [truncated, setTruncated] = useState(false);
+  /** 지난 대화를 **못 읽었나.** 「대화가 없다」와 다릅니다 */
+  const [pastFailed, setPastFailed] = useState(false);
   const [locked, setLocked] = useState(false);
+  /** 볼트에서 열어 온 것. **증거함도 같은 것을 봐야 합니다** */
+  const [restorable, setRestorable] = useState<readonly RestorableMapping[]>([]);
 
   // 질문 자리 — 첫 값은 §3.10, 그 뒤로는 답과 발화가 함께 옮깁니다
   const [question, setQuestion] = useState<NextQuestion | null>(firstQuestion);
@@ -351,6 +373,8 @@ export function useChatSend(
       const vault = await openVault(caseToken, store, ac.signal);
       if (!alive) return;
       setMappings(vault.maskContext);
+      // 이력만 되살리고 버리면 증거함이 볼 것이 없습니다 — 그래서 들고 있습니다
+      setRestorable(vault.restorable);
       // 볼트에 맡긴 것이 있는데 열쇠가 없을 때만 잠긴 것입니다 —
       // 아직 아무것도 안 맡긴 새 사건은 잠긴 것이 아닙니다
       setLocked(!vault.hasKey && vault.stored > 0);
@@ -359,6 +383,7 @@ export function useChatSend(
       if (!alive) return;
       setLines(past.lines);
       setTruncated(past.truncated);
+      setPastFailed(past.failed === true);
       setLoading(false);
     })();
 
@@ -464,5 +489,5 @@ export function useChatSend(
     [asking, askFail, confirm, put, question],
   );
 
-  return { lines, sending, fail, send, loading, truncated, locked, ask };
+  return { lines, sending, fail, send, loading, truncated, pastFailed, locked, restorable, ask };
 }

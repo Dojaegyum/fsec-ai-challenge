@@ -18,13 +18,21 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ApiDeadline } from '@/flows/api-deadlines'
-import { deadlineState, deadlinesCited, stepsCited } from '@/flows/chat-turn'
+import { chatTurn, deadlineState, deadlinesCited, stepsCited } from '@/flows/chat-turn'
+import type { CasePlanStore } from '@/flows/regenerate-plan'
 
-import { createAuditLogger } from '@/modules/audit-logger'
+import { createContainer, unconfiguredPorts } from '@/lib/container'
+import type { Container, Ports } from '@/lib/container'
+import { createMessageStore } from '@/lib/db'
+import type { MessageStore, Sql } from '@/lib/db'
+import { readEnv } from '@/lib/env'
+
+import { createAuditLogger, verifyChain } from '@/modules/audit-logger'
 import type { AuditRecord, AuditStore } from '@/modules/audit-logger'
 import { createChatPublisher } from '@/modules/chat-publisher'
+import type { ChatResponseBody } from '@/modules/chat-publisher'
 import { createChatReceiver } from '@/modules/chat-receiver'
-import type { KbEntry } from '@/modules/chat-receiver'
+import type { KbEntry, TurnOutcome } from '@/modules/chat-receiver'
 import { createCitationChecker } from '@/modules/citation-checker'
 import { createKbFinder } from '@/modules/kb-finder'
 import type { KbFinder, KbQuery, KbRow } from '@/modules/kb-finder'
@@ -684,5 +692,373 @@ describe('추정 기한은 추정이라고 말한다 — 화면의 「미확인�
     ])[0].value
 
     expect(value.indexOf('확정이 아닙니다')).toBeLessThan(value.indexOf('3영업일을 넘겼을 때'))
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 흐름 한 턴 — `flows/chat-turn.ts`
+ *
+ * 위쪽이 모듈끼리 맞물리는지를 보는 자리라면, 아래는 **그 이음매를 실제로
+ * 부르는 코드**가 계약대로 도는지 봅니다. 여기 있는 것 셋이 실제로 깨져
+ * 있었습니다.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
+const KB_VERSION = '2026.08.1'
+
+type MessageWrite = Parameters<MessageStore['write']>[0]
+
+/** 모델이 답을 낸 턴 하나 — 아래 시험들의 기본값 */
+function turnOf(over: Partial<TurnOutcome> = {}): TurnOutcome {
+  return {
+    outcome: { kind: 'pass' },
+    reply: {
+      insufficient: false,
+      citations: [{ ref: 'kb-1', why: '다음 단계를 안내하는 데 썼습니다' }],
+      reply: '다음은 피해구제 신청서 제출입니다.',
+    },
+    issued: [
+      {
+        ref: 'kb-1',
+        label: '피해구제 신청서 제출',
+        kbEntryId: 'relief-application',
+        kbVersion: KB_VERSION,
+      },
+    ],
+    kbContextRefs: [],
+    promptMasked: '(프롬프트 전문)',
+    utteranceMasked: '이제 뭘 하죠',
+    counts: { applied: 5, reference: 7, transcriptLines: 42 },
+    attempts: 1,
+    ...over,
+  }
+}
+
+interface ChatHarness {
+  readonly container: Container
+  /** `messages.write` 가 받은 것. **빈 배열이 「안 남겼다」입니다** */
+  readonly written: readonly MessageWrite[]
+  /** 감사 저장소에 쌓인 줄. **진짜 `audit-logger` 가 만든 것**입니다 */
+  readonly audits: readonly AuditRecord[]
+}
+
+/**
+ * 사건 하나를 들고 있는 대역.
+ *
+ * **모델은 대역이지만 `chat-publisher`·`audit-logger`·`slot-checker` 는 진짜로
+ * 태웁니다** — 이 파일이 보려는 것이 「부르는 자리가 있는가」라서, 그 셋을
+ * 대역으로 바꾸면 안 부르고도 통과합니다.
+ */
+function chatHarness(
+  over: {
+    readonly turn?: TurnOutcome
+    /** 맥락으로 되돌아온 대화 줄. **`history()` 는 20턴에서 자릅니다** */
+    readonly history?: readonly { speaker: 'user' | 'assistant'; text: string }[]
+    /** 물을 것이 남지 않은 사건 — 슬롯을 다 채운 자리입니다 */
+    readonly noQuestion?: boolean
+  } = {},
+): ChatHarness {
+  const written: MessageWrite[] = []
+  const audits: AuditRecord[] = []
+
+  const store: CasePlanStore = {
+    async readCase() {
+      return { track: 'victim' as const }
+    },
+    async readSlots() {
+      return []
+    },
+    async readChannel() {
+      return null
+    },
+    async readChannels() {
+      return []
+    },
+    async readSteps() {
+      return []
+    },
+    async applyPlan() {
+      return []
+    },
+    async openCase() {
+      return []
+    },
+  }
+
+  const env = readEnv({})
+  const ports = {
+    ...unconfiguredPorts(env),
+    casePlan: store,
+    kbVersion: { current: async () => KB_VERSION },
+    // **진짜 사슬이 여기 쌓입니다** — 앞 해시를 돌려줘야 이어집니다
+    auditStore: {
+      async lastHash() {
+        return audits.at(-1)?.hash ?? null
+      },
+      async append(record: AuditRecord) {
+        audits.push(record)
+      },
+    },
+  } as Ports
+
+  const container: Container = {
+    ...createContainer(env, ports),
+    // 모델은 이 파일이 보는 것이 아닙니다 → 위 「chat-receiver 가 순서를 부르면」
+    chatReceiver: { receive: async () => over.turn ?? turnOf() },
+    messages: {
+      async write(input) {
+        written.push(input)
+      },
+      async history() {
+        return over.history ?? []
+      },
+      async transcript() {
+        return []
+      },
+      async turns() {
+        return { turns: [], truncated: false }
+      },
+    },
+    slots: { read: async () => [] },
+    deadlines: { read: async () => [] },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    ...(over.noQuestion
+      ? {
+          slotChecker: {
+            check: () => ({
+              t1: 'satisfied' as const,
+              t2: 'satisfied' as const,
+              nextQuestion: null,
+              needsSupersetPlan: false,
+            }),
+          },
+        }
+      : {}),
+  }
+
+  return { container, written, audits }
+}
+
+/** 한 턴을 돌리고 응답 본문을 계약의 모양으로 받는다 */
+async function runTurn(one: ChatHarness): Promise<ChatResponseBody> {
+  const got = await chatTurn({ caseId: CASE_ID, content: '이제 뭘 하죠' }, one.container)
+  return got.body as unknown as ChatResponseBody
+}
+
+describe('근거가 없으면 되묻는다 — §3.9 · 11-chat-context.md §6.3', () => {
+  /**
+   * **여기가 배선돼 있지 않았습니다.** `guide_1332` 만 갈라 두고 나머지를 전부
+   * 답변으로 씌워서, 모델이 「답할 근거가 없다」고 선언한 턴이 **빈 답**으로
+   * 나갔습니다 — 그 턴에는 `reply` 가 아예 없습니다.
+   */
+  const ASK = turnOf({
+    outcome: { kind: 'ask_slot' },
+    reply: { insufficient: true, citations: [] },
+  })
+
+  it('`ask_slot` 이 답변으로 떨어지지 않는다 — **빈 답이 나가던 자리**', async () => {
+    const body = await runTurn(chatHarness({ turn: ASK }))
+
+    expect(body.reply).not.toBe('')
+    // 문구의 정본은 §3.9 「근거가 없으면 되묻습니다」
+    expect(body.reply).toContain('하나만 확인')
+    expect(body.next_question).not.toBeNull()
+    expect(body.citations).toEqual([])
+  })
+
+  it('되묻는 문항은 **슬롯 체커가 만든 그대로** — 챗이 따로 만들지 않습니다', async () => {
+    const body = await runTurn(chatHarness({ turn: ASK }))
+
+    // 화면의 문진과 같은 순서에서 나옵니다 (`slot-checker` 의 ASK_ORDER 첫 줄)
+    expect(body.next_question?.slot_key).toBe('transferred')
+    // 「모름」이 빠지면 사용자가 막힙니다 (불변 규칙 5)
+    expect(body.next_question?.options).toContain('모름·기억 안 남')
+  })
+
+  it('**물을 것이 없으면 1332 로 간다** — 슬롯을 다 채웠는데 근거가 없는 자리', async () => {
+    // §6.3 의 마지막 줄 · 10-errors.md §4.1. 빈 질문을 실어 보내면 화면이
+    // 답할 수 없는 카드를 띄웁니다
+    const body = await runTurn(chatHarness({ turn: ASK, noQuestion: true }))
+
+    expect(body.kb_result).toBe('empty')
+    expect(body.reply).toContain('1332')
+    expect(body.next_question).toBeNull()
+  })
+
+  it('조회가 0건이면 문항을 안 싣는다 — 되물어도 안 나옵니다 (§4.1)', async () => {
+    const body = await runTurn(
+      chatHarness({
+        turn: turnOf({
+          outcome: { kind: 'guide_1332' },
+          reply: { insufficient: true, citations: [] },
+        }),
+      }),
+    )
+
+    expect(body.kb_result).toBe('empty')
+    expect(body.next_question).toBeNull()
+  })
+})
+
+describe('답변에도 다음 문항이 실린다 — §3.9 `next_question`', () => {
+  /**
+   * **늘 `null` 이었습니다.** 화면은 그 빈 값을 받아 문진을 지웁니다
+   * (`send.ts` 의 `setQuestion`) — 사용자가 말로 한 마디 하면 남은 질문이
+   * 통째로 사라졌습니다.
+   */
+  it('답을 하면서도 남은 문항을 함께 낸다', async () => {
+    const body = await runTurn(chatHarness())
+
+    expect(body.reply).toContain('피해구제')
+    expect(body.next_question?.slot_key).toBe('transferred')
+  })
+
+  it('물을 것이 없으면 `null` — 그때는 문진이 끝난 것입니다', async () => {
+    const body = await runTurn(chatHarness({ noQuestion: true }))
+
+    expect(body.next_question).toBeNull()
+    // **답변은 그대로 나갑니다** — 문항이 없다고 답을 막지 않습니다
+    expect(body.reply).toContain('피해구제')
+  })
+
+  it('`options` 를 빈 배열로라도 채운다 — 세 경로가 같은 모양이어야 합니다', async () => {
+    const body = await runTurn(chatHarness())
+
+    expect(Array.isArray(body.next_question?.options)).toBe(true)
+  })
+})
+
+describe('나간 문장을 그대로 남긴다 — §3.12 이력', () => {
+  it('되묻기 턴의 이력이 비지 않는다', async () => {
+    const one = chatHarness({
+      turn: turnOf({
+        outcome: { kind: 'ask_slot' },
+        reply: { insufficient: true, citations: [] },
+      }),
+    })
+    const body = await runTurn(one)
+
+    // 모델의 `reply` 를 남기면 **빈 말풍선**이 뜹니다 — 사용자가 읽은 것과 다릅니다
+    expect(one.written[0]?.contentMasked).toBe(body.reply)
+    expect(one.written[0]?.contentMasked).not.toBe('')
+    // 「왜 이 질문이 나갔나」를 설명하는 값입니다 → 09-data-model.md §9
+    expect(one.written[0]?.insufficient).toBe(true)
+  })
+})
+
+describe('턴 번호를 표가 센다 — 22번째 턴부터 죽던 자리 (§9 `uk_case_turn`)', () => {
+  it('흐름이 순번을 넘기지 않는다 — **잘린 맥락의 길이로 세던 자리**', async () => {
+    // `history()` 는 20턴(40줄)에서 자릅니다. 그 길이로 세면 21번째 턴부터
+    // 번호가 41 에 고정되고, 22번째 INSERT 가 중복으로 터져 **그 사건의 챗이
+    // 영영 안 열립니다**
+    const forty = Array.from({ length: 40 }, (_, index) => ({
+      speaker: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+      text: `줄 ${index}`,
+    }))
+    const one = chatHarness({ history: forty })
+
+    await runTurn(one)
+
+    expect(one.written).toHaveLength(1)
+    expect(Object.keys(one.written[0]!)).not.toContain('turnNo')
+  })
+
+  it('저장소가 **표에 물어** 다음 순번을 만든다', async () => {
+    const seen: { text: string; params: readonly unknown[] }[] = []
+    const fake = Object.assign(
+      (strings: TemplateStringsArray, ...params: unknown[]) => {
+        seen.push({ text: strings.join('?'), params })
+        return Promise.resolve([])
+      },
+      { json: (value: unknown) => value },
+    )
+
+    await createMessageStore(fake as unknown as Sql, () => '01JUSERROW0000000000000000').write({
+      messageId: '01JASSIST00000000000000000',
+      caseId: CASE_ID,
+      role: 'assistant',
+      contentMasked: '답',
+      promptMasked: '프롬프트',
+      reasoningMasked: null,
+      citations: [],
+      kbContextRefs: [],
+      insufficient: false,
+      utteranceMasked: '발화',
+    })
+
+    expect(seen).toHaveLength(1)
+    // **두 줄이 같은 셈을 씁니다** — 사용자와 비서가 한 턴입니다
+    expect(seen[0]!.text.match(/MAX\(turn_no\)/g)).toHaveLength(2)
+    // 번호가 밖에서 들어오지 않습니다 — 숫자로 실려 오는 값이 하나도 없습니다
+    expect(seen[0]!.params.some((param) => typeof param === 'number')).toBe(false)
+  })
+})
+
+describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 09 §10.2', () => {
+  /**
+   * **한 줄도 안 남고 있었습니다.** `audit-logger` 는 다 서 있고 컨테이너에도
+   * 붙어 있는데, 이 제품의 유일한 외부 모델 호출 경로가 감사 없이 지나갔습니다
+   * — 04-pii-boundary.md 「감사」가 *"모든 LLM 호출을 기록"* 한다고 정했습니다.
+   */
+  it('맥락 조립과 모델 호출이 각각 한 줄씩', async () => {
+    const one = chatHarness()
+    await runTurn(one)
+
+    expect(one.audits.map((row) => row.eventType)).toEqual([
+      'chat.context_built',
+      'llm.called',
+    ])
+  })
+
+  it('**건수와 릴리스만** 담는다 — 식별자도 본문도 안 넣습니다 (§10.1)', async () => {
+    const one = chatHarness()
+    await runTurn(one)
+
+    expect(one.audits[0]?.detail).toEqual({
+      applied: 5,
+      reference: 7,
+      kb_version: KB_VERSION,
+      transcript_lines: 42,
+    })
+  })
+
+  it('부른 횟수가 남는다 — 재시도한 턴과 한 번에 끝난 턴이 구별됩니다', async () => {
+    const one = chatHarness({ turn: turnOf({ attempts: 2 }) })
+    await runTurn(one)
+
+    expect(one.audits[1]?.detail).toEqual({ attempts: 2 })
+    // 모델이 답한 줄이라 행위자가 `model` 입니다 → §10 `actor_type`
+    expect(one.audits[1]?.actorType).toBe('model')
+  })
+
+  it('사슬로 이어진다 — 뒷줄의 앞 해시가 앞줄의 해시', async () => {
+    const one = chatHarness()
+    await runTurn(one)
+
+    // **길이를 먼저 못 박습니다** — 아무것도 안 남았을 때 `undefined` 끼리
+    // 같아져서, 이 시험만으로는 「기록이 없음」이 통과합니다
+    expect(one.audits).toHaveLength(2)
+    expect(one.audits[1]?.prevHash).toBe(one.audits[0]?.hash)
+    expect(verifyChain([...one.audits]).intact).toBe(true)
+  })
+
+  it('되묻기 턴도 남는다 — 답이 안 나가도 **모델은 불렸습니다**', async () => {
+    const one = chatHarness({
+      turn: turnOf({
+        outcome: { kind: 'ask_slot' },
+        reply: { insufficient: true, citations: [] },
+      }),
+    })
+    await runTurn(one)
+
+    expect(one.audits.map((row) => row.eventType)).toContain('llm.called')
+  })
+
+  it('사건 식별자로 함께 찾힌다 — `idx_audit_case_time` 이 그 줄입니다', async () => {
+    const one = chatHarness()
+    await runTurn(one)
+
+    expect(one.audits).toHaveLength(2)
+    expect(one.audits.every((row) => row.caseId === CASE_ID)).toBe(true)
   })
 })

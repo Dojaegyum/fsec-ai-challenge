@@ -79,6 +79,21 @@ export async function GET(
         // §3.6 그대로
         plan: {
           is_superset: snapshot.isSuperset,
+        // ⬜ **TODO(근거 필요 아님 — 이을 자리가 없음): §3.6 이 정한 칸인데 값을
+        // 실을 길이 없습니다.**
+        //
+        // 값은 표에 **이미 있습니다** — `plan_step.generated_at`(09-data-model.md §6)
+        // 에 `planner` 가 만든 시각이 들어가고, `lib/db-plan.ts` 의 INSERT 가
+        // 그것을 적습니다. **되읽는 자리만 없습니다**: `readSteps` 의 SELECT 에
+        // 그 칼럼이 없고, `StoredStep`(flows/regenerate-plan.ts)에도
+        // `PlanSnapshot` 에도 칸이 없습니다.
+        //
+        // **지금 시각을 넣으면 안 됩니다.** 화면이 아무 일도 없었는데 매번
+        // 「방금 갱신됨」으로 보입니다 — 없는 것을 없다고 두는 편이 낫습니다.
+        //
+        // 이으려면 셋을 함께 고쳐야 합니다 — SELECT 에 `generated_at` 추가 ·
+        // `StoredStep` 에 `generatedAt` 칸 · `PlanSnapshot` 에 **가장 최근
+        // 것**(보존된 단계는 옛 시각을 그대로 들고 있습니다).
           generated_at: null,
           kb_version: snapshot.kbVersion,
           channels: snapshot.channels.map(toApiChannel),

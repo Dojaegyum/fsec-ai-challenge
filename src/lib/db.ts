@@ -346,8 +346,8 @@ export function createKbStore(sql: Sql): KbStore {
         FROM kb_entry
         WHERE kb_version = ${query.kbVersion}
           AND track = ${query.track}
-          AND effective_from <= CURRENT_DATE
-          AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
+          AND effective_from <= ${query.asOf}::date
+          AND (effective_until IS NULL OR effective_until >= ${query.asOf}::date)
           AND (
             (org_id = ${query.orgId ?? null} AND channel_id = ${query.channelId ?? null})
             OR (org_id IS NULL AND channel_id = ${query.channelId ?? null})
@@ -358,6 +358,17 @@ export function createKbStore(sql: Sql): KbStore {
       return rows.map(toRow)
     },
 
+    /**
+     * ⚠️ **`CURRENT_DATE` 를 쓰지 않습니다 — `query.asOf` 를 씁니다.**
+     *
+     * 2026-08-27 까지 두 질의가 DB 세션의 `CURRENT_DATE`(보통 UTC)로 시행일을
+     * 판정했습니다. 부르는 쪽은 `lib/clock.ts` 의 `Asia/Seoul` 시계 하나를 지난
+     * 날짜(`serverClock.today()`)를 이미 넘기고 있었는데 **그 값이 버려졌습니다.**
+     *
+     * 그래서 한국 시각 자정~오전 9시 구간에서 **시행일 분기가 하루 어긋납니다.**
+     * 가상자산 환급(2026-10-01 시행)이 정확히 그 하루에 걸립니다 — 배포 없이
+     * 날짜만으로 답이 바뀌는 것이 이 제품의 자랑거리인 자리입니다 (ADR-045).
+     */
     async findReference(query: KbQuery): Promise<readonly KbRow[]> {
       // 다른 유형의 기본 항목만 — 「이 경우엔 이렇습니다」로 곁들이는 것입니다
       const rows = await sql<Record<string, unknown>[]>`
@@ -367,8 +378,8 @@ export function createKbStore(sql: Sql): KbStore {
         FROM kb_entry
         WHERE kb_version = ${query.kbVersion}
           AND track = ${query.track}
-          AND effective_from <= CURRENT_DATE
-          AND (effective_until IS NULL OR effective_until >= CURRENT_DATE)
+          AND effective_from <= ${query.asOf}::date
+          AND (effective_until IS NULL OR effective_until >= ${query.asOf}::date)
           AND org_id IS NULL
           AND channel_id IS NOT NULL
           AND channel_id IS DISTINCT FROM ${query.channelId ?? null}
@@ -1168,10 +1179,18 @@ export function createArtifactWriter(sql: Sql): ArtifactWriter {
  * 한 번 들어가면 그 뒤로 계속 나갑니다.
  */
 export interface MessageStore {
+  /**
+   * 한 턴(사용자 발화 + 비서 답)을 남긴다.
+   *
+   * ⚠️ **턴 번호를 받지 않습니다.** 받았을 때 부르는 쪽이 맥락 목록의 길이로
+   * 셌는데, 그 목록은 `history()` 가 20턴에서 자른 것이라 21번째 턴부터
+   * 번호가 41 에 고정됐습니다. `uk_case_turn (case_id, turn_no, role)` 에
+   * 걸려 22번째 턴부터 INSERT 가 중복으로 터지고, 그 사건의 챗이 영영
+   * 안 열립니다 → 09-data-model.md §9. **번호는 표가 셉니다.**
+   */
   write(input: {
     readonly messageId: string
     readonly caseId: string
-    readonly turnNo: number
     readonly role: string
     readonly contentMasked: string
     readonly promptMasked: string
@@ -1228,15 +1247,29 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
     async write(input) {
       // 사용자 발화와 답을 **두 줄로** 남깁니다. 한 줄에 합치면 다음 턴에
       // 맥락으로 되돌릴 때 누가 말한 것인지가 사라집니다
+      //
+      // **번호를 표에 묻습니다.** 밖에서 받으면 세는 자리가 여기 밖으로
+      // 나가고, 실제로 그 자리가 잘린 목록의 길이로 셌습니다 → 위 `write` 주석.
+      //
+      // ⚠️ **하위 질의는 이 문장이 넣는 줄을 못 봅니다** — INSERT 는 문장이
+      // 시작한 시점의 스냅샷으로 읽습니다. 그래서 두 줄이 **같은 번호**를
+      // 받습니다. 사용자와 비서가 한 턴이라는 뜻이고, 여기가 어긋나면
+      // `history()` 의 `ORDER BY turn_no` 가 한 턴을 둘로 봅니다
       await sql`
         INSERT INTO message
           (message_id, case_id, turn_no, role, content_masked, citations,
            kb_context_refs, insufficient, prompt_masked, reasoning_masked)
         VALUES
-          (${newId()}, ${input.caseId}, ${input.turnNo}, 'user',
+          (${newId()}, ${input.caseId},
+           (SELECT COALESCE(MAX(turn_no), 0) + 1 FROM message
+             WHERE case_id = ${input.caseId}),
+           'user',
            ${input.utteranceMasked}, ${sql.json([] as never)},
            ${sql.json([] as never)}, false, '', NULL),
-          (${input.messageId}, ${input.caseId}, ${input.turnNo}, ${input.role},
+          (${input.messageId}, ${input.caseId},
+           (SELECT COALESCE(MAX(turn_no), 0) + 1 FROM message
+             WHERE case_id = ${input.caseId}),
+           ${input.role},
            ${input.contentMasked}, ${sql.json(input.citations as never)},
            ${sql.json(input.kbContextRefs as never)}, ${input.insufficient},
            ${input.promptMasked}, ${input.reasoningMasked})

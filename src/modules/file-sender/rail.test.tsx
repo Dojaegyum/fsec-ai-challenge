@@ -31,10 +31,30 @@ describe("색만으로 상태를 가르지 않는다", () => {
 });
 
 describe("못 가린 파일을 막지 않는다", () => {
-  it("갈림길 둘을 함께 준다", () => {
-    const text = textOf(renderToStaticMarkup(<FileRail files={FILES} />));
+  it("갈림길을 넘기면 둘 다 그린다", () => {
+    const text = textOf(
+      renderToStaticMarkup(<FileRail files={FILES} onRetry={() => {}} onSkip={() => {}} />),
+    );
     expect(text).toContain("다른 파일 올리기");
     expect(text).toContain("없이 진행");
+  });
+
+  it("**안 넘기면 그 버튼을 안 그린다** — 눌러도 아무 일이 없는 버튼을 두지 않습니다", () => {
+    // 2026-08-27 까지 부르는 쪽이 핸들러를 안 넘겨서 죽은 버튼 둘이 켜져 있었습니다.
+    // 「막지 않고 갈림길을 준다」가 갈림길 없이 문구만 남은 상태였습니다
+    const text = textOf(renderToStaticMarkup(<FileRail files={FILES} />));
+    expect(text).not.toContain("다른 파일 올리기");
+    expect(text).not.toContain("없이 진행");
+    // 그래도 **무슨 일이 있었는지는 말합니다** — 목록에서 지우지 않습니다
+    expect(text).toContain("올리지 못했습니다");
+  });
+
+  it("일어나지 않은 판정을 말하지 않는다", () => {
+    // 파일 속 주민번호 검출은 미결이라(ADR-026) 그 판정 자체가 안 일어납니다.
+    // 기본 문구가 그것을 단정하면 전사 실패한 사용자에게 거짓말이 됩니다
+    const text = textOf(renderToStaticMarkup(<FileRail files={FILES} />));
+    expect(text).not.toContain("주민번호를 못 가렸습니다");
+    expect(text).not.toContain("가릴 수 없는 정보가 있어");
   });
 
   it("사용자를 탓하지 않는다", () => {

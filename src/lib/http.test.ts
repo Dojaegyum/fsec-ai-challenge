@@ -53,6 +53,27 @@ describe('계측 헤더 — 08-14-api.md §1.1', () => {
   })
 })
 
+describe('사건 응답은 중간 경로에 남지 않는다', () => {
+  it('성공 응답에 no-store 가 붙는다', async () => {
+    // 링크만 알면 열리는 사건 데이터입니다(ADR-021 · ADR-039). 쿠키도 인증 헤더도
+    // 없어 중간 캐시가 「누구의 것인지」를 가릴 근거가 없습니다.
+    // 값을 안 적으면 Next 가 `public` 이 붙은 Cache-Control 을 실어 내보냅니다
+    expect(ok({}).headers.get('Cache-Control')).toBe('no-store')
+  })
+
+  it('오류 응답에도 붙는다 — 본문에 audit_id 가 실린다', async () => {
+    expect(fail(new EgressBlockedError('잔여')).headers.get('Cache-Control')).toBe('no-store')
+  })
+
+  it('public 이 아니다', async () => {
+    // 사건 본문이 우리가 통제하지 못하는 자리에 남으면 **파기(180일)가
+    // 우리 저장소에서만 일어납니다**
+    for (const res of [ok({}), fail(new BadRequestError('x'))]) {
+      expect(res.headers.get('Cache-Control')).not.toContain('public')
+    }
+  })
+})
+
 describe('송출을 막은 응답은 잔여를 0 이라 말하지 않는다 — §6 (1)', () => {
   it('detail 의 건수를 헤더로 옮긴다', async () => {
     // 정본 예시가 이 응답에 X-Pii-Egress-Residual: 1 을 못 박았습니다.

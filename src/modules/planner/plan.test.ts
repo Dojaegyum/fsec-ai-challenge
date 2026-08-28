@@ -53,7 +53,7 @@ describe('활성 조건', () => {
   })
 
   it('필요한 슬롯이 confirmed 여야 켜진다', async () => {
-    const applied = [step('relief-apply', { requiresSlots: ['freeze_requested_at'] })]
+    const applied = [step('relief-apply', { requires_slots: ['freeze_requested_at'] })]
 
     const off = planner().build(input({ applied }))
     const on = planner().build(
@@ -67,11 +67,27 @@ describe('활성 조건', () => {
     expect(on.upsert).toHaveLength(1)
   })
 
+  it('**KB 본문의 표기(`requires_slots`)를 읽는다** — 이름이 어긋나면 문이 통째로 열린다', async () => {
+    // `src/kb/*.json` 스무 자리와 적재기(`lib/kb-load.ts`)와 `plan_step.body` 가
+    // 전부 snake_case 입니다 → 09-data-model.md §11.4. **옮겨 적는 자리가 없습니다** —
+    // `lib/adapters.ts` 의 `kbRowToPlanStep` 은 본문을 그대로 넘깁니다.
+    //
+    // 2026-08-27 까지 이 모듈이 `requiresSlots` 를 읽어 조건이 언제나 「없음」이었고,
+    // **값을 모르는 상태에서도 그 단계가 그대로 나갔습니다**
+    const fromKb: KbStepBody = { actor: 'victim', requires_slots: ['freeze_requested_at'] }
+
+    const { upsert } = planner().build(
+      input({ applied: [step('relief-apply', fromKb)] }),
+    )
+
+    expect(upsert).toHaveLength(0)
+  })
+
   it('extracted 로는 켜지지 않는다', async () => {
     // 모델이 뽑았을 뿐 확인 전입니다. 잘못 읽은 값으로 엉뚱한 절차가 뜨면 안 됩니다
     const { upsert } = planner().build(
       input({
-        applied: [step('relief-apply', { requiresSlots: ['freeze_requested_at'] })],
+        applied: [step('relief-apply', { requires_slots: ['freeze_requested_at'] })],
         slots: [{ slotKey: 'freeze_requested_at', state: 'extracted' }],
       }),
     )
@@ -82,7 +98,7 @@ describe('활성 조건', () => {
   it('「모름」으로도 켜지지 않는다', async () => {
     const { upsert } = planner().build(
       input({
-        applied: [step('relief-apply', { requiresSlots: ['freeze_requested_at'] })],
+        applied: [step('relief-apply', { requires_slots: ['freeze_requested_at'] })],
         slots: [{ slotKey: 'freeze_requested_at', state: 'unknown' }],
       }),
     )
@@ -119,7 +135,7 @@ describe('활성 조건', () => {
 
   it('조건을 못 넘겨도 멈추지 않는다 — 빈 플랜도 정상이다', async () => {
     const result = planner().build(
-      input({ applied: [step('a', { requiresSlots: ['org_name'] })] }),
+      input({ applied: [step('a', { requires_slots: ['org_name'] })] }),
     )
 
     expect(result).toEqual({ upsert: [], preserved: [], skipped: [] })

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { openCase } from "@/modules/case-opener";
+import { ddayLabel, groupDeadlines } from "@/modules/deadline-viewer";
 import { HorizonGlow } from "@/components/HorizonGlow";
 import { isOpen, pickStep, Workspace } from "@/modules/work-handler";
 import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
@@ -13,7 +14,7 @@ import { ABSORB_MS, absorbKeyframes, fadeKeyframes, prefersReducedMotion, rectOf
 import ChatView, { MiniChat } from "./chat";
 import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
-import { useCaseBundle, type CaseBundle } from "./load";
+import { useCaseBundle, type CaseBundle, type CaseSlot } from "./load";
 import { useChatSend } from "./send";
 import { useArtifact } from "./artifact";
 import { useUploads } from "./upload";
@@ -65,13 +66,70 @@ import DocGuide from "./doc";
 /** 유령을 띄워 두는 시간 — 흡수(1.5s)와 `.view-out`(0.3s 지연 + 0.7s) 중 긴 쪽 */
 const GHOST_MS = ABSORB_MS;
 
-const CASE_FILE = [
-  ["피해 유형", "기관 사칭 (검찰)", "filled"],
-  ["피해 금액", "300만원", "filled"],
-  ["보낸 방법", "지금 여쭤보는 중", "asking"],
-  ["보낸 시각", "다음 질문", "future"],
-  ["상대 계좌", "모름이어도 진행", "future"],
-] as const;
+/**
+ * 사건 파일 카드가 보여주는 줄 — §S-06 「사건 파일 — 채워지는 것이 보입니다」.
+ *
+ * 슬롯 이름의 정본은 `spec/backend/08-16-data-model.md` §5.1 이고, 여기 라벨은
+ * 그 표의 슬롯을 사용자 말로 옮긴 것입니다. **문진 문구(`lib/questions.ts`)는
+ * 서버 것이라 화면이 못 봅니다** — 그래서 짧은 라벨만 여기 둡니다.
+ *
+ * ⚠️ **2026-08-27 까지 이 자리가 값까지 박힌 상수였습니다** — 「피해 유형: 기관 사칭
+ * (검찰)」·「피해 금액: 300만원」. 카드 제목이 「진술에서 파악한 것」이고 옆에 진행 중
+ * 점까지 맥동해서, **아무 말도 안 한 사람이 그것을 자기 사건의 사실로 읽었습니다.**
+ * 서버는 §3.4 `slots[]` 로 실제 값을 보내고 있었고 화면이 그것을 버렸습니다.
+ */
+const CASE_FILE_ROWS: readonly { readonly key: string; readonly label: string }[] = [
+  { key: "transferred", label: "돈이 나갔나" },
+  { key: "channel", label: "보낸 방법" },
+  { key: "org_name", label: "어느 기관" },
+  { key: "amount", label: "피해 금액" },
+  { key: "occurred_at", label: "보낸 시각" },
+];
+
+/** 토큰이 붙은 값인가 — `[계좌-1]` 처럼. **파랗게 그립니다** (§S-06 「PII」) */
+const hasToken = (value: string) => /\[[^\]\s]+-\d+\]/.test(value);
+
+/**
+ * 사건 파일 한 줄이 지금 무엇인가.
+ *
+ * **「아직」과 「모름으로 넘어감」을 가릅니다.** 둘 다 값이 없지만 뜻이 다릅니다 —
+ * 앞엣것은 아직 안 물은 것이고, 뒤엣것은 **답을 받은 것**입니다 (불변 규칙 5).
+ */
+function caseFileTone(
+  slot: CaseSlot | undefined,
+  asking: boolean,
+): "asking" | "filled" | "unknown" | "future" {
+  if (asking) return "asking";
+  if (!slot) return "future";
+  if (slot.state === "unknown") return "unknown";
+  // `pii_pending` 은 확인 전이라 **없는 값과 같습니다** (ADR-041)
+  if (slot.value && (slot.state === "confirmed" || slot.state === "extracted")) return "filled";
+  return "future";
+}
+
+/**
+ * 화면을 오가는 자리 — 헤더의 네 칸.
+ *
+ * 계약: spec/frontend/08-14-screens.md §S-06 「화면을 오가는 자리」
+ *
+ * ⚠️ **2026-08-27 까지 프로덕션에 이 길이 하나도 없었습니다.** `focus` 를 바꾸는
+ * 코드가 저장소 전체에서 아래 개발용 스위치 하나였고, 그 블록이
+ * `process.env.NODE_ENV !== "production"` 안이라 배포 빌드에서 통째로 사라졌습니다.
+ *
+ * 그래서 **자료함(S-08)과 기재 안내(S-10)에 어떤 경로로도 못 갔습니다.** 워크스페이스에서
+ * 파일을 올려도 전사 결과를 볼 화면에 갈 수 없었고, QA 목표로 잡아 둔 한 바퀴 중
+ * 「전사가 뜨고 파란 토큰이 보임」이 배포본에서 완주 불가였습니다.
+ * `case-opener` 가 *"증거함은 눌러서 가는 곳"* 이라고 전제한 그 「눌러서」가 없었습니다.
+ *
+ * **`?view=` 는 대체 경로가 아닙니다** — 그쪽은 픽스처를 그리는 개발 경로라
+ * 사용자 자기 사건을 보는 길이 아닙니다.
+ */
+const VIEWS: readonly [Focus, string][] = [
+  ["chat", "대화"],
+  ["plan", "할 일"],
+  ["evidence", "자료함"],
+  ["doc", "기재 안내"],
+];
 
 /** 개발용 — 서버 시그널이 붙기 전까지 축을 손으로 옮겨 봅니다 */
 const DEV_VIEWS: readonly [Focus, string][] = [
@@ -80,6 +138,82 @@ const DEV_VIEWS: readonly [Focus, string][] = [
   ["evidence", "증거함"],
   ["doc", "기재 안내"],
 ];
+
+/**
+ * 사건 파일 카드 — §S-06 「사건 파일 — 채워지는 것이 보입니다」.
+ *
+ * **서버가 준 슬롯을 그립니다.** 화면이 값을 만들지 않습니다.
+ *
+ * 떼어 둔 이유는 **시험이 마운트할 수 있어야** 하기 때문입니다. `CaseScreen` 은
+ * `useRouter`·`useSearchParams` 를 부르므로 라우터 문맥 없이는 못 그리는데,
+ * 이 자리에 붙어 있던 결함(**값까지 박힌 상수를 「진술에서 파악한 것」으로 그리던 것**)은
+ * 정확히 렌더 시험이 잡는 종류입니다 → `page.test.tsx`.
+ */
+export function CaseFileCard({
+  slots,
+  /** 지금 묻는 중인 슬롯. 없으면 `null` */
+  asking,
+}: {
+  slots: readonly CaseSlot[];
+  asking: string | null;
+}) {
+  return (
+    <div className="rounded-[14px] border border-[oklch(0.305_0.013_267.1/60%)] bg-stage p-[14px_15px]">
+      <div className="flex items-center gap-2 text-[13.5px] font-[620] text-ink-1">
+        진술에서 파악한 것
+        <span
+          aria-hidden
+          className="size-1.5 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
+        />
+      </div>
+      {/* **서버가 준 슬롯을 그립니다** — 화면이 값을 만들지 않습니다 (§3.4) */}
+      <dl className="mt-2.5 grid gap-px">
+        {CASE_FILE_ROWS.map(({ key, label }) => {
+          const slot = slots.find((one) => one.slot_key === key);
+          const tone = caseFileTone(slot, asking === key);
+          return (
+            <div
+              key={key}
+              className={`flex items-baseline justify-between gap-3 rounded-[7px] px-1.5 py-[7px] text-[13.5px] ${
+                /* 「지금 묻는 중」은 앰버 배경 — **사용자 기한이 아니라
+                   「여기 답하는 중」**입니다 (§S-06) */
+                tone === "asking" ? "bg-[oklch(0.77_0.117_70.9/6%)]" : ""
+              } ${tone === "future" ? "opacity-55" : ""}`}
+            >
+              <dt className="shrink-0 text-ink-3">{label}</dt>
+              <dd className="min-w-0 text-right">
+                {tone === "filled" && slot?.value ? (
+                  /* 토큰이면 **파랗게** — 서버로 안 갔다는 뜻입니다.
+                     흐리지 않습니다 (§S-06 「PII」) */
+                  <span
+                    className={`font-[580] ${
+                      hasToken(slot.value) ? "text-pii" : "text-ink-1"
+                    }`}
+                  >
+                    {slot.value}
+                  </span>
+                ) : (
+                  <span className="text-[13px] text-ink-3">
+                    {tone === "asking"
+                      ? "지금 여쭤보는 중"
+                      : tone === "unknown"
+                        ? "모름으로 넘어감"
+                        : "모름이어도 진행"}
+                  </span>
+                )}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
+        채워지는 만큼 절차가 정확해집니다.{" "}
+        <b className="font-[620] text-ink-2">모름도 답입니다.</b> 빈 칸이어도
+        진행됩니다.
+      </p>
+    </div>
+  );
+}
 
 /**
  * 문 — 사건을 **한 번** 읽고, 읽히면 화면을 세웁니다.
@@ -204,6 +338,30 @@ function CaseScreen({
 
   const atWork = side === "work";
   const chatIsMain = focus === "chat";
+
+  /**
+   * 헤더의 기한 배지 — **서버가 센 값이 있을 때만** 뜹니다.
+   *
+   * ⚠️ **2026-08-27 까지 이 자리에 칩 셋이 하드코딩돼 있었습니다.**
+   * 「국민은행 계좌이체」·「✓ 지급정지 완료」·「피해구제 신청까지 D-2」가 데이터가
+   * 아니라 **지금 어느 화면을 보고 있는지**(`focus !== "chat"`)로 켜졌습니다 —
+   * 아무것도 안 한 사람에게 지급정지가 끝났다고 말하고 있었습니다.
+   *
+   * 「국민은행 계좌이체」는 아예 뺐습니다. **경유 서비스를 내리는 칸이 §3.10 에
+   * 없습니다** — 없는 값을 지어내지 않습니다 (불변 규칙 1).
+   *
+   * **화면이 날짜를 세지 않습니다** (불변 규칙 7). `days_left` 가 없으면 배지가
+   * 통째로 안 뜹니다 — 히어로가 D-day 를 다루는 방식과 같습니다 (`plan.tsx`).
+   */
+  const headerDue = useMemo(() => {
+    const running = bundle.steps.find((one) => one.state === "in_progress");
+    if (!running) return null;
+    const due = groupDeadlines(bundle.deadlines).primary.find(
+      (one) => one.step_id === running.step_id,
+    );
+    const dday = due ? ddayLabel(due) : null;
+    return dday ? { title: running.title, dday } : null;
+  }, [bundle.deadlines, bundle.steps]);
 
   // ── 흡수 ────────────────────────────────────────────────
   // 챗 본문과 미니 챗 자리의 **실제 위치를 재서** 그 사이를 잇습니다.
@@ -343,25 +501,46 @@ function CaseScreen({
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
               사건 {token.slice(0, 5)}…
             </span>
-            {/* 경유 서비스 유형 — CH-bank (spec/backend/08-14-channel-matrix.md) */}
-            <span className="inline-flex items-center rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3">
-              국민은행 계좌이체
-            </span>
-            {!chatIsMain && (
-              <span className="inline-flex items-center gap-2 rounded-full border border-[oklch(0.697_0.16_258.2/40%)] bg-[oklch(0.697_0.16_258.2/12%)] px-3 py-[5px] text-[13px] text-pii">
-                <span aria-hidden>✓</span>
-                지급정지 완료
-              </span>
-            )}
-            {focus === "evidence" && (
-              <span className="inline-flex items-center rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3">
-                증거함
-              </span>
-            )}
-            {/* 기한은 서버가 계산한 값입니다 — 화면이 날짜를 세지 않습니다 */}
-            {(atWork || !chatIsMain) && (
-              <span className="inline-flex items-center rounded-full border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/10%)] px-3 py-[5px] text-[13px] font-[620] text-deadline-urgent">
-                피해구제 신청까지 D-2
+            {/* **화면을 오가는 자리** — 배포에서 이 길이 없으면 자료함·기재 안내에
+                못 갑니다. 지금 보고 있는 칸은 눌러도 아무 일이 없습니다 */}
+            <nav
+              aria-label="화면"
+              className="inline-flex items-center gap-0.5 rounded-full border border-hairline bg-chip p-0.5"
+            >
+              {VIEWS.map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setFocus(id);
+                    // 챗으로 갈 때는 오른쪽 열이 사건 파일이어야 진술이 채워지는 것이
+                    // 보입니다 — 그 밖에는 할 일 패널이 먼저입니다 (§S-06)
+                    setSide(id === "chat" ? "casefile" : "work");
+                  }}
+                  aria-current={focus === id ? "page" : undefined}
+                  className={`inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] transition-colors duration-200 ${
+                    focus === id
+                      ? "bg-[oklch(1_0_0/12%)] font-[620] text-ink-1"
+                      : "text-ink-3 hover:text-ink-1"
+                  }`}
+                >
+                  {label}
+                  {/* 올린 자료 수는 **브라우저가 들고 있는 목록**입니다 —
+                      못 올린 것도 세어야 사용자가 자기가 고른 것을 다 봅니다 */}
+                  {id === "evidence" && uploads.files.length > 0 && (
+                    <span data-numeric className="ml-1.5 text-[12px] text-ink-4">
+                      {uploads.files.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+            {/* 기한은 **서버가 계산한 값**입니다 — 화면이 날짜를 세지 않습니다
+                (불변 규칙 7). 없으면 배지가 통째로 안 뜹니다 */}
+            {headerDue && (
+              <span className="inline-flex max-w-[260px] items-center gap-2 rounded-full border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/10%)] px-3 py-[5px] text-[13px] font-[620] text-deadline-urgent">
+                <span className="min-w-0 truncate font-[560] text-ink-2">{headerDue.title}</span>
+                <span data-numeric>{headerDue.dday}</span>
               </span>
             )}
             <button
@@ -418,10 +597,29 @@ function CaseScreen({
                 // 아무 일도 안 일어난 것처럼 보입니다
                 setSide("work");
               }}
+              /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
               onOpenDoc={() => setFocus("doc")}
+              /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
+              onPickFile={
+                dataToken
+                  ? (file) => void uploads.add(file).then(() => setFocus("evidence"))
+                  : undefined
+              }
+              busy={uploads.busy}
             />
           )}
-          {focus === "evidence" && <EvidenceView token={dataToken} uploads={uploads} onContinue={() => setFocus("plan")} />}
+          {focus === "evidence" && (
+            /* **셸이 볼트에서 열어 온 매핑을 그대로 내려줍니다** — 안 내려주면
+               증거함이 픽스처로 떨어져 이 사건에 없는 값을 원문으로 그립니다 */
+            <EvidenceView
+              token={dataToken}
+              uploads={uploads}
+              restorable={chat.restorable}
+              locked={chat.locked}
+              /* 「없이 진행」의 도착지 — 「사건은 그대로 진행됩니다」를 참으로 만듭니다 */
+              onContinue={() => setFocus("plan")}
+            />
+          )}
           {focus === "doc" && <DocGuide caseToken={token} />}
         </section>
 
@@ -462,6 +660,8 @@ function CaseScreen({
                   }
                   className="mt-4 flex min-h-[220px] flex-col border-t border-hairline pt-4"
                 >
+                  {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
+                      봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
                   <MiniChat chat={chat} token={dataToken} />
                 </div>
               )}
@@ -471,39 +671,7 @@ function CaseScreen({
               <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">
                 사건 파일
               </div>
-              <div className="rounded-[14px] border border-[oklch(0.305_0.013_267.1/60%)] bg-stage p-[14px_15px]">
-                <div className="flex items-center gap-2 text-[13.5px] font-[620] text-ink-1">
-                  진술에서 파악한 것
-                  <span
-                    aria-hidden
-                    className="size-1.5 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
-                  />
-                </div>
-                <dl className="mt-2.5 grid gap-px">
-                  {CASE_FILE.map(([label, value, kind]) => (
-                    <div
-                      key={label}
-                      className={`flex items-baseline justify-between gap-3 rounded-[7px] px-1.5 py-[7px] text-[13.5px] ${
-                        kind === "asking" ? "bg-[oklch(0.77_0.117_70.9/6%)]" : ""
-                      } ${kind === "future" ? "opacity-55" : ""}`}
-                    >
-                      <dt className="shrink-0 text-ink-3">{label}</dt>
-                      <dd className="min-w-0 text-right">
-                        {kind === "filled" ? (
-                          <span className="font-[580] text-ink-1">{value}</span>
-                        ) : (
-                          <span className="text-[13px] text-ink-3">{value}</span>
-                        )}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                <p className="mt-3 border-t border-hairline pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
-                  채워지는 만큼 절차가 정확해집니다.{" "}
-                  <b className="font-[620] text-ink-2">모름도 답입니다.</b> 빈 칸이어도
-                  진행됩니다.
-                </p>
-              </div>
+              <CaseFileCard slots={bundle.slots} asking={bundle.question?.slot_key ?? null} />
               <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
                 답변이 끝나면 이 자리가 <b className="font-[620] text-ink-2">할 일 패널</b>로
                 바뀝니다. 챗과 플랜은 같은 주소입니다.
@@ -594,7 +762,15 @@ function CaseScreen({
               onOpenDoc={() => setFocus("doc")}
             />
               )}
-              {ghost.from === "evidence" && <EvidenceView token={dataToken} uploads={uploads} onContinue={() => setFocus("plan")} />}
+              {ghost.from === "evidence" && (
+                <EvidenceView
+                  token={dataToken}
+                  uploads={uploads}
+                  restorable={chat.restorable}
+                  locked={chat.locked}
+                  onContinue={() => setFocus("plan")}
+                />
+              )}
               {ghost.from === "doc" && <DocGuide caseToken={token} />}
             </div>
           </div>

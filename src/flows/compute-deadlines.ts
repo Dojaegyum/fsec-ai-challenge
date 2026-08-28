@@ -259,8 +259,16 @@ function anchorOf(
   if (from.startsWith('artifact:')) {
     const kind = from.slice('artifact:'.length)
     // **검증을 통과한 것만 기산점입니다** → 05-completion-hook.md.
-    // L3 자기신고(`unverified`)는 「했다」의 근거가 아닙니다
-    const one = artifacts.find((a) => a.kind === kind && a.verifyResult === 'verified')
+    // L3 자기신고(`not_applicable`)는 「했다」의 근거가 아닙니다.
+    //
+    // ⚠️ **값은 `passed` 입니다** — 09-data-model.md §7 의
+    // `CHECK (verify_result IN ('passed','failed','not_applicable'))` 이 정본이고,
+    // `completion-checker` 도 `artifact` 표도 그 셋만 씁니다.
+    //
+    // 2026-08-27 까지 여기가 `'verified'` 를 찾았습니다. 표에 없는 값이라
+    // **`artifact:{kind}` 를 기산점으로 삼는 기한이 영영 안 생겼습니다** —
+    // 부산물을 제대로 냈는데도 날짜가 안 서고, 사용자는 자기가 늦은 줄도 모릅니다
+    const one = artifacts.find((a) => a.kind === kind && a.verifyResult === 'passed')
     if (!one) return null
     const date = dayOf(one.createdAt)
     // 부산물이 남긴 시각이라 **확정**입니다 — 기한 규칙이 말하는 그 기산점입니다

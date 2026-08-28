@@ -21,6 +21,32 @@ import { telemetryHeaders, type Telemetry } from './telemetry'
  */
 export type { Telemetry } from './telemetry'
 
+/**
+ * **중간 경로에 사건이 남지 않게 합니다.**
+ *
+ * ⬜ **캐시 규정이 정본에 없습니다** — 08-14-api.md 에도 08-16-errors.md 에도
+ * 한 줄이 없어, 아래 근거로 `no-store` 를 골랐습니다.
+ *
+ * 이 API 의 응답은 전부 **링크만 알면 열리는 사건 데이터**입니다
+ * (ADR-021 「토큰이 곧 인증」 · ADR-039). 쿠키도 `Authorization` 도 없으므로
+ * **중간 캐시가 「누구의 것인지」를 가릴 근거를 아무것도 안 갖습니다.** 값을
+ * 안 적으면 Next 가 라우트 응답에 `public` 이 붙은 `Cache-Control` 을 실어
+ * 내보내는데(2026-08-27 배포 서버에서 확인), 그러면 사건 본문이 우리가 통제하지
+ * 못하는 자리에 남습니다 — **파기(180일)가 우리 저장소에서만 일어납니다.**
+ *
+ * `private` 이 아니라 `no-store` 인 이유는 브라우저 디스크 캐시까지 막기
+ * 위해서입니다. 이 서비스의 사용자는 **자기 기기를 남과 나눠 쓸 수 있고**,
+ * 그 화면에는 피해 금액과 기관명이 있습니다.
+ *
+ * **성공과 실패 양쪽에 붙입니다.** 오류 본문에도 `audit_id` 가 실립니다(§5).
+ */
+const NO_STORE = 'no-store'
+
+/** 계측 넷(§1.1) + 캐시 한 줄. **모든 응답이 이 자리를 지납니다** */
+function baseHeaders(telemetry: Telemetry): Record<string, string> {
+  return { ...telemetryHeaders(telemetry), 'Cache-Control': NO_STORE }
+}
+
 /** 성공 응답 하나 */
 export function ok(
   body: unknown,
@@ -28,7 +54,7 @@ export function ok(
 ): Response {
   return Response.json(body, {
     status: init.status ?? 200,
-    headers: telemetryHeaders(init.telemetry ?? {}),
+    headers: baseHeaders(init.telemetry ?? {}),
   })
 }
 
@@ -66,14 +92,12 @@ export function fail(
   // 감사 기록이 아직 하나도 안 남은 요청이면 없는 채로 나갑니다
   const auditId = init.auditId ?? init.telemetry?.auditId
 
-  const headers: Record<string, string> = {
-    ...telemetryHeaders({
-      ...init.telemetry,
-      auditId,
-      // 송출을 막은 응답은 잔여가 **0 이 아닙니다** → 아래
-      piiEgressResidual: init.telemetry?.piiEgressResidual ?? residualOf(app),
-    }),
-  }
+  const headers: Record<string, string> = baseHeaders({
+    ...init.telemetry,
+    auditId,
+    // 송출을 막은 응답은 잔여가 **0 이 아닙니다** → 아래
+    piiEgressResidual: init.telemetry?.piiEgressResidual ?? residualOf(app),
+  })
 
   if (status === 429) {
     // 남은 창 시간을 그대로 넣습니다 → 08-14-api.md §1.3.

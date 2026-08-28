@@ -26,6 +26,17 @@ import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
 import type { CaseBundle } from "./load";
 
 /** §3.6 `GET /api/cases/{case_token}/plan` — 지금 `plan.tsx` 의 `STEPS` 여섯 줄 */
+/**
+ * ⚠️ **`step_key` 는 실제 KB(`src/kb/*.json`)의 이름과 같아야 합니다.**
+ *
+ * 2026-08-27 까지 다섯 중 넷이 KB 에 없는 이름이었습니다(`bank-freeze-request` ·
+ * `relief-application` · `receipt-upload` · `identity-check`). 사건 진행 레일이
+ * `step_key` 로 국면을 유도하게 되면서, `?view=plan` 시연 화면이 **같은 단계를
+ * 레일에서는 「미시작」, 아래 보드에서는 「증빙됨」으로 동시에** 그렸습니다.
+ *
+ * 시연용 값이라도 **이름은 실물과 같아야** 합니다 — 이름이 갈리면 시연 화면이
+ * 제품과 다른 말을 합니다.
+ */
 export const FIXTURE_PLAN: { steps: PlanStep[] } = {
   steps: [
     {
@@ -34,7 +45,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "국민은행에 지급정지 요청",
       state: "done_verified",
       conditional: null,
-      body: { step_key: "bank-freeze-request" },
+      body: { step_key: "freeze-request" },
       required_artifact: { kind: "call_receipt", label: "통화 접수번호" },
     },
     {
@@ -52,23 +63,23 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "피해구제 신청서 제출",
       state: "in_progress",
       conditional: null,
-      body: { step_key: "relief-application" },
+      body: { step_key: "relief-apply" },
     },
     {
       step_id: "m4",
       seq: 40,
-      title: "접수증 올리기",
+      title: "신청서류 제출",
       state: "not_started",
       conditional: null,
-      body: { step_key: "receipt-upload", after: ["relief-application"] },
+      body: { step_key: "relief-documents", after: ["relief-apply"] },
     },
     {
       step_id: "m5",
       seq: 50,
-      title: "명의도용 점검",
+      title: "채권소멸공고를 기다립니다",
       state: "not_started",
       conditional: null,
-      body: { step_key: "identity-check" },
+      body: { step_key: "debt-extinction-notice" },
     },
     {
       step_id: "m6",
@@ -234,9 +245,24 @@ export const FIXTURE_CASE: CaseResponse = {
  * 사건 하나를 DB 에 심어 두는 것보다 이 경로가 쌉니다. `?view=` 가 붙어 있으면
  * 서버를 부르지 않고 이 값으로 그립니다 (→ `page.tsx`).
  */
+/**
+ * §3.4 `slots[]` — 사건 파일 카드가 그리는 값입니다.
+ *
+ * **`FIXTURE_QUESTION` 과 짝을 맞춥니다** — 지금 묻는 중인 슬롯은 여기 없어야
+ * 카드가 「지금 묻는 중」으로 그립니다.
+ */
+export const FIXTURE_SLOTS = [
+  { slot_key: "transferred", tier: "T1", state: "confirmed", value: "네, 돈이 나갔어요" },
+  { slot_key: "impersonated_org", tier: "T2", state: "extracted", value: "검찰" },
+  { slot_key: "amount", tier: "T2", state: "confirmed", value: "3000000" },
+  // 토큰으로 오는 슬롯입니다 — 화면이 **파란 토큰**으로 그립니다 (§S-06)
+  { slot_key: "counterpart_account", tier: "T2", state: "confirmed", value: "[계좌-1]" },
+] as const;
+
 export const FIXTURE_BUNDLE: CaseBundle = {
   case: FIXTURE_CASE,
   steps: FIXTURE_PLAN.steps,
   deadlines: FIXTURE_DEADLINES.deadlines,
   question: FIXTURE_QUESTION,
+  slots: FIXTURE_SLOTS,
 };
