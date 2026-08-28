@@ -77,7 +77,11 @@ Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으�
 ### 언어모델을 갈아끼우려면
 
 [`src/lib/llm.ts`](../src/lib/llm.ts) 가 **OpenAI 호환 `/chat/completions` 하나**만
-부릅니다. 셋을 넣으면 그쪽으로 갑니다 — 셋 다 비면 xAI 입니다.
+부릅니다. 셋을 넣으면 그쪽으로 갑니다 — 셋 다 비면 xAI(`grok-4.5`)입니다.
+
+**지금은 셋 다 비어 있습니다** (2026-08-28 · xAI 크레딧을 채워 Grok 으로 돌아왔습니다).
+xAI 모델 중 인용 계약을 3/3 지킨 것은 `grok-4.5` 뿐입니다 — 표는
+[`src/.env.example`](../src/.env.example) 의 언어모델 절에. 아래는 Gemini 로 갈아끼울 때 쓰던 값입니다.
 
 ```
 LLM_BASE_URL   https://generativelanguage.googleapis.com/v1beta/openai
