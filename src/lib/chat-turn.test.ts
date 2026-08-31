@@ -841,6 +841,8 @@ function chatHarness(
       list: async () => [],
       tokens: async () => over.vaultTokens ?? [],
     },
+    // **장부는 여기서 읽습니다** — 전사문만이 아니라 챗·슬롯·부산물까지
+    maskedTexts: { all: async () => (over.transcript ?? []).map((one) => one.text) },
     ...(over.noQuestion
       ? {
           slotChecker: {

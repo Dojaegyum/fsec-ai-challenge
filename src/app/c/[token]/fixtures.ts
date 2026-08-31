@@ -36,6 +36,12 @@ import type { CaseBundle } from "./load";
  *
  * 시연용 값이라도 **이름은 실물과 같아야** 합니다 — 이름이 갈리면 시연 화면이
  * 제품과 다른 말을 합니다.
+ *
+ * ⚠️ **`body.action` 도 같아야 합니다.** `step_key` 를 실물에 맞추면서 `action` 을
+ * 빠뜨렸고, 그래서 `?view=plan` 으로 단계를 눌러도 **워크스페이스가 빈 채로**
+ * 떴습니다 — 어느 패널을 그릴지는 `body.action` 하나가 정하고(ADR-024),
+ * `panelFor(undefined)` 는 **아무것도 그리지 않습니다**(`work-handler/panel.ts`).
+ * 아래 값은 `src/kb/common.json` 에서 그대로 가져온 것입니다.
  */
 export const FIXTURE_PLAN: { steps: PlanStep[] } = {
   steps: [
@@ -45,7 +51,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "국민은행에 지급정지 요청",
       state: "done_verified",
       conditional: null,
-      body: { step_key: "freeze-request" },
+      body: { step_key: "freeze-request", action: "call" },
       required_artifact: { kind: "call_receipt", label: "통화 접수번호" },
     },
     {
@@ -54,7 +60,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "112 신고",
       state: "done_verified",
       conditional: null,
-      body: { step_key: "report-112" },
+      body: { step_key: "report-112", action: "call" },
       required_artifact: { kind: "report_number", label: "사건접수번호" },
     },
     {
@@ -63,7 +69,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "피해구제 신청서 제출",
       state: "in_progress",
       conditional: null,
-      body: { step_key: "relief-apply" },
+      body: { step_key: "relief-apply", action: "call" },
     },
     {
       step_id: "m4",
@@ -71,7 +77,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "신청서류 제출",
       state: "not_started",
       conditional: null,
-      body: { step_key: "relief-documents", after: ["relief-apply"] },
+      body: { step_key: "relief-documents", action: "visit", after: ["relief-apply"] },
     },
     {
       step_id: "m5",
@@ -79,7 +85,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "채권소멸공고를 기다립니다",
       state: "not_started",
       conditional: null,
-      body: { step_key: "debt-extinction-notice" },
+      body: { step_key: "debt-extinction-notice", action: "upload" },
     },
     {
       step_id: "m6",
@@ -87,6 +93,7 @@ export const FIXTURE_PLAN: { steps: PlanStep[] } = {
       title: "가상자산 환급 신청",
       state: "skipped",
       conditional: null,
+      // **일부러 비워 둡니다** — 「건너뛴 단계는 패널을 안 그린다」를 보는 줄입니다
       body: {},
     },
   ],

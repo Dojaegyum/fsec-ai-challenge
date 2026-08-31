@@ -160,9 +160,20 @@ export async function openVault(
   if (!res.ok) return NO_VAULT;
 
   let entries: readonly VaultEntry[];
+  /**
+   * 서버가 붙인 이름표 — **암호문이 없는 것들.** 값은 안 옵니다(§3.11 `GET`).
+   *
+   * 없을 수도 있습니다(옛 서버). 그때는 예전처럼 볼트만 보고, **자리 예약이
+   * 줄어들 뿐 새로 깨지지는 않습니다** — 그래서 `?? []` 로 받습니다.
+   */
+  let issued: readonly string[] = [];
   try {
-    const body = (await res.json()) as { entries?: readonly VaultEntry[] };
+    const body = (await res.json()) as {
+      entries?: readonly VaultEntry[];
+      issued?: readonly string[];
+    };
     entries = body.entries ?? [];
+    issued = body.issued ?? [];
   } catch {
     // 본문이 JSON 이 아닙니다 — **무엇이 맡겨져 있는지 모르는 것**이지
     // 「없는 것」이 아닙니다. 여기서 던지면 부르는 쪽의 `void (async …)()` 가
@@ -207,10 +218,43 @@ export async function openVault(
     }
   }
 
+  /**
+   * ## 서버가 앞서 쓴 번호를 여기서 이어받습니다
+   *
+   * 볼트에 있는 것은 **이 브라우저가 맡긴 것뿐**입니다. 전사·NER 이 붙인
+   * 이름표는 봉할 키가 서버에 없어 볼트에 못 들어오므로, 위 반복문만으로는
+   * `[계좌-1]` 이 **이미 쓰였다는 사실 자체를** 모릅니다.
+   *
+   * 그래서 남은 이름표를 **예약 칸으로** 채워 넣습니다. 원문 자리에 들어가는
+   * 것은 `RESERVED_ORIGINAL` — 위 「자리만 예약한 칸」의 셋을 지키는 값이라
+   * 다음 발화가 이 번호를 피해 `[계좌-2]` 를 씁니다.
+   *
+   * ⚠️ **`restorable` 에는 넣지 않습니다.** 원문이 없으니 되살릴 것도 없고,
+   * 넣으면 대역 문자열이 화면에 그대로 그려집니다.
+   */
+  const known = new Set(entries.map((one) => one.token));
+  for (const token of issued) {
+    if (known.has(token)) continue;
+    known.add(token);
+    const parsed = parseToken(token);
+    // 1차 종류만입니다 — `[이름-N]` 은 브라우저가 만들지 않으므로 겹칠 일이 없고,
+    // 넣어 두면 `maskText` 가 모르는 종류를 세게 됩니다
+    if (!parsed || !FIRST_PASS.includes(parsed.kind)) continue;
+    maskContext.push({
+      token,
+      kind: parsed.kind as PiiKind,
+      seq: parsed.seq,
+      original: RESERVED_ORIGINAL,
+    });
+  }
+
   return {
     restorable,
     maskContext,
     hasKey: session !== null,
+    // **`entries` 만 셉니다.** 이 값은 「이 기기가 못 여는 칸이 있나」를 화면이
+    // 판단하는 근거인데, 서버 이름표는 애초에 아무 기기도 못 엽니다 —
+    // 함께 세면 정상인 사건이 「잠겼다」로 보입니다
     stored: entries.length,
     failed,
     read: true,

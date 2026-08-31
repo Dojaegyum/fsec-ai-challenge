@@ -120,7 +120,7 @@ export async function answerSlot(
   // 필요 없습니다 (`pii-tokenizer/ledger.ts`)
   const issued = await readIssuedLedger(input.caseId, {
     vault: container.vaultWrite,
-    transcripts: container.messages,
+    masked: container.maskedTexts,
   })
   const masked = await container.piiTokenizer.tokenize(raw, {
     allowedTerms: orgTerms,

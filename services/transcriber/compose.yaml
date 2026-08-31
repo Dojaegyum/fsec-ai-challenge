@@ -28,6 +28,22 @@ services:
       FINALLY_TOKEN: ${FINALLY_TOKEN:?FINALLY_TOKEN 을 .env 에 넣으세요}
       # 첫 사용자가 모델 적재 20초를 안 맞게
       FINALLY_WARMUP: "1"
+      # ── 이름 찾기(2차) ────────────────────────────────────────
+      # ⚠️ **Ollama 는 이 컴포즈 밖, 호스트에 있습니다.** 컨테이너 안의
+      # `127.0.0.1` 은 컨테이너 자신이라 기본값으로는 절대 안 닿습니다 —
+      # 2026-08-31 에 이 줄이 없어 `/ner` 이 `ner_unreachable` 이었습니다.
+      #
+      # 모델이 3.3GB 라 이미지에 넣지 않고 호스트에서 돌립니다. 설치는
+      # `curl -fsSL https://ollama.com/install.sh | sh` 한 줄이고 systemd 가 봅니다.
+      FINALLY_OLLAMA: ${FINALLY_OLLAMA:-http://host.docker.internal:11434}
+      FINALLY_NER: ${FINALLY_NER:-gemma3:4b}
+      # ⛔ **`-1`(안 내림)을 바꾸지 마세요.** 내려갔다 올라오는 데 CPU 에서
+      # **62초**가 걸립니다(2026-08-31 · 2코어 ARM 실측). 앱은 12초에 끊고,
+      # 못 가리면 **사건 진행이 멈춥니다**. 따뜻할 때는 2.9~4.5초입니다
+      FINALLY_NER_KEEPALIVE: ${FINALLY_NER_KEEPALIVE:--1}
+    # 위 `host.docker.internal` 이 호스트를 가리키게 합니다 (리눅스에서는 기본이 아닙니다)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # 모델 파일 1.5GB. 이미지를 다시 만들어도 다시 안 받습니다
       - models:/models

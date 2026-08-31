@@ -88,7 +88,7 @@ describe("부산물을 낼 자리 — 셋을 늘 함께 냅니다", () => {
   it("접수번호 칸과 「했다고 표시」는 늘 있다", () => {
     const html = draw();
     expect(html).toContain('placeholder="접수번호"');
-    expect(textOf(html)).toContain("번호 없이 했다고 표시");
+    expect(textOf(html)).toContain("번호 없이 접수했다고 표시");
   });
 
   it("**파일 올리기는 낼 자리가 있을 때만** 그린다", () => {
@@ -130,7 +130,7 @@ describe("판정을 그립니다 — L1 실패가 막다른 길이 아닙니다"
   });
 
   it("**서버가 `note` 를 주면 그것을 그린다** — 왜 완료가 아닌지는 서버가 말합니다", () => {
-    // 「번호 없이 했다고 표시」를 누른 자리입니다. 이유를 안 그리면 사용자에게는
+    // 「번호 없이 접수했다고 표시」를 누른 자리입니다. 이유를 안 그리면 사용자에게는
     // 버튼이 안 먹은 것처럼 보입니다 → 08-14-api.md §3.8 「L3 자기 신고」
     const text = textOf(
       draw({
@@ -334,11 +334,11 @@ describe("부산물 칸은 **완료 개념이 있는 유형에만** 냅니다", 
   it("**`read`·`wait` 에는 안 낸다** — 완료 개념이 없는 유형입니다", () => {
     // spec 「WS-read 에 체크박스를 두지 마세요」·「WS-wait 은 사용자가 하지 않음」 ·
     // panel.ts 의 규칙 표 `hasCompletion: false`. 읽기만 하면 되는 자리에
-    // 「번호 없이 했다고 표시」를 두면 **아무 절차도 안 밟고 단계가 「미확인」이 됩니다**
+    // 「번호 없이 접수했다고 표시」를 두면 **아무 절차도 안 밟고 단계가 「미확인」이 됩니다**
     for (const action of ["read", "wait"]) {
       expect(has(action)).toBe(false);
       expect(textOf(draw({ step: step({ body: { action } } as Partial<FullStep>) }))).not.toContain(
-        "번호 없이 했다고 표시",
+        "번호 없이 접수했다고 표시",
       );
     }
   });

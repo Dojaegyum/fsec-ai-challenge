@@ -153,7 +153,7 @@ export async function POST(
             }),
             mappings: await readIssuedLedger(caseId, {
               vault: container.vaultWrite,
-              transcripts: container.messages,
+              masked: container.maskedTexts,
             }),
           })
     const valueMasked = tokenized?.masked ?? null

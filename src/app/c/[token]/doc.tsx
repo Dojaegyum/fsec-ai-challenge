@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { restore } from "@/modules/pii-restorer";
+import type { RestorableMapping } from "@/modules/pii-restorer";
+
+import type { CaseSlot } from "./load";
+
 /**
  * S-10 서류 기재 안내 — `/c/{token}` 의 `focus: "doc"` 일 때의 본문.
  *
@@ -25,7 +30,9 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
  * (spec/frontend/design-system/08-16-tokens.md).
  *
  * TODO(연결) — 지금은 UI 상태만 돕니다
- *  · SECTIONS → `GET …/doc-guide` (⬜ 계약 없음). **필드 상태 판정은 서버**입니다
+ *  · 칸 상태 판정 → `GET …/doc-guide` (⬜ 계약 없음). **판정은 서버가 해야 합니다**.
+ *    지금은 §3.4 `slots[]` 로 채울 수 있는 칸만 채우고 나머지는 「직접 적으셔야
+ *    합니다」입니다 — **모르는 칸을 지어 채우지 않습니다**
  *  · submit → **`org.contact.submit`** (배열) · submitNote → `report_hours`·`caution` (§11.1)
  *    ⚠️ **비어 있으면 이 카드를 아예 그리지 않습니다.** 확인 못 한 것과 「앱으로 안 된다」는
  *    다릅니다 — 배열에 없는 것이 「모른다」입니다 (ADR-042 ③)
@@ -60,55 +67,105 @@ type Section = { id: string; name: string; fields: Field[] };
 type SubmitPath = { how: "branch" | "app"; text: string; url?: string };
 
 /**
+ * 서식 칸 하나 — **값이 여기 없는 것이 요점입니다.**
+ *
+ * ⚠️ 2026-08-31 까지 이 자리에 「이영희 · 010-4321-8765 · 110-2345-678901」이
+ * 상수로 박혀 있었습니다. 도달 경로가 없어 안 보였을 뿐이고, 헤더에 화면 이동이
+ * 붙는 순간 **남의 이름과 계좌번호를 자기 서류 값으로 읽는 화면**이 됐습니다 —
+ * 자료함에서 고친 것과 같은 결함입니다.
+ *
+ * **값은 사건에서만 옵니다**(§3.4 `slots[]`). 여기 적는 것은 서식에 인쇄된
+ * 칸 이름과, 그 칸을 채울 수 있는 슬롯 이름뿐입니다.
+ */
+type FieldSpec = {
+  readonly id: string;
+  /** 서식 칸 이름 **그대로**. 근거는 docs/research/01-환급절차-기한.md §5.1 (서식 실물 확인) */
+  readonly label: string;
+  /**
+   * 이 칸을 채울 수 있는 슬롯 → 데이터 모델 §5.1.
+   *
+   * **없으면 우리가 모르는 칸입니다.** 모른다고 해서 신청이 막히지 않습니다
+   * (불변 규칙 5) — 직접 적으시면 됩니다
+   */
+  readonly from?: string;
+  /** 값이 없을 때 그 자리에 그리는 한 줄 */
+  readonly note: string;
+};
+
+/**
  * 서식 구획 그대로입니다 — 사용자가 실물과 1:1 로 대조할 수 있어야 합니다.
- * 칸 이름의 근거는 docs/research/01-환급절차-기한.md §5.1 (서식 실물 확인).
  *
  * ⚠️ **주민등록번호 칸은 없습니다. 생년월일입니다.**
  */
-const SECTIONS: Section[] = [
+const FORM: readonly { id: string; name: string; fields: readonly FieldSpec[] }[] = [
   {
     id: "victim",
     name: "피해자",
     fields: [
-      { id: "v-name", label: "성명", state: "confirmed", display: "이영희", raw: "이영희", masked: "이름·3" },
-      { id: "v-birth", label: "생년월일", state: "unknown", note: "직접 적으셔야 합니다 — 주민등록번호가 아닙니다" },
-      { id: "v-addr", label: "주소", state: "unknown", note: "직접 적으셔야 합니다" },
-      { id: "v-tel", label: "전화번호", state: "unknown", note: "직접 적으셔야 합니다 — 없으면 비워 두세요" },
-      { id: "v-mobile", label: "휴대전화번호", state: "confirmed", display: "010-4321-8765", raw: "01043218765", masked: "전화·1" },
-      { id: "v-email", label: "전자우편주소", state: "confirmed", display: "younghee@naver.com", raw: "younghee@naver.com", masked: "메일·1" },
+      // 신원 여섯은 **우리가 묻지 않는 것**입니다. 절차를 고르는 데 필요 없고,
+      // 물으면 그만큼 볼트에 쌓입니다 → 04-pii-boundary.md
+      { id: "v-name", label: "성명", note: "직접 적으셔야 합니다" },
+      {
+        id: "v-birth",
+        label: "생년월일",
+        note: "직접 적으셔야 합니다 — 주민등록번호가 아닙니다",
+      },
+      { id: "v-addr", label: "주소", note: "직접 적으셔야 합니다" },
+      {
+        id: "v-tel",
+        label: "전화번호",
+        note: "직접 적으셔야 합니다 — 없으면 비워 두세요",
+      },
+      { id: "v-mobile", label: "휴대전화번호", note: "직접 적으셔야 합니다" },
+      { id: "v-email", label: "전자우편주소", note: "직접 적으셔야 합니다" },
     ],
   },
   {
     id: "out",
     name: "피해자 계좌의 송금·이체 내역",
     fields: [
-      { id: "o-bank", label: "금융회사", state: "confirmed", display: "국민은행", raw: "국민은행" },
-      { id: "o-branch", label: "개설점포", state: "unknown", note: "직접 적으셔야 합니다 — 모르시면 창구에서 알려줍니다" },
-      { id: "o-type", label: "예금종별", state: "unknown", note: "직접 적으셔야 합니다 — 통장 표지에 있습니다" },
-      { id: "o-acct", label: "계좌번호", state: "unread", display: "352-0912-3456-73", raw: "3520912345673", masked: "계좌·2", note: "이체내역에서 읽은 값 — 확인해 주세요" },
-      { id: "o-holder", label: "명의인", state: "confirmed", display: "이영희", raw: "이영희", masked: "이름·3" },
-      { id: "o-when", label: "송금·이체일시", state: "unread", display: "2026. 8. 14. 14:02", raw: "2026-08-14 14:02", note: "읽은 값 — 확인해 주세요" },
-      { id: "o-amount", label: "금액", state: "confirmed", display: "3,000,000원", raw: "3000000", masked: "금액·1" },
+      { id: "o-bank", label: "금융회사", from: "org_name", note: "직접 적으셔야 합니다" },
+      {
+        id: "o-branch",
+        label: "개설점포",
+        note: "직접 적으셔야 합니다 — 모르시면 창구에서 알려줍니다",
+      },
+      {
+        id: "o-type",
+        label: "예금종별",
+        note: "직접 적으셔야 합니다 — 통장 표지에 있습니다",
+      },
+      { id: "o-acct", label: "계좌번호", note: "직접 적으셔야 합니다" },
+      { id: "o-holder", label: "명의인", note: "직접 적으셔야 합니다 — 본인 이름" },
+      { id: "o-when", label: "송금·이체일시", from: "occurred_at", note: "직접 적으셔야 합니다" },
+      { id: "o-amount", label: "금액", from: "amount", note: "직접 적으셔야 합니다" },
     ],
   },
   {
     id: "fraud",
     name: "사기이용계좌 입금내역",
     fields: [
-      { id: "f-bank", label: "금융회사", state: "confirmed", display: "국민은행", raw: "국민은행" },
-      { id: "f-acct", label: "계좌번호", state: "confirmed", display: "110-2345-678901", raw: "1102345678901", masked: "계좌·1" },
-      { id: "f-holder", label: "명의인", state: "unread", display: "김민수", raw: "김민수", masked: "이름·1", note: "통화에서 들은 값 — 확인해 주세요" },
-      { id: "f-when", label: "입금일시", state: "unread", display: "2026. 8. 14. 14:02", raw: "2026-08-14 14:02", note: "읽은 값 — 확인해 주세요" },
-      { id: "f-amount", label: "금액", state: "confirmed", display: "3,000,000원", raw: "3000000", masked: "금액·1" },
+      { id: "f-bank", label: "금융회사", note: "직접 적으셔야 합니다 — 모르시면 비워 두세요" },
+      {
+        id: "f-acct",
+        label: "계좌번호",
+        from: "counterpart_account",
+        note: "직접 적으셔야 합니다 — 모르시면 비워 두세요",
+      },
+      { id: "f-holder", label: "명의인", note: "직접 적으셔야 합니다 — 모르시면 비워 두세요" },
+      { id: "f-when", label: "입금일시", from: "occurred_at", note: "직접 적으셔야 합니다" },
+      { id: "f-amount", label: "금액", from: "amount", note: "직접 적으셔야 합니다" },
     ],
   },
   {
     id: "refund",
     name: "피해환급금 입금계좌",
     fields: [
-      { id: "r-bank", label: "금융회사", state: "unknown", note: "환급받을 본인 계좌를 적으세요" },
-      { id: "r-acct", label: "계좌번호", state: "unknown", note: "직접 적으셔야 합니다" },
-      { id: "r-holder", label: "명의인", state: "unknown", note: "본인 이름" },
+      // **여기는 원래 우리가 알 수 없는 구획입니다.** 환급받을 계좌를 물은 적이 없고,
+      // 물어서도 안 됩니다 — 절차를 고르는 데 필요 없습니다
+      { id: "r-bank", label: "금융회사", note: "환급받을 본인 계좌를 적으세요" },
+      { id: "r-acct", label: "계좌번호", note: "직접 적으셔야 합니다" },
+      { id: "r-holder", label: "명의인", note: "본인 이름" },
     ],
   },
   {
@@ -118,10 +175,9 @@ const SECTIONS: Section[] = [
       {
         id: "s-reason",
         label: "피해구제 신청사유",
-        state: "unread",
-        display: "검사를 사칭한 전화로 안전계좌 확인이 필요하다는 말에 속아 계좌이체로 송금함",
-        raw: "검사를 사칭한 전화로 안전계좌 확인이 필요하다는 말에 속아 계좌이체로 송금함",
-        note: "대화에서 정리한 문장 — 확인해 주세요",
+        // ⚠️ **대화에서 문장을 지어 채우지 마세요.** 사실과 다른 신청사유는
+        // 서식 말미의 「거짓 신청」 경고가 걸리는 자리입니다 — 본인이 적어야 합니다
+        note: "직접 적으셔야 합니다 — 무슨 일이 있었는지 사실대로 적으시면 됩니다",
       },
     ],
   },
@@ -129,9 +185,13 @@ const SECTIONS: Section[] = [
     id: "tail",
     name: "말미 — 날짜·서명·수신처",
     fields: [
-      { id: "t-date", label: "신청 연월일", state: "unknown", note: "내는 날 적습니다" },
-      { id: "t-sign", label: "신청인 서명 또는 인", state: "unknown", note: "직접 서명하시거나 도장을 찍습니다" },
-      { id: "t-to", label: "○○○ 금융회사 귀하", state: "confirmed", display: "국민은행", raw: "국민은행" },
+      { id: "t-date", label: "신청 연월일", note: "내는 날 적습니다" },
+      {
+        id: "t-sign",
+        label: "신청인 서명 또는 인",
+        note: "직접 서명하시거나 도장을 찍습니다",
+      },
+      { id: "t-to", label: "○○○ 금융회사 귀하", from: "org_name", note: "직접 적으셔야 합니다" },
     ],
   },
 ];
@@ -142,9 +202,103 @@ const STAFF_FIELDS = "접수번호 · 접수일자";
 /** 이웃 화면과 같은 등장 리듬 (부모 `.view-in` 0.5s 지연 뒤에 시작) */
 const step = (i: number) => ({ animationDelay: `${520 + i * 90}ms` });
 
-const copyTargets = SECTIONS.flatMap((s) =>
-  s.fields.filter((f) => f.state === "confirmed" || f.state === "unread"),
-);
+/** 아직 `[계좌-1]` 인가 — 이 기기에 짝이 없다는 뜻입니다 */
+const stillToken = (value: string) => /\[[^\]\s]+-\d+\]/.test(value);
+
+/**
+ * 금액을 서식에 옮겨 적기 좋게 — `3000000` → `3,000,000원`.
+ *
+ * **숫자만인 값에만 손댑니다.** 「300만원쯤」처럼 사용자가 말한 그대로가 들어오면
+ * 그대로 둡니다 — 우리가 해석해 바꾸면 **본인이 한 말과 다른 값**이 서류에 갑니다.
+ *
+ * 복사되는 값은 숫자뿐입니다. 은행 앱 금액 칸이 쉼표를 안 받습니다.
+ */
+function amountShape(value: string): { display: string; raw: string } {
+  const digits = value.replace(/[\s,]/g, "");
+  if (!/^\d+$/.test(digits)) return { display: value, raw: value };
+  return { display: `${Number(digits).toLocaleString("ko-KR")}원`, raw: digits };
+}
+
+/**
+ * 시각을 읽기 좋게 — `2026-08-14T14:02:00Z` → `2026. 8. 14. 14:02`.
+ *
+ * ⚠️ **날짜를 세지 않습니다.** 법정 기한은 코드의 규칙이 계산하고(불변 규칙 7)
+ * 이 함수는 **있는 값을 다르게 적을 뿐**입니다. 여기서 하루를 더하거나 빼지 마세요.
+ *
+ * 못 읽는 모양이면 **받은 그대로** 냅니다 — 우리가 만든 값을 서류에 적게 하는 것보다
+ * 사용자가 자기가 말한 문자열을 보는 편이 낫습니다.
+ */
+function whenShape(value: string): { display: string; raw: string } {
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return { display: value, raw: value };
+  const two = (n: number) => String(n).padStart(2, "0");
+  const display =
+    `${at.getFullYear()}. ${at.getMonth() + 1}. ${at.getDate()}. ` +
+    `${two(at.getHours())}:${two(at.getMinutes())}`;
+  return { display, raw: display };
+}
+
+/**
+ * 서식 칸 + 이 사건의 슬롯 → 화면에 그릴 구획.
+ *
+ * **화면이 값을 만들지 않습니다** — `slots[]` 에 없는 칸은 전부 「직접 적으셔야
+ * 합니다」이고, 그것이 실패가 아닙니다(불변 규칙 5).
+ *
+ * | 슬롯 상태 | 칸 | 왜 |
+ * | --- | --- | --- |
+ * | `confirmed` | **복사할 값** | 사용자가 확인해 준 값입니다 |
+ * | 그 밖에 값이 있음 | 복사할 값 + **「확인해 주세요」** | 진술·증거에서 읽었을 뿐입니다 |
+ * | 값이 없음 · `unknown` | 직접 적는 칸 | 「모름」도 답입니다 |
+ */
+export function buildSections(
+  slots: readonly CaseSlot[],
+  restorable: readonly RestorableMapping[],
+): Section[] {
+  return FORM.map((sec) => ({
+    id: sec.id,
+    name: sec.name,
+    fields: sec.fields.map((spec): Field => {
+      const slot = spec.from ? slots.find((one) => one.slot_key === spec.from) : undefined;
+      const value = slot?.value ?? null;
+      if (!value || slot?.state === "unknown") {
+        return { id: spec.id, label: spec.label, state: "unknown", note: spec.note };
+      }
+
+      // **이 기기의 매핑으로만 펼칩니다.** 짝이 없으면 토큰 그대로 남습니다 —
+      // `doc-field` 는 전체 복원 자리라(policy.ts) 열린 것은 원문으로 보입니다
+      const shown = restore(value, [...restorable], { site: "doc-field" });
+
+      if (stillToken(shown)) {
+        // 다른 기기입니다. **토큰을 서식에 옮겨 적게 하면 안 됩니다** —
+        // 복사 버튼 없이 「이 기기에선 복사 안 됨」으로 그려집니다
+        return {
+          id: spec.id,
+          label: spec.label,
+          state: slot?.state === "confirmed" ? "confirmed" : "unread",
+          display: shown,
+          masked: shown,
+          note: spec.note,
+        };
+      }
+
+      const shaped =
+        spec.from === "amount"
+          ? amountShape(shown)
+          : spec.from === "occurred_at"
+            ? whenShape(shown)
+            : { display: shown, raw: shown };
+
+      return {
+        id: spec.id,
+        label: spec.label,
+        state: slot?.state === "confirmed" ? "confirmed" : "unread",
+        display: shaped.display,
+        raw: shaped.raw,
+        note: "진술·증거에서 읽은 값 — 확인해 주세요",
+      };
+    }),
+  }));
+}
 
 /* ── 「어디까지 옮겼는지」 ───────────────────────────────────
  *
@@ -205,21 +359,54 @@ function subscribeCopied(onChange: () => void) {
 
 export default function DocGuide({
   caseToken = "7fK2p",
-  restored = true,
-  orgName = "국민은행",
-  // KB국민은 공식 안내가 **영업점 서면**입니다. 앱 경로는 「확인 실패」가 아니라
-  // 「아니오」라 배열에 넣지 않습니다 (ADR-042 ③ · research/04 §0.1).
-  // ⬜ 지점 찾기 URL 은 아직 어느 은행도 확인 못 했습니다 → research/05 U-31
-  submit = [{ how: "branch", text: "가까운 영업점에 서면 제출" }],
-  submitNote = "은행 확인값입니다 (2026-08-20 확인) · 긴급 지급정지 전화와는 다른 단계입니다",
+  /** §3.4 `slots[]` — **이 화면의 값은 전부 여기서 옵니다** */
+  slots = [],
+  /** 볼트에서 연 매핑. 없으면 토큰이 토큰으로 보입니다 → ADR-027 */
+  restorable = [],
+  // ⚠️ **기본값을 채우지 마세요.** 2026-08-31 까지 여기 「가까운 영업점에 서면
+  // 제출」과 「국민은행」이 박혀 있었습니다. 사건의 은행이 무엇이든 화면이
+  // 국민은행이라고 말했다는 뜻입니다 — 확인 못 한 것을 단정하는 것이
+  // ADR-042 ③ 이 금지한 그것입니다. 비면 카드를 아예 안 그립니다
+  // ⬜ 서버 계약이 없습니다 → `org.contact.submit` (§11.1)
+  submit = [],
+  submitNote = "",
 }: {
   /** URL 의 링크 토큰. **`case_id` 가 아닙니다** → ADR-039 */
   caseToken?: string;
-  restored?: boolean;
-  orgName?: string;
+  slots?: readonly CaseSlot[];
+  restorable?: readonly RestorableMapping[];
   submit?: SubmitPath[];
   submitNote?: string;
 }) {
+  const sections = useMemo(() => buildSections(slots, restorable), [slots, restorable]);
+
+  /**
+   * 복사할 수 있는 칸 — **매 렌더 사건에서 다시 셉니다.**
+   * 전에는 모듈 상수라 어느 사건에서나 같은 수(9)가 나왔습니다
+   */
+  const copyTargets = useMemo(
+    () =>
+      sections.flatMap((sec) =>
+        sec.fields.filter((f) => (f.state === "confirmed" || f.state === "unread") && f.raw),
+      ),
+    [sections],
+  );
+
+  /**
+   * 이 기기에서 못 여는 칸이 있나 → 아래 「다른 기기」 안내.
+   *
+   * **`restorable` 이 비었다고 판단하지 않습니다.** 토큰이 하나도 없는 사건은
+   * 볼트도 비어 있는데, 그때 「가려져 보입니다」라고 하면 거짓말입니다
+   */
+  const restored = !sections.some((sec) => sec.fields.some((f) => f.masked));
+
+  /**
+   * 제출처 카드의 기관 이름 — **사건이 말한 것만** 씁니다.
+   *
+   * 없으면 이름 없이 그립니다. 여기에 기본값을 두면 어느 사건에서나 그 은행을
+   * 단정하게 되고, 그것이 2026-08-31 까지 있던 결함입니다
+   */
+  const orgTo = slots.find((one) => one.slot_key === "org_name")?.value ?? null;
   /** 슬러그는 `fin-ally` 입니다 — `finally` 는 JS 예약어라 쓰지 않습니다 (CLAUDE.md) */
   const storageKey = `fin-ally:doc-copied:${caseToken}`;
   const copiedRaw = useSyncExternalStore(
@@ -238,7 +425,20 @@ export default function DocGuide({
   const [flash, setFlash] = useState<string | null>(null);
   /** 복사가 거부됐을 때 — 값을 골라 주고 그 사실을 알립니다 */
   const [failed, setFailed] = useState<string | null>(null);
-  const [open, setOpen] = useState<Set<string>>(new Set(["victim", "out"]));
+  /**
+   * 처음에 펼쳐 두는 구획.
+   *
+   * 앞의 둘은 서식의 시작이라 늘 폅니다. 거기 더해 **값이 있는 구획은 폅니다** —
+   * 접어 두면 우리가 채운 값을 사용자가 못 보고, 「복사할 값 1」 배지만 남습니다
+   */
+  const [open, setOpen] = useState<Set<string>>(
+    () =>
+      new Set([
+        "victim",
+        "out",
+        ...sections.filter((sec) => sec.fields.some((f) => f.display)).map((sec) => sec.id),
+      ]),
+  );
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => () => clearTimeout(flashTimer.current), []);
@@ -353,7 +553,7 @@ export default function DocGuide({
           </span>
           <div className="min-w-0">
             <div className="text-[14px] font-[620] text-ink-1">
-              어디에 내나요 — <span className="text-pii">{orgName}</span>
+              어디에 내나요{orgTo && <> — <span className="text-pii">{orgTo}</span></>}
             </div>
 
             {/* 길이 여럿일 때만 「먼저 / 안 되면」이 붙습니다 —
@@ -411,7 +611,7 @@ export default function DocGuide({
 
       {/* ── 구획 — 서식 그대로 접습니다 ─────────────────── */}
       <div style={step(3)} className="rise mt-[18px]">
-        {SECTIONS.map((sec) => {
+        {sections.map((sec) => {
           const isOpen = open.has(sec.id);
           const filled = sec.fields.filter(
             (f) => f.state === "confirmed" || f.state === "unread",

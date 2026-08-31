@@ -54,6 +54,7 @@ import {
   createSlotWriter,
   createSql,
   createVaultStore,
+  createMaskedTexts,
   createVaultMappings,
 } from './db'
 import type {
@@ -69,6 +70,7 @@ import type {
   EvidenceWriter,
   SlotReader,
   SlotWriter,
+  MaskedTexts,
   VaultMappings,
 } from './db'
 import { createCasePlanStore } from './db-plan'
@@ -249,6 +251,20 @@ function nerModel(env: Env): NerModel | null {
     baseUrl,
     token: env.values.NER_TOKEN,
     model: env.values.NER_MODEL,
+    /**
+     * 기본 12초는 **GPU 기준**입니다 (실측 0.28초 · [09 §7](../../docs/research/09-로컬모델-PII인식-실측.md)).
+     *
+     * ⚠️ **CPU 서버에 물리면 이 값이 곧 성패입니다.** 2026-08-31 에 상시 서버
+     * (OCI A1.Flex · 2코어 ARM)로 재 보니 **한 발화에 10.7~12.3초**였습니다 —
+     * 12초 상한을 절반쯤 넘깁니다. 넘기면 `PII_TOKENIZER_UNAVAILABLE` 503 이고,
+     * 그건 **사건 진행이 멈춘다**는 뜻입니다(경계라 못 가리면 안 내보냅니다).
+     *
+     * 그래서 **코드를 고치지 않고 늘릴 수 있게** 열어 둡니다. 라우트의
+     * `maxDuration`(챗은 60초)보다 반드시 짧게 두세요.
+     */
+    ...(env.values.NER_TIMEOUT_MS
+      ? { timeoutMs: Number(env.values.NER_TIMEOUT_MS) }
+      : {}),
   })
 }
 
@@ -338,6 +354,12 @@ function vaultMappings(env: Env): VaultMappings {
   const sql = createSql(env)
   if (!sql) return unconfigured('VaultMappings', ['DATABASE_URL'])
   return createVaultMappings(sql)
+}
+
+function maskedTexts(env: Env): MaskedTexts {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('MaskedTexts', ['DATABASE_URL'])
+  return createMaskedTexts(sql)
 }
 
 function artifactWriter(env: Env): ArtifactWriter {
@@ -499,6 +521,13 @@ export interface Container {
    * **맡기고 되받는 것은 한 관심사라 포트도 하나입니다**(`put`·`list`) → ADR-050
    */
   readonly vaultWrite: VaultMappings
+  /**
+   * 이름표 장부가 읽는 **토큰화된 글 전부** → `pii-tokenizer/ledger.ts`.
+   *
+   * **`messages` 로 대신하지 마세요.** 서버가 붙인 이름표는 챗·슬롯·부산물·
+   * 전사문 넷에 흩어져 있고, 하나만 보면 다른 셋의 번호를 다시 발급합니다
+   */
+  readonly maskedTexts: MaskedTexts
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
@@ -566,6 +595,7 @@ export function createContainer(
     artifacts: artifactWriter(env),
     messages: messageStore(env),
     vaultWrite: vaultMappings(env),
+    maskedTexts: maskedTexts(env),
 
     caseIntake: createCaseIntake({
       ids: ulidSource,
