@@ -12,6 +12,7 @@ export type {
   CitationSource,
   Clock,
   IssuedRef,
+  IssuedToken,
   KbContextRef,
   KbEntry,
   KbSource,

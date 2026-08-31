@@ -194,6 +194,93 @@ function toReply(raw: unknown): ModelReply {
 }
 
 /**
+ * 이 한 번의 호출이 **실제로** 어떻게 처리됐나 → 09-data-model.md §10.2
+ * `llm.called` 의 detail (`{"model":"...","token_in":1200}`).
+ *
+ * ## 왜 응답에서 읽나
+ *
+ * 후보를 차례로 시도하다가 **뒤엣것이 답할 수 있습니다**(아래 폴백).
+ * `LLM_MODEL` 에 적힌 목록이나 우리가 보낸 이름을 감사에 남기면,
+ * 「어느 모델이 이 안내를 만들었나」가 실제와 어긋납니다 — **감사 기록이
+ * 거짓이 되면 감사를 하는 뜻이 없어집니다.** 그래서 응답 본문의 `model` 을
+ * 그대로 씁니다.
+ *
+ * ## 없으면 비웁니다
+ *
+ * 세 칸 다 **제공자마다 있을 수도 없을 수도 있습니다.** 없는 것을 보낸
+ * 이름이나 0 으로 메우면 그것도 거짓입니다 — `null` 로 둡니다.
+ */
+export interface LlmCall {
+  /** 실제로 답한 모델. 응답 본문의 `model` */
+  readonly model: string | null
+  /** 보낸 토큰 수 — `usage.prompt_tokens`. 감사의 `token_in` */
+  readonly tokenIn: number | null
+  /** 받은 토큰 수 — `usage.completion_tokens` */
+  readonly tokenOut: number | null
+}
+
+/** 아무것도 못 읽었을 때. **지어내지 않은 상태**입니다 */
+const NO_CALL: LlmCall = { model: null, tokenIn: null, tokenOut: null }
+
+/**
+ * 응답 본문에서 감사에 남길 것만 꺼낸다.
+ *
+ * **OpenAI 호환 이름만 봅니다** — `model` · `usage.prompt_tokens` ·
+ * `usage.completion_tokens`. 이 자리가 부르는 것이 `/chat/completions` 이고
+ * (ARCHITECTURE §2), 다른 이름으로 오는 제공자가 있는지는 확인하지 않았습니다.
+ * 짐작으로 별칭을 늘리면 **엉뚱한 칸을 토큰 수라고 남길 수** 있습니다.
+ */
+function toCall(body: unknown): LlmCall {
+  const one = (body ?? {}) as {
+    model?: unknown
+    usage?: { prompt_tokens?: unknown; completion_tokens?: unknown } | null
+  }
+
+  // 빈 문자열은 이름이 아닙니다 — 못 받은 것과 같이 둡니다
+  const model = typeof one.model === 'string' && one.model.length > 0 ? one.model : null
+  const count = (value: unknown): number | null =>
+    typeof value === 'number' && Number.isFinite(value) ? value : null
+
+  return {
+    model,
+    tokenIn: count(one.usage?.prompt_tokens),
+    tokenOut: count(one.usage?.completion_tokens),
+  }
+}
+
+/**
+ * `ModelReply` 에 **누가 답했는지**를 붙인 것 → §10.2.
+ *
+ * 챗의 포트(`LlmClient`)는 `ModelReply` 만 요구하므로 이것은 **더 준 것**이고,
+ * 그 포트를 그대로 만족합니다 — 층 1 모듈은 이 칸을 몰라도 됩니다.
+ */
+export interface LlmReply extends ModelReply {
+  readonly call: LlmCall
+}
+
+/**
+ * 어떤 답에서든 호출 자취를 꺼낸다 — **모르면 빈 것**.
+ *
+ * `chat-receiver` 는 모델의 답을 `ModelReply` 로 들고 다니느라(층 1 모듈은
+ * 이 칸을 모릅니다) 감사를 남기는 흐름까지 오면 타입에서 `call` 이 사라집니다.
+ * **객체는 그대로 지나옵니다** — 그것을 안전하게 되꺼내는 자리입니다.
+ *
+ * 못 꺼내면 `NO_CALL` 입니다. 그 자리에 보낸 모델 이름을 끼우지 마세요 —
+ * 폴백이 있어서 **보낸 것과 답한 것이 다를 수 있습니다.**
+ */
+export function llmCallOf(reply: unknown): LlmCall {
+  const call = (reply as { call?: unknown } | null | undefined)?.call
+  if (!call || typeof call !== 'object') return NO_CALL
+
+  const one = call as Partial<LlmCall>
+  return {
+    model: typeof one.model === 'string' ? one.model : null,
+    tokenIn: typeof one.tokenIn === 'number' ? one.tokenIn : null,
+    tokenOut: typeof one.tokenOut === 'number' ? one.tokenOut : null,
+  }
+}
+
+/**
  * 부를 것을 만든다. **열쇠가 없으면 `null`** — 조립이 성공해야 합니다.
  */
 /**
@@ -201,9 +288,16 @@ function toReply(raw: unknown): ModelReply {
  *
  * 전사문 기관 교정은 챗의 네 항목(JSON) 형식이 아니라 제 형식으로 답을
  * 받아야 해서 갈라 뒀습니다 → ADR-056.
+ *
+ * **둘 다 `call` 을 함께 돌려줍니다** → §10.2. 부르는 쪽이 감사에 「어느
+ * 모델이 얼마를 썼나」를 남길 수 있어야 하는데, 그건 응답을 읽는 이 자리에서만
+ * 알 수 있습니다.
  */
 export interface TextLlmClient extends LlmClient {
-  completeText(prompt: { system: string; user: string }): Promise<{ text: string }>
+  complete(prompt: { system: string; user: string }): Promise<LlmReply>
+  completeText(
+    prompt: { system: string; user: string },
+  ): Promise<{ text: string; call: LlmCall }>
 }
 
 export function createLlmClient(env: Env): TextLlmClient | null {
@@ -252,7 +346,9 @@ export function createLlmClient(env: Env): TextLlmClient | null {
    * 규칙으로 돕니다 — 챗은 JSON 네 항목으로 읽고(`complete`), 전사문 기관
    * 교정은 제 형식으로 읽습니다(`completeText` → ADR-056).
    */
-  const sendText = async (prompt: { system: string; user: string }): Promise<string> => {
+  const sendText = async (
+    prompt: { system: string; user: string },
+  ): Promise<{ text: string; call: LlmCall }> => {
       // **예산은 통틀어 하나입니다.** 시도마다 45초씩 주면 재시도 두 번에
       // 함수 상한(60초)을 넘겨 버립니다 → 라우트의 `maxDuration`
       const deadline = Date.now() + TIMEOUT_MS
@@ -339,23 +435,29 @@ export function createLlmClient(env: Env): TextLlmClient | null {
         throw new LlmError('모델이 빈 답을 냈습니다')
       }
 
-      return text
+      // **글만 꺼내고 나머지를 버리면** 감사에 「어느 모델이 얼마를 썼나」를
+      // 남길 수 없습니다 → §10.2. 폴백이 있어서 우리가 보낸 이름으로는
+      // 알 수 없고, 여기 오는 본문에만 답한 모델이 적혀 있습니다
+      return { text, call: toCall(body) }
   }
 
   return {
-    async complete(prompt: { system: string; user: string }): Promise<ModelReply> {
-      const text = await sendText(prompt)
+    async complete(prompt: { system: string; user: string }): Promise<LlmReply> {
+      const { text, call } = await sendText(prompt)
       try {
-        return toReply(extractJson(text))
+        return { ...toReply(extractJson(text)), call }
       } catch {
         // **형식을 어긴 것은 「근거 없음」으로 다룹니다.** 던져서 500 을 내면
-        // 사용자가 다시 물어볼 수 없고, 억지로 읽으면 근거 없는 안내가 나갑니다
-        return { insufficient: true, citations: [] }
+        // 사용자가 다시 물어볼 수 없고, 억지로 읽으면 근거 없는 안내가 나갑니다.
+        //
+        // **그래도 호출은 일어났습니다** — 형식을 어긴 답도 모델이 낸 것이고
+        // 토큰도 썼으니 감사에는 그대로 남아야 합니다 → §10.2
+        return { insufficient: true, citations: [], call }
       }
     },
 
-    async completeText(prompt: { system: string; user: string }): Promise<{ text: string }> {
-      return { text: await sendText(prompt) }
+    async completeText(prompt: { system: string; user: string }) {
+      return sendText(prompt)
     },
   }
 }

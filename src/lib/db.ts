@@ -1415,6 +1415,23 @@ export interface VaultMappings {
    * 못 풀고** 서류 기재 안내가 통째로 빈칸이 됩니다.
    */
   list(caseId: string): Promise<readonly VaultEntryRow[]>
+
+  /**
+   * 이 사건에서 **쓰인 이름표 목록** → 04-pii-boundary.md 「번호의 단위」.
+   *
+   * ## 왜 `list` 로 안 되나 — 값을 안 가져오는 것이 요점입니다
+   *
+   * 이름표는 브라우저와 서버가 **함께** 만듭니다. 두 곳이 각자 1번부터 세면
+   * 같은 사건에 `[계좌-1]` 이 둘 생기고, 브라우저가 자기 표로 복원할 때
+   * **서버가 붙인 자리에 엉뚱한 계좌가 그려집니다.** 그래서 서버도 「어느
+   * 번호가 쓰였나」를 알아야 하는데, **알아야 하는 것은 번호뿐입니다.**
+   *
+   * `token` 은 평문이고 `ciphertext` 는 서버가 못 엽니다. 이 질의가
+   * **`ciphertext` 를 안 고르는 것**이 「서버는 장부만 보고 값은 못 본다」를
+   * 코드로 말하는 자리입니다 — `list` 를 대신 쓰면 안 쓸 암호문이
+   * 서버 메모리와 로그로 흘러갑니다.
+   */
+  tokens(caseId: string): Promise<readonly string[]>
 }
 
 export function createVaultMappings(sql: Sql): VaultMappings {
@@ -1447,6 +1464,17 @@ export function createVaultMappings(sql: Sql): VaultMappings {
         ORDER BY stored_at, token
       `
       return rows.map((one) => ({ token: one.token, ciphertext: one.ciphertext }))
+    },
+
+    async tokens(caseId) {
+      // ⚠️ **`ciphertext` 를 고르지 않습니다** — 위 주석 참고. 번호를 잇는 데
+      // 값이 필요 없고, 안 가져오는 것이 이 설계의 요점입니다
+      const rows = await sql<{ token: string }[]>`
+        SELECT token FROM case_vault.restore_mapping
+        WHERE case_id = ${caseId}
+        ORDER BY token
+      `
+      return rows.map((one) => one.token)
     },
   }
 }

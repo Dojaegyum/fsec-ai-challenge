@@ -30,6 +30,7 @@ import { BadRequestError } from '@/lib/http'
 import { channelForOption } from '@/lib/questions'
 import { matchOrg } from '@/lib/org-match'
 
+import { readIssuedLedger } from '@/modules/pii-tokenizer'
 import { tierOf, valueTypeOf } from '@/modules/slot-checker'
 
 import { readCasePlan, regeneratePlan } from './regenerate-plan'
@@ -109,7 +110,22 @@ export async function answerSlot(
     channels: container.channelWrite,
     kbVersion: container.ports.kbVersion,
   })
-  const masked = await container.piiTokenizer.tokenize(raw, { allowedTerms: orgTerms })
+
+  // **이 사건에서 이미 쓰인 이름표를 이어받습니다** → 04-pii-boundary.md
+  // 「번호의 단위」. 안 이어받으면 호출마다 번호가 1부터라, 챗에서 본인 계좌에
+  // 붙은 `[계좌-1]` 과 여기서 붙인 `[계좌-1]` 이 **다른 계좌인데 같은 이름표**가
+  // 됩니다 — 브라우저가 자기 표로 복원하므로 슬롯 칸에 엉뚱한 값이 그려집니다.
+  //
+  // ⚠️ **원문은 안 옵니다.** 서버는 볼트를 못 열고, 번호를 잇는 데 값이
+  // 필요 없습니다 (`pii-tokenizer/ledger.ts`)
+  const issued = await readIssuedLedger(input.caseId, {
+    vault: container.vaultWrite,
+    transcripts: container.messages,
+  })
+  const masked = await container.piiTokenizer.tokenize(raw, {
+    allowedTerms: orgTerms,
+    mappings: issued,
+  })
 
   // ── 「아니에요, 개인정보가 아닙니다」 → ADR-041 ④ ──────────────────
   //
@@ -127,6 +143,9 @@ export async function answerSlot(
       // 사용자가 고른 값 + 기관 사전. 앞엣것만 넘기면 「국민은행 김민수」처럼
       // 섞인 값에서 기관 쪽이 다시 가려집니다
       allowedTerms: [raw, ...orgTerms],
+      // **여기도 장부를 이어받습니다.** 위와 같은 이유입니다 — 이 갈래만 빼면
+      // 「아니에요」를 지난 답에서만 번호가 1부터 다시 시작합니다
+      mappings: issued,
     })
     // **보통 답과 같은 자리를 지납니다.** 여기만 따로 적으면 「아니에요」를 지난
     // 답은 경유 서비스를 못 알아봤어도, 기관을 못 골랐어도 `confirmed` 로

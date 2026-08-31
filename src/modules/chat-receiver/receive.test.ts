@@ -13,6 +13,7 @@ import { createChatReceiver } from './receive'
 import type {
   CaseContext,
   CitationOutcome,
+  IssuedToken,
   KbEntry,
   ModelReply,
   PromptSource,
@@ -90,9 +91,15 @@ function receiver(over: {
 
   const prompts = fakePrompts()
   const llm = { complete: vi.fn(async () => replies.shift() ?? PASSING_REPLY) }
-  const tokenize = vi.fn(async (text: string) => ({
-    masked: text.replace(/110-234-567890/g, '[계좌-1]'),
-  }))
+  const tokenize = vi.fn(
+    async (
+      text: string,
+      ctx?: { allowedTerms?: readonly string[]; mappings?: readonly IssuedToken[] },
+    ) => {
+      void ctx
+      return { masked: text.replace(/110-234-567890/g, '[계좌-1]') }
+    },
+  )
   const kbFind = vi.fn(async () => {
     if (over.kbThrows) throw over.kbThrows
     return {
@@ -356,5 +363,41 @@ describe('조회가 실패하면 챗을 멈춘다', () => {
     expect(check).toHaveBeenCalledWith(
       expect.objectContaining({ kbResultEmpty: true }),
     )
+  })
+})
+
+/**
+ * 이름표 번호는 **사건 하나**를 단위로 합니다 → 04-pii-boundary.md 「번호의 단위」.
+ *
+ * 브라우저와 서버가 **같은 이름 공간**을 쓰기 때문에, 안 이어받으면 브라우저가
+ * 볼트에 맡긴 `[계좌-1]` 자리에 이번 턴의 다른 계좌가 겹쳐 앉습니다 —
+ * 화면이 복원할 때 **엉뚱한 계좌가 그려집니다.**
+ *
+ * **모으는 것은 부른 쪽입니다**(`flows/chat-turn.ts`). 이 모듈은 받은 것을
+ * 경계로 넘기기만 합니다 → ADR-022.
+ */
+describe('쓰인 이름표를 토큰화에 이어 넘긴다', () => {
+  const ISSUED: readonly IssuedToken[] = [{ token: '[계좌-1]', kind: '계좌', seq: 1 }]
+
+  it('받은 장부가 그대로 경계로 간다', async () => {
+    const { chat, tokenize } = receiver()
+
+    await chat.receive({
+      caseContext: CTX,
+      utterance: '안녕',
+      kbVersion: '2026.08.1',
+      issuedTokens: ISSUED,
+    })
+
+    expect(tokenize.mock.calls[0][1]?.mappings).toEqual(ISSUED)
+  })
+
+  /** **회귀** — 안 넘어와도 챗은 섭니다. 그때가 1번부터입니다 */
+  it('안 넘어오면 빈 장부로 부른다 — 던지지 않는다', async () => {
+    const { chat, tokenize } = receiver()
+
+    await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
+
+    expect(tokenize.mock.calls[0][1]?.mappings).toEqual([])
   })
 })

@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { kindOf } from "@/app/c/[token]/upload";
 
-import { EvidenceSlots, UploadNote } from "./page";
+import { ConsentClauses, EvidenceSlots, UploadNote } from "./page";
 
 const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -146,5 +146,76 @@ describe("자료가 어떻게 됐는지 발급 화면이 말한다", () => {
       <UploadNote total={1} sending={0} done notSent={["x.png"]} />,
     );
     expect(html).not.toMatch(/text-red|bg-red|border-red/);
+  });
+});
+
+/**
+ * ── 동의 전문 4항 ────────────────────────────────────────────────
+ *
+ * 2026-08-30 까지 4항은 *「제3자에게 제공하지 않습니다 … 위탁이 생기면 이 문서에
+ * 명시합니다」* 였습니다. **그때 이미 위탁이 있었습니다.**
+ *
+ * | 무엇을 | 어디로 | 무엇이 나가나 |
+ * | --- | --- | --- |
+ * | 답변 생성 | 외부 언어모델 (`lib/llm.ts`) | 토큰으로 가린 뒤의 글 |
+ * | 음성·이미지 판독 | 외부 전사 서비스 (`TRANSCRIBER_URL`) | **원본 파일 그대로** — `flows/read-evidence.ts` 가 전사 **뒤에** 가립니다 |
+ *
+ * 동의 전문이 사실과 다르면 그것은 문구 문제가 아니라 **받지 않은 동의로
+ * 처리하는 것**입니다. 그래서 이 글에는 시험이 붙습니다.
+ */
+describe("동의 전문 4항은 실제 흐름을 적는다", () => {
+  const clauses = () =>
+    textOf(renderToStaticMarkup(<ConsentClauses checks={[]} onToggle={() => {}} />));
+
+  it("위탁 사실과 수탁 업무가 적혀 있다", () => {
+    const text = clauses();
+    expect(text).toContain("위탁하고 있습니다");
+    // 수탁자 셋이 이름으로 나옵니다 — 「어딘가에 맡깁니다」는 표기가 아닙니다
+    expect(text).toContain("Vercel · Supabase");
+    expect(text).toContain("xAI (Grok)");
+    expect(text).toContain("전사·판독 서버");
+    // 무슨 업무를 맡겼는지도 함께
+    expect(text).toContain("앱 실행 · 사건 저장 · 올리신 파일 보관");
+    expect(text).toContain("답변과 안내문 생성");
+    expect(text).toContain("통화 녹음 전사 · 이미지 판독 · 이름 탐지");
+  });
+
+  it("「제3자에게 제공하지 않습니다」만 남겨 두지 않는다", () => {
+    const text = clauses();
+    // 옛 문구입니다. 이 말만 남으면 **위탁이 있는데 없다고 말하는 것**입니다
+    expect(text).not.toContain("위탁이 생기면");
+    expect(text).toContain("제공·판매하지 않습니다");
+  });
+
+  it("원본이 가려지기 전에 나가는 것을 숨기지 않는다", () => {
+    // 여기가 이 문구의 존재 이유입니다 — 통화 녹음은 **가리기 전**에 나갑니다
+    expect(clauses()).toContain("가리기 전의 원본 음성·이미지");
+  });
+
+  it("가려서 나가는 것과 가리기 전에 나가는 것을 가른다", () => {
+    // 언어모델 쪽은 토큰뿐입니다 — 둘을 뭉치면 어느 쪽도 못 믿습니다
+    expect(clauses()).toContain("토큰으로 가린 뒤의 글만");
+  });
+
+  it("국외 이전 가능성을 덮지 않고, 근거 조문과 함께 적는다", () => {
+    const text = clauses();
+    expect(text).toContain("국외");
+    // 처리위탁(제3호)이라 별도 동의 없이 가되 **처리방침 공개**가 필요합니다
+    // → docs/research/13 §4
+    expect(text).toContain("개인정보 보호법 제28조의8 제1항 제3호");
+    expect(text).toContain("고지를 갈음합니다");
+  });
+
+  it("ADR-043 의 두 약속이 그대로 적혀 있다", () => {
+    const text = clauses();
+    // 운영은 국내에서만 · 빌린 국외 GPU 에는 합성 데이터만
+    expect(text).toContain("국내에서만 처리하는 것을 원칙");
+    expect(text).toContain("합성(가짜) 자료만");
+  });
+
+  it("조항은 다섯이다 — 화면이 「확인 N / 5」를 그립니다", () => {
+    // 늘리면 `checks` 다섯 칸과 「N개 항목 확인 남음」이 어긋납니다 (ADR-031)
+    const html = renderToStaticMarkup(<ConsentClauses checks={[]} onToggle={() => {}} />);
+    expect(html.match(/확인했습니다/g)).toHaveLength(5);
   });
 });

@@ -33,6 +33,7 @@ import { newUlid } from '@/lib/ids'
 
 import type { Citation, NextQuestion, PublishInput } from '@/modules/chat-publisher'
 import type { CaseContext, SettledOutcome } from '@/modules/chat-receiver'
+import { readIssuedLedger } from '@/modules/pii-tokenizer'
 import type { NextQuestion as SlotQuestion } from '@/modules/slot-checker'
 
 import { readApiDeadlines, type ApiDeadline } from './api-deadlines'
@@ -55,8 +56,16 @@ export async function chatTurn(
   input: { readonly caseId: string; readonly content: string },
   container: Container,
 ): Promise<TurnResult> {
-  const [context, kbVersion, plan] = await Promise.all([
+  const [context, issuedTokens, kbVersion, plan] = await Promise.all([
     gatherContext(input.caseId, container),
+    // **이 사건에서 이미 쓰인 이름표** → 04-pii-boundary.md 「번호의 단위」.
+    // 서버 2차가 이번 발화에 붙일 번호가 여기 뒤에서 나갑니다 — 안 넘기면
+    // 브라우저가 볼트에 맡긴 `[계좌-1]` 과 겹쳐 **복원이 엉뚱한 값을
+    // 되살립니다.** 오는 것은 번호뿐이고 **원문은 없습니다**
+    readIssuedLedger(input.caseId, {
+      vault: container.vaultWrite,
+      transcripts: container.messages,
+    }),
     container.ports.kbVersion.current(),
     // **다음 문항을 화면과 같은 자리에서 구합니다** — §3.9 가 *"만드는 것도
     // 같은 슬롯 체커입니다"* 라고 못 박았습니다. 여기서 따로 만들면 문진 카드와
@@ -69,6 +78,7 @@ export async function chatTurn(
     caseContext: context,
     utterance: input.content,
     kbVersion,
+    issuedTokens,
   })
 
   // 09-data-model.md §10.2 · 11-chat-context.md §7.2 — **건수만 담습니다.**
@@ -90,15 +100,24 @@ export async function chatTurn(
   // 있었습니다. 송출 검사(`publish`)보다 **앞에서** 남깁니다 — 거기서 막혀도
   // 모델은 이미 불렸습니다.
   //
-  // ⬜ 정본의 예(§10.2)는 `{"model":…,"token_in":…}` 인데 둘 다 여기까지
-  // 안 옵니다 — `LlmClient.complete` 가 `ModelReply` 만 돌려주고, 어느 후보
-  // 모델이 답했는지는 `lib/llm.ts` 안에서 끝납니다. **지어내면 감사 기록이
-  // 거짓이 되므로** 실제로 아는 것(부른 횟수)만 남깁니다 → TODO(계약 필요)
+  // 정본의 예(§10.2)가 `{"model":…,"token_in":…}` 이고, 이제 **모델이 스스로
+  // 밝힌 값**이 여기까지 옵니다 — `lib/llm.ts` 가 응답 본문의 `model` 과 `usage` 를
+  // 읽어 `ModelReply.call` 로 실어 보냅니다.
+  //
+  // ⚠️ **환경변수의 모델 이름을 쓰지 않습니다.** 후보를 차례로 시도하는 구조라
+  // 거기 적힌 것과 실제로 답한 것이 다를 수 있고, 그러면 **감사 기록이 거짓이
+  // 됩니다.** 제공자가 안 밝히면 그 칸을 **비웁니다** — 지어내지 않습니다
+  const call = outcome.reply.call
   await container.auditLogger.record({
     eventType: 'llm.called',
     actorType: 'model',
     caseId: input.caseId,
-    detail: { attempts: outcome.attempts },
+    detail: {
+      attempts: outcome.attempts,
+      ...(typeof call?.model === 'string' ? { model: call.model } : {}),
+      ...(typeof call?.tokenIn === 'number' ? { token_in: call.tokenIn } : {}),
+      ...(typeof call?.tokenOut === 'number' ? { token_out: call.tokenOut } : {}),
+    },
   })
 
   const messageId = newUlid()

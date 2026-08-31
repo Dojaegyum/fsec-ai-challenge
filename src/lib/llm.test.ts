@@ -4,11 +4,13 @@
  * 검증 대상: spec/backend/08-17-system-prompt.md (출력 형식 · `temperature: 0`) ·
  *            CLAUDE.md 불변 규칙 1 (근거 없는 절차를 내보내지 않는다)
  *
- * **여기서 못 박는 것 넷:**
+ * **여기서 못 박는 것 다섯:**
  * 1. 모델이 형식을 어겨도 **근거 없는 안내로 새지 않는다**
  * 2. `temperature` 는 0 이다 — 같은 물음에 같은 답이 나와야 한다
  * 3. 열쇠도 프롬프트도 오류 메시지에 안 담긴다
  * 4. 모르는 칸은 버린다
+ * 5. **감사에 남길 것을 응답에서 읽는다** — 실제로 답한 모델과 토큰 수.
+ *    없으면 비웁니다 (09-data-model.md §10.2)
  *
  * 실제 호출은 하지 않습니다. **버그가 사는 곳은 응답을 읽는 자리**이고,
  * 그건 가짜 응답으로 다 확인됩니다.
@@ -17,7 +19,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Env } from './env'
-import { createLlmClient } from './llm'
+import { createLlmClient, llmCallOf } from './llm'
+
+import type { ModelReply } from '@/modules/chat-receiver'
 
 const KEY = 'xai-비밀값이면-메시지에-나오면-안-된다'
 
@@ -89,7 +93,11 @@ describe('모델이 형식을 어겨도 근거 없는 안내로 새지 않는다
     )
     const reply = await client().complete(ask)
 
-    expect(Object.keys(reply).sort()).toEqual(['citations', 'insufficient', 'reply'])
+    // **칸 목록은 닫혀 있습니다** — 모델이 지어낸 것이 하나도 안 새야 합니다.
+    // `call` 은 모델이 준 칸이 아니라 **응답 봉투에서 우리가 읽은 것**입니다
+    // (누가 답했나 · 토큰 몇 개) → 09-data-model.md §10.2
+    expect(Object.keys(reply).sort()).toEqual(['call', 'citations', 'insufficient', 'reply'])
+    expect(reply).not.toHaveProperty('확신도')
   })
 })
 
@@ -468,5 +476,163 @@ describe('막히면 다음 모델로 넘어간다', () => {
 
     await expect(three().complete(ask)).rejects.toThrow('모델이 거절했습니다 (403)')
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * 감사 기록에 남길 것 — 09-data-model.md §10.2 가 `llm.called` 의 detail 을
+ * `{"model":"...","token_in":1200}` 로 정해 뒀는데, 응답을 읽는 자리가
+ * `choices[].message.content` 만 꺼내고 `model` 과 `usage` 를 버리고
+ * 있었습니다.
+ *
+ * **여기서 못 박는 것 셋:**
+ * 1. 응답에서 모델 이름과 토큰 수를 읽는다
+ * 2. **실제로 답한 모델**의 이름이다 — 우리가 보낸 이름이 아니다 (폴백)
+ * 3. 없으면 비운다 — 지어내면 감사 기록이 거짓이 됩니다
+ */
+describe('모델 호출 자취를 감사에 넘긴다 — 09-data-model.md §10.2', () => {
+  const ok = '{"insufficient":false,"citations":[{"ref":"kb-1","why":"근거"}],"reply":"답"}'
+
+  /** 본문을 통째로 정해 응답합니다 — `model`·`usage` 를 넣고 빼기 위해서 */
+  function bodyOf(extra: Record<string, unknown>, content = ok) {
+    type Fetch = (url: string | URL | Request, init?: RequestInit) => Promise<Response>
+    const impl: Fetch = async () =>
+      new Response(JSON.stringify({ choices: [{ message: { content } }], ...extra }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    return vi.fn(impl)
+  }
+
+  it('모델 이름과 토큰 수를 읽는다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      bodyOf({
+        model: 'grok-4.5',
+        usage: { prompt_tokens: 1200, completion_tokens: 340 },
+      }),
+    )
+
+    const reply = await client().complete(ask)
+
+    expect(reply.call).toEqual({ model: 'grok-4.5', tokenIn: 1200, tokenOut: 340 })
+  })
+
+  it('**실제로 답한 모델**의 이름이다 — 보낸 이름이 아니다', async () => {
+    // 폴백이 있어서 우리가 부른 후보와 답한 모델이 다를 수 있습니다.
+    // 제공자가 별칭을 실제 판번호로 바꿔 답하는 것도 흔합니다 —
+    // **보낸 이름을 남기면 감사 기록이 거짓이 됩니다**
+    let call = 0
+    type Fetch = (url: string | URL | Request, init?: RequestInit) => Promise<Response>
+    const spy = vi.fn<Fetch>(async () => {
+      call += 1
+      if (call === 1) return new Response('{"error":{"message":"overloaded"}}', { status: 503 })
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: ok } }], model: 'second-2026-08-27' }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    })
+    vi.stubGlobal('fetch', spy)
+
+    const two = createLlmClient(envWith(KEY, { LLM_MODEL: 'first,second' }))!
+    const reply = await two.complete(ask)
+
+    // 보낸 것은 `second`, 답한 것은 `second-2026-08-27` 입니다
+    expect((JSON.parse(String(spy.mock.calls[1]![1]!.body)) as { model: string }).model)
+      .toBe('second')
+    expect(reply.call.model).toBe('second-2026-08-27')
+  })
+
+  it('응답에 없으면 비운다 — 지어내지 않는다', async () => {
+    // 제공자마다 다릅니다. 없는 것을 보낸 이름이나 0 으로 메우면 그것도 거짓입니다
+    vi.stubGlobal('fetch', bodyOf({}))
+
+    const reply = await client().complete(ask)
+
+    expect(reply.call).toEqual({ model: null, tokenIn: null, tokenOut: null })
+  })
+
+  it('토큰 수만 없어도 이름은 남긴다 — 아는 것까지는 남깁니다', async () => {
+    vi.stubGlobal('fetch', bodyOf({ model: 'grok-4.5' }))
+
+    const reply = await client().complete(ask)
+
+    expect(reply.call).toEqual({ model: 'grok-4.5', tokenIn: null, tokenOut: null })
+  })
+
+  it('숫자가 아닌 토큰 수는 못 본 것으로 둔다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      bodyOf({ model: 'grok-4.5', usage: { prompt_tokens: '1200', completion_tokens: null } }),
+    )
+
+    const reply = await client().complete(ask)
+
+    expect(reply.call.tokenIn).toBeNull()
+    expect(reply.call.tokenOut).toBeNull()
+  })
+
+  it('**형식을 어긴 답에도 자취가 남는다** — 호출은 일어났습니다', async () => {
+    // 「근거 없음」으로 다루는 갈래인데, 모델은 이미 불렸고 토큰도 썼습니다.
+    // 여기서 자취를 버리면 그 호출이 감사에서 통째로 사라집니다
+    vi.stubGlobal(
+      'fetch',
+      bodyOf({ model: 'grok-4.5', usage: { prompt_tokens: 1200 } }, 'JSON 이 아닙니다'),
+    )
+
+    const reply = await client().complete(ask)
+
+    expect(reply.insufficient).toBe(true)
+    expect(reply.call).toEqual({ model: 'grok-4.5', tokenIn: 1200, tokenOut: null })
+  })
+
+  it('글을 그대로 받는 쪽(`completeText`)도 함께 준다 → ADR-056', async () => {
+    vi.stubGlobal(
+      'fetch',
+      bodyOf({ model: 'grok-4.5', usage: { prompt_tokens: 90 } }, '교정 결과'),
+    )
+
+    const one = await client().completeText(ask)
+
+    expect(one.text).toBe('교정 결과')
+    expect(one.call.model).toBe('grok-4.5')
+    expect(one.call.tokenIn).toBe(90)
+  })
+})
+
+/**
+ * 감사를 남기는 흐름까지 오면 타입에서 `call` 이 사라집니다 — `chat-receiver`
+ * 가 모델의 답을 `ModelReply` 로 들고 다니기 때문입니다(층 1 모듈은 이 칸을
+ * 모릅니다). **객체는 그대로 지나오므로** 되꺼내는 자리를 둡니다.
+ */
+describe('호출 자취를 되꺼낸다 — `llmCallOf`', () => {
+  it('붙어 있으면 그대로 꺼낸다', async () => {
+    type Fetch = (url: string | URL | Request, init?: RequestInit) => Promise<Response>
+    const impl: Fetch = async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: '{"insufficient":true,"citations":[]}' } }],
+          model: 'grok-4.5',
+          usage: { prompt_tokens: 1200, completion_tokens: 340 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    vi.stubGlobal('fetch', vi.fn(impl))
+
+    // 흐름이 보는 것과 같은 모양으로 좁혀 둡니다 — `call` 은 타입에서 안 보입니다
+    const reply: ModelReply = await client().complete(ask)
+
+    expect(llmCallOf(reply)).toEqual({ model: 'grok-4.5', tokenIn: 1200, tokenOut: 340 })
+  })
+
+  it('없으면 빈 것을 돌려준다 — 보낸 이름을 끼우지 않는다', () => {
+    // 모르는 것을 「아는 것처럼」 남기면 감사 기록이 거짓이 됩니다
+    expect(llmCallOf({ insufficient: true, citations: [] })).toEqual({
+      model: null,
+      tokenIn: null,
+      tokenOut: null,
+    })
+    expect(llmCallOf(null)).toEqual({ model: null, tokenIn: null, tokenOut: null })
+    expect(llmCallOf(undefined)).toEqual({ model: null, tokenIn: null, tokenOut: null })
   })
 })

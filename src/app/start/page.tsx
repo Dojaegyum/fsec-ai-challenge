@@ -39,12 +39,28 @@ import { openCase, trackOf } from "./open";
  *    응답의 **`link_token`** 입니다 — `case_id` 를 쓰면 조회가 언제나 빕니다 (ADR-039)
  *  · [저장하고 시작하기]·[이메일 없이 시작하기] → `/c/{token}` 으로 이동
  *
+ * ## 동의 전문 — 4항은 **코드를 읽어 다시 썼습니다** (2026-08-30)
+ *
+ * 그전까지 4항은 *「제3자에게 제공하지 않습니다 … 위탁이 생기면 이 문서에
+ * 명시합니다」* 였습니다. **위탁은 이미 있었습니다** — 올리신 통화 녹음과 이미지는
+ * **가려지기 전 원본 그대로** 전사·판독 서버로 나가고 있었고(`lib/inference.ts` ·
+ * `flows/read-evidence.ts` 가 전사 **뒤에** 가립니다), 그 사실이 동의 전문
+ * 어디에도 없었습니다. 지금은 표준 형식(수탁자 · 위탁 업무 · 국외 이전 여부)으로
+ * 실제 경로를 적습니다 → 아래 `위탁` 의 주석에 어디서 확인했는지가 있습니다.
+ *
  * ## 아직 안 붙은 것
  *
  *  · ⬜ **이메일이 갈 곳이 없습니다.** `case` 표에 칸도, 라우트도, §3 계약도
  *    없습니다. 화면은 「기한이 다가오면 알려드립니다」라고 적어 두었지만
  *    **지금은 아무 데도 안 갑니다** → QA 계획 Task 9 ⑤
  *  · ⬜ **「잘 모르겠어요」가 갈 `track` 이 없습니다** — `open.ts` 의 `trackOf` 참고
+ *  · ⬜ **전사·판독 서버가 어느 나라에 있는지 코드로 확인할 수 없습니다.**
+ *    `TRANSCRIBER_URL`·`NER_URL` 은 배포 환경변수에만 있습니다(ADR-059). 그래서
+ *    4항이 「국외일 수 있음」으로 적혀 있습니다 — **덮지 않는 쪽**입니다. 확정
+ *    표기로 바꾸려면 사람이 소재지를 확인해야 합니다 → `위탁` 의 `TODO(사람 확인)`
+ *  · ⬜ **동의 전문은 법무 검토 전 초안입니다** — 모달 머리말이 그렇게 적고 있습니다.
+ *    4항의 「국외 이전」 표기는 개인정보 보호법 제28조의8 을 근거로 우리가 쓴 것이고,
+ *    표준 양식과의 대조는 아직 사람이 안 봤습니다
  *
  * ## 자료 슬롯 — 2026-08-27 에 붙었습니다
  *
@@ -352,8 +368,134 @@ function Clause({
           </span>
         </button>
       </div>
-      <p className="mt-2 text-[13.5px] leading-[1.65] text-ink-3">{children}</p>
+      {/* **`<p>` 가 아닙니다** — 4항이 위탁 표를 품습니다. `<p>` 안에 블록 요소를
+          두면 브라우저가 문단을 먼저 닫아 서버 마크업과 어긋납니다 */}
+      <div className="mt-2 text-[13.5px] leading-[1.65] text-ink-3">{children}</div>
     </section>
+  );
+}
+
+/**
+ * 처리위탁 현황 — **코드에서 확인한 실제 경로**입니다 (동의 전문 4항).
+ *
+ * 국내 개인정보 처리방침의 표준 형식(**수탁자 · 위탁하는 업무 · 국외 이전 여부**)에
+ * 우리 흐름을 채운 것입니다. **남의 회사 처리방침을 베끼지 않았습니다** — 베끼면
+ * 그 회사의 흐름이 적히고, 그것도 결국 사실과 다른 글입니다.
+ *
+ * | 줄 | 어디서 확인했나 |
+ * | --- | --- |
+ * | 앱·저장소 | [`deploy/README.md`](../../../deploy/README.md) — Vercel `icn1` · Supabase `ap-northeast-2` · ARCHITECTURE §2 |
+ * | 언어모델 | [`lib/llm.ts`](../../lib/llm.ts) — `https://api.x.ai/v1` · `grok-4.5`. 여기 오는 글은 **이미 토큰화돼 있습니다** |
+ * | 전사·판독 | [`lib/inference.ts`](../../lib/inference.ts) — 서명된 파일 주소를 넘기면 **그 서버가 원본을 내려받습니다**. 가리는 것은 읽은 **뒤**입니다 ([`flows/read-evidence.ts`](../../flows/read-evidence.ts)) |
+ * | 이름 2차 탐지 | [`lib/ner.ts`](../../lib/ner.ts) — `NER_URL`. **토큰화 이전**이라 원문이 지납니다 |
+ *
+ * ⬜ **TODO(사람 확인) — 전사·판독 서버가 지금 어느 나라에 있는지.**
+ * `TRANSCRIBER_URL`·`NER_URL` 은 배포 환경변수에만 있어 코드로 확인할 수 없습니다
+ * (ADR-059: 값의 정본은 Vercel env). 그래서 **「국외일 수 있습니다」로 적습니다** —
+ * 확정 표기로 바꾸려면 사람이 소재지를 확인해야 하고, 그 전에 「국내입니다」라고
+ * 단정하면 그게 바로 우리가 고친 그 거짓말입니다.
+ *
+ * 근거: [ADR-043](../../../decisions/043-gpu-hosting.md)(운영은 국내에서만 · 빌린 GPU 에는
+ * 합성 데이터만) · [research/13 §4](../../../docs/research/13-GPU-클라우드-단가.md)
+ * (국외 이전은 처리위탁이면 별도 동의 없이 가능하되 **처리방침 공개 또는 사전 통지** 필요)
+ */
+const 위탁 = [
+  [
+    "Vercel · Supabase",
+    "서울 리전 (국내)",
+    "앱 실행 · 사건 저장 · 올리신 파일 보관",
+    "토큰으로 가린 사건 기록과, 올리신 파일 원본",
+  ],
+  [
+    "xAI (Grok)",
+    "국외",
+    "답변과 안내문 생성",
+    "토큰으로 가린 뒤의 글만 — 계좌·전화·이름은 나가지 않습니다",
+  ],
+  [
+    "전사·판독 서버",
+    "국내 원칙 · 국외일 수 있음",
+    "통화 녹음 전사 · 이미지 판독 · 이름 탐지",
+    "가리기 전의 원본 음성·이미지 — 가리는 것은 읽은 다음입니다",
+  ],
+] as const;
+
+/**
+ * 동의 전문의 조항 다섯 → §S-05 · [ADR-031](../../../decisions/031-consent-clause-ack.md).
+ *
+ * **다섯을 넘기지 마세요.** 화면이 「확인 N / 5」와 「N개 항목 확인 남음」을
+ * 그리고, `checks` 도 다섯 칸입니다.
+ *
+ * 밖으로 뺀 이유는 **읽히는 글이라 시험이 붙어야 하기 때문**입니다. 4항은
+ * 2026-08-30 까지 *「제3자에게 제공하지 않습니다 … 위탁이 생기면 이 문서에
+ * 명시합니다」* 였는데, **위탁은 이미 있었습니다** — 원본 음성·이미지가 가려지기
+ * 전에 전사 서버로 나가고 있었고, 그 사실이 동의 전문 어디에도 없었습니다.
+ */
+export function ConsentClauses({
+  checks,
+  onToggle,
+}: {
+  checks: readonly boolean[];
+  onToggle: (i: number) => void;
+}) {
+  return (
+    <>
+      <Clause title="1. 수집하는 항목" checked={checks[0] ?? false} onToggle={() => onToggle(0)}>
+        진술 내용, 올리신 자료(통화 녹음·문자 캡처·이체 내역·통지, 전부 선택),
+        이메일(선택). 계좌·전화·이름은 전송 전 브라우저에서 토큰으로 치환되며{" "}
+        <b className="font-[620] text-deadline-urgent">주민등록번호는 수집하지 않습니다.</b>
+      </Clause>
+      <Clause title="2. 이용 목적" checked={checks[1] ?? false} onToggle={() => onToggle(1)}>
+        절차 안내, 법정 기한 계산과 알림, 서류 초안 작성, 통지 해석.{" "}
+        <b className="font-[620] text-ink-2">
+          이 사건 처리 외 목적으로 쓰지 않고 AI 학습에 쓰지 않습니다.
+        </b>
+      </Clause>
+      <Clause title="3. 보관과 파기" checked={checks[2] ?? false} onToggle={() => onToggle(2)}>
+        마지막 활동일부터 <b className="font-[620] text-ink-2">180일이 지나면 자동 파기</b>
+        됩니다. 링크로 다시 접속하면 활동일이 갱신되며, 파기 후에는 복구할 수 없습니다.
+      </Clause>
+      <Clause
+        title="4. 제3자 제공과 처리위탁"
+        checked={checks[3] ?? false}
+        onToggle={() => onToggle(3)}
+      >
+        제3자에게 <b className="font-[620] text-ink-2">제공·판매하지 않습니다.</b> 서류 제출은{" "}
+        <b className="font-[620] text-ink-2">이용자가 직접</b> 합니다. 다만 서비스를 돌리기 위해
+        아래 업무를 <b className="font-[620] text-ink-2">위탁하고 있습니다.</b>
+        <ul className="mt-2.5 grid gap-1.5">
+          {위탁.map(([수탁자, 어디, 업무, 무엇이]) => (
+            <li
+              key={수탁자}
+              className="rounded-[10px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[10px_12px]"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <span className="text-[13px] font-[640] text-ink-2">{수탁자}</span>
+                <span className="text-[12.5px] text-ink-3">{어디}</span>
+              </div>
+              <p className="mt-1 text-[12.5px] leading-[1.55] text-ink-3">
+                {업무} — {무엇이}
+              </p>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2.5">
+          국외로 나가는 경우는{" "}
+          <b className="font-[620] text-ink-2">개인정보 보호법 제28조의8 제1항 제3호</b>(계약의
+          체결·이행을 위한 처리위탁)에 따른 것이며, 별도 동의 대신{" "}
+          <b className="font-[620] text-ink-2">이 문서의 공개로 고지를 갈음합니다.</b> 원문이
+          지나는 전사·판독은 <b className="font-[620] text-ink-2">국내에서만 처리하는 것을 원칙</b>
+          으로 하고, 성능 시험용으로 빌리는 국외 GPU 에는{" "}
+          <b className="font-[620] text-ink-2">합성(가짜) 자료만</b> 올립니다.
+        </p>
+      </Clause>
+      <Clause title="5. 이용자의 권리" checked={checks[4] ?? false} onToggle={() => onToggle(4)} last>
+        언제든 자료 삭제와 사건 종결(즉시 파기)을 요청할 수 있습니다. 동의를 거부하면
+        서비스를 시작할 수 없습니다.{" "}
+        <b className="font-[620] text-ink-2">사건 링크를 아는 사람만</b> 이 권리를 행사할 수
+        있습니다.
+      </Clause>
+    </>
   );
 }
 
@@ -845,32 +987,7 @@ export default function Start() {
                 </div>
               </div>
 
-              <Clause title="1. 수집하는 항목" checked={checks[0]} onToggle={() => toggle(0)}>
-                진술 내용, 올리신 자료(통화 녹음·문자 캡처·이체 내역·통지, 전부 선택),
-                이메일(선택). 계좌·전화·이름은 전송 전 브라우저에서 토큰으로 치환되며{" "}
-                <b className="font-[620] text-deadline-urgent">주민등록번호는 수집하지 않습니다.</b>
-              </Clause>
-              <Clause title="2. 이용 목적" checked={checks[1]} onToggle={() => toggle(1)}>
-                절차 안내, 법정 기한 계산과 알림, 서류 초안 작성, 통지 해석.{" "}
-                <b className="font-[620] text-ink-2">
-                  이 사건 처리 외 목적으로 쓰지 않고 AI 학습에 쓰지 않습니다.
-                </b>
-              </Clause>
-              <Clause title="3. 보관과 파기" checked={checks[2]} onToggle={() => toggle(2)}>
-                마지막 활동일부터 <b className="font-[620] text-ink-2">180일이 지나면 자동 파기</b>
-                됩니다. 링크로 다시 접속하면 활동일이 갱신되며, 파기 후에는 복구할 수 없습니다.
-              </Clause>
-              <Clause title="4. 제3자 제공과 위탁" checked={checks[3]} onToggle={() => toggle(3)}>
-                제3자에게 제공하지 않습니다. 서류 제출은{" "}
-                <b className="font-[620] text-ink-2">이용자가 직접</b> 합니다. 위탁이 생기면 이
-                문서에 명시합니다.
-              </Clause>
-              <Clause title="5. 이용자의 권리" checked={checks[4]} onToggle={() => toggle(4)} last>
-                언제든 자료 삭제와 사건 종결(즉시 파기)을 요청할 수 있습니다. 동의를 거부하면
-                서비스를 시작할 수 없습니다.{" "}
-                <b className="font-[620] text-ink-2">사건 링크를 아는 사람만</b> 이 권리를 행사할 수
-                있습니다.
-              </Clause>
+              <ConsentClauses checks={checks} onToggle={toggle} />
             </div>
 
             <div className="flex gap-2.5 border-t border-[oklch(0.305_0.013_267.1/72%)] bg-stage px-6 py-4">

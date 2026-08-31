@@ -119,6 +119,22 @@ export interface StoredStep {
   readonly sourceUrl: string
   /** `YYYY-MM-DD` */
   readonly effectiveFrom: string
+  /**
+   * 이 단계를 **만든** 시각 — ISO 8601 · 시간대 포함 → 09-data-model.md §6
+   * `generated_at`. 계약 §3.6 의 `generated_at` 이 여기서 나옵니다.
+   *
+   * **읽은 때가 아닙니다.** `planner` 가 단계를 만들며 찍고(`plan.ts`),
+   * 저장소가 그대로 적었다가 그대로 되읽습니다. 조회 때 지금 시각을 넣으면
+   * 화면이 아무 일도 없었는데 매번 「방금 갱신됨」이 됩니다.
+   *
+   * **재생성이 보존한 단계는 옛 시각을 그대로 들고 있습니다** → §6.1.
+   * 그래서 플랜 전체의 기준 시각은 아래 `PlanSnapshot.generatedAt` 이
+   * **최대값**으로 셉니다.
+   *
+   * ⬜ **선택 칸입니다.** 이 값을 안 싣는 저장소 대역이 아직 남아 있어서고,
+   * 없으면 §3.6 의 칸이 `null` 로 나갑니다 — **지어내지 않습니다.**
+   */
+  readonly generatedAt?: string
   /** 이 단계에 붙은 부산물. 없으면 빈 배열 */
   readonly artifacts: readonly StoredArtifact[]
   /** 없으면 `null` */
@@ -225,6 +241,21 @@ export interface PlanSnapshot {
   readonly caseId: string
   /** 조건부 단계가 섞인 넓은 플랜인가 → 08-14-slot-tiering.md */
   readonly isSuperset: boolean
+  /**
+   * 이 플랜이 만들어진 시각 → 계약 §3.6 `generated_at`. **단계가 없으면 `null`.**
+   *
+   * ## 왜 최대값인가
+   *
+   * 재생성은 지우고 다시 넣지 않습니다(§6.1). 사용자가 이미 끝낸 단계는
+   * `preserved` 로 남고 **`generated_at` 도 그때 그대로**입니다. 그래서 한
+   * 플랜 안에 시각이 여럿 섞이고, 첫째나 최소를 쓰면 **방금 다시 만든 플랜이
+   * 며칠 전 것으로 보입니다** — 화면의 「이 안내는 언제 기준인가」가 실제와
+   * 어긋나고, 사용자는 제도가 바뀐 뒤에도 갱신됐다는 것을 모릅니다.
+   *
+   * **지금 시각을 쓰지도 않습니다** — 조회는 아무것도 안 바꾸는데 매번
+   * 「방금 갱신됨」이 됩니다.
+   */
+  readonly generatedAt: string | null
   readonly kbVersion: string
   readonly steps: readonly StoredStep[]
   /** 어디로 얼마가 나갔나 → 계약 §3.6. 아직 안 물었으면 빈 배열 */
@@ -281,6 +312,33 @@ async function orgOptions(
     // 후보를 못 읽어도 **플랜은 나가야 합니다.** 되묻기만 조용히 빠집니다
     return []
   }
+}
+
+/**
+ * 이 플랜의 기준 시각 — **단계들의 최대값** → 계약 §3.6 `generated_at`.
+ *
+ * 재생성이 보존한 단계(§6.1)는 옛 시각을 그대로 들고 있어 한 플랜 안에
+ * 시각이 섞입니다. **최대라야 「가장 최근에 이 플랜을 손본 때」**가 되고,
+ * 첫째나 최소를 쓰면 방금 갱신한 플랜이 며칠 전 것으로 보입니다.
+ *
+ * **없으면 `null` 입니다** — 단계가 하나도 없거나(막 열린 사건) 저장소가 이
+ * 값을 안 실었을 때. 지금 시각으로 메우지 않습니다.
+ */
+function latestGeneratedAt(steps: readonly StoredStep[]): string | null {
+  let latest: string | null = null
+  let latestMs = -Infinity
+
+  for (const one of steps) {
+    if (one.generatedAt === undefined) continue
+    // **읽을 수 없는 값은 못 본 것으로 둡니다.** 못 읽은 것을 최대로 세면
+    // 기준 시각이 통째로 엉뚱해집니다
+    const ms = Date.parse(one.generatedAt)
+    if (Number.isNaN(ms) || ms <= latestMs) continue
+    latest = one.generatedAt
+    latestMs = ms
+  }
+
+  return latest
 }
 
 /**
@@ -359,6 +417,7 @@ export async function regeneratePlan(
   return {
     caseId,
     isSuperset: check.needsSupersetPlan,
+    generatedAt: latestGeneratedAt(steps),
     kbVersion: version,
     steps,
     channels: await dressChannels(channelRows, version, container),
@@ -504,6 +563,9 @@ export async function readCasePlan(
   return {
     caseId,
     isSuperset: check.needsSupersetPlan,
+    // **읽기도 만든 때를 그대로 씁니다.** 여기서 지금 시각을 넣으면 폴링마다
+    // 「방금 갱신됨」이 되고, 화면은 바뀐 것이 없는데 바뀌었다고 말합니다
+    generatedAt: latestGeneratedAt(steps),
     kbVersion,
     steps,
     channels: await dressChannels(channelRows, kbVersion, container),
@@ -597,6 +659,7 @@ export async function openCaseWithPlan(
     plan: {
       caseId: opened.caseId,
       isSuperset: check.needsSupersetPlan,
+      generatedAt: latestGeneratedAt(steps),
       kbVersion: version,
       steps,
       // **막 열린 사건에는 경유 서비스가 없습니다.** 진술은 아직 안 받았고,

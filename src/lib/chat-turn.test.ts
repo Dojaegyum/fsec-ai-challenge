@@ -740,6 +740,8 @@ interface ChatHarness {
   readonly written: readonly MessageWrite[]
   /** 감사 저장소에 쌓인 줄. **진짜 `audit-logger` 가 만든 것**입니다 */
   readonly audits: readonly AuditRecord[]
+  /** `chat-receiver` 가 받은 것. 흐름이 무엇을 모아 넘겼는지 봅니다 */
+  readonly received: { readonly issuedTokens?: readonly { token: string }[] }[]
 }
 
 /**
@@ -756,10 +758,15 @@ function chatHarness(
     readonly history?: readonly { speaker: 'user' | 'assistant'; text: string }[]
     /** 물을 것이 남지 않은 사건 — 슬롯을 다 채운 자리입니다 */
     readonly noQuestion?: boolean
+    /** 브라우저가 볼트에 맡겨 둔 이름표 — **값이 아니라 번호만** 옵니다 */
+    readonly vaultTokens?: readonly string[]
+    /** 서버가 앞서 전사문에 붙인 이름표가 박혀 있는 줄 */
+    readonly transcript?: readonly { speaker: string; text: string }[]
   } = {},
 ): ChatHarness {
   const written: MessageWrite[] = []
   const audits: AuditRecord[] = []
+  const received: { issuedTokens?: readonly { token: string }[] }[] = []
 
   const store: CasePlanStore = {
     async readCase() {
@@ -804,7 +811,12 @@ function chatHarness(
   const container: Container = {
     ...createContainer(env, ports),
     // 모델은 이 파일이 보는 것이 아닙니다 → 위 「chat-receiver 가 순서를 부르면」
-    chatReceiver: { receive: async () => over.turn ?? turnOf() },
+    chatReceiver: {
+      receive: async (input: { issuedTokens?: readonly { token: string }[] }) => {
+        received.push(input)
+        return over.turn ?? turnOf()
+      },
+    },
     messages: {
       async write(input) {
         written.push(input)
@@ -813,7 +825,7 @@ function chatHarness(
         return over.history ?? []
       },
       async transcript() {
-        return []
+        return over.transcript ?? []
       },
       async turns() {
         return { turns: [], truncated: false }
@@ -822,6 +834,13 @@ function chatHarness(
     slots: { read: async () => [] },
     deadlines: { read: async () => [] },
     deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    // 이름표 장부 → 04-pii-boundary.md 「번호의 단위」. 이 파일이 보는 것은
+    // 이음매라 비워 둡니다 — 이어받는지는 `chat-receiver` 시험이 봅니다
+    vaultWrite: {
+      put: async () => 0,
+      list: async () => [],
+      tokens: async () => over.vaultTokens ?? [],
+    },
     ...(over.noQuestion
       ? {
           slotChecker: {
@@ -836,7 +855,7 @@ function chatHarness(
       : {}),
   }
 
-  return { container, written, audits }
+  return { container, written, audits, received }
 }
 
 /** 한 턴을 돌리고 응답 본문을 계약의 모양으로 받는다 */
@@ -1010,6 +1029,41 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     ])
   })
 
+  it('**모델이 스스로 밝힌 이름과 토큰 수**를 남긴다 — §10.2', async () => {
+    // 정본이 `{"model":…,"token_in":…}` 로 정한 자리입니다. 값은 `lib/llm.ts` 가
+    // 응답 본문의 `model`·`usage` 를 읽어 `ModelReply.call` 로 실어 옵니다
+    const one = chatHarness({
+      turn: turnOf({
+        reply: {
+          insufficient: false,
+          citations: [{ ref: 'kb-1', why: '다음 단계를 안내하는 데 썼습니다' }],
+          reply: '다음은 피해구제 신청서 제출입니다.',
+          call: { model: 'grok-4.5', tokenIn: 1200, tokenOut: 300 },
+        },
+      }),
+    })
+    await runTurn(one)
+
+    const llm = one.audits.find((row) => row.eventType === 'llm.called')
+    expect(llm?.detail).toEqual({
+      attempts: 1,
+      model: 'grok-4.5',
+      token_in: 1200,
+      token_out: 300,
+    })
+  })
+
+  it('제공자가 안 밝히면 **그 칸을 비운다** — 지어내지 않습니다', async () => {
+    // 환경변수의 모델 이름을 대신 쓰면 **실제로 답한 것과 다를 수 있어** 감사
+    // 기록이 거짓이 됩니다. 후보를 차례로 시도하는 구조라 특히 그렇습니다
+    const one = chatHarness()
+    await runTurn(one)
+
+    const llm = one.audits.find((row) => row.eventType === 'llm.called')
+    expect(llm?.detail).toEqual({ attempts: 1 })
+  })
+
+
   it('**건수와 릴리스만** 담는다 — 식별자도 본문도 안 넣습니다 (§10.1)', async () => {
     const one = chatHarness()
     await runTurn(one)
@@ -1060,5 +1114,38 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
 
     expect(one.audits).toHaveLength(2)
     expect(one.audits.every((row) => row.caseId === CASE_ID)).toBe(true)
+  })
+})
+
+/**
+ * 이름표 번호는 **사건 하나**를 단위로 합니다 → 04-pii-boundary.md 「번호의 단위」.
+ *
+ * 모으는 것이 이 흐름의 일입니다 — `chat-receiver` 는 저장소를 안 봅니다(ADR-022).
+ * 안 모으면 서버 2차가 발화마다 1번부터 붙여, 브라우저가 볼트에 맡긴
+ * `[계좌-1]` 자리에 **다른 계좌가 겹쳐 앉습니다.**
+ */
+describe('쓰인 이름표를 모아 넘긴다 — 04-pii-boundary.md 「번호의 단위」', () => {
+  it('볼트와 전사문의 이름표가 함께 간다', async () => {
+    const one = chatHarness({
+      vaultTokens: ['[계좌-1]'],
+      // 서버가 앞서 붙인 이름표는 **볼트에 없습니다** — 봉할 키가 서버에 없어서
+      transcript: [{ speaker: 'A', text: '[이름-1] 이라고 했어요' }],
+    })
+
+    await runTurn(one)
+
+    expect(one.received[0].issuedTokens?.map((token) => token.token)).toEqual([
+      '[계좌-1]',
+      '[이름-1]',
+    ])
+  })
+
+  /** **회귀** — 새 사건은 장부가 비어 있고, 그때가 1번부터입니다 */
+  it('아무것도 없으면 빈 장부가 간다 — 던지지 않는다', async () => {
+    const one = chatHarness()
+
+    await runTurn(one)
+
+    expect(one.received[0].issuedTokens).toEqual([])
   })
 })
