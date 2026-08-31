@@ -98,6 +98,16 @@ function wiredContainer(over: { tokenizer?: PiiTokenizer } = {}) {
     channelWrite: { write: async () => {}, candidates: async () => [] },
     deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
     orgs: { read: async () => null, list: async () => [] },
+    // ── 이름표 장부 → 04-pii-boundary.md 「번호의 단위」 ──────────────
+    // 서버 토큰화가 **이미 쓰인 번호를 이어받는** 자리입니다. 대역이 없으면
+    // 미설정 포트를 불러 그 자리에서 터집니다 — 비어 있으면 1번부터입니다
+    vaultWrite: { put: async () => 0, list: async () => [], tokens: async () => [] },
+    messages: {
+      write: async () => {},
+      history: async () => [],
+      transcript: async () => [],
+      turns: async () => ({ turns: [], truncated: false }),
+    },
     ...(over.tokenizer ? { piiTokenizer: over.tokenizer } : {}),
   }
 }

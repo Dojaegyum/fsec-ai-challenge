@@ -22,6 +22,7 @@
 import { findHits } from '@/modules/pii-masker'
 import { PiiBoundaryError, PiiTokenizerUnavailableError } from '@/lib/errors'
 
+import { tokensInText } from './ledger'
 import { findTranscriptDigits } from './transcript-digits'
 import { WIRE_NAME } from './types'
 import type {
@@ -52,13 +53,28 @@ const NER_LABELS_TO_TOKENIZE: Readonly<Record<string, TokenKind>> = {
   '이름': '이름',
 }
 
-/** 같은 원문은 같은 토큰. 값 기준으로 찾습니다 */
+/**
+ * 같은 원문은 같은 토큰. 값 기준으로 찾습니다.
+ *
+ * ⚠️ **원문이 없는 항목은 여기 안 걸립니다.** 장부에서 이어받은 항목에는
+ * 원문이 없습니다 — 서버가 그 값을 모르기 때문입니다(`ledger.ts`). 그것을
+ * 빈 문자열로 채워 두면 **서로 다른 값이 같은 이름표를 받아** 복원이 뒤바뀝니다.
+ * 겹치는 번호를 고치려다 더 나쁜 것을 만드는 자리라, 조건을 값 자체가 아니라
+ * **「원문을 아는 항목인가」로 먼저** 봅니다 → 04-pii-boundary.md 「번호의 단위」.
+ */
+function knowsOriginal(one: TokenMapping): one is TokenMapping & { original: string } {
+  return typeof one.original === 'string' && one.original.length > 0
+}
+
 function findExisting(
   mappings: readonly TokenMapping[],
   kind: TokenKind,
   original: string,
 ): TokenMapping | undefined {
-  return mappings.find((one) => one.kind === kind && one.original === original)
+  if (original.length === 0) return undefined
+  return mappings.find(
+    (one) => one.kind === kind && knowsOriginal(one) && one.original === original,
+  )
 }
 
 function nextSeq(mappings: readonly TokenMapping[], kind: TokenKind): number {
@@ -232,7 +248,11 @@ function knownSpans(text: string, mappings: readonly TokenMapping[]): Span[] {
   const spans: Span[] = []
 
   for (const one of mappings) {
-    if (!one.original || one.original.length === 0) continue
+    // ⚠️ **빈 문자열도 걸러야 합니다.** `indexOf('')` 는 언제나 `from` 을 돌려주고
+    // `from += 0` 이라 **이 반복문이 영원히 돕니다** — 2026-08-31 에 실제로 시험
+    // 작업자가 죽었습니다. 장부에서 이어받은 항목은 원문이 없으므로(`ledger.ts`)
+    // 이 자리를 반드시 지나갑니다
+    if (!one.original) continue
 
     let from = 0
     for (;;) {
@@ -263,10 +283,10 @@ function knownSpans(text: string, mappings: readonly TokenMapping[]): Span[] {
  * 지우거나 바꾸지 않는 이유는 **사용자가 쓴 글자를 우리가 고치는 것**이라
  * 규칙이 필요하기 때문입니다.
  */
-const TOKEN_SHAPE = /\[(주민번호|카드|전화|계좌|이름)-\d+\]/g
-
 function countForeignTokens(text: string): number {
-  return text.match(TOKEN_SHAPE)?.length ?? 0
+  // **모양의 정본은 `ledger.ts` 하나입니다.** 여기 따로 적어 두면 종류가
+  // 하나 늘 때 한쪽만 고쳐지고, 안 고쳐진 쪽이 조용히 못 세는 쪽이 됩니다
+  return tokensInText(text).length
 }
 
 export function createPiiTokenizer(deps: { ner?: NerModel } = {}): PiiTokenizer {

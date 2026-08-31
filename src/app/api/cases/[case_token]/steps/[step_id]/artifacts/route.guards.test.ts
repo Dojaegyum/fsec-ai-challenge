@@ -125,7 +125,13 @@ function lengtheningTokenizer(maskedLength: number): PiiTokenizer {
   }
 }
 
-function wiredContainer(over: { tokenizer?: PiiTokenizer } = {}) {
+function wiredContainer(
+  over: {
+    tokenizer?: PiiTokenizer
+    /** 브라우저가 볼트에 맡겨 둔 이름표 — **값이 아니라 번호만** 옵니다 */
+    vaultTokens?: readonly string[]
+  } = {},
+) {
   const ports = {
     ...unconfiguredPorts(readEnv({})),
     casePlan,
@@ -147,6 +153,20 @@ function wiredContainer(over: { tokenizer?: PiiTokenizer } = {}) {
     slots: { read: async () => [] },
     deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
     orgs: { read: async () => null, list: async () => [] },
+    // ── 이름표 장부 → 04-pii-boundary.md 「번호의 단위」 ──────────────
+    // 서버 토큰화가 **이미 쓰인 번호를 이어받는** 자리입니다. 대역이 없으면
+    // 미설정 포트를 불러 그 자리에서 터집니다 — 비어 있으면 1번부터입니다
+    vaultWrite: {
+      put: async () => 0,
+      list: async () => [],
+      tokens: async () => over.vaultTokens ?? [],
+    },
+    messages: {
+      write: async () => {},
+      history: async () => [],
+      transcript: async () => [],
+      turns: async () => ({ turns: [], truncated: false }),
+    },
     artifacts: {
       async write(row: { caseId: string; planStepId: string; valueMasked: string | null }) {
         written.push({
@@ -297,5 +317,33 @@ describe('계측 헤더 — 08-14-api.md §1.1', () => {
     const res = await POST(one.request, one.route)
 
     expect(res.headers.get('X-Audit-Id')).toBe('none')
+  })
+})
+
+/**
+ * 서버가 붙이는 이름표의 번호는 **사건 하나**를 단위로 합니다
+ * → 04-pii-boundary.md 「번호의 단위」.
+ *
+ * ⚠️ **2026-08-30 까지 이 자리가 요청마다 1번부터였습니다.** 챗에서 본인 계좌에
+ * 붙은 `[계좌-1]` 이 볼트에 있는데 여기서도 `[계좌-1]` 을 붙여, 접수번호 자리가
+ * **본인 계좌번호로 복원돼 보였습니다.**
+ */
+describe('이름표 번호가 사건 안에서 안 겹친다 — 04-pii-boundary.md 「번호의 단위」', () => {
+  it('볼트가 쓴 번호 다음부터 붙인다', async () => {
+    holder.container = wiredContainer({ vaultTokens: ['[주민번호-1]'] })
+
+    const one = ask(STEP_ID, { kind: 'receipt_no', value: '900101-1234567 접수' })
+    const res = await POST(one.request, one.route)
+
+    expect(res.status).toBe(200)
+    expect(written[0].valueMasked).toBe('[주민번호-2] 접수')
+  })
+
+  /** **회귀** — 장부가 비면 지금까지처럼 1번부터입니다 */
+  it('장부가 비면 1번부터', async () => {
+    const one = ask(STEP_ID, { kind: 'receipt_no', value: '900101-1234567 접수' })
+
+    expect((await POST(one.request, one.route)).status).toBe(200)
+    expect(written[0].valueMasked).toBe('[주민번호-1] 접수')
   })
 })

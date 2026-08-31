@@ -9,7 +9,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { memoryKeyStore } from "@/modules/key-handler";
+import { createSessionKey, memoryKeyStore, sealAll } from "@/modules/key-handler";
 
 import { answerSlot, sendUtterance } from "./send";
 
@@ -47,8 +47,19 @@ const json = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" },
   });
 
+/**
+ * **볼트를 이미 읽은 상태**로 부릅니다 — 아래 「모르면 번호를 안 붙인다」만
+ * `vaultRead: false` 를 씁니다. 안 그러면 발화마다 볼트 조회가 한 번씩 더 붙어
+ * 「무엇이 몇 번 나갔나」를 보는 시험들이 그 조회를 세게 됩니다
+ */
 const send = (text: string) =>
-  sendUtterance({ caseToken: TOKEN, text, mappings: [], store: memoryKeyStore() });
+  sendUtterance({
+    caseToken: TOKEN,
+    text,
+    mappings: [],
+    vaultRead: true,
+    store: memoryKeyStore(),
+  });
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -128,6 +139,7 @@ describe("질문에 답하는 것도 같은 경계를 지난다 — §3.5", () =
       action,
       ...(value === undefined ? {} : { value }),
       mappings: [],
+      vaultRead: true,
       store: memoryKeyStore(),
     });
 
@@ -229,6 +241,104 @@ describe("질문에 답하는 것도 같은 경계를 지난다 — §3.5", () =
     expect(result.ok).toBe(false);
     expect(!result.ok && result.stage).toBe("answer");
     expect(!result.ok && result.fail.retryable).toBe(true);
+  });
+});
+
+/**
+ * ── 볼트에 무엇이 있는지 **모르는 채로는 번호를 안 붙입니다** ──────────
+ *
+ * 볼트는 `ON CONFLICT (case_id, token) DO UPDATE SET ciphertext` 로 덮어씁니다
+ * (§3.11). 이미 `[계좌-1]` 이 맡겨져 있는데 모르고 1번을 다시 발급하면
+ * **본인 칸이 지워집니다** — 며칠 뒤 옛 대화가 남의 계좌로 복원됩니다.
+ */
+describe("볼트를 못 읽었으면 번호를 새로 붙이지 않는다", () => {
+  /** 본인이 맡겨 둔 칸 하나. **이 기기에는 그 열쇠가 없습니다**(가족 기기) */
+  async function seeded() {
+    const owner = await createSessionKey();
+    return sealAll(owner, [
+      { token: "[계좌-1]", kind: "계좌", seq: 1, original: ACCOUNT },
+    ]);
+  }
+
+  /** GET `…/vault` 와 POST `…/vault` 를 메서드로 갈라 냅니다 */
+  function stubVault(get: () => Response) {
+    const calls: { url: string; method: string; body: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = String(init?.method ?? "GET");
+        calls.push({ url, method, body: String(init?.body ?? "") });
+        if (url.includes("/vault")) return method === "GET" ? get() : json({ stored: 1 });
+        return json(answer);
+      }),
+    );
+    return calls;
+  }
+
+  const blind = (text: string) =>
+    sendUtterance({
+      caseToken: TOKEN,
+      text,
+      mappings: [],
+      // **못 읽은 상태입니다** — 첫 로드에서 볼트 조회가 실패했을 때 이렇습니다
+      vaultRead: false,
+      store: memoryKeyStore(),
+    });
+
+  it("먼저 물어보고, 이미 쓰인 번호를 피해서 붙인다", async () => {
+    const entries = await seeded();
+    const calls = stubVault(() => json({ entries }));
+    const result = await blind("제 계좌는 301-1234-567890 이에요");
+
+    expect(result.ok).toBe(true);
+    // ① 물어보고 ② 맡기고 ③ 보냅니다
+    expect(calls.map((c) => `${c.method} ${c.url.includes("/vault") ? "vault" : "messages"}`))
+      .toEqual(["GET vault", "POST vault", "POST messages"]);
+
+    // **1번을 다시 안 씁니다** — 썼으면 본인 칸이 이 발화로 덮였습니다
+    const kept = calls.find((c) => c.method === "POST" && c.url.includes("/vault"));
+    expect(kept?.body).toContain("[계좌-2]");
+    expect(kept?.body).not.toContain("[계좌-1]");
+
+    const said = calls.find((c) => c.url.includes("/messages"));
+    expect(said?.body).toContain("[계좌-2]");
+    // 다음 턴부터는 그냥 이어 씁니다
+    expect(result.ok && result.vaultRead).toBe(true);
+  });
+
+  it("물어보지 못하면 **아무것도 안 보낸다**", async () => {
+    const calls = stubVault(() => json({ error: { message: "잠시 뒤에" } }, 503));
+    const result = await blind("제 계좌는 301-1234-567890 이에요");
+
+    // 볼트에 맡기지도, 발화를 보내지도 않습니다
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.method).toBe("GET");
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.stage).toBe("vault");
+    // 다시 보내는 것은 사용자가 합니다 → 에러 §3.1
+    expect(!result.ok && result.fail.retryable).toBe(true);
+  });
+
+  it("가릴 것이 없으면 못 읽었어도 볼트를 안 부른다", async () => {
+    const calls = stubVault(() => json({ entries: [] }));
+    const result = await blind("이제 뭘 해야 하나요");
+
+    expect(result.ok).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toContain("/messages");
+    // 물어본 적이 없으니 여전히 모르는 상태입니다
+    expect(result.ok && result.vaultRead).toBe(false);
+  });
+
+  it("열쇠가 없어도 원문은 안 나간다 — 되물어 온 이름표만 씁니다", async () => {
+    const entries = await seeded();
+    const calls = stubVault(() => json({ entries }));
+    await blind("제 계좌는 301-1234-567890 이에요");
+
+    for (const call of calls) {
+      expect(call.body).not.toContain(ACCOUNT);
+      expect(call.body).not.toContain("301-1234-567890");
+    }
   });
 });
 

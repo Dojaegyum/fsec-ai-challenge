@@ -73,7 +73,14 @@ export function createChatReceiver(deps: {
       const allowedTerms = await orgTerms
         .list(input.kbVersion)
         .catch((): readonly string[] => [])
-      const { masked } = await tokenizer.tokenize(input.utterance, { allowedTerms })
+      // **이미 쓰인 이름표를 이어 넘깁니다** → 04-pii-boundary.md 「번호의 단위」.
+      // 안 넘기면 발화마다 번호가 1부터라, 브라우저가 앞서 볼트에 맡긴
+      // `[계좌-1]` 자리에 이번 턴의 다른 계좌가 겹쳐 앉습니다 — 화면이 복원할 때
+      // **엉뚱한 계좌가 그려집니다.** 원문은 안 옵니다(서버는 볼트를 못 엽니다)
+      const { masked } = await tokenizer.tokenize(input.utterance, {
+        allowedTerms,
+        mappings: input.issuedTokens ?? [],
+      })
 
       // 2. 조회 조건은 서버가 전부 압니다 — 모델에게 묻지 않습니다
       const groups = await kb.find({

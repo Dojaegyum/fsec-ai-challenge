@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest'
 
 import { PiiTokenizerUnavailableError } from '@/lib/errors'
 
+import { issuedMappings } from './ledger'
 import { createPiiTokenizer } from './tokenize'
 import type { NerModel, NerSpan } from './types'
 
@@ -209,6 +210,106 @@ describe('같은 값은 같은 토큰', () => {
     })
 
     expect(masked).toBe('[계좌-2]')
+  })
+})
+
+/**
+ * 서버는 볼트를 열 수 없어 **번호만 이어받습니다** → 04-pii-boundary.md
+ * 「번호의 단위」 · `ledger.ts`.
+ *
+ * 여기가 이번 고침에서 **가장 위험한 자리**입니다. 원문이 없는 항목을 빈
+ * 문자열로 채워 넘기면 값 매칭에 걸려 **서로 다른 값이 같은 이름표**를
+ * 받습니다 — 번호가 겹치던 것보다 나쁩니다.
+ */
+describe('원문 없는 장부를 이어받는다 — 번호만', () => {
+  it('볼트가 쓴 번호 다음부터 발급한다', async () => {
+    // 브라우저가 `[계좌-1]` 을 볼트에 맡겼습니다. 서버는 그 값을 모릅니다
+    const tokenizer = createPiiTokenizer()
+
+    const { masked } = await tokenizer.tokenize('222-333-444444', {
+      mappings: issuedMappings(['[계좌-1]']),
+    })
+
+    expect(masked).toBe('[계좌-2]')
+  })
+
+  it('종류마다 따로 센다 — 계좌가 셋이어도 이름은 1번부터', async () => {
+    const text = '김민수 님께 보냈어요'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '김민수') })
+
+    const { masked } = await tokenizer.tokenize(text, {
+      mappings: issuedMappings(['[계좌-1]', '[계좌-2]', '[계좌-3]']),
+    })
+
+    expect(masked).toBe('[이름-1] 님께 보냈어요')
+  })
+
+  /**
+   * ⚠️ **여기가 무너지면 지금보다 나빠집니다.** 장부 항목에는 원문이 없는데,
+   * 그것을 빈 문자열로 채워 두면 `findExisting` 이 「값이 같다」고 보고
+   * **다른 계좌에 남의 이름표를 붙입니다** — 복원이 통째로 뒤바뀝니다
+   */
+  it('원문 없는 항목은 값 매칭에 안 걸린다 — 다른 값은 다른 번호', async () => {
+    const tokenizer = createPiiTokenizer()
+
+    const { masked, added } = await tokenizer.tokenize('222-333-444444', {
+      // 「원문을 모른다」를 빈 문자열로 적어 넘긴 경우까지 막습니다
+      mappings: [{ token: '[계좌-1]', kind: '계좌', seq: 1, original: '' }],
+    })
+
+    expect(masked).toBe('[계좌-2]')
+    expect(added).toHaveLength(1)
+    expect(added[0].original).toBe('222-333-444444')
+  })
+
+  it('원문 없는 항목이 여럿이어도 서로 다른 값이 뭉치지 않는다', async () => {
+    const tokenizer = createPiiTokenizer()
+
+    const { masked } = await tokenizer.tokenize('222-333-444444 과 555-666-777777', {
+      mappings: issuedMappings(['[계좌-1]', '[계좌-2]']),
+    })
+
+    // 두 계좌가 **서로 다른** 번호를 받아야 합니다
+    expect(masked).toBe('[계좌-3] 과 [계좌-4]')
+  })
+
+  /** **회귀** — 장부가 비어 있으면 지금까지처럼 1번부터입니다 */
+  it('장부가 비면 1번부터', async () => {
+    const tokenizer = createPiiTokenizer()
+
+    const { masked } = await tokenizer.tokenize('110-234-567890', {
+      mappings: issuedMappings([]),
+    })
+
+    expect(masked).toBe('[계좌-1]')
+  })
+
+  /**
+   * 원문이 빈 항목을 **찾을 값**으로도 쓰지 않습니다. `''` 는 아무 자리에나
+   * 있으므로, 걸러 내지 않으면 멀쩡한 글이 통째로 가려집니다
+   */
+  it('원문이 빈 항목으로 멀쩡한 글을 가리지 않는다', async () => {
+    const tokenizer = createPiiTokenizer()
+
+    const { masked, added } = await tokenizer.tokenize('안녕하세요', {
+      mappings: [{ token: '[계좌-1]', kind: '계좌', seq: 1, original: '' }],
+    })
+
+    expect(masked).toBe('안녕하세요')
+    expect(added).toEqual([])
+  })
+
+  /** 원문을 아는 항목(이번 호출 안에서 만든 것)은 그대로 값 매칭이 됩니다 */
+  it('원문을 아는 항목은 여전히 같은 번호를 다시 쓴다', async () => {
+    const tokenizer = createPiiTokenizer()
+
+    const first = await tokenizer.tokenize('110-234-567890')
+    const second = await tokenizer.tokenize('110-234-567890 다시', {
+      mappings: first.mappings,
+    })
+
+    expect(second.masked).toBe('[계좌-1] 다시')
+    expect(second.added).toHaveLength(0)
   })
 })
 
@@ -472,5 +573,46 @@ describe('유니코드 변형으로 우회할 수 없다', () => {
     const { added } = await tokenizer.tokenize('계좌 110–234–567890 으로')
 
     expect(added[0].original).toBe('110–234–567890')
+  })
+})
+
+describe('원문 없는 장부 항목이 반복문을 멈추지 않는다', () => {
+  /**
+   * ⚠️ **2026-08-31 에 실제로 시험 작업자가 죽었습니다.**
+   *
+   * 장부에서 이어받은 항목에는 원문이 없습니다(`ledger.ts` — 서버는 그 값을
+   * 모릅니다). 그것이 빈 문자열로 들어오면 `knownSpans` 의
+   * `text.indexOf('', from)` 이 **언제나 `from` 을 돌려주고** `from += 0` 이라
+   * 그 자리에서 영원히 돕니다. 프로세스가 죽어서 시험이 「실패」가 아니라
+   * **아예 안 도는 것**으로 나타납니다 — 45건이 조용히 사라졌습니다.
+   */
+  it('원문이 빈 문자열이어도 끝난다', async () => {
+    const tokenizer = createPiiTokenizer()
+    const out = await tokenizer.tokenize('계좌는 110-2345-678901 입니다', {
+      // 장부에서 이어받은 모양 — 이름표와 번호만 알고 값은 모릅니다
+      mappings: [{ token: '[계좌-1]', kind: '계좌', seq: 1, original: '' }],
+    })
+    expect(out.masked).not.toContain('110-2345-678901')
+  })
+
+  it('원문이 없는(undefined) 항목도 끝난다', async () => {
+    const tokenizer = createPiiTokenizer()
+    const out = await tokenizer.tokenize('계좌는 110-2345-678901 입니다', {
+      mappings: [{ token: '[계좌-1]', kind: '계좌', seq: 1 }],
+    })
+    // 번호는 이어받되(2번부터) 값 매칭에는 안 걸립니다
+    expect(out.masked).toContain('[계좌-2]')
+  })
+
+  it('원문을 모르는 항목이 서로 다른 값을 같은 이름표로 묶지 않는다', async () => {
+    // 빈 문자열을 값으로 취급하면 **아무 값이나 그 항목에 걸립니다** —
+    // 겹치는 번호를 고치려다 더 나쁜 것을 만드는 자리입니다
+    const tokenizer = createPiiTokenizer()
+    const out = await tokenizer.tokenize('110-2345-678901 과 352-0912-3456-73', {
+      mappings: [{ token: '[계좌-1]', kind: '계좌', seq: 1, original: '' }],
+    })
+    const used = [...out.masked.matchAll(/\[계좌-(\d+)\]/g)].map((m) => m[1])
+    expect(new Set(used).size).toBe(used.length)
+    expect(used).not.toContain('1')
   })
 })

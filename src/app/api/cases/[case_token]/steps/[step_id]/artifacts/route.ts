@@ -31,6 +31,7 @@ import { anchorFromArtifact } from '@/flows/anchor-from-artifact'
 import { regeneratePlan } from '@/flows/regenerate-plan'
 
 import type { ArtifactSubmission } from '@/modules/completion-checker'
+import { readIssuedLedger } from '@/modules/pii-tokenizer'
 
 /**
  * `artifact.value_masked` 의 칸 너비 → 09-data-model.md §7 `VARCHAR(255)`.
@@ -136,6 +137,12 @@ export async function POST(
     //
     // **결과를 통째로 잡습니다** — `.masked` 만 꺼내 버리면 §1.1 계측 헤더가
     // 쓸 건수(`counts`)가 함께 사라집니다
+    //
+    // **이 사건에서 이미 쓰인 이름표도 함께 넘깁니다** → 04-pii-boundary.md
+    // 「번호의 단위」. 안 넘기면 요청마다 번호가 1부터라, 챗에서 본인 계좌에
+    // 붙은 `[계좌-1]` 과 여기서 붙인 `[계좌-1]` 이 **다른 값인데 같은 이름표**가
+    // 됩니다 — 브라우저가 자기 표로 복원하므로 접수번호 자리에 계좌번호가
+    // 그려집니다. 넘어오는 것은 **번호뿐이고 원문은 없습니다**
     const tokenized =
       raw === null
         ? null
@@ -143,6 +150,10 @@ export async function POST(
             allowedTerms: await allowedTermsFor({
               channels: container.channelWrite,
               kbVersion: container.ports.kbVersion,
+            }),
+            mappings: await readIssuedLedger(caseId, {
+              vault: container.vaultWrite,
+              transcripts: container.messages,
             }),
           })
     const valueMasked = tokenized?.masked ?? null

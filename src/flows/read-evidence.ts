@@ -34,6 +34,8 @@ import {
 } from '@/lib/org-repair'
 
 import type { EvidenceKind, IngestStatus } from '@/modules/case-intake'
+import { readIssuedLedger } from '@/modules/pii-tokenizer'
+import type { TokenMapping } from '@/modules/pii-tokenizer'
 import type { IngestPhase, Line } from '@/modules/transcriber'
 
 /** 화면이 다음에 언제 물을지 → §3.3 `poll_after_ms` */
@@ -141,7 +143,21 @@ export async function collectReading(
     channels: container.channelWrite,
     kbVersion: container.ports.kbVersion,
   })
-  const masked = await maskLines(progress.result.lines, container, allowed)
+
+  // **이 사건에서 이미 쓰인 이름표를 이어받습니다** → 04-pii-boundary.md
+  // 「번호의 단위」. 안 이어받으면 증거마다 번호가 1부터 다시 시작해,
+  // 챗에서 본인 계좌에 붙은 `[계좌-1]` 자리에 **사기범 계좌가 들어옵니다** —
+  // 자료함이 전사문을 복원할 때 B 자리에 A 가 그려집니다.
+  //
+  // 볼트만 보지 않고 전사문도 함께 긁습니다: 서버가 붙인 이름표는 짝을 봉할
+  // 키가 서버에 없어 **볼트에 안 올라가므로**, 볼트만 보면 증거 1 이 쓴 번호를
+  // 증거 2 가 다시 씁니다. 그 둘이 매 턴 한 목록으로 모델에 함께 들어갑니다
+  // (`flows/chat-turn.ts` 의 `caseTalk`)
+  const issued = await readIssuedLedger(input.caseId, {
+    vault: container.vaultWrite,
+    transcripts: container.messages,
+  })
+  const masked = await maskLines(progress.result.lines, container, allowed, issued)
 
   const state: ReadState = {
     status: 'done',
@@ -228,6 +244,17 @@ export async function maskLines(
   container: Pick<Container, 'piiTokenizer'>,
   /** 토큰화하지 않을 낱말 — 기관명이 여기 들어옵니다 → `lib/allowed-terms.ts` */
   allowedTerms: readonly string[],
+  /**
+   * 이 사건에서 **이미 발급된 이름표**. 여기 뒤에서부터 번호가 나갑니다
+   * → `pii-tokenizer/ledger.ts`.
+   *
+   * **원문이 없습니다** — 서버가 그 값을 모릅니다. 그래서 「같은 값 → 같은
+   * 번호」는 이 줄 묶음 안에서만 서고, 장부에서 온 항목은 번호만 비켜 줍니다.
+   *
+   * 안 넘기면 증거마다 1번부터라 **서로 다른 증거의 `[계좌-1]` 이 다른 계좌**가
+   * 됩니다 → 04-pii-boundary.md 「번호의 단위」.
+   */
+  issued: readonly TokenMapping[] = [],
 ): Promise<{
   lines: { speaker: string | null; text: string; startMs: number | null }[]
   tokens: { token: string; kind: string }[]
@@ -241,7 +268,8 @@ export async function maskLines(
   const seen = new Map<string, string>()
   let orgGuardMissing = false
 
-  let mappings: readonly { token: string; kind: string; value: string }[] = []
+  // 장부에서 이어받은 것으로 시작합니다. 줄을 돌면서 여기 쌓입니다
+  let mappings: readonly TokenMapping[] = issued
 
   for (const line of lines) {
     const result = await container.piiTokenizer.tokenize(line.text, {
@@ -253,11 +281,11 @@ export async function maskLines(
       // 잡았습니다(docs/research/09 §5.4). 「110-234-567890」이
       // 「110에 234-56만 7,890」으로 전사되기 때문입니다
       transcript: true,
-      // 앞 줄에서 만든 매핑을 이어 씁니다. 안 넘기면 일련번호가 리셋돼
-      // 서로 다른 줄의 `[계좌-1]` 이 다른 계좌를 가리킵니다
-      mappings: mappings as never,
+      // 앞 줄에서 만든 매핑과 **장부**를 이어 씁니다. 안 넘기면 일련번호가
+      // 리셋돼 서로 다른 줄의 `[계좌-1]` 이 다른 계좌를 가리킵니다
+      mappings,
     })
-    mappings = result.mappings as never
+    mappings = result.mappings
     if (result.nerApplied && !result.allowedTermsApplied) orgGuardMissing = true
     for (const one of result.added) seen.set(one.token, one.kind)
 

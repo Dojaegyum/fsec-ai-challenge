@@ -9,8 +9,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createSessionKey, memoryKeyStore, sealAll } from "@/modules/key-handler";
 import type { KeyStore, SessionKey } from "@/modules/key-handler";
+import { maskText } from "@/modules/pii-masker";
+import { restore } from "@/modules/pii-restorer";
 
-import { fetchHistory, openVault } from "./history";
+import { fetchHistory, isReserved, openVault } from "./history";
 
 const TOKEN = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const ACCOUNT = "110-2345-678901";
@@ -137,6 +139,108 @@ describe("못 열린 칸을 조용히 버리지 않는다", () => {
     expect(vault.hasKey).toBe(true);
     expect(vault.failed).toBe(1);
     expect(vault.restorable).toHaveLength(0);
+  });
+});
+
+/**
+ * ── 여기가 이 파일에서 제일 중요한 자리입니다 ─────────────────────────
+ *
+ * 「가족에게 링크 보내기」는 이 서비스가 내건 기능입니다. 그 기기에는 열쇠가
+ * 없어 볼트를 못 여는데, **못 연 칸의 번호까지 잊어버리면** 다음 발화가
+ * `[계좌-1]` 을 다시 발급하고 볼트가 `ON CONFLICT … DO UPDATE SET ciphertext`
+ * 로 **본인 칸을 덮어씁니다** (§3.11). 며칠 뒤 본인이 돌아오면 옛 대화의
+ * `[계좌-1]` 이 **가족 계좌**로 복원됩니다.
+ */
+describe("못 열어도 이름표는 자리를 지킨다", () => {
+  const FAMILY = "301-1234-567890";
+
+  it("열쇠가 없어도 쓰인 번호를 들고 나온다 — 원문은 없이", async () => {
+    const { entries } = await seeded();
+    stubApi(entries, []);
+
+    const vault = await openVault(TOKEN, memoryKeyStore());
+    expect(vault.hasKey).toBe(false);
+    // 이름표는 평문입니다 — 못 열어도 「1번은 이미 쓰였다」는 압니다
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]"]);
+    // **원문은 한 글자도 없습니다** → ADR-050
+    expect(vault.maskContext[0]?.original).not.toContain(ACCOUNT);
+    expect(isReserved(vault.maskContext[0]!)).toBe(true);
+    // 되살리는 쪽에는 안 들어갑니다 — 대역이 화면에 그려지면 안 됩니다
+    expect(vault.restorable).toHaveLength(0);
+  });
+
+  it("그 상태로 새 값을 가리면 **번호가 이어집니다** — 1을 다시 안 씁니다", async () => {
+    const { entries } = await seeded();
+    stubApi(entries, []);
+    const vault = await openVault(TOKEN, memoryKeyStore());
+
+    const out = maskText(`제 계좌는 ${FAMILY} 예요`, { mappings: vault.maskContext });
+
+    // 1을 다시 발급하면 볼트가 본인 칸을 덮어씁니다
+    expect(out.masked).toContain("[계좌-2]");
+    expect(out.masked).not.toContain("[계좌-1]");
+    // 봉해서 맡길 것은 **새로 생긴 것 하나뿐**입니다 — 예약 칸은 안 나갑니다
+    expect(out.added.map((m) => m.token)).toEqual(["[계좌-2]"]);
+    expect(out.added.every((m) => !isReserved(m))).toBe(true);
+  });
+
+  it("못 푼 칸의 번호도 지킨다 — 다른 키로 봉한 자리", async () => {
+    const { store } = await seeded();
+    const other = await createSessionKey();
+    stubApi(
+      await sealAll(other, [
+        { token: "[계좌-9]", kind: "계좌", seq: 9, original: "999-9999-999999" },
+      ]),
+      [],
+    );
+
+    const vault = await openVault(TOKEN, store);
+    expect(vault.failed).toBe(1);
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-9]"]);
+
+    const out = maskText(`계좌는 ${FAMILY}`, { mappings: vault.maskContext });
+    expect(out.masked).toContain("[계좌-10]");
+  });
+
+  it("예약 칸이 화면에 값을 그리지 않는다 — 토큰 그대로 남습니다", async () => {
+    const { entries } = await seeded();
+    stubApi(entries, []);
+    const vault = await openVault(TOKEN, memoryKeyStore());
+
+    // 비서의 답에 섞여 온 토큰. 원문을 모르므로 **펼치면 안 됩니다**
+    const shown = restore("[계좌-1] 로 보내셨죠", [...vault.maskContext], {
+      site: "chat-answer",
+    });
+    expect(shown).toBe("[계좌-1] 로 보내셨죠");
+  });
+});
+
+describe("「맡긴 것이 없다」와 「못 물어봤다」를 가른다", () => {
+  it("조회가 안 되면 read 가 false 다", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    const vault = await openVault(TOKEN, memoryKeyStore());
+    expect(vault.read).toBe(false);
+    expect(vault.stored).toBe(0);
+  });
+
+  it("본문이 JSON 이 아니어도 던지지 않고 read 가 false 다", async () => {
+    // 던지면 부르는 쪽의 `void (async …)()` 가 통째로 거절돼
+    // 화면이 영영 「불러오는 중」에 머뭅니다
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html>502</html>", { status: 200 })),
+    );
+    const vault = await openVault(TOKEN, memoryKeyStore());
+    expect(vault.read).toBe(false);
+  });
+
+  it("정말로 빈 볼트는 read 가 true 다 — 새 사건은 막히면 안 됩니다", async () => {
+    stubApi([], []);
+    const vault = await openVault(TOKEN, memoryKeyStore());
+    expect(vault.read).toBe(true);
+    expect(vault.stored).toBe(0);
   });
 });
 

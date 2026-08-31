@@ -8,6 +8,18 @@
  */
 
 export { createPiiTokenizer } from './tokenize'
+/**
+ * 번호 장부 → `ledger.ts`. **이름표는 평문이라 서버가 읽을 수 있습니다** —
+ * 값은 여전히 못 읽습니다 → 04-pii-boundary.md 「번호의 단위」.
+ */
+export {
+  issuedMappings,
+  parseToken,
+  readIssuedLedger,
+  tokensInText,
+  tokenShape,
+} from './ledger'
+export type { MaskedTextSource, VaultTokenSource } from './ledger'
 export { WIRE_NAME } from './types'
 export type {
   NerModel,

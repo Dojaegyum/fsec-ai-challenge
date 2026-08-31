@@ -88,6 +88,10 @@ function harness(
     readonly channel?: { readonly channelId: string; readonly orgId: string | null } | null
     /** 그 유형의 기관 사전. 비면 되묻지 않습니다 */
     readonly orgs?: readonly OrgCandidateRow[]
+    /** 브라우저가 볼트에 맡겨 둔 이름표 — **값이 아니라 번호만** 옵니다 */
+    readonly vaultTokens?: readonly string[]
+    /** 서버가 앞서 전사문에 붙인 이름표가 박혀 있는 줄 */
+    readonly transcript?: readonly { speaker: string; text: string }[]
   } = {},
 ): Harness {
   const slotWrites: SlotWrite[] = []
@@ -162,6 +166,20 @@ function harness(
     // 기한은 이 파일이 보는 것이 아닙니다 → compute-deadlines.test.ts
     slots: { read: async () => [] },
     deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    // ── 이름표 장부 → 04-pii-boundary.md 「번호의 단위」 ──────────────
+    // 답을 토큰화할 때 **이미 쓰인 번호를 이어받는** 자리입니다. 기본은 비어
+    // 있어 1번부터이고, 이어받는지를 보는 시험이 이 둘을 바꿔 넣습니다
+    vaultWrite: {
+      put: async () => 0,
+      list: async () => [],
+      tokens: async () => base.vaultTokens ?? [],
+    },
+    messages: {
+      write: async () => {},
+      history: async () => [],
+      transcript: async () => base.transcript ?? [],
+      turns: async () => ({ turns: [], truncated: false }),
+    },
   }
 
   return { container, slotWrites, channelWrites }
@@ -449,5 +467,72 @@ describe('「모름」은 실패가 아니다 — 불변 규칙 5', () => {
     const after = await afterAnswer(CASE_ID, one.container, false)
 
     expect(after.nextQuestion?.slotKey).toBe('org_name')
+  })
+})
+
+/**
+ * 서버가 붙이는 이름표의 번호는 **사건 하나**를 단위로 합니다
+ * → 04-pii-boundary.md 「번호의 단위」.
+ *
+ * ⚠️ **2026-08-30 까지 이 자리가 호출마다 1번부터였습니다.** 챗에서 본인 계좌에
+ * 붙은 `[계좌-1]` 이 볼트에 있는데 여기서도 `[계좌-1]` 을 붙여, **다른 계좌인데
+ * 같은 이름표**가 됐습니다 — 브라우저는 자기 표로 복원하므로 슬롯 칸에
+ * 엉뚱한 계좌가 그려집니다.
+ */
+describe('이름표 번호가 사건 안에서 안 겹친다', () => {
+  /** 사기범 계좌 — 사용자가 문진 칸에 직접 타이핑한 값입니다 */
+  const THEIRS = '222-333-444444'
+
+  it('볼트가 쓴 번호 다음부터 붙인다', async () => {
+    // 브라우저가 챗에서 본인 계좌에 `[계좌-1]` 을 붙여 맡겨 뒀습니다.
+    // **원문은 안 옵니다** — 서버는 볼트를 못 엽니다
+    const one = harness({ vaultTokens: ['[계좌-1]'] })
+
+    const got = await answerSlot(
+      { caseId: CASE_ID, slotKey: 'counterpart_account', action: 'answer', value: THEIRS },
+      one.container,
+    )
+
+    // 확인 전이라 값은 안 나갑니다(ADR-041). 표에 적힌 것을 봅니다
+    expect(got.state).toBe('pii_pending')
+    expect(one.slotWrites[0].valueMasked).toBe('[계좌-2]')
+    expect(got.piiConfirm?.found).toEqual([{ kind: '계좌', text: '[계좌-2]' }])
+  })
+
+  it('전사문이 쓴 번호도 이어받는다 — 그건 볼트에 없습니다', async () => {
+    const one = harness({
+      transcript: [{ speaker: 'A', text: '[계좌-1] 로 보내라고 했어요' }],
+    })
+
+    await answerSlot(
+      { caseId: CASE_ID, slotKey: 'counterpart_account', action: 'answer', value: THEIRS },
+      one.container,
+    )
+
+    expect(one.slotWrites[0].valueMasked).toBe('[계좌-2]')
+  })
+
+  it('「아니에요」로 와도 이어받는다 — 그 갈래만 1번부터가 되면 안 됩니다', async () => {
+    const one = harness({ vaultTokens: ['[계좌-1]', '[계좌-2]'] })
+
+    await answerSlot(
+      { caseId: CASE_ID, slotKey: 'counterpart_account', action: 'keep', value: THEIRS },
+      one.container,
+    )
+
+    // 계좌는 정규식이 잡은 것이라 「아니에요」로도 안 풀립니다(ADR-041 ④)
+    expect(one.slotWrites[0].valueMasked).toBe('[계좌-3]')
+  })
+
+  /** **회귀** — 장부가 비면 지금까지처럼 1번부터입니다 */
+  it('장부가 비면 1번부터', async () => {
+    const one = harness()
+
+    await answerSlot(
+      { caseId: CASE_ID, slotKey: 'counterpart_account', action: 'answer', value: THEIRS },
+      one.container,
+    )
+
+    expect(one.slotWrites[0].valueMasked).toBe('[계좌-1]')
   })
 })

@@ -23,6 +23,7 @@ import type { PlanResult } from '@/modules/planner'
 
 import {
   CaseNotFoundError,
+  readCasePlan,
   regeneratePlan,
   type CasePlanStore,
   type KbVersionSource,
@@ -127,6 +128,9 @@ function planStoreOf(
           legalBasis: `${one.kbEntryId} 근거 조항`,
           sourceUrl: one.sourceUrl,
           effectiveFrom: one.effectiveFrom,
+          // **표가 적었다가 그대로 돌려주는 값입니다** → 09 §6 `generated_at`.
+          // 대역이 이 칸을 버리면 §3.6 의 `generated_at` 이 늘 비어 보입니다
+          generatedAt: one.generatedAt,
           artifacts: [],
           requiredArtifact: null,
         }),
@@ -337,6 +341,95 @@ describe('삭제 후 삽입이 아니다 — §6.1', () => {
     const snapshot = await regeneratePlan(CASE_ID, one)
 
     expect(snapshot.steps.length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+/**
+ * 계약(§3.6)에 `generated_at` 칸이 있는데 두 라우트가 늘 `null` 을 내고
+ * 있었습니다 — 값은 `plan_step.generated_at` 에 이미 있고 되읽는 자리만
+ * 없었습니다.
+ *
+ * **여기서 못 박는 것 셋:**
+ * 1. 저장된 시각이 그대로 실린다 (지금 시각이 아니다)
+ * 2. 보존된 옛 단계가 섞여도 **가장 최근** 것이 나온다 → §6.1
+ * 3. 없으면 `null` 이다 — 지어내지 않는다
+ */
+describe('플랜 생성 시각이 실린다 — §3.6 `generated_at`', () => {
+  /** `readSteps` 가 돌려줄 단계 하나. `generatedAt` 만 갈아끼웁니다 */
+  function stepAt(stepKey: string, seq: number, generatedAt?: string): StoredStep {
+    return {
+      planStepId: `01J8STEP${stepKey.padEnd(17, '0').slice(0, 17)}`,
+      stepKey,
+      seq,
+      title: `${stepKey} 단계`,
+      actor: 'victim',
+      conditional: null,
+      state: 'not_started',
+      body: { text: '본문' },
+      kbEntryId: stepKey,
+      kbVersion: '2026.08.1',
+      legalBasis: '통신사기피해환급법 제3조',
+      sourceUrl: 'https://www.law.go.kr/...',
+      effectiveFrom: '2020-01-01',
+      ...(generatedAt === undefined ? {} : { generatedAt }),
+      artifacts: [],
+      requiredArtifact: null,
+    }
+  }
+
+  /** 조회 경로(§3.6 · §3.10)를 그대로 지나게 합니다 — 라우트가 부르는 자리입니다 */
+  function readWith(steps: readonly StoredStep[]) {
+    const kb = kbStoreOf([kbRow()])
+    const plans = planStoreOf({ async readSteps() { return steps } })
+    return readCasePlan(CASE_ID, {
+      container: containerFor(kb.store),
+      store: plans.store,
+    })
+  }
+
+  it('저장된 시각을 그대로 싣는다 — 지금 시각이 아니다', async () => {
+    const snapshot = await regeneratePlan(CASE_ID, deps)
+
+    // `planner` 가 찍어 저장한 값이 되읽혀 옵니다. 조회 때 만든 값이면
+    // 화면이 아무 일도 없었는데 매번 「방금 갱신됨」이 됩니다
+    expect(snapshot.generatedAt).toBe(snapshot.steps[0].generatedAt)
+    expect(snapshot.generatedAt).not.toBeNull()
+  })
+
+  it('**보존된 단계가 섞여도 가장 최근 것이 나온다** — §6.1', async () => {
+    // 재생성은 지우고 다시 넣지 않아 완료된 단계가 옛 시각을 그대로 들고
+    // 있습니다. 첫째나 최소를 쓰면 **방금 다시 만든 플랜이 며칠 전 것으로**
+    // 보이고, 사용자는 제도가 바뀐 뒤에도 갱신됐다는 것을 모릅니다.
+    //
+    // 옛것을 `seq` 앞에 둡니다 — 순서로 고르면 여기서 걸립니다
+    const snapshot = await readWith([
+      stepAt('report-112', 1, '2026-08-20T09:00:00.000+09:00'),
+      stepAt('bank-freeze', 2, '2026-08-27T15:30:00.000+09:00'),
+      stepAt('relief-application', 3, '2026-08-24T11:00:00.000+09:00'),
+    ])
+
+    expect(snapshot.generatedAt).toBe('2026-08-27T15:30:00.000+09:00')
+  })
+
+  it('시각을 안 실은 단계는 못 본 것으로 두고 나머지에서 고른다', async () => {
+    const snapshot = await readWith([
+      stepAt('report-112', 1),
+      stepAt('bank-freeze', 2, '2026-08-27T15:30:00.000+09:00'),
+    ])
+
+    expect(snapshot.generatedAt).toBe('2026-08-27T15:30:00.000+09:00')
+  })
+
+  it('값이 하나도 없으면 `null` 이다 — 지어내지 않는다', async () => {
+    const snapshot = await readWith([stepAt('report-112', 1)])
+
+    expect(snapshot.generatedAt).toBeNull()
+  })
+
+  it('단계가 하나도 없으면 `null` 이다', async () => {
+    const snapshot = await readWith([])
+
+    expect(snapshot.generatedAt).toBeNull()
   })
 })
 

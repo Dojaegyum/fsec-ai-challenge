@@ -26,6 +26,22 @@ export interface ModelReply {
   readonly insufficient: boolean
   readonly citations: readonly { ref: string; why: string }[]
   readonly reply?: string
+  /**
+   * 이 호출에 대해 **모델이 스스로 밝힌 것** — 답한 모델 이름과 토큰 수.
+   *
+   * 감사 기록 `llm.called` 의 `model`·`token_in` 이 여기서 옵니다
+   * → 09-data-model.md §10.2. **부르는 쪽이 남깁니다**(ADR-022) — 이 모듈은
+   * 실어 나르기만 합니다.
+   *
+   * **환경변수의 모델 이름을 쓰면 안 됩니다.** 후보를 차례로 시도하는 구조라
+   * 거기 적힌 것과 실제로 답한 것이 다를 수 있고, 그러면 감사 기록이 거짓이 됩니다.
+   * 제공자가 안 밝히면 `null` 입니다 — 지어내지 않습니다.
+   */
+  readonly call?: {
+    readonly model: string | null
+    readonly tokenIn: number | null
+    readonly tokenOut: number | null
+  }
 }
 
 /**
@@ -50,11 +66,34 @@ export interface PiiTokenizer {
    * 「토큰화 제외 목록」. 기관명이 여기 들어가고 **NER 결과보다 우선**합니다 —
    * 안 넘기면 「토스로 보냈어요」가 「[이름-1]로 보냈어요」가 되어
    * 경유 서비스를 특정할 수 없습니다.
+   *
+   * `mappings` 는 **이 사건에서 이미 쓰인 이름표**입니다 → 04-pii-boundary.md
+   * 「번호의 단위」. 안 넘기면 발화마다 번호가 1부터라, 브라우저가 앞서 붙인
+   * `[계좌-1]` 과 서버가 이번에 붙인 `[계좌-1]` 이 **다른 계좌인데 같은
+   * 이름표**가 되고 복원이 엉뚱한 값을 되살립니다.
    */
   tokenize(
     text: string,
-    ctx?: { allowedTerms?: readonly string[] },
+    ctx?: {
+      allowedTerms?: readonly string[]
+      mappings?: readonly IssuedToken[]
+    },
   ): Promise<{ masked: string }>
+}
+
+/**
+ * 이미 쓰인 이름표 하나 — **원문이 없습니다.**
+ *
+ * 짝을 봉한 열쇠는 브라우저에만 있어(ADR-027) 서버는 「어느 번호가 쓰였나」만
+ * 압니다. 번호를 잇는 데 값이 필요 없다는 것이 요점이라, **원문을 받는 칸을
+ * 여기 만들지 마세요** → `pii-tokenizer/ledger.ts`.
+ */
+export interface IssuedToken {
+  /** `[계좌-1]` 형태 */
+  readonly token: string
+  readonly kind: string
+  /** 종류별 일련번호. 1부터 */
+  readonly seq: number
 }
 
 /** 이 모듈이 밖에 요구하는 것 — KB 조회 (`kb-finder`) */
@@ -193,6 +232,14 @@ export interface TurnInput {
   readonly utterance: string
   /** 현재 KB 릴리스 */
   readonly kbVersion: string
+  /**
+   * 이 사건에서 이미 발급된 이름표 — **다음 번호는 여기 뒤에서** 나갑니다
+   * → 04-pii-boundary.md 「번호의 단위」.
+   *
+   * **모으는 것은 부른 쪽입니다**(`flows/chat-turn.ts`). 이 모듈은 저장소를
+   * 안 봅니다 → ADR-022 「조회를 직접 하지 않습니다」.
+   */
+  readonly issuedTokens?: readonly IssuedToken[]
 }
 
 /**

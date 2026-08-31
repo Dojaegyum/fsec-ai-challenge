@@ -48,6 +48,12 @@ interface StepRow {
   kb_version: string
   source_url: string
   effective_from: string | Date
+  /**
+   * `TIMESTAMPTZ(3)` 이라 드라이버가 `Date` 로 줍니다 — `artifact.created_at`
+   * 과 같습니다. `effective_from` 이 `string | Date` 인 것은 그쪽이 `DATE` 라서고,
+   * 이 칸은 시각이라 갈리지 않습니다
+   */
+  generated_at: Date
 }
 
 const day = (value: string | Date): string =>
@@ -140,6 +146,10 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
         legalBasis: basisOf.get(`${one.kb_entry_id}@${one.kb_version}`) ?? '',
         sourceUrl: one.source_url,
         effectiveFrom: day(one.effective_from),
+        // **아래 INSERT 가 적은 값을 그대로 되읽습니다** → 계약 §3.6 `generated_at`.
+        // 여기서 지금 시각을 만들면 화면이 아무 일도 없었는데 매번
+        // 「방금 갱신됨」이 됩니다 — 이 값은 플랜을 *만든* 때이지 *읽은* 때가 아닙니다
+        generatedAt: seoulIso(one.generated_at),
         artifacts: byStep.get(one.plan_step_id) ?? [],
         requiredArtifact: required ?? null,
       }
@@ -149,7 +159,8 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
   async function readSteps(caseId: string): Promise<readonly StoredStep[]> {
     const rows = await sql<StepRow[]>`
       SELECT plan_step_id, step_key, seq, title, actor, conditional, state,
-             body, kb_entry_id, kb_version, source_url, effective_from
+             body, kb_entry_id, kb_version, source_url, effective_from,
+             generated_at
       FROM plan_step WHERE case_id = ${caseId} ORDER BY seq
     `
     return dressSteps(caseId, rows)
