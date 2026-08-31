@@ -620,7 +620,16 @@ function CaseScreen({
               onContinue={() => setFocus("plan")}
             />
           )}
-          {focus === "doc" && <DocGuide caseToken={token} />}
+          {focus === "doc" && (
+            /* **사건의 슬롯과 볼트 매핑을 내려줍니다** — 안 내려주면 이 화면이
+               자기 값을 만들어 냅니다. 전에 여기 남의 이름과 계좌번호가
+               상수로 박혀 있었고, 헤더에 화면 이동이 붙으면서 보이게 됐습니다 */
+            <DocGuide
+              caseToken={token}
+              slots={bundle.slots}
+              restorable={chat.restorable}
+            />
+          )}
         </section>
 
         {/* ── 오른쪽 열 — 자리는 하나, 내용이 바뀝니다 ──────
@@ -771,7 +780,13 @@ function CaseScreen({
                   onContinue={() => setFocus("plan")}
                 />
               )}
-              {ghost.from === "doc" && <DocGuide caseToken={token} />}
+              {ghost.from === "doc" && (
+                <DocGuide
+                  caseToken={token}
+                  slots={bundle.slots}
+                  restorable={chat.restorable}
+                />
+              )}
             </div>
           </div>
         </div>

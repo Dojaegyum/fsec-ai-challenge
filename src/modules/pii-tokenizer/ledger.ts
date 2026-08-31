@@ -94,11 +94,15 @@ export interface VaultTokenSource {
  * 그래서 볼트만 보면 서버가 앞서 쓴 번호를 못 보고, 증거 둘의 `[계좌-1]` 이
  * 서로 다른 계좌가 됩니다 — 그 둘이 매 턴 한 목록으로 모델에 함께 들어갑니다.
  *
- * 전사문(`transcript_masked`)이 그 이름표를 **글 안에 그대로** 갖고 있어,
- * 새 칸을 만들지 않고 거기서 긁습니다.
+ * 토큰화된 글이 그 이름표를 **글 안에 그대로** 갖고 있어, 새 칸을 만들지
+ * 않고 거기서 긁습니다.
+ *
+ * ⚠️ **전사문 하나만 보면 안 됩니다.** 2026-08-31 까지 이 자리가
+ * `transcript(caseId)` 였고, 그래서 챗 답변에 붙은 `[이름-1]` 을 다음 턴이
+ * 못 봤습니다. 무엇을 보는지는 `lib/db.ts` 의 `createMaskedTexts` 에 있습니다.
  */
 export interface MaskedTextSource {
-  transcript(caseId: string): Promise<readonly { text: string }[]>
+  all(caseId: string): Promise<readonly string[]>
 }
 
 /**
@@ -117,21 +121,21 @@ export async function readIssuedLedger(
     /** 브라우저가 맡긴 이름표 → `container.vaultWrite` */
     readonly vault: VaultTokenSource
     /**
-     * 서버가 앞서 붙인 이름표 → `container.messages`.
+     * 서버가 앞서 붙인 이름표 → `container.maskedTexts`.
      *
-     * **선택입니다.** 사건에 전사문이 없는 자리에서도 볼트만으로 겹침이
+     * **선택입니다.** 토큰화된 글이 아직 없는 자리에서도 볼트만으로 겹침이
      * 막히므로, 못 넘기는 자리에서 장부 자체가 없어지지는 않습니다
      */
-    readonly transcripts?: MaskedTextSource
+    readonly masked?: MaskedTextSource
   },
 ): Promise<TokenMapping[]> {
-  const [vaultTokens, lines] = await Promise.all([
+  const [vaultTokens, texts] = await Promise.all([
     deps.vault.tokens(caseId),
-    deps.transcripts ? deps.transcripts.transcript(caseId) : Promise.resolve([]),
+    deps.masked ? deps.masked.all(caseId) : Promise.resolve([] as readonly string[]),
   ])
 
   const tokens: string[] = [...vaultTokens]
-  for (const line of lines) tokens.push(...tokensInText(line.text))
+  for (const text of texts) tokens.push(...tokensInText(text))
 
   return issuedMappings(tokens)
 }

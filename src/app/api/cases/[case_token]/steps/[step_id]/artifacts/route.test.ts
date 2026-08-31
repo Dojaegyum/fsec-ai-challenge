@@ -82,6 +82,8 @@ function build(stepKey: string, existingSlots: unknown[] = []) {
       transcript: async () => [],
       turns: async () => ({ turns: [], truncated: false }),
     },
+    // 장부가 읽는 자리 → `pii-tokenizer/ledger.ts`. 이 시험은 빈 사건입니다
+    maskedTexts: { all: async () => [] },
     slotWrite: {
       async write(row: Record<string, unknown>) {
         written.push(row)

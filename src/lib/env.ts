@@ -33,6 +33,8 @@ export const ENV_KEYS = [
   // 2차 개인정보 탐지(NER) → ner.ts · ARCHITECTURE §10. **비면 1차 정규식만 돕니다**
   // ⚠️ 이 주소가 어디를 가리키느냐가 곧 경계입니다 → ARCHITECTURE §6 · ADR-043
   'NER_URL',
+  /** 2차 탐지 상한(ms). 비면 12초 — **CPU 서버에서는 모자랍니다** → `container.ts` */
+  'NER_TIMEOUT_MS',
   'NER_TOKEN',
   'NER_MODEL',
   // 지금 쓰는 KB 릴리스 → ADR-045. 비면 안내를 만들지 않습니다

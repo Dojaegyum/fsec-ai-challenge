@@ -64,7 +64,7 @@ export async function chatTurn(
     // 되살립니다.** 오는 것은 번호뿐이고 **원문은 없습니다**
     readIssuedLedger(input.caseId, {
       vault: container.vaultWrite,
-      transcripts: container.messages,
+      masked: container.maskedTexts,
     }),
     container.ports.kbVersion.current(),
     // **다음 문항을 화면과 같은 자리에서 구합니다** — §3.9 가 *"만드는 것도

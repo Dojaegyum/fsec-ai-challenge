@@ -130,6 +130,8 @@ function wiredContainer(
     tokenizer?: PiiTokenizer
     /** 브라우저가 볼트에 맡겨 둔 이름표 — **값이 아니라 번호만** 옵니다 */
     vaultTokens?: readonly string[]
+    /** 서버가 앞서 써 둔 토큰화된 글 — 여기 박힌 이름표도 장부에 들어옵니다 */
+    maskedTexts?: readonly string[]
   } = {},
 ) {
   const ports = {
@@ -167,6 +169,8 @@ function wiredContainer(
       transcript: async () => [],
       turns: async () => ({ turns: [], truncated: false }),
     },
+    // 장부가 읽는 자리 → `pii-tokenizer/ledger.ts`. 번호는 볼트에서만 옵니다
+    maskedTexts: { all: async () => over.maskedTexts ?? [] },
     artifacts: {
       async write(row: { caseId: string; planStepId: string; valueMasked: string | null }) {
         written.push({

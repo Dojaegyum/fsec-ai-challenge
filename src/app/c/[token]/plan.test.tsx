@@ -19,13 +19,19 @@ import PlanView from "./plan";
 const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
 /** §3.6 의 단계 한 줄. `body.step_key` 가 레일 칸에 걸리는 열쇠입니다 */
-const stepOf = (stepKey: string, state: PlanStep["state"], seq = 10): PlanStep => ({
+const stepOf = (
+  stepKey: string,
+  state: PlanStep["state"],
+  seq = 10,
+  /** `read` 는 **읽고 넘어가는 자리**입니다 — 레일이 「해당 없음」으로 그립니다 */
+  action = "call",
+): PlanStep => ({
   step_id: `s-${stepKey}`,
   seq,
   title: `${stepKey} 단계`,
   state,
   conditional: null,
-  body: { step_key: stepKey, action: "call" },
+  body: { step_key: stepKey, action },
 });
 
 /** 사건을 막 만든 직후 — T0 공통 단계가 붙지만 **아무것도 안 했습니다** */
@@ -54,6 +60,55 @@ const railOf = (steps: readonly PlanStep[]) => {
   const to = rest.indexOf("할 일");
   return to > 0 ? rest.slice(0, to) : rest;
 };
+
+/**
+ * ## 유형에 없는 국면 — **시키면 안 됩니다**
+ *
+ * 가상자산 사건에서 KB 는 「코인으로 보낸 피해금에는 지급정지가 걸리지 않습니다」라고
+ * 말합니다(`src/kb/ch-crypto.json`). 그런데 그 단계의 `state` 는 `not_started` 라
+ * 2026-08-31 까지 레일이 **「지급정지 · 미시작」**으로 그렸습니다 — 사용자는 그것을
+ * **아직 해야 하는 일**로 읽습니다. KB 가 없다고 한 절차를 화면이 시킨 것입니다.
+ */
+describe("유형에 없는 국면은 「해당 없음」이다 — **회귀**", () => {
+  /** 가상자산 — 공통 넷 중 셋이 `read` 로 덮입니다 (`ch-crypto.json`) */
+  const CRYPTO: readonly PlanStep[] = [
+    stepOf("report-112", "not_started", 10),
+    stepOf("freeze-request", "not_started", 20, "read"),
+    stepOf("relief-apply", "not_started", 30, "read"),
+    stepOf("relief-documents", "not_started", 40, "read"),
+    stepOf("debt-extinction-notice", "not_started", 50, "read"),
+  ];
+
+  it("코인 사건의 지급정지가 「미시작」이 아니다", () => {
+    const rail = railOf(CRYPTO);
+
+    expect(rail).toContain("해당 없음");
+    expect(rail).not.toContain("미시작");
+  });
+
+  /** 상품권·카드·통신과금은 공고만 덮입니다 — **나머지는 그대로 할 일입니다** */
+  it("공고만 없는 유형은 그 칸만 「해당 없음」이다", () => {
+    const rail = railOf([
+      stepOf("freeze-request", "not_started", 20),
+      stepOf("relief-apply", "not_started", 30),
+      stepOf("debt-extinction-notice", "not_started", 50, "read"),
+    ]);
+
+    // 있는 일을 「해당 없음」으로 덮는 쪽이 훨씬 나쁩니다
+    expect(rail).toContain("미시작");
+    expect(rail).toContain("해당 없음");
+  });
+
+  it("계좌이체형은 그대로 「미시작」이다 — 덮어서는 안 됩니다", () => {
+    expect(railOf(FRESH)).not.toContain("해당 없음");
+  });
+
+  it("읽는 자리라도 끝났으면 「증빙됨」이 이깁니다", () => {
+    const rail = railOf([stepOf("freeze-request", "done_verified", 20, "read")]);
+
+    expect(rail).toContain("증빙됨");
+  });
+});
 
 describe("아무것도 안 했으면 아무 칸도 안 칠해진다", () => {
   it("갓 만든 사건에 「증빙됨」이 하나도 없다", () => {

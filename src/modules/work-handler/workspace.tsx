@@ -252,14 +252,17 @@ function ArtifactSlot({
         </>
       ) : null}
 
-      {/* **완료가 되지 않습니다** — 리마인더 추적 대상으로만 남습니다 (L3) */}
+      {/* **완료가 되지 않습니다** — 리마인더 추적 대상으로만 남습니다 (L3).
+          ⚠️ **문구의 정본은 08-14-api.md §3.8 이고 `completion-checker/verify.ts`
+          가 같은 글자를 씁니다.** 2026-08-31 까지 여기만 「번호 없이 했다고」였고,
+          검증이 실패한 뒤 서버가 내미는 길과 **같은 일인데 다른 이름**이었습니다 */}
       <button
         type="button"
         className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-[11px] text-[13.5px] text-ink-3 transition-colors duration-200 hover:text-ink-1 disabled:opacity-50"
         onClick={onSelfReport}
         disabled={busy}
       >
-        번호 없이 했다고 표시
+        번호 없이 접수했다고 표시
       </button>
     </div>
   );
@@ -358,7 +361,7 @@ export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: Workspa
       {/* **완료 개념이 있는 유형에만** 냅니다 → `panel.ts` 의 규칙 표 `hasCompletion`.
           `WS-read` 는 「완료 개념이 없습니다. 체크박스를 두지 마세요」이고 `WS-wait` 은
           「사용자가 하지 않음」입니다(spec 「유형별로 다른 것」). 읽기만 하면 되는 자리에
-          「번호 없이 했다고 표시」를 두면, 사용자는 **아무 절차도 밟지 않고 단계를
+          「번호 없이 접수했다고 표시」를 두면, 사용자는 **아무 절차도 밟지 않고 단계를
           「미확인」으로 만들고** 그걸 한 것으로 기억합니다 — 불변 규칙 6 이 막는 모양입니다 */}
       {panelRule(panel).hasCompletion ? (
         <ArtifactSlot

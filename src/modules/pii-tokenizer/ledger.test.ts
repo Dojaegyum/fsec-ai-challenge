@@ -75,7 +75,7 @@ describe('장부 항목에는 원문이 없다 — 그게 요점입니다', () =
   })
 })
 
-describe('볼트와 전사문을 함께 긁는다', () => {
+describe('볼트와 토큰화된 글을 함께 긁는다', () => {
   const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
 
   /**
@@ -83,10 +83,10 @@ describe('볼트와 전사문을 함께 긁는다', () => {
    * 없기 때문입니다(ADR-027). 볼트만 보면 증거 1 이 쓴 번호를 증거 2 가
    * 다시 쓰고, 그 둘이 매 턴 한 목록으로 모델에 함께 들어갑니다
    */
-  it('전사문에 박힌 이름표까지 장부에 들어온다', async () => {
+  it('토큰화된 글에 박힌 이름표까지 장부에 들어온다', async () => {
     const got = await readIssuedLedger(CASE_ID, {
       vault: { tokens: async () => ['[계좌-1]'] },
-      transcripts: { transcript: async () => [{ text: '[계좌-2] 로 보내라고 했어요' }] },
+      masked: { all: async () => ['[계좌-2] 로 보내라고 했어요'] },
     })
 
     expect(got.map((one) => one.token)).toEqual(['[계좌-1]', '[계좌-2]'])
@@ -95,13 +95,13 @@ describe('볼트와 전사문을 함께 긁는다', () => {
   it('두 곳에 같은 이름표가 있어도 한 줄이다', async () => {
     const got = await readIssuedLedger(CASE_ID, {
       vault: { tokens: async () => ['[계좌-1]'] },
-      transcripts: { transcript: async () => [{ text: '[계좌-1] 이라고 했어요' }] },
+      masked: { all: async () => ['[계좌-1] 이라고 했어요'] },
     })
 
     expect(got).toHaveLength(1)
   })
 
-  it('전사문 자리를 안 넘겨도 볼트만으로 선다', async () => {
+  it('글 자리를 안 넘겨도 볼트만으로 선다', async () => {
     const got = await readIssuedLedger(CASE_ID, {
       vault: { tokens: async () => ['[전화-1]'] },
     })
@@ -113,7 +113,7 @@ describe('볼트와 전사문을 함께 긁는다', () => {
   it('아무것도 없으면 빈 장부', async () => {
     const got = await readIssuedLedger(CASE_ID, {
       vault: { tokens: async () => [] },
-      transcripts: { transcript: async () => [] },
+      masked: { all: async () => [] },
     })
 
     expect(got).toEqual([])

@@ -122,6 +122,8 @@ function harness(base: {
       transcript: async () => base.transcripts ?? [],
       turns: async () => ({ turns: [], truncated: false }),
     },
+    // **장부는 여기서 읽습니다** — 전사문만이 아니라 챗·슬롯·부산물까지
+    maskedTexts: { all: async () => (base.transcripts ?? []).map((one) => one.text) },
     evidenceWrite: {
       async finish(one: { transcriptMasked: string }) {
         finished.push(one)

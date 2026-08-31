@@ -168,7 +168,38 @@ vercel deploy --prod                         # ⚠️ 환경변수는 다시 빌
 | --- | --- |
 | **매뉴얼 릴리스** | **`2026.08.20`** — 절차 28건 · 기관 51곳 · 공공기관 5곳 |
 | 코드 | `main` (배포는 머지가 곧 배포 → ADR-053) |
-| `NER_URL` | **비어 있습니다** — 개발 중에는 GPU 를 안 켜기로 했습니다 (2026-08-27) |
+| `NER_URL` | **비어 있습니다.** 서버 쪽은 2026-08-31 에 준비됐고, **켜는 것은 사람 결정**입니다 → 아래 |
+
+### 2차 탐지(이름 가리기)를 켜려면 — 2026-08-31
+
+**서버는 준비됐습니다.** 상시 서버(OCI)에 Ollama + `gemma3:4b` 를 올리고
+전사·판독 컨테이너를 `/ner` 이 있는 판으로 다시 올렸습니다. 걸어서 확인한 값 —
+
+```
+POST /ner  "김도현 수사관이라는 사람이…"  →  200  [{"label":"PERSON","value":"김도현"}]
+                                                 「국민은행」은 사람으로 안 잡힘
+```
+
+**남은 것은 Vercel 환경변수 셋뿐입니다.**
+
+```bash
+printf '<TRANSCRIBER_URL 과 같은 주소>' | vercel env add NER_URL production --force
+printf '<TRANSCRIBER_TOKEN 과 같은 값>' | vercel env add NER_TOKEN production --force
+printf '25000'                          | vercel env add NER_TIMEOUT_MS production --force
+vercel deploy --prod                    # 환경변수는 다시 빌드해야 반영됩니다
+```
+
+⛔ **`NER_TIMEOUT_MS` 를 빼지 마세요.** 기본값 12초는 GPU 기준이고, 지금 서버는
+CPU 라 **한 발화에 10.7~12.3초**입니다 ([09 §7.3](../docs/research/09-로컬모델-PII인식-실측.md)).
+그냥 켜면 절반쯤이 503 이고, 그건 **사건 진행이 멈춘다**는 뜻입니다.
+
+⚠️ **켜면 그 서버가 살아 있어야 합니다.** STT·OCR 과 다릅니다 — 그쪽은 파일만
+안 되고 절차는 나가는데, 이쪽은 **경계**라 못 가리면 챗·슬롯·부산물 쓰기가 전부
+멈춥니다. 되돌리려면 `vercel env rm NER_URL production` 후 다시 배포하면 됩니다.
+
+**한 발화가 10초 더 걸리는 것이 시연에서 감당되는지가 판단할 점입니다.**
+GPU(RunPod)에 올리면 0.28초입니다 → [ADR-043](../decisions/043-gpu-hosting.md) ·
+[`runpod-bench.md`](runpod-bench.md). 다만 그쪽은 시간당 과금이고 끝나면 내려야 합니다.
 
 ### 전에 적어 둔 것 (2026-08-25)
 

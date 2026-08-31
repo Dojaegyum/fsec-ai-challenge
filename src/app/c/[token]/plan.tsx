@@ -52,19 +52,32 @@ import type { PlanStep, StepTone } from "@/modules/plan-viewer";
  * 1a** 의 개수였고, 그중 「결정」은 **기관이 하는 일이라 KB 에 단계가 없습니다** —
  * 영영 「미시작」으로 남을 칸을 두느니 「환급」에 합칩니다.
  *
- * ## 걸리는 단계가 없으면 「미시작」입니다
+ * ## 유형에 없는 국면은 「해당 없음」입니다 — `body.action` 으로 가릅니다
  *
- * ⬜ **유형에 따라 아예 없는 국면이 있는데 그것을 아직 못 가립니다.** 카드·통신과금·
- * 상품권은 채권소멸공고를 타지 않고(`src/kb/ch-card.json` 등이 「이 유형에는 …
- * 없습니다」로 덮습니다) 그 단계의 `state` 는 `not_started` 라, 레일에는 「공고
- * 2개월 · 미시작」으로 그려집니다. `skipped` 로 오면 「해당 없음」이 됩니다 —
- * **어느 쪽인지를 서버가 말해 주는 칸이 §3.6 에 없습니다.**
+ * ⚠️ **2026-08-31 까지 「미시작」으로 그렸습니다.** 카드·통신과금·상품권은
+ * 채권소멸공고를 타지 않고 가상자산은 지급정지·피해구제가 아직 열려 있지
+ * 않은데(`src/kb/ch-*.json` 이 「이 유형에는 … 없습니다」로 공통을 덮습니다),
+ * 그 단계의 `state` 는 `not_started` 라 레일이 **「지급정지 · 미시작」**으로
+ * 그렸습니다. 사용자는 그것을 **아직 해야 하는 일**로 읽습니다 —
+ * KB 가 「걸리지 않습니다」라고 말한 절차를 화면이 시켰다는 뜻이고,
+ * 그것이 [불변 규칙 1](../../../CLAUDE.md)이 금지한 자리입니다.
+ *
+ * **가르는 값은 `body.action` 입니다.** KB 에서 `read` 인 항목은 지금 여덟 개이고
+ * **전부** 「이 유형에는 없습니다 · 아직 열려 있지 않습니다」류입니다 —
+ * 할 일이 아니라 **읽고 넘어가는 자리**입니다. 나머지 넷(`call`·`visit`·`upload`·
+ * `wait`)은 사용자가 무언가를 하는 단계입니다.
+ *
+ * ⬜ **추론입니다.** 「이 국면은 이 유형에 없다」를 서버가 곧장 말해 주는 칸이
+ * §3.6 에 없습니다. 생기면 그 칸을 보세요 — `skipped` 로 와도 「해당 없음」이 됩니다.
+ * 새 `read` 항목을 KB 에 넣을 때는 **레일이 그 국면을 「해당 없음」으로 그린다**는
+ * 것을 알고 넣으세요 (→ [RFC-002](../../../rfc/002-kb-authoring.md)).
  */
 const RAIL: readonly { readonly label: string; readonly keys: readonly string[] }[] = [
   { label: "지급정지", keys: ["freeze-request"] },
   { label: "피해구제", keys: ["relief-apply", "relief-documents"] },
   { label: "공고 2개월", keys: ["debt-extinction-notice"] },
-  // 기관이 하는 일이라 KB 에 단계가 없습니다 — **늘 「미시작」이고 그게 사실입니다**
+  // 기관이 하는 일이라 KB 에 단계가 없습니다 — 걸 `step_key` 가 없어
+  // **앞 칸들에서 따라옵니다** (`railTones`)
   { label: "환급", keys: [] },
 ];
 
@@ -97,7 +110,36 @@ function railTone(steps: readonly PlanStep[], keys: readonly string[]): StepTone
   if (mine.every((one) => one.state === "done_verified")) return "done";
   // 「지우지 않고 흐리게」 — 왜 없는지가 정보입니다 (§S-07)
   if (mine.every((one) => one.state === "skipped")) return "na";
+  // 읽고 넘어가는 자리뿐이면 **할 일이 아닙니다** → 위 「유형에 없는 국면」.
+  // 하나라도 사용자가 하는 단계가 섞여 있으면 「미시작」입니다 — 있는 일을
+  // 「해당 없음」으로 덮는 쪽이 훨씬 나쁩니다
+  if (mine.every((one) => one.body.action === "read")) return "na";
   return "todo";
+}
+
+/**
+ * 레일 넉 칸의 상태를 한꺼번에 정합니다.
+ *
+ * ## 걸 단계가 없는 칸은 앞 칸에서 따라옵니다
+ *
+ * 「환급」은 기관이 하는 일이라 KB 에 단계가 없습니다. 혼자 보면 늘 「미시작」인데,
+ * **앞 국면이 전부 「해당 없음」인 사건에서 그것은 거짓입니다** — 가상자산 사건에서
+ * 지급정지·피해구제·공고가 다 「해당 없음」인데 환급만 「미시작」이면, 사용자는
+ * **기다리면 환급이 온다**로 읽습니다. 「받을 수 있다고 말하지 않는다」
+ * ([불변 규칙 8](../../../CLAUDE.md))가 정확히 그 자리입니다.
+ *
+ * 앞 칸이 하나라도 살아 있으면 「미시작」 그대로입니다 — **있는 절차를
+ * 「해당 없음」으로 덮는 쪽이 훨씬 나쁩니다.**
+ */
+function railTones(steps: readonly PlanStep[]): StepTone[] {
+  const tones = RAIL.map(({ keys }) => railTone(steps, keys));
+  const anchored = RAIL.map(({ keys }, i) => (keys.length > 0 ? tones[i] : null));
+  const live = anchored.filter((one) => one !== null);
+
+  // 걸린 칸이 전부 「해당 없음」일 때만 따라갑니다. 하나도 없으면(단계가 아직
+  // 안 붙은 새 사건) 판단하지 않습니다
+  const allNa = live.length > 0 && live.every((one) => one === "na");
+  return tones.map((tone, i) => (RAIL[i].keys.length === 0 && allNa ? "na" : tone));
 }
 
 /** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작해야 합니다 —
@@ -130,6 +172,9 @@ export default function PlanView({
   onPickFile?: (file: File) => void;
   busy?: boolean;
 }) {
+  /** 레일 넉 칸 — 「환급」이 앞 칸에서 따라오므로 한꺼번에 정합니다 */
+  const tones = railTones(steps);
+
   // 본 기한·추가 기간·안내를 가릅니다. **합치지 않습니다** → 데이터 모델 §8.1
   const groups = groupDeadlines(deadlines);
   // 공고는 `kind: "info"` 기한 하나입니다 — 사용자가 지킬 기한이 아닙니다 (§3.7)
@@ -270,8 +315,8 @@ export default function PlanView({
           <p className="text-[12.5px] text-ink-4">절차의 전체 흐름입니다</p>
         </div>
         <ol className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-4">
-          {RAIL.map(({ label, keys }) => {
-            const tone = railTone(steps, keys);
+          {RAIL.map(({ label }, cell) => {
+            const tone = tones[cell];
             const mark = RAIL_MARK[tone];
             return (
               /* **기호·태그·색 셋이 함께 갑니다** — 색만으로 가르지 않습니다 (§S-07).

@@ -1480,6 +1480,60 @@ export function createVaultMappings(sql: Sql): VaultMappings {
 }
 
 /**
+ * 이름표가 박혀 있는 **토큰화된 글 전부** — 장부(`pii-tokenizer/ledger.ts`)가 읽는 자리.
+ *
+ * ## 왜 표 넷을 함께 보나
+ *
+ * 서버 2차(NER)가 붙인 이름표는 **짝이 볼트에 없습니다.** 봉할 키가 서버에
+ * 없어서입니다(ADR-027). 그래서 「어느 번호가 쓰였나」를 알 유일한 방법이
+ * **써 놓은 글에서 다시 긁는 것**입니다.
+ *
+ * 2026-08-31 까지 전사문(`evidence`) 하나만 봤습니다. 그래서 챗 답변에 붙은
+ * `[이름-1]` 을 다음 턴이 못 보고 **다른 사람에게 같은 번호**를 다시 발급했습니다 —
+ * 그 둘이 매 턴 한 프롬프트에 함께 들어갑니다. 네 자리 전부를 봐야 장부입니다.
+ *
+ * | 표 | 칸 | 누가 씁니까 |
+ * | --- | --- | --- |
+ * | `message` | `content_masked` | 챗 한 턴 (`flows/chat-turn.ts`) |
+ * | `case_slot` | `value_masked` | 슬롯 답 (`flows/answer-slot.ts`) |
+ * | `artifact` | `value_masked` | 단계 부산물 (`…/artifacts/route.ts`) |
+ * | `evidence` | `transcript_masked` | 전사·판독 (`flows/read-evidence.ts`) |
+ *
+ * ⚠️ **`prompt_masked`·`reasoning_masked` 는 안 봅니다.** 앞의 넷에서 조립한
+ * 것이라 새 이름표가 없고, 길이가 수십 배라 사건마다 헛돈이 듭니다.
+ *
+ * ⚠️ **원문을 담은 칸을 여기 더하지 마세요.** 이름에 `_masked` 가 없는 칸은
+ * 토큰화를 지나지 않았다는 뜻입니다 → ADR-040.
+ */
+export interface MaskedTexts {
+  all(caseId: string): Promise<readonly string[]>
+}
+
+export function createMaskedTexts(sql: Sql): MaskedTexts {
+  return {
+    async all(caseId) {
+      // 한 왕복으로 받습니다 — 토큰화는 **값을 쓰기 직전마다** 도는 자리라
+      // 표마다 질의를 나누면 그 비용이 매 턴 넷으로 곱해집니다.
+      //
+      // `UNION ALL` 인 이유는 중복 제거가 여기서 필요 없어서입니다 —
+      // 이름표는 `issuedMappings` 가 `Set` 으로 한 번 더 거릅니다.
+      const rows = await sql<{ text: string | null }[]>`
+            SELECT content_masked    AS text FROM message   WHERE case_id = ${caseId}
+        UNION ALL
+            SELECT value_masked      AS text FROM case_slot WHERE case_id = ${caseId}
+        UNION ALL
+            SELECT value_masked      AS text FROM artifact  WHERE case_id = ${caseId}
+        UNION ALL
+            SELECT transcript_masked AS text FROM evidence  WHERE case_id = ${caseId}
+      `
+      const out: string[] = []
+      for (const row of rows) if (row.text) out.push(row.text)
+      return out
+    },
+  }
+}
+
+/**
  * 파기하는 쪽이 보는 볼트 → `case-purger`.
  *
  * **쓰기(`put`)가 여기 없습니다.** 지우는 것만 하는 모듈이 넣을 수도 있으면

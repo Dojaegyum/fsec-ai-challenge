@@ -25,12 +25,18 @@ const json = (body: unknown, status = 200) =>
   });
 
 /** 볼트 응답과 이력 응답을 경로로 갈라 냅니다 */
-function stubApi(entries: unknown, messages: unknown, truncated = false) {
+function stubApi(
+  entries: unknown,
+  messages: unknown,
+  truncated = false,
+  /** 서버가 붙인 이름표 — 암호문이 없어 볼트에 못 들어간 것들 (§3.11 `GET`) */
+  issued?: readonly string[],
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) =>
       url.includes("/vault")
-        ? json({ entries })
+        ? json(issued === undefined ? { entries } : { entries, issued })
         : json({ messages, truncated }),
     ),
   );
@@ -212,6 +218,83 @@ describe("못 열어도 이름표는 자리를 지킨다", () => {
       site: "chat-answer",
     });
     expect(shown).toBe("[계좌-1] 로 보내셨죠");
+  });
+});
+
+/**
+ * ## 서버가 앞서 쓴 번호 — 볼트에는 없습니다
+ *
+ * 전사·NER 이 붙인 이름표는 **짝을 봉할 키가 서버에 없어** 볼트에 못 들어옵니다.
+ * 2026-08-31 까지 브라우저가 볼트만 봐서, 실제로 이렇게 무너졌습니다 —
+ *
+ * ```
+ * /start 에서 사건 만들고 곧바로 녹음 업로드
+ *   → 서버가 전사하며 사기범 계좌에 [계좌-1]      (볼트는 아직 빔)
+ * 나중에 챗에 본인 계좌 입력
+ *   → 브라우저가 빈 볼트를 보고 [계좌-1] 을 다시 발급
+ * 자료함에서 전사문 열기
+ *   → 사기범 계좌 자리에 본인 계좌번호가 그려짐
+ * ```
+ */
+describe("서버가 붙인 이름표도 자리를 차지한다", () => {
+  const MINE = "301-1234-567890";
+
+  it("볼트가 비어 있어도 서버 번호를 이어받는다 — **회귀**", async () => {
+    // 볼트는 빔. 서버는 전사문에서 [계좌-1] 을 이미 썼습니다
+    stubApi([], [], false, ["[계좌-1]"]);
+
+    const vault = await openVault(TOKEN, memoryKeyStore());
+
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]"]);
+    expect(isReserved(vault.maskContext[0]!)).toBe(true);
+    // 되살릴 원문이 없습니다 — 넣으면 대역이 화면에 그려집니다
+    expect(vault.restorable).toHaveLength(0);
+    // **맡긴 것이 없는 것**이지 못 연 것이 아닙니다. 화면이 「잠겼다」로 읽으면 안 됩니다
+    expect(vault.stored).toBe(0);
+    expect(vault.failed).toBe(0);
+  });
+
+  it("그 상태로 본인 계좌를 가리면 [계좌-2] 가 된다 — 사고 ① 그대로", async () => {
+    stubApi([], [], false, ["[계좌-1]"]);
+    const vault = await openVault(TOKEN, memoryKeyStore());
+
+    const out = maskText(`제 계좌는 ${MINE} 예요`, { mappings: vault.maskContext });
+
+    // 1을 다시 쓰면 전사문의 사기범 계좌 자리에 본인 계좌가 그려집니다
+    expect(out.masked).toContain("[계좌-2]");
+    expect(out.masked).not.toContain("[계좌-1]");
+    // 봉해 맡길 것은 새로 생긴 하나뿐 — 예약 칸은 안 나갑니다
+    expect(out.added.map((m) => m.token)).toEqual(["[계좌-2]"]);
+  });
+
+  it("볼트에 이미 있는 이름표는 두 번 들어가지 않는다", async () => {
+    const { store, entries } = await seeded();
+    stubApi(entries, [], false, ["[계좌-1]", "[전화-3]"]);
+
+    const vault = await openVault(TOKEN, store);
+
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]", "[전화-3]"]);
+    // 볼트에서 온 칸은 **원문이 살아 있어야** 합니다 — 예약 칸이 덮으면 복원이 죽습니다
+    expect(vault.maskContext[0]?.original).toBe(ACCOUNT);
+    expect(isReserved(vault.maskContext[1]!)).toBe(true);
+  });
+
+  it("`[이름-N]` 은 안 셉니다 — 브라우저가 만들지 않는 종류입니다", async () => {
+    stubApi([], [], false, ["[이름-1]", "[계좌-1]"]);
+
+    const vault = await openVault(TOKEN, memoryKeyStore());
+
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]"]);
+  });
+
+  it("옛 서버라 `issued` 가 없어도 볼트만으로 선다", async () => {
+    const { store, entries } = await seeded();
+    stubApi(entries, []); // issued 를 아예 안 보냅니다
+
+    const vault = await openVault(TOKEN, store);
+
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]"]);
+    expect(vault.read).toBe(true);
   });
 });
 

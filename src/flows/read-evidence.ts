@@ -155,7 +155,7 @@ export async function collectReading(
   // (`flows/chat-turn.ts` 의 `caseTalk`)
   const issued = await readIssuedLedger(input.caseId, {
     vault: container.vaultWrite,
-    transcripts: container.messages,
+    masked: container.maskedTexts,
   })
   const masked = await maskLines(progress.result.lines, container, allowed, issued)
 
