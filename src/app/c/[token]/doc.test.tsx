@@ -165,3 +165,28 @@ describe("금액·시각을 우리가 해석해 바꾸지 않는다", () => {
     expect(field?.display).toBe("저녁 무렵");
   });
 });
+
+/**
+ * ## 시연 경로(`?view=doc`)가 실제로 값을 그리는가
+ *
+ * 픽스처 슬롯은 `counterpart_account` 를 `[계좌-1]` 로 들고 있습니다. 매핑을
+ * 안 내려주면 화면이 토큰만 그리고 복사 버튼이 사라져, **무엇을 보여주려던
+ * 화면인지 알 수 없게** 됩니다 — `?view=plan` 워크스페이스가 비어 있던 것과 같은 종류입니다.
+ */
+describe("시연 픽스처가 그려진다", () => {
+  it("픽스처 매핑을 주면 서류 칸에 값이 그려진다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <DocGuide
+          caseToken="t"
+          slots={[slot("counterpart_account", "[계좌-1]"), slot("org_name", "농협은행")]}
+          restorable={[{ token: "[계좌-1]", original: "110-2345-678901" }]}
+        />,
+      ),
+    );
+
+    expect(text).toContain("110-2345-678901");
+    expect(text).toContain("농협은행");
+    expect(text).toContain("옮겨 적음 0 / 3");
+  });
+});

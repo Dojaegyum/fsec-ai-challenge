@@ -12,7 +12,7 @@ import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
 import { ABSORB_MS, absorbKeyframes, fadeKeyframes, prefersReducedMotion, rectOf } from "./absorb";
 import ChatView, { MiniChat } from "./chat";
-import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE } from "./fixtures";
+import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
 import { useCaseBundle, type CaseBundle, type CaseSlot } from "./load";
 import { useChatSend } from "./send";
@@ -627,7 +627,10 @@ function CaseScreen({
             <DocGuide
               caseToken={token}
               slots={bundle.slots}
-              restorable={chat.restorable}
+              /* 개발 경로(`?view=`)에서만 픽스처입니다 — 증거함과 같은 규칙입니다.
+                 실서버 경로에서 픽스처를 쓰면 **이 사건에 없는 값이 서류 칸에
+                 원문으로 그려집니다** (`evidence.tsx` 의 같은 자리 참고) */
+              restorable={dataToken === null ? FIXTURE_MAPPINGS : chat.restorable}
             />
           )}
         </section>
@@ -784,7 +787,7 @@ function CaseScreen({
                 <DocGuide
                   caseToken={token}
                   slots={bundle.slots}
-                  restorable={chat.restorable}
+                  restorable={dataToken === null ? FIXTURE_MAPPINGS : chat.restorable}
                 />
               )}
             </div>
