@@ -22,7 +22,7 @@
  * 제한 때문입니다 — 그래서 이 `PUT` 만은 `postJson` 을 안 씁니다.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { nextStep, screenName } from "@/modules/file-sender";
 import type { RailFile, SendState } from "@/modules/file-sender";
@@ -166,6 +166,117 @@ export interface Uploads {
   readonly selectedId: string | undefined;
 }
 
+/* ── 서버에 이미 올라와 있는 자료를 되받는 자리 ─────────────────────
+ *
+ * ⚠️ **이것이 없어서 올린 자료가 화면에서 사라졌습니다.** 자료 레일이 이
+ * 브라우저의 메모리만 보고 있었고, 자료를 읽는 길이 `…/evidence/{번호}` 하나라
+ * **번호를 아는 것은 방금 올린 브라우저뿐**이었습니다. 그래서 새로고침하거나
+ * 시작 화면에서 올리고 사건 화면으로 넘어오면 서버에 멀쩡히 있는 자료를
+ * 영영 못 찾았습니다 → `app/api/cases/[case_token]/evidence/route.ts` 의 `GET`.
+ */
+
+/** §3.2 `GET` 응답 한 줄 */
+interface EvidenceRow {
+  readonly evidence_id: string;
+  readonly kind: string;
+  readonly ingest_status: string;
+  readonly created_at: string;
+}
+
+/** 자료 레일에 그릴 이름 — **파일 이름이 서버에 없습니다**(일부러) */
+const KIND_LABEL: Record<string, string> = {
+  audio: "통화 녹음",
+  image: "화면 캡처",
+  text: "문서",
+};
+
+/**
+ * 종류와 올린 시각으로 이름을 만듭니다.
+ *
+ * **원래 파일 이름은 서버에 없습니다.** 파일 이름에도 개인정보가 들어와서
+ * (「입금내역_110-2345-678901.png」) `evidence` 표에 그 칸을 두지 않았습니다 —
+ * 가리는 것은 브라우저의 `screenName` 이고, 가린 결과도 저장하지 않습니다.
+ * 그래서 되받은 자료는 **이름 대신 종류와 시각**으로 그립니다.
+ */
+function labelOf(row: EvidenceRow): string {
+  const kind = KIND_LABEL[row.kind] ?? "자료";
+  const at = new Date(row.created_at);
+  if (Number.isNaN(at.getTime())) return kind;
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${kind} · ${at.getMonth() + 1}/${at.getDate()} ${two(at.getHours())}:${two(at.getMinutes())}`;
+}
+
+const STATUSES: readonly string[] = ["pending", "processing", "done", "failed"];
+
+/**
+ * 서버가 준 목록과 이 브라우저가 들고 있던 목록을 합칩니다.
+ *
+ * **서버를 앞에, 로컬을 뒤에.** 서버 목록이 사건의 사실이고, 로컬에만 있는 줄은
+ * 아직 서버에 없는 것들입니다 —
+ *
+ * | 로컬에만 있는 줄 | 왜 남겨야 하나 |
+ * | --- | --- |
+ * | 못 가려서 **안 올린** 파일 | `evidence_id` 가 없습니다. 사용자가 봐야 합니다 → ADR-026 |
+ * | **올리는 중**인 파일 | 아직 서버 목록에 안 잡힙니다 |
+ * | 올리다 **실패**한 파일 | 지우면 왜 안 올라갔는지 알 수 없습니다 |
+ *
+ * ⚠️ **`evidence_id` 로 겹침을 봅니다.** `id` 로 보면 안 됩니다 — 방금 올린 줄은
+ * `local-3` 이고 서버에서 온 같은 파일은 증거 번호라, 키가 달라 **같은 파일이
+ * 두 줄로** 그려집니다.
+ */
+export function mergeRail(
+  server: readonly RailFile[],
+  local: readonly RailFile[],
+): readonly RailFile[] {
+  if (server.length === 0) return local;
+  const known = new Set(server.map((one) => one.evidence_id));
+  return [...server, ...local.filter((one) => !one.evidence_id || !known.has(one.evidence_id))];
+}
+
+/**
+ * 이 사건에 올라와 있는 자료를 받아 옵니다.
+ *
+ * **못 받아도 던지지 않습니다.** 목록을 못 불러온 것과 자료가 없는 것은 다르지만,
+ * 여기서 터뜨리면 이번에 올리는 것까지 막힙니다 — 사건은 그대로 진행됩니다
+ * (불변 규칙 5). 못 받으면 빈 목록이고, 이번 세션에 올린 것은 그대로 보입니다.
+ */
+async function fetchEvidenceList(
+  caseToken: string,
+  signal?: AbortSignal,
+): Promise<readonly RailFile[]> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/cases/${encodeURIComponent(caseToken)}/evidence`, {
+      signal,
+      headers: { accept: "application/json" },
+    });
+  } catch {
+    return [];
+  }
+  if (!res.ok) return [];
+
+  let rows: readonly EvidenceRow[];
+  try {
+    const body = (await res.json()) as { evidence?: readonly EvidenceRow[] };
+    rows = body.evidence ?? [];
+  } catch {
+    return [];
+  }
+
+  return rows
+    .filter((one) => typeof one.evidence_id === "string" && one.evidence_id.length > 0)
+    .map((one) => ({
+      // 서버에서 온 줄은 **증거 번호를 키로** 씁니다 — 로컬 id 와 섞이지 않습니다
+      id: one.evidence_id,
+      evidence_id: one.evidence_id,
+      name: labelOf(one),
+      // 모르는 상태를 화면 어휘로 지어내지 않습니다 — 아직 안 끝난 것으로 둡니다
+      status: (STATUSES.includes(one.ingest_status)
+        ? one.ingest_status
+        : "pending") as RailFile["status"],
+    }));
+}
+
 let localSeq = 0;
 
 /**
@@ -182,6 +293,34 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
   const [selectedId, setSelectedId] = useState<string | undefined>(seed[0]?.id);
   const [busy, setBusy] = useState(false);
   const [fail, setFail] = useState<LoadFail | null>(null);
+
+  /**
+   * 사건에 이미 올라와 있는 자료를 한 번 받아 옵니다 — 위 「되받는 자리」.
+   *
+   * **이번 세션에 올린 것을 덮지 않습니다.** 서버 목록을 앞에 두고, 그 뒤에
+   * 아직 서버에 없는 로컬 줄(못 올린 파일·올리는 중)만 이어 붙입니다.
+   * 못 올린 파일은 `evidence_id` 가 없어 서버 목록에 없고, 그래서 남습니다
+   * (ADR-026 — 못 가려서 안 올린 파일도 목록에 보여야 합니다).
+   */
+  useEffect(() => {
+    if (!caseToken) return;
+    const ac = new AbortController();
+    let alive = true;
+
+    void (async () => {
+      const found = await fetchEvidenceList(caseToken, ac.signal);
+      if (!alive || found.length === 0) return;
+
+      setFiles((prev) => mergeRail(found, prev));
+      // 아무것도 안 고른 상태면 첫 줄을 골라 둡니다 — 자료함이 빈 본문으로 열리지 않게
+      setSelectedId((cur) => cur ?? found[0]?.id);
+    })();
+
+    return () => {
+      alive = false;
+      ac.abort();
+    };
+  }, [caseToken]);
 
   const add = useCallback(
     async (file: File): Promise<string | null> => {
