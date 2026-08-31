@@ -1,5 +1,6 @@
 /**
  * `POST /api/cases/{case_token}/evidence` — 업로드 자리 발급.
+ * `GET  /api/cases/{case_token}/evidence` — 이 사건에 올라온 자료 목록.
  *
  * 정본: spec/common/08-14-api.md §3.2 · §1.3
  * 근거: ADR-028 「라우트는 얇게, 모듈이 두껍게」 · ADR-039(주소는 링크 토큰)
@@ -76,6 +77,66 @@ function readEvidence(body: EvidenceBody): {
     mimeType: body.mime_type,
     byteSize: body.byte_size,
   }
+}
+
+/**
+ * 이 사건에 올라온 자료를 목록으로 냅니다 — §3.2 `GET`.
+ *
+ * ## 이 길이 없어서 올린 자료가 화면에서 사라졌습니다
+ *
+ * 2026-08-31 까지 자료를 읽는 길이 `GET …/evidence/{evidence_id}` 하나였습니다.
+ * **그 번호를 아는 것은 방금 올린 브라우저뿐**이고, 자료 레일은 그 목록을
+ * 메모리에만 들고 있었습니다. 그래서 —
+ *
+ * ```
+ * 사건 화면에서 올림      그 순간에는 보임
+ * 새로고침                사라짐
+ * 시작 화면에서 올리고 들어옴   처음부터 안 보임   ← 시연 경로가 여기서 끊깁니다
+ * 며칠 뒤 링크로 재접속    올린 자료가 전부 안 보임
+ * ```
+ *
+ * 서버에는 멀쩡히 있고 전사도 되는데 **화면만 존재를 몰랐습니다.** 마지막 줄이
+ * 특히 무겁습니다 — 링크 재진입이 이 서비스의 유일한 복귀 수단이고(ADR-021),
+ * 몇 달짜리 사건 관리를 내걸었기 때문입니다.
+ *
+ * ## 전사문 본문은 안 실립니다
+ *
+ * `has_transcript` 로 있고 없음만 알립니다. 본문은 파일 하나를 고른 뒤
+ * §3.3 이 냅니다 — 목록에 실으면 **사건의 모든 전사문이 한 응답에** 나갑니다.
+ *
+ * ## 파일 이름이 없는 것은 의도입니다
+ *
+ * `evidence` 표에 이름 칸이 없습니다. 파일 이름에도 개인정보가 들어오기
+ * 때문이고(「입금내역_110-2345-678901.png」), 가리는 것은 브라우저의
+ * `screenName` 입니다. 화면은 이름 대신 **종류와 올린 시각**으로 그립니다.
+ */
+export async function GET(
+  request: Request,
+  route: { params: Promise<{ case_token: string }> },
+) {
+  return handleRoute(request, async (ctx) => {
+    const { container } = ctx
+    // POST 와 같은 규칙 — 조회가 신분 확인이고, 없으면 404 입니다 (ADR-039 ④)
+    const caseId = await caseIdOf(route, container.caseTokens)
+
+    const found = await container.evidence.list(caseId)
+
+    return {
+      body: {
+        evidence: found.map((one) => ({
+          evidence_id: one.evidenceId,
+          kind: one.kind,
+          mime_type: one.mimeType,
+          byte_size: one.byteSize,
+          ingest_status: one.ingestStatus,
+          // 실패했으면 왜인지. §3.3 의 `reason` 과 같은 값입니다
+          ingest_error: one.ingestError,
+          created_at: one.createdAt,
+          has_transcript: one.hasTranscript,
+        })),
+      },
+    }
+  })
 }
 
 export async function POST(

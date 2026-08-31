@@ -18,7 +18,7 @@ import { readEnv } from '@/lib/env'
 
 import type { CaseStore, UploadSlotSource } from '@/modules/case-intake'
 
-import { POST } from './route'
+import { GET, POST } from './route'
 
 const TOKEN = 'TKN00000000000000000000ABC'.slice(0, 26)
 const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
@@ -69,7 +69,12 @@ vi.mock('@/lib/wire', () => ({
  * 링크 토큰을 사건으로 바꾸는 자리를 갈아 끼운다.
  * `null` 이면 「그 주소로 열리는 사건이 없다」입니다.
  */
-function build(caseId: string | null, totals?: { count: number; bytes: number }) {
+function build(
+  caseId: string | null,
+  totals?: { count: number; bytes: number },
+  /** 이 사건에 이미 올라와 있는 자료 — `GET` 이 내는 것 */
+  listed: readonly unknown[] = [],
+) {
   const env = readEnv({})
   const made = createContainer(env, {
     ...unconfiguredPorts(env),
@@ -80,6 +85,7 @@ function build(caseId: string | null, totals?: { count: number; bytes: number })
   holder.container = {
     ...made,
     caseTokens: { async toCaseId() { return caseId } },
+    evidence: { async read() { return null }, async list() { return listed } },
   }
 }
 
@@ -97,6 +103,102 @@ const good = { kind: 'audio', mime_type: 'audio/m4a', byte_size: 4_210_553 }
 
 beforeEach(() => {
   build(CASE_ID)
+})
+
+/**
+ * ## 이 길이 없어서 올린 자료가 화면에서 사라졌습니다
+ *
+ * 2026-08-31 까지 자료를 읽는 길이 `GET …/evidence/{evidence_id}` 하나였고,
+ * **그 번호를 아는 것은 방금 올린 브라우저뿐**이었습니다. 자료 레일이 목록을
+ * 메모리에만 들고 있어서, 새로고침하거나 시작 화면에서 올리고 사건 화면으로
+ * 넘어오면 서버에 멀쩡히 있는 자료를 영영 못 찾았습니다.
+ *
+ * 링크 재진입이 이 서비스의 유일한 복귀 수단이라(ADR-021) 특히 무겁습니다 —
+ * 며칠 뒤 돌아오면 올린 자료가 하나도 안 보였습니다.
+ */
+describe('사건의 자료를 목록으로 낸다 — §3.2 `GET`', () => {
+  const row = {
+    evidenceId: '01J8XKR60000000000000000AA',
+    kind: 'audio' as const,
+    mimeType: 'audio/m4a',
+    byteSize: 4_210_553,
+    ingestStatus: 'done' as const,
+    ingestError: null,
+    createdAt: '2026-08-31T09:18:00+09:00',
+    hasTranscript: true,
+  }
+
+  const list = async (rows: readonly unknown[]) => {
+    build(CASE_ID, undefined, rows)
+    const res = await GET(new Request(`http://x/api/cases/${TOKEN}/evidence`), route())
+    return { res, body: (await res.json()) as { evidence: Record<string, unknown>[] } }
+  }
+
+  it('계약의 칸을 그대로 낸다', async () => {
+    const { res, body } = await list([row])
+
+    expect(res.status).toBe(200)
+    expect(body.evidence).toHaveLength(1)
+    expect(Object.keys(body.evidence[0]).sort()).toEqual(
+      [
+        'byte_size',
+        'created_at',
+        'evidence_id',
+        'has_transcript',
+        'ingest_error',
+        'ingest_status',
+        'kind',
+        'mime_type',
+      ].sort(),
+    )
+    expect(body.evidence[0].evidence_id).toBe(row.evidenceId)
+    expect(body.evidence[0].ingest_status).toBe('done')
+  })
+
+  /**
+   * **목록에 본문을 실으면 사건의 모든 전사문이 한 응답에 나갑니다.**
+   * 있고 없음만 알리고, 본문은 파일 하나를 고른 뒤 §3.3 이 냅니다.
+   */
+  it('전사문 본문을 싣지 않는다 — 있고 없음만', async () => {
+    const { body } = await list([row])
+
+    expect(body.evidence[0].has_transcript).toBe(true)
+    expect(JSON.stringify(body)).not.toContain('transcript_masked')
+    expect(Object.keys(body.evidence[0])).not.toContain('transcript')
+  })
+
+  /**
+   * 파일 이름 칸이 없는 것은 의도입니다 — 파일 이름에도 개인정보가 들어옵니다
+   * (「입금내역_110-2345-678901.png」). `evidence` 표에 그 칸이 없습니다.
+   */
+  it('파일 이름을 내지 않는다 — 저장한 적이 없습니다', async () => {
+    const { body } = await list([row])
+
+    expect(Object.keys(body.evidence[0])).not.toContain('name')
+    expect(Object.keys(body.evidence[0])).not.toContain('filename')
+  })
+
+  it('자료가 없으면 빈 목록이다 — 오류가 아닙니다', async () => {
+    const { res, body } = await list([])
+
+    expect(res.status).toBe(200)
+    expect(body.evidence).toEqual([])
+  })
+
+  it('올린 순서를 서버가 준 그대로 낸다', async () => {
+    const second = { ...row, evidenceId: '01J8XKR60000000000000000BB', ingestStatus: 'pending' as const }
+    const { body } = await list([row, second])
+
+    expect(body.evidence.map((one) => one.evidence_id)).toEqual([row.evidenceId, second.evidenceId])
+  })
+
+  /** POST 와 같은 규칙 — 조회가 신분 확인이고, 없는 사건은 404 입니다 (ADR-039 ④) */
+  it('없는 사건은 404 다', async () => {
+    build(null)
+    const res = await GET(new Request(`http://x/api/cases/${TOKEN}/evidence`), route())
+
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('업로드 자리를 낸다 — §3.2', () => {

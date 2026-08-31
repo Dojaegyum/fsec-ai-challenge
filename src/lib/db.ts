@@ -410,6 +410,43 @@ export interface EvidenceReader {
     /** 다 읽었으면 **토큰화된 결과**. 아직이면 `null` */
     readonly transcriptMasked: string | null
   } | null>
+
+  /**
+   * 이 사건에 올라온 자료를 **목록으로** 낸다 → §3.2 `GET`.
+   *
+   * ## 이것이 없어서 올린 자료가 화면에서 사라졌습니다
+   *
+   * 2026-08-31 까지 읽는 길이 `read(사건, 증거번호)` 하나였습니다. 그런데
+   * **증거 번호를 아는 것은 그 파일을 방금 올린 브라우저뿐**이라, 새로고침하거나
+   * 시작 화면에서 올리고 사건 화면으로 넘어오면 번호가 사라지고 **서버에 멀쩡히
+   * 있는 자료를 화면이 영영 못 찾았습니다.** 링크로 며칠 뒤 돌아오는 것이 이
+   * 서비스의 재진입 방식인데(ADR-021), 그때 올린 자료가 하나도 안 보였습니다.
+   *
+   * ## ⚠️ 전사문 본문은 내지 않습니다
+   *
+   * 목록은 **무엇이 있고 어디까지 됐나**만 답합니다. 본문은 파일 하나를 고른 뒤
+   * `read` 가 냅니다 — 목록에 실으면 사건의 모든 전사문이 한 응답에 실려
+   * 나갑니다. `hasTranscript` 로 있고 없음만 알립니다.
+   *
+   * ## ⚠️ 파일 이름은 없습니다 — 표에 그 칸이 없습니다
+   *
+   * 일부러 없습니다. 파일 이름에도 개인정보가 들어옵니다
+   * (「입금내역_110-2345-678901.png」) → `file-sender` 의 `screenName`.
+   * 그래서 화면은 이름 대신 **종류와 올린 시각**으로 그립니다.
+   */
+  list(caseId: string): Promise<
+    readonly {
+      readonly evidenceId: string
+      readonly kind: EvidenceKind
+      readonly mimeType: string | null
+      readonly byteSize: number | null
+      readonly ingestStatus: IngestStatus
+      readonly ingestError: string | null
+      readonly createdAt: string
+      /** 전사·판독이 끝나 본문이 있나. **본문 자체는 안 냅니다** */
+      readonly hasTranscript: boolean
+    }[]
+  >
 }
 
 /**
@@ -497,6 +534,44 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
         ingestStatus: row.ingest_status,
         transcriptMasked: row.transcript_masked,
       }
+    },
+
+    async list(caseId) {
+      // ⚠️ **`transcript_masked` 를 고르지 않습니다** — 위 인터페이스 주석 참고.
+      // 있고 없음만 필요하므로 `IS NOT NULL` 로 물어봅니다. 사건에 전사문이
+      // 여럿이면 목록 응답이 통째로 무거워지는 것을 막는 자리입니다
+      const rows = await sql<
+        {
+          evidence_id: string
+          kind: EvidenceKind
+          mime_type: string | null
+          byte_size: string | number | null
+          ingest_status: IngestStatus
+          ingest_error: string | null
+          created_at: Date | string
+          has_transcript: boolean
+        }[]
+      >`
+        SELECT evidence_id, kind, mime_type, byte_size, ingest_status, ingest_error,
+               created_at, (transcript_masked IS NOT NULL) AS has_transcript
+        FROM evidence
+        WHERE case_id = ${caseId}
+        -- 올린 순서 그대로. 화면의 자료 레일이 이 순서로 그립니다
+        ORDER BY created_at, evidence_id
+      `
+
+      return rows.map((one) => ({
+        evidenceId: one.evidence_id,
+        kind: one.kind,
+        mimeType: one.mime_type,
+        // BIGINT 는 드라이버가 문자열로 줍니다 — 화면이 숫자로 쓰므로 여기서 바꿉니다
+        byteSize: one.byte_size === null ? null : Number(one.byte_size),
+        ingestStatus: one.ingest_status,
+        ingestError: one.ingest_error,
+        createdAt:
+          one.created_at instanceof Date ? one.created_at.toISOString() : String(one.created_at),
+        hasTranscript: one.has_transcript === true,
+      }))
     },
   }
 }
