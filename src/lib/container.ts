@@ -35,6 +35,7 @@ import { createInferenceEngines } from './inference'
 import { createNerModel } from './ner'
 import { createHolidayCalendar } from './holidays'
 import { createLlmClient, type TextLlmClient } from './llm'
+import { createMailer } from './mailer'
 import { createQuestionSource } from './questions'
 import {
   createAuditStore,
@@ -438,11 +439,12 @@ export function unconfiguredPorts(env: Env): Ports {
     // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
     ...readingEngines(env),
     llm: createLlmClient(env) ?? unconfigured('LlmClient', ['XAI_API_KEY']),
-    // ⬜ **발송 수단 자체가 미정입니다** → ADR-021 「남은 것」. 열쇠 이름만
-    // 정본(§1.2 `MAILER_API_KEY`)에 자리를 잡아 두었습니다 — 값을 넣어도
-    // 그것을 쓰는 코드가 아직 없어 붙지 않습니다(wire.ts 의 규칙 그대로).
-    // 크론은 그래도 돕니다 — 보낼 사건이 `failed` 로 남을 뿐입니다(§6.2)
-    mailer: unconfigured('Mailer', ['MAILER_API_KEY']),
+    // **Brevo 입니다** (2026-09-01 결정 → mailer.ts 머리말). 열쇠·발신자·
+    // 링크 밑동 셋이 다 있어야 붙고, 하나라도 비면 not-configured 로 정직하게
+    // 꺼집니다 — 크론은 그래도 돌고, 보낼 사건이 `failed` 로 남습니다(§6.2)
+    mailer:
+      createMailer(env) ??
+      unconfigured('Mailer', ['MAILER_API_KEY', 'MAILER_FROM', 'APP_ORIGIN']),
     /**
      * **아무 기관의 형식도 모른다고 답합니다 — 그리고 그건 이제 실패가 아닙니다.**
      *

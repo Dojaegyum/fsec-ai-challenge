@@ -327,8 +327,8 @@ describe('기한이 다가오면 알린다 — 확정된 것만', () => {
         ],
         findUnconfirmedSteps: async () => [],
         findContacts: async () => [
-          { caseId: 'CASE01', email: 'a@example.com' },
-          { caseId: 'CASE02', email: 'b@example.com' },
+          { caseId: 'CASE01', email: 'a@example.com', linkToken: '01LINKTOKENTESTTESTTESTTES' },
+          { caseId: 'CASE02', email: 'b@example.com', linkToken: '01LINKTOKENTESTTESTTESTTES' },
         ],
       },
       sentLog: { sentAlready: async () => false, markSent: async () => {} },

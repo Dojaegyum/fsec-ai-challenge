@@ -187,6 +187,7 @@ function decide(
   return {
     caseId,
     email: contact.email,
+    linkToken: contact.linkToken,
     reason: reasonOf(bundle),
     dedupeKey: dedupeKey(caseId, bundle),
     deadlines: bundle.deadlines,

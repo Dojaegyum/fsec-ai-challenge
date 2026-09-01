@@ -75,7 +75,7 @@ export function configReport(container: Container): readonly PortStatus[] {
       '캡처를 올려도 글자를 못 읽습니다. **사건 진행은 그대로 돕니다**'),
     // ⬜ 발송 수단 자체가 미정입니다(ADR-021 「남은 것」) — 열쇠 이름만
     // 정본에 자리 잡았고, 쓰는 코드가 생겨야 붙습니다 → container.ts
-    row('메일 발송', !isUnconfigured(ports.mailer), ['MAILER_API_KEY'],
+    row('메일 발송', !isUnconfigured(ports.mailer), ['MAILER_API_KEY', 'MAILER_FROM', 'APP_ORIGIN'],
       '기한 알림이 안 나갑니다 — 크론은 돌고, 보낼 사건이 failed 로 남습니다'),
     // **이 줄은 「형식을 아는 기관이 있나」입니다.** 지금은 하나도 없고, 그래도
     // L1 은 돕니다 — 「받아 적었나」를 보는 것으로 뜻을 바꿨기 때문입니다(ADR-057).
