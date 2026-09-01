@@ -116,12 +116,19 @@ export function createReminderSource(sql: Sql): ReminderSource {
      */
     async findContacts(caseIds) {
       if (caseIds.length === 0) return []
-      const rows = await sql<{ case_id: string; notify_email: string | null }[]>`
-        SELECT case_id, notify_email FROM "case"
+      const rows = await sql<
+        { case_id: string; notify_email: string | null; link_token: string }[]
+      >`
+        SELECT case_id, notify_email, link_token FROM "case"
         WHERE case_id = ANY(${[...caseIds]}::char(26)[])
       `
       return rows.map(
-        (one): CaseContact => ({ caseId: one.case_id, email: one.notify_email }),
+        (one): CaseContact => ({
+          caseId: one.case_id,
+          email: one.notify_email,
+          // 재진입 링크의 몸통 — 메일이 「돌아오는 길」을 실어야 합니다 (types.ts)
+          linkToken: one.link_token,
+        }),
       )
     },
   }

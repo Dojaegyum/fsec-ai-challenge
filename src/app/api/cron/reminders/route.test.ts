@@ -88,6 +88,7 @@ describe('응답은 건수뿐이다 — §6.2', () => {
       sent: [
         {
           caseId: CASE_ID,
+          linkToken: '01LINKTOKENTESTTESTTESTTES',
           email: 'name@example.com',
           reason: 'deadline_near',
           dedupeKey: `${CASE_ID}|d:D1:2026-08-21`,
@@ -118,6 +119,7 @@ describe('응답은 건수뿐이다 — §6.2', () => {
       sent: [
         {
           caseId: CASE_ID,
+          linkToken: '01LINKTOKENTESTTESTTESTTES',
           email: 'name@example.com',
           reason: 'deadline_near',
           dedupeKey: `${CASE_ID}|d:D1:2026-08-21`,

@@ -26,10 +26,19 @@ export const ENV_KEYS = [
   'ADMIN_USERNAME',
   'ADMIN_PASSWORD_HASH',
   'CRON_SECRET',
-  // 기한 알림 발송 제공자의 키 → 08-14-api.md §1.2. ⬜ **발송 수단 자체가
-  // 미정이라**(ADR-021 「남은 것」) 지금은 이름만 있습니다 — 값을 넣어도
-  // 그것을 쓰는 코드가 생기기 전에는 메일이 붙지 않습니다 → container.ts
+  // 기한 알림 발송 → mailer.ts. **2026-09-01 에 Brevo 로 정해졌습니다** —
+  // 무료 300통/일 · 도메인 없이 발신자 이메일 인증만으로 됩니다.
+  // 셋이 다 있어야 붙고, 하나라도 비면 not-configured 로 정직하게 꺼집니다
   'MAILER_API_KEY',
+  // `LLM_API_KEY ?? XAI_API_KEY` 와 같은 무늬 — 일반 이름이 비면 제공자 이름을 봅니다
+  'BREVO_API_KEY',
+  // 발신자 주소. **Brevo 에서 인증된 주소여야** 합니다 — 아니면 발송이 거절됩니다
+  'MAILER_FROM',
+  // 재진입 링크의 밑동 (예: https://fin-ally-khaki.vercel.app).
+  // **도메인을 하드코딩하지 않습니다** — 서버 크론에는 「지금 열린 주소」가 없어
+  // 요청에서 읽을 수도 없으니, 명시된 값만 씁니다. 비면 메일이 안 붙습니다 —
+  // 링크 없는 알림은 재진입이 아니라 광고입니다 (ADR-021)
+  'APP_ORIGIN',
   'CASE_PURGE_DAYS',
   'KB_FETCH_CRON',
   'TRANSCRIBER_URL',

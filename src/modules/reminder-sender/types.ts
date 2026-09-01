@@ -51,6 +51,13 @@ export interface StepCandidate {
 export interface CaseContact {
   readonly caseId: string
   /**
+   * 재진입 링크의 몸통 → ADR-021 · ADR-039.
+   *
+   * **링크 없는 알림은 재진입이 아닙니다** — 이 메일의 존재 이유가
+   * 「돌아오는 길」이라, 주소를 함께 싣지 못하면 보낼 뜻이 없습니다.
+   */
+  readonly linkToken: string
+  /**
    * 알림용 이메일. **선택입니다** → ADR-021.
    *
    * **없는 사건도 정상 사건입니다.** 새로 요구하는 흐름을 만들지 마세요.
@@ -62,6 +69,8 @@ export interface CaseContact {
 export interface Reminder {
   readonly caseId: string
   readonly email: string
+  /** 재진입 링크의 몸통. `CaseContact` 에서 그대로 옮겨 옵니다 */
+  readonly linkToken: string
   /** 무엇 때문에 보내나 */
   readonly reason: ReminderReason
   /** 중복 발송을 막는 열쇠. 같은 값으로 두 번 보내지 않습니다 */
