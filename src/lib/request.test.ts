@@ -296,6 +296,54 @@ describe('관리자 경로의 두 번째 관문 — §5.1', () => {
   })
 })
 
+describe('크론 경로의 두 번째 관문 — §6.1', () => {
+  const CRON_ENV = readEnv({ CRON_SECRET: 'a-long-random-cron-secret' })
+
+  it('비밀값 없이 오면 401 이다 — 문지기를 지나쳤어도 여기서 막힌다', async () => {
+    const cron = createContainer(CRON_ENV)
+
+    const res = await handleRoute(
+      get('http://x/api/cron/reminders'),
+      async () => ({ body: {} }),
+      { container: cron },
+    )
+
+    expect(res.status).toBe(401)
+  })
+
+  it('맞는 비밀값이면 지나간다', async () => {
+    const cron = createContainer(CRON_ENV)
+
+    const res = await handleRoute(
+      get('http://x/api/cron/reminders', {
+        authorization: 'Bearer a-long-random-cron-secret',
+      }),
+      async () => ({ body: { ok: true } }),
+      { container: cron },
+    )
+
+    expect(res.status).toBe(200)
+  })
+
+  it('비밀값이 설정 안 된 서버는 닫혀 있다', async () => {
+    // 비교할 것이 없을 때 통과시키면 설정을 빠뜨린 서버의
+    // 파기·발송 경로를 밖에서 부를 수 있습니다 → cron-call.ts
+    const res = await handleRoute(
+      get('http://x/api/cron/reminders', { authorization: 'Bearer anything' }),
+      async () => ({ body: {} }),
+      { container },
+    )
+
+    expect(res.status).toBe(401)
+  })
+
+  it('일반 경로에는 이 관문이 없다', async () => {
+    const res = await handleRoute(get(), async () => ({ body: {} }), { container })
+
+    expect(res.status).toBe(200)
+  })
+})
+
 describe('예외를 밖으로 내보내지 않는다 — §3', () => {
   it('우리 예외가 아니면 INTERNAL 로 덮는다', async () => {
     const res = await handleRoute(

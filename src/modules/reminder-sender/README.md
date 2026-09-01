@@ -70,25 +70,28 @@ const run = await reminder.run({ daysBefore: 3 })
 
 | 무엇 | 어디서 | 비고 |
 | --- | --- | --- |
-| `ReminderSource` | 관계형 DB | ⬜ 어댑터 미구현 |
-| `SentLog` | ⬜ **정할 곳이 없습니다** | 아래 참고 |
-| `Mailer` | ⬜ **발송 수단 미정** → [ADR-021](../../../decisions/021-reentry-and-identity.md) 「남은 것」 |
+| `ReminderSource` | 관계형 DB | `lib/db-reminder.ts` (2026-09-01) |
+| `SentLog` | 관계형 DB `reminder_sent` → [09-data-model.md](../../../spec/backend/08-16-data-model.md) §8.4 | `lib/db-reminder.ts` |
+| `Mailer` | ⬜ **발송 수단 미정** → [ADR-021](../../../decisions/021-reentry-and-identity.md) 「남은 것」. 열쇠 이름(`MAILER_API_KEY`)만 §1.2 에 자리 잡았습니다 |
 | `Clock` | 서버 시계 | — |
 | `DateGap` | `date-checker` 의 `daysLeft` | 있음 |
 
-## 정본에 없는 것 둘 — 확인이 필요합니다
+깨우는 것은 **Vercel Cron** 입니다 — `GET /api/cron/reminders`
+([08-api.md](../../../spec/common/08-14-api.md) §6 · [ADR-025](../../../decisions/025-scheduled-jobs.md)).
+`Mailer` 가 비어 있어도 크론은 돕니다 — 보낼 사건이 `failed` 로 남을 뿐입니다.
 
-- ⬜ **이메일을 저장할 자리가 스키마에 없습니다.**
-  [ADR-021](../../../decisions/021-reentry-and-identity.md)이 「알림용 이메일 하나만 선택 입력」으로
-  정했는데, [09-data-model.md](../../../spec/backend/08-16-data-model.md)의 `case` 표에 그 칼럼이
-  없고 [08-api.md](../../../spec/common/08-14-api.md)에도 받는 자리가 없습니다.
-  `spec/` 전체에 `email` 이라는 낱말이 한 번도 안 나옵니다.
+## 정본에 없던 것 — 둘은 생겼고 하나가 남았습니다
 
-- ⬜ **발송 이력을 남길 자리도 없습니다.** 「이미 보낸 건 아닌가」를 판단해야 하는데
-  `deadline`·`plan_step` 어디에도 그 칼럼이 없습니다. 지금은 `SentLog` 인터페이스로 두었습니다.
+- ✅ ~~이메일을 저장할 자리가 스키마에 없습니다~~ → **생겼습니다** (2026-09-01).
+  `case.notify_email` ([09-data-model.md](../../../spec/backend/08-16-data-model.md) §2) ·
+  받는 라우트는 `PUT …/contact` ([08-api.md](../../../spec/common/08-14-api.md) §3.13).
+
+- ✅ ~~발송 이력을 남길 자리도 없습니다~~ → **생겼습니다** (2026-09-01).
+  `reminder_sent` 표 ([09-data-model.md](../../../spec/backend/08-16-data-model.md) §8.4) —
+  열쇠는 이 모듈의 `dedupeKey` 그대로이고, 사건이 파기되면 이력도 연쇄로 사라집니다.
 
 - ⬜ **주기와 문구가 안 정해졌습니다.** 며칠 전에 몇 번인지 → [12-module-names.md](../../../spec/common/08-16-module-names.md) 층 4 TODO.
-  값을 밖에서 받을 수 있게 둔 이유입니다. 기본값은 하루 전입니다.
+  값을 밖에서 받을 수 있게 둔 이유입니다. 기본값은 하루 전이고, 크론도 그 기본을 그대로 씁니다.
 
 ## 판단이 필요했던 자리
 

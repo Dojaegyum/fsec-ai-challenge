@@ -46,6 +46,8 @@ $$ LANGUAGE plpgsql;
 | 객체 저장소 | 업로드된 증거 원본 | 있음 |
 
 **관계형 DB의 어느 칼럼에도 원문 PII를 넣지 않습니다** → [04-pii-boundary.md](../common/08-14-pii-boundary.md) 규칙 1·2.
+**예외는 알림용 이메일 한 칸**(`case.notify_email` · §2)입니다 — [ADR-021](../../decisions/021-reentry-and-identity.md)이
+감수하기로 한 결과이고, §13 이 경계를 적습니다.
 
 > 볼트는 [ADR-009](../../decisions/009-restore-mapping-location.md)으로 확정됐습니다. 매핑을 **암호문으로** 서버 볼트에 두고 복호화 키는 클라이언트가 갖습니다.
 
@@ -61,6 +63,7 @@ erDiagram
     case ||--o{ plan_step : "플랜 단계"
     case ||--o{ deadline : "기한"
     case ||--o{ message : "대화"
+    case ||--o{ reminder_sent : "보낸 알림"
     case ||..o{ audit_log : "감사 (논리 참조)"
     plan_step ||--o{ artifact : "부산물"
     plan_step }o..|| kb_entry : "인용 (논리 참조)"
@@ -73,7 +76,7 @@ erDiagram
     source_change }o..o| kb_entry : "승인 후 반영 (논리 참조)"
 ```
 
-**실선이 외래키, 점선이 논리 참조입니다.** 외래키는 일곱뿐이고 전부 `case` 또는 `plan_step`을 향합니다 — 사건이 죽으면 딸린 것이 함께 죽습니다(`ON DELETE CASCADE`).
+**실선이 외래키, 점선이 논리 참조입니다.** 외래키는 여덟뿐이고 전부 `case` 또는 `plan_step`을 향합니다 — 사건이 죽으면 딸린 것이 함께 죽습니다(`ON DELETE CASCADE`).
 
 `kb_entry`를 향하는 참조는 **논리 참조**입니다. 외래키를 걸지 않습니다. KB는 버전 릴리스로 교체되며([07-kb-operations.md](08-14-kb-operations.md)), 외래키가 있으면 릴리스가 막힙니다. 대신 `deadline.rule_snapshot`이 근거를 자체 보관하므로 참조가 끊겨도 값을 검증할 수 있습니다.
 
@@ -100,6 +103,7 @@ CREATE TABLE "case" (
   opened_at      TIMESTAMPTZ(3) NOT NULL,
   closed_at      TIMESTAMPTZ(3) NULL,
   purge_after    DATE          NOT NULL,   -- 이 날짜 이후 파기 대상
+  notify_email   VARCHAR(254)  NULL,       -- 알림용 이메일. 평문으로 저장되는 유일한 연락처 → ADR-021
   created_at     TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   PRIMARY KEY (case_id)
@@ -118,6 +122,7 @@ CREATE TRIGGER trg_case_touch BEFORE UPDATE ON "case"
 | `session_key_id` | **키 식별자만** 저장합니다. 키 자체나 키에서 파생된 값을 저장하지 않습니다. 세션키가 DB에 있으면 DB 유출 시 볼트가 함께 뚫려 저장소를 분리한 의미가 없어집니다 |
 | `purge_after` | 사건 생성 시점에 채우고, **활동이 있을 때마다 다시 밉니다**(마지막 활동일 + `CASE_PURGE_DAYS`). 파기 시점이 정해지지 않은 데이터가 생기는 것을 막습니다 |
 | `track` | 통장묶기는 절차가 완전히 다릅니다 → [03-channel-matrix.md](08-14-channel-matrix.md) 통장묶기 절 |
+| `notify_email` | **평문으로 저장되는 유일한 연락처입니다** → [ADR-021](../../decisions/021-reentry-and-identity.md) (2026-09-01 「남은 것 — 저장 위치와 수명」 이행). **검증하지 않습니다** — 오타면 알림이 안 갈 뿐, 사용자를 막지 않습니다. 형식 검사·확인 메일을 넣지 마세요(관문이 됩니다). 상한 254자는 형식이 아니라 칸의 크기입니다. 별도 수명이 없습니다 — **사건 행과 함께 파기됩니다**(§14). LLM 호출 페이로드에 넣지 않고([04](../common/08-14-pii-boundary.md) 규칙 2), **오류 `detail`·감사 로그·응답 본문에 값을 적지 않습니다**(§10.1) |
 
 **`purge_after`는 마지막 활동일부터 180일입니다** (`CASE_PURGE_DAYS`) → [ADR-016](../../decisions/016-retention-and-datastore.md)
 
@@ -573,6 +578,35 @@ KB는 릴리스로 교체되므로([07-kb-operations.md](08-14-kb-operations.md)
 | 통장묶기 결과 통보 5영업일 | **은행이 지켜야 할 기한** |
 
 **통장묶기 5영업일을 사용자 기한으로 오인시키면 안 됩니다.** 이 서비스는 충격 상태의 사용자를 상대합니다.
+
+### 8.4 `reminder_sent` — 보낸 알림
+
+> 2026-09-01 신설 → [ADR-021](../../decisions/021-reentry-and-identity.md) 「남은 것」 ·
+> [ADR-025](../../decisions/025-scheduled-jobs.md). `reminder-sender` 가 「이미 보낸 건 아닌가」를
+> 판단해야 하는데 **발송 이력이 놓일 자리가 스키마에 없었습니다** — 그 모듈의 `SentLog`
+> 인터페이스가 기다리던 자리입니다.
+
+```sql
+CREATE TABLE reminder_sent (
+  dedupe_key  TEXT           NOT NULL,   -- 무엇을 알렸는지의 열쇠. reminder-sender 가 만든다
+  case_id     CHAR(26)       NOT NULL,
+  sent_at     TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY (dedupe_key),
+  CONSTRAINT fk_reminder_sent_case FOREIGN KEY (case_id)
+    REFERENCES "case"(case_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_reminder_sent_case ON reminder_sent (case_id);
+```
+
+| 칼럼 | 규칙 |
+| --- | --- |
+| `dedupe_key` | **무엇을 알렸는지가 곧 열쇠입니다.** 알릴 것이 늘면 열쇠가 바뀌어 새 메일이 나가고, 그대로면 안 나갑니다. **형식의 정본은 `reminder-sender` 코드입니다** — 여기 다시 적으면 두 곳이 어긋납니다. 가변 길이라 `TEXT` 입니다 |
+| `case_id` | `ON DELETE CASCADE` — **파기 연쇄를 위한 것입니다.** 사건이 파기되면(§14) 발송 이력도 함께 사라져, 파기 시점이 없는 데이터가 안 생깁니다([04](../common/08-14-pii-boundary.md) 규칙 3) |
+| `sent_at` | **보낸 뒤에 적습니다.** 먼저 적고 발송이 실패하면 그 메일은 영영 안 갑니다 |
+
+**이메일 주소를 여기 넣지 않습니다.** 주소는 `case.notify_email` 하나에만 있습니다(§2) —
+두 곳이면 파기·수정이 한쪽만 됩니다.
 
 ---
 
@@ -1615,6 +1649,11 @@ page = 1
 | 감사 로그의 토큰 | 유형과 건수만 |
 
 **기관명·금액·시각은 저장합니다.** 토큰화 대상이 아니며 절차 분기의 입력입니다 → [ADR-011](../../decisions/011-pii-boundary-hardening.md).
+
+**예외가 하나 있습니다 — 알림용 이메일**(`case.notify_email` · §2)은 **평문으로 저장합니다**
+→ [ADR-021](../../decisions/021-reentry-and-identity.md). 토큰으로 바꾸면 발송을 못 합니다.
+예외는 이 한 칸뿐이고, LLM 호출 페이로드에는 넣지 않으며([04](../common/08-14-pii-boundary.md) 규칙 2),
+사건 행과 함께 파기됩니다(§14).
 
 ---
 

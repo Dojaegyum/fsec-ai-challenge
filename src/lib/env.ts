@@ -26,6 +26,10 @@ export const ENV_KEYS = [
   'ADMIN_USERNAME',
   'ADMIN_PASSWORD_HASH',
   'CRON_SECRET',
+  // 기한 알림 발송 제공자의 키 → 08-14-api.md §1.2. ⬜ **발송 수단 자체가
+  // 미정이라**(ADR-021 「남은 것」) 지금은 이름만 있습니다 — 값을 넣어도
+  // 그것을 쓰는 코드가 생기기 전에는 메일이 붙지 않습니다 → container.ts
+  'MAILER_API_KEY',
   'CASE_PURGE_DAYS',
   'KB_FETCH_CRON',
   'TRANSCRIBER_URL',

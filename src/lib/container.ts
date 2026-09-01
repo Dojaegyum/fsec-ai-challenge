@@ -42,6 +42,7 @@ import {
   createCaseTokenResolver,
   createArtifactWriter,
   createCaseReader,
+  createContactWriter,
   createMessageStore,
   createDeadlineReader,
   createDeadlineWriter,
@@ -60,6 +61,7 @@ import {
 import type {
   ArtifactWriter,
   CaseReader,
+  ContactWriter,
   MessageStore,
   CaseTokenResolver,
   DeadlineReader,
@@ -74,6 +76,7 @@ import type {
   VaultMappings,
 } from './db'
 import { createCasePlanStore } from './db-plan'
+import { createReminderSource, createSentLog } from './db-reminder'
 import {
   createMediaReader,
   createObjectStore,
@@ -142,7 +145,7 @@ export interface Ports {
   readonly casePlan: CasePlanStore
   /** 관계형 DB — 지금 어느 KB 릴리스인가. ⬜ 정본에 방법이 없습니다 */
   readonly kbVersion: KbVersionSource
-  /** 발송 이력. ⬜ 저장할 칸이 스키마에 없습니다 */
+  /** 관계형 DB — 발송 이력 (`reminder_sent` · §8.4). 같은 알림을 두 번 안 보내는 근거 */
   readonly sentLog: SentLog
   /** 객체 저장소 — 업로드 자리 발급 */
   readonly uploads: UploadSlotSource
@@ -344,6 +347,12 @@ function channelWriter(env: Env): ChannelWriter {
   return createChannelWriter(sql)
 }
 
+function contactWriter(env: Env): ContactWriter {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('ContactWriter', ['DATABASE_URL'])
+  return createContactWriter(sql)
+}
+
 function slotWriter(env: Env): SlotWriter {
   const sql = createSql(env)
   if (!sql) return unconfigured('SlotWriter', ['DATABASE_URL'])
@@ -388,14 +397,15 @@ export function unconfiguredPorts(env: Env): Ports {
     kbStore: sql ? createKbStore(sql) : unconfigured('KbStore', db),
     auditStore: sql ? createAuditStore(sql) : unconfigured('AuditStore', db),
     purgeCaseStore: unconfigured('PurgeCaseStore', db),
-    reminderSource: unconfigured('ReminderSource', db),
+    // 알릴 거리를 넓게 퍼 주는 조회 → db-reminder.ts. 좁히는 판단은 모듈이 합니다
+    reminderSource: sql ? createReminderSource(sql) : unconfigured('ReminderSource', db),
     casePlan: sql
       ? createCasePlanStore(sql, () => newUlid())
       : unconfigured('CasePlanStore', db),
     // 배포 설정이 정합니다 → ADR-045. 비어 있으면 부를 때 그대로 말하며 멈춥니다
     kbVersion: pinnedKbVersion(env),
-    // ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 → reminder-sender/README.md
-    sentLog: unconfigured('SentLog', ['(스키마에 칸 없음)']),
+    // `reminder_sent` 표 → 09-data-model.md §8.4. 칸이 없던 자리가 채워졌습니다
+    sentLog: sql ? createSentLog(sql) : unconfigured('SentLog', db),
     uploads: createUploadSlotSource(env) ?? unconfigured('UploadSlotSource', storage),
     // 접속 정보가 있으면 실제로 주소를 냅니다 → storage.ts.
     // 없으면 부르는 순간 터집니다 — 조용히 빈 주소를 내면 추론 서비스가
@@ -428,8 +438,11 @@ export function unconfiguredPorts(env: Env): Ports {
     // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
     ...readingEngines(env),
     llm: createLlmClient(env) ?? unconfigured('LlmClient', ['XAI_API_KEY']),
-    // ⬜ 발송 수단 미정 → ADR-021 「남은 것」
-    mailer: unconfigured('Mailer', ['(발송 수단 미정)']),
+    // ⬜ **발송 수단 자체가 미정입니다** → ADR-021 「남은 것」. 열쇠 이름만
+    // 정본(§1.2 `MAILER_API_KEY`)에 자리를 잡아 두었습니다 — 값을 넣어도
+    // 그것을 쓰는 코드가 아직 없어 붙지 않습니다(wire.ts 의 규칙 그대로).
+    // 크론은 그래도 돕니다 — 보낼 사건이 `failed` 로 남을 뿐입니다(§6.2)
+    mailer: unconfigured('Mailer', ['MAILER_API_KEY']),
     /**
      * **아무 기관의 형식도 모른다고 답합니다 — 그리고 그건 이제 실패가 아닙니다.**
      *
@@ -506,6 +519,13 @@ export interface Container {
    * 골라도 유형별 KB 가 안 붙고 번호도 안 붙었습니다.
    */
   readonly channelWrite: ChannelWriter
+  /**
+   * 알림용 이메일 쓰기 → §3.13.
+   *
+   * **평문으로 저장되는 유일한 연락처입니다**(ADR-021). 검증하지 않고,
+   * 값은 응답·오류 detail·감사 로그 어디에도 다시 안 나타납니다.
+   */
+  readonly contactWrite: ContactWriter
   /** 슬롯 쓰기 → §3.5. **토큰화된 값만 넣습니다** (ADR-040) */
   readonly slotWrite: SlotWriter
   /** 단계 부산물 → §3.8. **완료는 부산물로 판정합니다**(불변 규칙 6) */
@@ -591,6 +611,7 @@ export function createContainer(
     caseRead: caseReader(env),
     orgs: orgReader(env),
     channelWrite: channels,
+    contactWrite: contactWriter(env),
     slotWrite: slotWriter(env),
     artifacts: artifactWriter(env),
     messages: messageStore(env),
