@@ -33,19 +33,21 @@ export type OpenResult =
 /**
  * 화면의 Q1 → `track`.
  *
- * ⬜ **「잘 모르겠어요」가 갈 자리가 계약에 없습니다.**
+ * **「잘 모르겠어요」는 wire 값이 아니라 `victim` 으로 엽니다** → ADR-060.
  *
  * 화면 계약(§S-05)은 「잘 모르겠어요」를 **같은 크기·같은 자리**의 1급 선택지로
  * 두라고 합니다 — 「모름은 실패가 아니다」(불변 규칙 5)이기 때문입니다. 그런데
- * §3.1 의 `track` 은 `victim`·`frozen_account` 둘뿐이고, `case.track` 도
- * `CHECK (track IN ('victim','frozen_account'))` 입니다.
+ * §3.1 의 `track` 은 `victim`·`frozen_account` 둘뿐이고, 세 번째 값을 계약에
+ * 두면 KB 조회축(`track`)에 그 값의 행이 없어 **빈 플랜이 나갑니다** — 모름을
+ * 1급으로 대접하려던 값이 그 사람을 빈 화면에 세웁니다.
  *
- * **지금은 스키마 자신의 기본값과 같은 `victim` 으로 보냅니다**
- * (`NOT NULL DEFAULT 'victim'` — 데이터 모델 §2). 지어낸 값이 아니라 이 저장소가
- * 이미 택해 둔 기본입니다.
+ * `victim` 은 지어낸 값이 아닙니다 — 스키마 자신의 기본값이고
+ * (`NOT NULL DEFAULT 'victim'` — 데이터 모델 §2), victim 의 T0 가 곧 설계가
+ * 정한 「모름 → 보수적 슈퍼셋」입니다(slot-tiering) — 112·1332·추가 송금 금지는
+ * 어느 갈래여도 틀리지 않습니다.
  *
  * **그래도 위험은 남습니다** — 통장묶기는 절차가 완전히 다르고, `track` 을
- * 나중에 고치는 경로가 없습니다. QA 계획 Task 9 ④ 에 올려 뒀습니다.
+ * 나중에 고치는 경로가 없습니다 → ADR-060 「남은 것」 · QA 계획 Task 9 ④.
  */
 export function trackOf(pick: number): Track {
   return pick === 1 ? "frozen_account" : "victim";

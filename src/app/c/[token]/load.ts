@@ -136,7 +136,7 @@ function failUnreachable(message: string): LoadFail {
  * 「`retryable` 을 안 말했을 때 버튼을 띄우지 않는다」가 조용히 갈라집니다.
  */
 export async function sendJson(
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "PUT",
   url: string,
   body: unknown,
   signal?: AbortSignal,
@@ -166,6 +166,16 @@ export function postJson(
   unreachableMessage?: string,
 ) {
   return sendJson("POST", url, body, signal, unreachableMessage);
+}
+
+/** 칸 하나를 통째로 갈아끼우는 자리(§3.13 연락처)가 씁니다 */
+export function putJson(
+  url: string,
+  body: unknown,
+  signal?: AbortSignal,
+  unreachableMessage?: string,
+) {
+  return sendJson("PUT", url, body, signal, unreachableMessage);
 }
 
 /**

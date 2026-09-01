@@ -66,7 +66,7 @@ function sender(
     sentKeys.add(key)
   })
   const findContacts = vi.fn(
-    async () => over.contacts ?? [{ caseId: 'CASE01', email: 'a@example.com' }],
+    async () => over.contacts ?? [{ caseId: 'CASE01', email: 'a@example.com', linkToken: '01LINKTOKENTESTTESTTESTTES' }],
   )
 
   const reminder = createReminderSender({
@@ -92,7 +92,7 @@ describe('보낼 수 없는 사건은 건너뛴다 — 실패가 아니다', () 
     // 이메일은 선택입니다. 없는 사건도 정상 사건입니다 → ADR-021
     const { reminder, send } = sender({
       deadlines: [deadline()],
-      contacts: [{ caseId: 'CASE01', email: null }],
+      contacts: [{ caseId: 'CASE01', email: null, linkToken: '01LINKTOKENTESTTESTTESTTES' }],
     })
 
     const run = await reminder.run()
@@ -106,7 +106,7 @@ describe('보낼 수 없는 사건은 건너뛴다 — 실패가 아니다', () 
     // 요구하는 흐름을 만들면 ADR-021 위반입니다
     const { reminder } = sender({
       deadlines: [deadline()],
-      contacts: [{ caseId: 'CASE01', email: null }],
+      contacts: [{ caseId: 'CASE01', email: null, linkToken: '01LINKTOKENTESTTESTTESTTES' }],
     })
 
     const run = await reminder.run()

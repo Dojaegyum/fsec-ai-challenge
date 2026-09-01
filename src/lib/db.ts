@@ -1131,6 +1131,32 @@ export function createCaseReader(sql: Sql): CaseReader {
 }
 
 /**
+ * 알림용 이메일을 적는다 → 계약 §3.13 · 09-data-model.md §2 `notify_email`.
+ *
+ * **평문으로 저장되는 유일한 연락처입니다** → ADR-021. 토큰으로 바꾸면 발송을
+ * 못 합니다 — 예외는 이 한 칸뿐이고, 경계는 04-pii-boundary.md 「예외 — 알림용
+ * 이메일 하나」가 적습니다.
+ *
+ * **여기서 검증하지 않습니다.** 형식 검사는 관문이 됩니다(ADR-021) — 길이
+ * 상한(254)조차 라우트가 칸의 크기로만 봅니다. `null` 은 지우기입니다.
+ */
+export interface ContactWriter {
+  saveNotifyEmail(caseId: string, email: string | null): Promise<void>
+}
+
+export function createContactWriter(sql: Sql): ContactWriter {
+  return {
+    async saveNotifyEmail(caseId, email) {
+      // `updated_at` 은 트리거(`trg_case_touch`)가 올립니다. 파기일을 미는 것은
+      // 라우트가 `touchPurgeAfter` 로 따로 합니다 — 이메일 제공도 활동입니다(ADR-016)
+      await sql`
+        UPDATE "case" SET notify_email = ${email} WHERE case_id = ${caseId}
+      `
+    },
+  }
+}
+
+/**
  * 슬롯 하나를 쓴다 → 계약 §3.5.
  *
  * ## ⚠️ 여기 오는 값은 이미 토큰화돼 있어야 합니다

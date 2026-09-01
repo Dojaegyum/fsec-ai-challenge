@@ -28,7 +28,8 @@ import 'server-only'
 
 import { serverClock } from './clock'
 import type { Container } from './container'
-import { isAdminPath } from './gated-paths'
+import { isCronCall } from './cron-call'
+import { isAdminPath, isCronPath } from './gated-paths'
 import { AppError } from './errors'
 import { BadRequestError, CaseNotFoundError, UnauthorizedError, fail, ok } from './http'
 import { isTokenShaped, isUlid } from './ids'
@@ -158,7 +159,9 @@ export async function handleRoute(
   // 관리자 경로는 계정이 하나뿐이고 조사 중에 걸리면 곤란합니다 → §1.3.
   // 어디까지가 관리자 경로인지는 문지기와 **같은 판단**을 씁니다 →
   // [gated-paths.ts](./gated-paths.ts). 둘이 어긋나면 그 틈으로 들어옵니다
-  const isAdmin = isAdminPath(new URL(request.url).pathname)
+  const pathname = new URL(request.url).pathname
+  const isAdmin = isAdminPath(pathname)
+  const isCron = isCronPath(pathname)
 
   const ctx: RequestContext = {
     request,
@@ -184,6 +187,14 @@ export async function handleRoute(
     // 이 검사는 모든 라우트가 지나는 껍데기 한 곳에 있어 빠뜨릴 자리가 없습니다
     if (isAdmin && !hasAdminSession(request, container.env, serverClock.nowMs())) {
       throw new UnauthorizedError('관리자 인증이 없습니다', { gate: 'admin' })
+    }
+
+    // 크론도 같은 이유로 한 번 더 봅니다 → §6.1. 판단은 문지기와 **같은 함수**
+    // 입니다([cron-call.ts](./cron-call.ts)) — gated-paths.ts 머리주석의
+    // 「세 곳이 같은 판단」 약속이 여기서 완성됩니다. `CRON_SECRET` 이 없는
+    // 서버는 전부 401 — 열린 쪽으로 실패하지 않습니다
+    if (isCron && !isCronCall(request, container.env.values.CRON_SECRET)) {
+      throw new UnauthorizedError('크론 인증이 없습니다', { gate: 'cron' })
     }
 
     const upfront = options.rate ?? defaultRateFor(request.method)

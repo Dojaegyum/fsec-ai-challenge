@@ -73,15 +73,19 @@ export function configReport(container: Container): readonly PortStatus[] {
       '녹음을 올려도 글로 안 옮겨집니다. **사건 진행은 그대로 돕니다**'),
     row('이미지 판독', !isUnconfigured(ports.ocr), ['TRANSCRIBER_URL'],
       '캡처를 올려도 글자를 못 읽습니다. **사건 진행은 그대로 돕니다**'),
-    row('메일 발송', !isUnconfigured(ports.mailer), ['(발송 수단 미정)'],
-      '기한 알림이 안 나갑니다'),
+    // ⬜ 발송 수단 자체가 미정입니다(ADR-021 「남은 것」) — 열쇠 이름만
+    // 정본에 자리 잡았고, 쓰는 코드가 생겨야 붙습니다 → container.ts
+    row('메일 발송', !isUnconfigured(ports.mailer), ['MAILER_API_KEY', 'MAILER_FROM', 'APP_ORIGIN'],
+      '기한 알림이 안 나갑니다 — 크론은 돌고, 보낼 사건이 failed 로 남습니다'),
     // **이 줄은 「형식을 아는 기관이 있나」입니다.** 지금은 하나도 없고, 그래도
     // L1 은 돕니다 — 「받아 적었나」를 보는 것으로 뜻을 바꿨기 때문입니다(ADR-057).
     // 그래서 비어 있어도 **기능이 멈추지 않고**, 대조를 못 한다는 사실만 남습니다
     row('접수번호 형식 대조', ports.receiptFormat.matches('000000') !== undefined,
       ['(형식 정본 없음 — U-18)'],
       'L1 은 모양만 봅니다. **완료 판정은 그대로 돕니다** → ADR-057'),
-    row('발송 이력', !isUnconfigured(ports.sentLog), ['(스키마에 칸 없음)'],
+    // 칸이 생겼습니다 — `reminder_sent` (09-data-model.md §8.4 · 0008 마이그레이션).
+    // 이제 비어 있다면 이유는 「칸 없음」이 아니라 **DB 가 안 붙어서**입니다
+    row('발송 이력', !isUnconfigured(ports.sentLog), ['DATABASE_URL'],
       '같은 알림이 두 번 나갈 수 있습니다'),
     // 정본은 2026-08-20 에 코드 상수로 정해졌습니다(핸드오프 ⑤). 그래서 이 줄이
     // 비어 있다면 이유는 「미결」이 아니라 **표가 비었다** 하나뿐입니다
