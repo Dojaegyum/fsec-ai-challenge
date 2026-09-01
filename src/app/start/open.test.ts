@@ -73,9 +73,10 @@ describe("track 은 계약의 둘만 나간다", () => {
     expect(trackOf(1)).toBe("frozen_account");
   });
 
-  it("「잘 모르겠어요」와 안 고른 것은 스키마 기본값으로 간다", () => {
-    // ⬜ 계약에 「모름」 자리가 없습니다 → QA 계획 Task 9 ④.
-    // `case.track` 의 `NOT NULL DEFAULT 'victim'` 과 같은 값입니다 — 지어낸 것이 아닙니다
+  it("「잘 모르겠어요」와 안 고른 것은 victim 으로 연다 → ADR-060", () => {
+    // 「모름」은 wire 값이 아닙니다 — 세 번째 값을 계약에 두면 KB 조회축에 그 track 의
+    // 행이 없어 빈 플랜이 나갑니다. victim 은 스키마 기본값(`NOT NULL DEFAULT 'victim'`)
+    // 이고, 그 T0 가 곧 「모름 → 보수적 슈퍼셋」입니다 — 지어낸 것이 아닙니다
     expect(trackOf(2)).toBe("victim");
     expect(trackOf(-1)).toBe("victim");
   });

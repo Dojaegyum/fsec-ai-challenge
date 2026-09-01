@@ -135,6 +135,7 @@
 | [057](057-receipt-number-l1.md) | L1은 「형식이 맞나」가 아니라 「받아 적었나」를 묻는다 — 형식 정본이 없다 | 채택 |
 | [058](058-crypto-not-applicable-overrides.md) | 「적용되지 않는 것을 안다」면 덮는다 — 가상자산이 공통 넷을 덮는 근거 | 채택 |
 | [059](059-public-repo-secrets-out.md) | 저장소를 공개로 — 비밀은 Vercel env 에만 두고, 이력에 남은 값은 새 저장소로 지운다 | 채택 |
+| [060](060-unsure-opens-victim.md) | 「잘 모르겠어요」는 셋째 `track` 이 아니다 — `victim` 으로 연다 | 채택 |
 
 ## 아직 안 쓴 것
 
