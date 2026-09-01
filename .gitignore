@@ -36,3 +36,6 @@ __pycache__/
 
 # DART 전체 법인 목록 캐시 (11MB · 매일 바뀜) — dart_lookup.py 가 받아 둡니다
 assets/datasets/08-26-org-dict/.dart-corp.zip
+
+# 시연용 합성 자료의 중간 산출물 — `make_mock.py` 가 다시 만듭니다
+assets/demo/*/raw/

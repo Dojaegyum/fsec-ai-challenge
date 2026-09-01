@@ -11,6 +11,7 @@ import type { LoadFail } from "@/app/c/[token]/load";
 import { kindOf, uploadFile } from "@/app/c/[token]/upload";
 import { screenName } from "@/modules/file-sender";
 import { saveEmail } from "./contact";
+import { loadMockEvidence } from "./mock";
 import { openCase, trackOf } from "./open";
 
 /**
@@ -133,6 +134,14 @@ interface Picked {
   /** 화면에 그리는 이름. **`screenName` 을 지난 것**입니다 — 「입금내역_110-2345-678901.png」 */
   readonly name: string;
   readonly file: File;
+  /**
+   * 시연용 합성 자료인가 → `mock.ts`.
+   *
+   * **화면이 이 사실을 말합니다.** 발표에서 심사위원이 실제 피해자의 녹음으로
+   * 읽으면 안 되고, [ADR-043](../../../decisions/043-gpu-hosting.md)이
+   * 「합성 데이터만 올립니다」를 절대 조건으로 걸어 둔 것과도 맞습니다
+   */
+  readonly mock?: boolean;
 }
 
 const Q1 = [
@@ -226,14 +235,22 @@ export function EvidenceSlots({
   rejected,
   onPick,
   onUnpick,
+  onMock,
 }: {
   picked: readonly Picked[];
   /** 사건을 만드는 중. 이때는 고르는 것도 빼는 것도 막습니다 */
   busy: boolean;
-  /** 못 받는 종류를 골랐을 때의 문구. 없으면 `null` */
+  /** 자료를 못 받았을 때의 문구(종류가 표 밖이거나 예시를 못 불러왔거나). 없으면 `null` */
   rejected: string | null;
   onPick: (slot: number, file: File) => void;
   onUnpick: (id: number) => void;
+  /**
+   * 시연용 합성 자료 셋을 슬롯에 담습니다 → `mock.ts`.
+   *
+   * **안 받으면 버튼을 안 그립니다.** `work-handler/panels.tsx` 가 적어 둔 것과
+   * 같은 규칙입니다 — 눌러도 아무 일 없는 버튼이 이 저장소에서 실제로 나왔습니다
+   */
+  onMock?: () => void;
 }) {
   /** 슬롯마다 숨은 파일 선택 입력 하나. 버튼이 이걸 대신 누릅니다 */
   const slotRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -244,8 +261,20 @@ export function EvidenceSlots({
         <span className="text-[14px] text-ink-2">
           이런 자료가 있으면 올려 주세요 <span className="text-ink-3">(선택)</span>
         </span>
-        <span className="text-[13px] text-ink-3">
+        <span className="flex items-center gap-2.5 text-[13px] text-ink-3">
           종류를 눌러 고르면 사건을 만들 때 함께 올라갑니다
+          {/* 시연에서 파일을 손으로 고르지 않기 위한 자리. **담아 주기만 합니다** —
+              그 뒤로는 사람이 고른 파일과 같은 문(`pick`)을 지납니다 */}
+          {onMock ? (
+            <button
+              type="button"
+              onClick={onMock}
+              disabled={busy}
+              className="shrink-0 rounded-full border border-hairline px-3 py-1 text-[12.5px] text-ink-2 transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/45%)] hover:text-ink-1 disabled:opacity-50"
+            >
+              Mock 파일로 실행
+            </button>
+          ) : null}
         </span>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
@@ -295,6 +324,12 @@ export function EvidenceSlots({
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
                     {one.name}
                   </span>
+                  {/* **합성이라는 사실을 화면이 말합니다** → ADR-043 */}
+                  {one.mock ? (
+                    <span className="shrink-0 rounded-full bg-[oklch(1_0_0/8%)] px-2 py-0.5 text-[11.5px] text-ink-3">
+                      Mock
+                    </span>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => onUnpick(one.id)}
@@ -582,6 +617,8 @@ export default function Start() {
   const [picked, setPicked] = useState<readonly Picked[]>([]);
   /** 못 받는 종류를 골랐을 때. **막지 않고 그 파일만 안 받습니다** */
   const [rejected, setRejected] = useState<string | null>(null);
+  /** 시연용 합성 자료를 불러오는 중 → `mock.ts` */
+  const [mocking, setMocking] = useState(false);
   /** 지금 몇 번째를 올리는 중인가. `0` 이면 안 올리는 중 */
   const [sending, setSending] = useState(0);
   /** 사건은 만들어졌는데 못 올린 자료. **되돌리지 않습니다** — 사건은 그대로 진행됩니다 */
@@ -596,7 +633,7 @@ export default function Start() {
    * **여기서 아무것도 안 보냅니다.** 올릴 주소가 아직 없습니다 — 들고만 있습니다.
    * 종류가 표 밖이면 그 파일만 안 받고 **나머지는 그대로 둡니다** (불변 규칙 5).
    */
-  const pick = (slot: number, file: File) => {
+  const pick = (slot: number, file: File, mock = false) => {
     if (kindOf(file.type) === null) {
       setRejected("이 종류의 파일은 아직 받지 못합니다. 사진이나 녹음 파일로 올려 주세요.");
       return;
@@ -605,7 +642,31 @@ export default function Start() {
     seq.current += 1;
     // **이름도 경계를 지납니다** — 「입금내역_110-2345-678901.png」가 실제로 흔합니다
     const name = screenName(file.name).safe;
-    setPicked((prev) => [...prev, { id: seq.current, slot, name, file }]);
+    setPicked((prev) => [...prev, { id: seq.current, slot, name, file, ...(mock ? { mock } : {}) }]);
+  };
+
+  /**
+   * 시연용 합성 자료 셋을 담습니다 → `mock.ts`.
+   *
+   * **담아 주기만 합니다.** 그 뒤로는 사람이 고른 파일과 **한 경로**입니다 —
+   * 위 `pick` 이 종류를 보고 이름을 정리하고, [다음]을 누르면 사건이 만들어진 뒤
+   * 실제로 올라갑니다. 시연만 도는 우회로를 만들지 않습니다.
+   *
+   * **이미 담긴 것이 있으면 아무것도 안 합니다** — 두 번 눌러 여섯 장이 되면
+   * 발표 중에 알아채기 어렵습니다.
+   */
+  const runMock = async () => {
+    if (mocking || picked.length > 0) return;
+    setMocking(true);
+    const got = await loadMockEvidence();
+    setMocking(false);
+
+    if (!got.ok) {
+      // **스스로 다시 부르지 않습니다** — 다시 누르는 것은 사람입니다 (에러 §3.1)
+      setRejected(got.fail.message);
+      return;
+    }
+    for (const one of got.files) pick(one.slot, one.file, true);
   };
 
   const unpick = (id: number) => setPicked((prev) => prev.filter((one) => one.id !== id));
@@ -855,10 +916,11 @@ export default function Start() {
 
               <EvidenceSlots
                 picked={picked}
-                busy={opening}
+                busy={opening || mocking}
                 rejected={rejected}
                 onPick={pick}
                 onUnpick={unpick}
+                onMock={() => void runMock()}
               />
 
               {/* 못 만들었으면 앰버로. **스스로 다시 부르지 않습니다** — 누르는 것은
