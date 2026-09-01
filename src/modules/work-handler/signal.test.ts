@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applySignal,
   closePanel,
+  currentStep,
   emptyPanelState,
   openStep,
   pickStep,
@@ -220,5 +221,49 @@ describe("나갈 곳", () => {
         withBody({ action: "visit", contact: "앱 > 신고", url: "https://x" }),
       ),
     ).toEqual({ kind: "contact", value: "앱 > 신고" });
+  });
+});
+
+
+/**
+ * ⚠️ **세 화면이 서로 다른 규칙으로 「지금 할 일」을 골랐습니다** (2026-08-31).
+ *
+ * 워크스페이스는 「안 끝난 것 중 앞선 것」을 열었는데, 플랜 히어로와 헤더의 기한
+ * 배지는 `state === "in_progress"` 만 찾았습니다. 그 상태는 접수번호가 L1 검증에
+ * 실패했을 때만 생기고 새 플랜은 전부 `not_started` 라, **갓 만든 사건에서는
+ * 히어로가 「지금 하실 일은 없습니다」를 말하고 배지가 아예 안 떴습니다** —
+ * 같은 사건에서 워크스페이스는 단계를 열어 두고 있었는데도.
+ */
+describe("지금 할 일 하나 — 세 화면이 같은 것을 가리킨다", () => {
+  it("진행 중인 것이 있으면 그것", () => {
+    expect(currentStep(플랜)?.step_id).toBe("s3");
+  });
+
+  it("**진행 중인 것이 없어도 고른다** — 갓 만든 사건이 그 모양입니다", () => {
+    const 새사건 = [
+      step("s1", 10, "call"),
+      step("s2", 20, "call"),
+      step("s3", 30, "upload"),
+    ];
+    expect(currentStep(새사건)?.step_id).toBe("s1");
+  });
+
+  it("끝난 것과 해당 없는 것은 안 고른다 — `isOpen` 과 같은 판단", () => {
+    const 절반 = [
+      step("s1", 10, "call", "done_verified"),
+      step("s2", 20, "call", "skipped"),
+      step("s3", 30, "upload"),
+    ];
+    expect(currentStep(절반)?.step_id).toBe("s3");
+  });
+
+  it("정말로 남은 것이 없으면 `null`", () => {
+    expect(
+      currentStep([step("s1", 10, "call", "done_verified"), step("s2", 20, "call", "skipped")]),
+    ).toBeNull();
+  });
+
+  it("번호가 뒤섞여 들어와도 앞선 것을 고른다 — seq 는 띄엄띄엄합니다", () => {
+    expect(currentStep([step("s3", 30, "call"), step("s1", 10, "call")])?.step_id).toBe("s1");
   });
 });

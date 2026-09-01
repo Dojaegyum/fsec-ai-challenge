@@ -334,3 +334,31 @@ describe("잘렸으면 말한다", () => {
     expect(past.truncated).toBe(true);
   });
 });
+
+/**
+ * ⚠️ **읽다가 터지면 화면이 영영 안 풀렸습니다** (2026-08-31).
+ *
+ * `try` 가 `fetch` 하나만 감싸고 있어서, 본문을 읽거나 줄로 옮기다 던지면
+ * 예외가 `fetchHistory` 밖으로 새었습니다. 부르는 쪽(`send.ts` 의 첫 로드)에는
+ * `catch` 가 없어 `setLoading(false)` 까지 못 가고 챗이 「불러오는 중」에서
+ * 멈췄습니다 — `pastFailed` 도 안 켜져 **「못 읽었습니다」 안내조차 안 떴습니다.**
+ *
+ * 못 읽은 것은 **못 읽었다고 말해야** 합니다 (ADR-021 · ADR-050).
+ */
+describe("읽다가 터져도 화면을 멈추지 않는다", () => {
+  it("본문이 JSON 이 아니면 `failed` 로 떨어진다 — 던지지 않습니다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html>gateway</html>", { status: 200 })),
+    );
+    const past = await fetchHistory(TOKEN, []);
+    expect(past.failed).toBe(true);
+    expect(past.lines).toEqual([]);
+  });
+
+  it("줄 모양이 계약과 다르면 `failed` 로 떨어진다", async () => {
+    stubApi([], [null]);
+    const past = await fetchHistory(TOKEN, []);
+    expect(past.failed).toBe(true);
+  });
+});

@@ -109,10 +109,19 @@ export function createPlanner(deps: { clock: Clock }): Planner {
       return {
         upsert,
         preserved,
-        // 새 플랜에 없는 단계는 지우지 않고 표시만 바꿉니다
-        skipped: [...existing.keys()].filter(
-          (stepKey) => !kept.has(stepKey) && existing.get(stepKey) !== 'skipped',
-        ),
+        // 새 플랜에 없는 단계는 지우지 않고 표시만 바꿉니다.
+        //
+        // ⚠️ **`PRESERVED` 를 안 빼고 있었습니다.** `preserved` 는 `chosen` 에 남은
+        // 것만 담기 때문에, 활성 조건이 바뀌어 새 플랜에서 빠진 단계는 그 상태가
+        // `done_verified` 여도 여기 들어왔습니다 — **사용자가 접수번호까지 낸
+        // 완료가 「해당 없음」으로 뒤집혔습니다.** 대면편취에서 지급정지가 실제로
+        // 그 길을 지납니다(`after: ['report-112']` 로 바뀌며 비활성). 끝난 일과
+        // 추적 중인 일은 **플랜이 바뀌어도 사용자의 것**입니다 → §6.1
+        skipped: [...existing.keys()].filter((stepKey) => {
+          const state = existing.get(stepKey)
+          if (kept.has(stepKey) || state === 'skipped') return false
+          return state === undefined || !PRESERVED.includes(state)
+        }),
       }
     },
   }

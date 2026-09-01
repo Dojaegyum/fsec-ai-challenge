@@ -41,6 +41,26 @@ describe("답변을 화면에 옮긴다", () => {
     expect(got.sourceNote).not.toContain("다음 단계라서");
   });
 
+  /**
+   * ⚠️ **`label` 이 없는 근거에 던지고 있었습니다** (2026-08-31).
+   *
+   * §3.12 이력이 내리는 근거에 `label` 이 빠져 있으면 `label.length` 에서
+   * `TypeError` 가 나고, 그 예외가 첫 로드 밖으로 새어 **챗이 「불러오는 중」에서
+   * 영영 멈췄습니다.** 서버 쪽은 고쳤지만 **이미 저장된 줄은 그대로 남아** 있어
+   * 화면도 견뎌야 합니다 — 이름표가 없으면 근거 줄을 안 그릴 뿐입니다.
+   */
+  it("**이름표가 없는 근거에 던지지 않는다** — 옛 이력이 화면을 멈추면 안 됩니다", () => {
+    const noLabel = [{ ref: "kb-2", why: "다음 단계라서" }] as unknown as ChatResponse["citations"];
+    expect(() => sourceNote(noLabel ?? [])).not.toThrow();
+    expect(sourceNote(noLabel ?? [])).toBeNull();
+
+    const mixed = [
+      { ref: "kb-1", why: "x" },
+      { ref: "kb-2", label: "피해구제 신청서 제출" },
+    ] as unknown as ChatResponse["citations"];
+    expect(sourceNote(mixed ?? [])).toBe("피해구제 신청서 제출");
+  });
+
   it("가리킨 단계를 그대로 넘긴다 — 오른쪽 열이 그걸로 열린다", () => {
     expect(toTurn(answer, mapping).referencedSteps).toEqual(["01J8XKRD"]);
   });

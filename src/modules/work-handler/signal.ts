@@ -31,6 +31,32 @@ export function isOpen(step: PlanStep): boolean {
 }
 
 /**
+ * **지금 하실 일 하나** — 아직 안 끝난 것 중 진행 중인 것, 없으면 앞선 것.
+ *
+ * ⚠️ **세 화면이 서로 다른 규칙을 쓰고 있었습니다** (2026-08-31).
+ * 워크스페이스는 「안 끝난 것 중 앞선 것」으로 골라 열었는데, 플랜 히어로와
+ * 헤더의 기한 배지는 `state === "in_progress"` 만 찾았습니다. 그 상태는
+ * **접수번호가 L1 검증에 실패했을 때만** 생기고(`completion-checker` 의
+ * `failed()`) 새 플랜의 단계는 전부 `not_started` 라, 갓 만든 사건 — 즉 막
+ * 신고를 마치고 들어온 모든 사용자 — 에게 히어로는 「지금 하실 일은 없습니다」를
+ * 말하고 헤더 배지는 아예 안 떴습니다. 워크스페이스는 같은 사건에서 단계를
+ * 열어 두고 있었습니다.
+ *
+ * **없는 순서를 만드는 것이 아닙니다** — 이미 있던 판정을 한 벌로 모읍니다.
+ * 사용자가 고른 것이 있으면 그쪽이 우선이라는 규칙은 부르는 쪽(`page.tsx` 의
+ * `activeStep`)에 남습니다 — 사용자의 뜻은 화면마다 다를 수 있습니다.
+ */
+export function currentStep<T extends PlanStep>(steps: readonly T[]): T | null {
+  const open = steps.filter((one) => isOpen(one));
+  if (open.length === 0) return null;
+
+  return (
+    open.find((one) => one.state === "in_progress") ??
+    open.reduce((best, one) => (one.seq < best.seq ? one : best))
+  );
+}
+
+/**
  * 언급된 단계들 중 **지금 할 것 하나**를 고릅니다.
  *
  * **여러 단계를 언급해도 패널은 하나입니다.** "지급정지를 걸고 3영업일 안에 신청하세요"는

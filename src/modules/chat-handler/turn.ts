@@ -46,7 +46,11 @@ export function sourceNote(citations: readonly Citation[]): string | null {
   const labels = citations
     .filter((c) => c.ref.startsWith("kb-"))
     .map((c) => c.label)
-    .filter((label) => label.length > 0);
+    // ⚠️ **`label.length` 로 봤다가 던졌습니다.** 타입은 필수라고 적혀 있지만
+    // §3.12 이력에는 **`label` 없이 저장된 옛 줄**이 남아 있습니다. 여기서 던지면
+    // 예외가 첫 로드 밖으로 새어 챗이 「불러오는 중」에 영영 멈춥니다 —
+    // 이름표가 없으면 **근거 줄을 안 그릴 뿐**입니다
+    .filter((label) => typeof label === "string" && label.length > 0);
 
   return labels.length > 0 ? labels.join(" · ") : null;
 }

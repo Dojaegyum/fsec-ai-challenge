@@ -229,3 +229,61 @@ describe("히어로의 주 버튼 둘이 실제로 눌린다", () => {
     expect(text).toContain("내는 곳은 은행마다 다릅니다");
   });
 });
+
+/**
+ * ⚠️ **갓 만든 사건에서 첫 줄이 「지금 하실 일은 없습니다」였습니다** (2026-08-31).
+ *
+ * 히어로가 `state === "in_progress"` 인 단계만 찾았는데, 그 상태는 이 저장소에서
+ * **접수번호가 L1 검증에 실패했을 때만** 생깁니다(`completion-checker` 의 `failed()`).
+ * 새 플랜의 단계는 전부 `not_started` 라(`planner`), 아무 부산물도 못 낸 사건에서는
+ * 언제나 `null` 이 되어 「지금 하실 일은 없습니다 · 기다리는 구간입니다」가 뜨고
+ * 두 버튼도 안 그려졌습니다.
+ *
+ * 사건은 언제나 플랜으로 열리므로(`case-opener`) **그게 첫 화면입니다** — 3영업일이
+ * 걸린 피해구제 신청을 앞둔 사람이 「할 일 없음」을 첫 줄로 읽었습니다.
+ * §S-07 은 *"맨 위는 「지금 하실 일은 하나」와 D-day 하나"* 라고 적고 있습니다.
+ *
+ * 없는 순서를 새로 만드는 것이 아닙니다 — 워크스페이스가 이미 「아직 안 끝난 것 중
+ * 앞선 것」을 골라 열고 있어(`page.tsx` 의 `activeStep`), 히어로만 다른 규칙을
+ * 쓰고 있었습니다.
+ */
+describe("히어로는 지금 할 일을 가리킨다 — §S-07", () => {
+  it("**갓 만든 사건도 할 일을 말한다** — 「없습니다」가 아니라", () => {
+    const text = textOf(draw(FRESH));
+    expect(text).toContain("지금 하실 일은 하나입니다");
+    expect(text).not.toContain("지금 하실 일은 없습니다");
+    // 앞선 것 하나입니다 — 워크스페이스가 여는 단계와 같아야 합니다
+    expect(text).toContain("report-112 단계");
+  });
+
+  it("진행 중인 단계가 있으면 그것이 먼저다", () => {
+    const text = textOf(
+      draw([
+        stepOf("report-112", "not_started", 10),
+        stepOf("freeze-request", "in_progress", 20),
+      ]),
+    );
+    expect(text).toContain("freeze-request 단계");
+  });
+
+  it("끝난 것과 해당 없는 것은 고르지 않는다", () => {
+    const text = textOf(
+      draw([
+        stepOf("report-112", "done_verified", 10),
+        stepOf("freeze-request", "skipped", 20),
+        stepOf("relief-apply", "not_started", 30),
+      ]),
+    );
+    expect(text).toContain("relief-apply 단계");
+  });
+
+  it("정말로 남은 것이 없으면 그대로 말한다", () => {
+    const text = textOf(
+      draw([
+        stepOf("report-112", "done_verified", 10),
+        stepOf("freeze-request", "done_verified", 20),
+      ]),
+    );
+    expect(text).toContain("지금 하실 일은 없습니다");
+  });
+});

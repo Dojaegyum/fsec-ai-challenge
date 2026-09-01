@@ -29,10 +29,14 @@ export default defineConfig({
     // `.tsx` 도 봅니다 — 렌더에는 **금지 규칙**이 붙어 있고(빨강 금지 · 「모름」 안 지우기 ·
     // 화면이 날짜를 세지 않기), 그건 타입도 순수 함수 시험도 못 잡습니다.
     include: ["{lib,modules,flows,app}/**/*.test.{ts,tsx}", "*.test.ts"],
-    // **jsdom 을 쓰지 않습니다.** 렌더 시험은 `react-dom/server` 의
+    // **기본은 jsdom 이 아닙니다.** 렌더 시험은 `react-dom/server` 의
     // `renderToStaticMarkup` 으로 HTML 문자열을 받아 봅니다 — 브라우저가 필요 없고,
-    // 의존성이 늘지 않으며, 「무엇이 그려지나」를 보는 데는 그것으로 충분합니다.
-    // 클릭·포커스처럼 **실제 상호작용**을 봐야 할 때 그때 jsdom 을 답니다.
+    // 「무엇이 그려지나」를 보는 데는 그것으로 충분합니다.
+    //
+    // **상호작용을 봐야 하는 파일만** 머리에 `@vitest-environment jsdom` 을 답니다
+    // (지금은 `modules/chat-handler/stream.interaction.test.tsx` 하나). 적고 → 누르고 →
+    // 칸이 어떻게 되나는 상태가 옮겨가는 것이라 정적 HTML 로는 안 보입니다.
+    // 전체를 jsdom 으로 돌리지 않는 이유는 속도입니다 — 환경 준비만 20초가 넘습니다.
     environment: "node",
   },
 });

@@ -965,6 +965,29 @@ describe('나간 문장을 그대로 남긴다 — §3.12 이력', () => {
     // 「왜 이 질문이 나갔나」를 설명하는 값입니다 → 09-data-model.md §9
     expect(one.written[0]?.insufficient).toBe(true)
   })
+
+  /**
+   * ⚠️ **이력의 근거에 `label` 이 없어 재진입이 통째로 깨져 있었습니다** (2026-08-31).
+   *
+   * 남긴 것이 `outcome.reply.citations`(= 모델이 낸 `{ref, why}`)라 `label` 이
+   * 없었습니다. `GET …/messages` 는 그것을 그대로 내리고(§3.12), 화면의
+   * `sourceNote` 는 `citations.map((c) => c.label).filter((l) => l.length > 0)` 라
+   * **`undefined.length` 로 던집니다.** 그 예외가 첫 로드 효과 밖으로 새어
+   * `setLoading(false)` 까지 못 가서, 새로고침하면 챗이 「불러오는 중」에서
+   * 영영 멈췄습니다 — 「못 읽었습니다」 안내조차 안 떴습니다 (ADR-050).
+   *
+   * 남기는 것은 **실제로 나간 것**이어야 합니다. 바로 위 `contentMasked` 가
+   * 이미 그 규칙이고, 근거만 다른 값을 남기고 있었습니다.
+   */
+  it('**근거도 나간 그대로 남긴다** — `label` 이 빠지면 재진입이 깨집니다', async () => {
+    const one = chatHarness()
+    const body = await runTurn(one)
+
+    expect(one.written[0]?.citations).toEqual(body.citations)
+
+    const kept = one.written[0]?.citations as readonly { label?: string }[]
+    expect(kept[0]?.label).toBe('피해구제 신청서 제출')
+  })
 })
 
 describe('턴 번호를 표가 센다 — 22번째 턴부터 죽던 자리 (§9 `uk_case_turn`)', () => {

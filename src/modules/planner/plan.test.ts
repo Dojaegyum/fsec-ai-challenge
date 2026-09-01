@@ -203,6 +203,42 @@ describe('재생성 시 병합 — 09-data-model.md §6.1', () => {
     expect(skipped).toEqual(['gone'])
   })
 
+  /**
+   * ⚠️ **사용자가 끝낸 단계가 「해당 없음」으로 뒤집혔습니다** (2026-08-31).
+   *
+   * `skipped` 는 「새 플랜에 없는 단계」를 전부 담는데, `done_verified` 를 빼지
+   * 않았습니다. 활성 조건이 바뀌어 `chosen` 에서 빠지면 **이미 끝낸 단계도**
+   * 목록에 들어가고, `db-plan` 의 UPDATE 가 그물 없이 `state='skipped'` 를
+   * 적었습니다.
+   *
+   * 실제 경로: 지급정지를 끝내(`done_verified`) 접수번호까지 낸 뒤, 문진에서
+   * 「대면편취」를 고르면 `ch-facetoface.json` 의 `freeze-request` 가
+   * `after: ['report-112']` 로 바뀝니다. 112 를 아직 안 끝냈으면 그 단계는
+   * 활성이 아니라 `chosen` 에서 빠지고 — **끝낸 일이 「해당 없음」이 됩니다.**
+   * 다음 재생성에서는 `after: ['freeze-request']` 인 피해구제 신청까지 함께
+   * 꺼집니다.
+   *
+   * `db-plan.ts` 주석이 「`done_verified`·`unconfirmed` 는 여기 오지 않습니다 —
+   * planner 가 `preserved` 로 빼둡니다」라고 적고 있었는데, `preserved` 는
+   * **`chosen` 에 남은 것만** 담습니다. 계약과 코드가 어긋난 자리였습니다.
+   */
+  it('**끝낸 단계는 새 플랜에서 빠져도 건너뛰지 않는다** → §6.1 PRESERVED', async () => {
+    const { skipped, preserved } = planner().build(
+      input({
+        applied: [step('a')],
+        existing: [
+          { stepKey: 'a', state: 'not_started' },
+          { stepKey: 'freeze-request', state: 'done_verified' },
+          { stepKey: 'reminded', state: 'unconfirmed' },
+          { stepKey: 'gone', state: 'not_started' },
+        ],
+      }),
+    )
+
+    expect(skipped).toEqual(['gone'])
+    expect(preserved.map((one) => one.stepKey)).not.toContain('freeze-request')
+  })
+
   it('이미 건너뛴 것을 다시 세지 않는다', async () => {
     const { skipped } = planner().build(
       input({

@@ -261,7 +261,22 @@ export async function fetchCaseBundle(
     return fail(body.error?.message ?? FALLBACK_MESSAGE, verdict);
   }
 
-  const bundle = toBundle(await res.json());
+  // ⚠️ **`res.json()` 이 `try` 밖에 있었습니다.** 200 인데 본문이 JSON 이 아니면
+  // (중간 장비가 낀 안내 페이지 등) 여기서 던지고, 부르는 쪽 효과에는 `catch` 가
+  // 없어 `phase` 가 `loading` 에 굳습니다 — 사건 화면이 「불러오는 중」에서 영영
+  // 안 풀립니다. **못 읽었으면 못 읽었다고 말합니다** (에러 §3.1)
+  let parsed: unknown;
+  try {
+    parsed = await res.json();
+  } catch {
+    return fail("사건을 읽었지만 내용을 알 수 없습니다.", {
+      poll: false,
+      reason: "error",
+      retryable: true,
+    });
+  }
+
+  const bundle = toBundle(parsed);
   if (!bundle) {
     return fail("사건을 읽었지만 내용을 알 수 없습니다.", {
       poll: false,

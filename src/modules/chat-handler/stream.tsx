@@ -93,6 +93,17 @@ const FIELD_KIND: Readonly<Record<string, { type: string; hint: string }>> = {
  *
  * **「모름」은 여기에도 있습니다** (F-05b · 불변 규칙 5). 버튼 질문에서만 있고
  * 타이핑 질문에서 사라지면, 답을 모르는 사람이 그 자리에서 막힙니다.
+ *
+ * ## 적은 글은 **그 질문의 것**입니다
+ *
+ * ⚠️ **2026-08-31 까지 앞 질문의 답이 다음 질문 칸에 그대로 앉아 있었습니다.**
+ * `draft` 가 질문과 무관하게 살아 있어서, 「얼마를 보내셨나요」에 답하면 다음 문항이
+ * 앞의 답을 띄운 채로 열렸습니다. 보이는 것만의 문제가 아닙니다 — **그대로 「답하기」를
+ * 누르면 다른 슬롯(`slot_key`)에 앞 질문의 값이 들어갑니다.**
+ *
+ * 그래서 질문이 바뀌면 비웁니다. 반대로 **질문이 그대로면 비우지 않습니다** — 못 보낸
+ * 글은 입력칸에 남아 있어야 하고(에러 §3.1), 실패했을 때 `send.ts` 의 `put` 은
+ * `setQuestion` 까지 가지 않으므로 질문이 그대로입니다. 한 판정이 둘을 함께 지킵니다.
  */
 export function QuestionField({
   question,
@@ -106,6 +117,16 @@ export function QuestionField({
   busy?: boolean;
 }) {
   const [draft, setDraft] = useState("");
+  /** 지금 적고 있는 글이 **어느 질문의 것인지** — 이게 바뀌면 글은 남의 것이 됩니다 */
+  const [asked, setAsked] = useState(question.slot_key);
+
+  // 렌더 중에 맞춥니다 — `useEffect` 로 미루면 **앞의 답이 한 프레임 보이고**,
+  // 그 사이에 누르면 그대로 나갑니다
+  if (asked !== question.slot_key) {
+    setAsked(question.slot_key);
+    setDraft("");
+  }
+
   const kind = FIELD_KIND[question.input];
   if (!kind) return null;
 

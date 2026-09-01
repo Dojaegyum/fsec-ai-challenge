@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { openCase } from "@/modules/case-opener";
 import { ddayLabel, groupDeadlines } from "@/modules/deadline-viewer";
 import { HorizonGlow } from "@/components/HorizonGlow";
-import { isOpen, pickStep, Workspace } from "@/modules/work-handler";
+import { currentStep, isOpen, pickStep, Workspace } from "@/modules/work-handler";
 import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
 import type { DOMRectLike } from "./absorb";
@@ -354,7 +354,15 @@ function CaseScreen({
    * 통째로 안 뜹니다 — 히어로가 D-day 를 다루는 방식과 같습니다 (`plan.tsx`).
    */
   const headerDue = useMemo(() => {
-    const running = bundle.steps.find((one) => one.state === "in_progress");
+    // ⚠️ **`in_progress` 만 찾아 갓 만든 사건에서는 배지가 아예 안 떴습니다.**
+    // 그 상태는 접수번호가 L1 을 통과 못 했을 때만 생기고, 새 플랜은 전부
+    // `not_started` 입니다 — 3영업일이 걸린 사건인데 헤더는 조용했습니다.
+    // 히어로·워크스페이스와 **같은 판정**을 씁니다 (`currentStep`)
+    // §3.6 이 `title` 을 보장합니다 — 두 모듈의 타입이 각자 필요한 만큼만
+    // 선언해 놓아서 `activeStep` 과 같은 자리에서 한 번 넓힙니다
+    const running = currentStep(bundle.steps as unknown as readonly WorkStep[]) as
+      | FullStep
+      | null;
     if (!running) return null;
     const due = groupDeadlines(bundle.deadlines).primary.find(
       (one) => one.step_id === running.step_id,
@@ -651,9 +659,12 @@ function CaseScreen({
                   무엇을 해도 부산물이 안 만들어졌습니다 */}
               <Workspace
                 step={activeStep}
-                onSubmit={(stepId, one) => void artifact.submit(stepId, one)}
+                // **판정을 돌려줍니다** — 낸 것이 확인돼야 입력칸이 비워집니다.
+                // 삼켜 버리면 못 낸 접수번호가 낸 것처럼 사라집니다 (§3.1)
+                onSubmit={(stepId, one) => artifact.submit(stepId, one)}
                 busy={artifact.sendingStepId !== null || uploads.busy}
                 verdict={artifact.verdict}
+                fail={artifact.fail}
                 onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
               />
               {chatIsMain ? (

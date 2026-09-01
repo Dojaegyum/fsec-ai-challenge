@@ -15,6 +15,7 @@ export {
   openStep,
   closePanel,
   emptyPanelState,
+  currentStep,
   isOpen,
 } from "./signal";
 export {

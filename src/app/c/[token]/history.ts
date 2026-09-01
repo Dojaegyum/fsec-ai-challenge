@@ -313,24 +313,33 @@ export async function fetchHistory(
   }
   if (!res.ok) return { ...NO_HISTORY, failed: true };
 
-  const body = (await res.json()) as {
-    messages?: readonly HistoryRow[];
-    truncated?: boolean;
-  };
-  const open = [...mappings];
+  // ⚠️ **여기가 `try` 밖에 있었습니다.** 본문을 읽거나 줄로 옮기다 던지면 예외가
+  // 이 함수 밖으로 새고, 부르는 쪽(`send.ts` 첫 로드)에는 `catch` 가 없어
+  // `setLoading(false)` 까지 못 갔습니다 — 챗이 「불러오는 중」에서 영영 멈추고
+  // `pastFailed` 도 안 켜져 **안내조차 못 띄웠습니다.** 못 읽었으면 못 읽었다고
+  // 말합니다 (위 `failed` 주석과 같은 이유)
+  try {
+    const body = (await res.json()) as {
+      messages?: readonly HistoryRow[];
+      truncated?: boolean;
+    };
+    const open = [...mappings];
 
-  const lines: Line[] = (body.messages ?? []).map((row) =>
-    row.role === "user"
-      ? { who: "me", text: restore(row.content, open, { site: "user-input" }) }
-      : {
-          who: "ai",
-          message_id: row.message_id,
-          reply: restore(row.content, open, { site: "chat-answer" }),
-          question: null,
-          sourceNote: sourceNote(row.citations ?? []),
-          referencedSteps: [],
-        },
-  );
+    const lines: Line[] = (body.messages ?? []).map((row) =>
+      row.role === "user"
+        ? { who: "me", text: restore(row.content, open, { site: "user-input" }) }
+        : {
+            who: "ai",
+            message_id: row.message_id,
+            reply: restore(row.content, open, { site: "chat-answer" }),
+            question: null,
+            sourceNote: sourceNote(row.citations ?? []),
+            referencedSteps: [],
+          },
+    );
 
-  return { lines, truncated: body.truncated === true };
+    return { lines, truncated: body.truncated === true };
+  } catch {
+    return { ...NO_HISTORY, failed: true };
+  }
 }

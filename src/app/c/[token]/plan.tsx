@@ -32,6 +32,8 @@ import { ddayLabel, dueLabel, groupDeadlines, WaitCard } from "@/modules/deadlin
 import type { Deadline } from "@/modules/deadline-viewer";
 import { PlanBoard } from "@/modules/plan-viewer";
 import type { PlanStep, StepTone } from "@/modules/plan-viewer";
+import { currentStep } from "@/modules/work-handler";
+import type { PlanStep as WorkStep } from "@/modules/work-handler";
 
 /**
  * 사건 진행 레일 — **절차의 전체 흐름**입니다. 진행률이 아닙니다.
@@ -94,6 +96,28 @@ const RAIL_MARK: Record<StepTone, { readonly sign: string; readonly tag: string 
   anytime: { sign: "◇", tag: "언제든" },
   na: { sign: "—", tag: "해당 없음" },
 };
+
+/**
+ * **지금 하실 일** — 히어로가 가리키는 단계 하나.
+ *
+ * ⚠️ **2026-08-31 까지 `state === "in_progress"` 만 찾았습니다.** 그 상태는 이
+ * 저장소에서 **접수번호가 L1 검증에 실패했을 때만** 생기고(`completion-checker`
+ * 의 `failed()`), 새 플랜의 단계는 전부 `not_started` 입니다(`planner`). 그래서
+ * 아직 아무 부산물도 못 낸 사건 — 즉 **막 신고를 마치고 들어온 모든 사용자** — 에게
+ * 첫 줄이 「지금 하실 일은 없습니다 · 기다리는 구간입니다」로 떴고, 두 버튼도
+ * 안 그려졌습니다. 사건은 언제나 플랜으로 열립니다(`case-opener`).
+ *
+ * **없는 순서를 새로 만드는 것이 아닙니다.** 워크스페이스가 이미 「눌렀으면 그 단계,
+ * 아니면 아직 안 끝난 것 중 앞선 것」으로 골라 열고 있어서(`page.tsx` 의
+ * `activeStep`), 히어로만 다른 규칙을 쓰고 있었습니다 — **판정을 한 벌로 맞춥니다.**
+ * 끝난 것(`done_verified`)과 해당 없는 것(`skipped`)을 빼는 판단도 `work-handler`
+ * 의 `isOpen` 그대로입니다.
+ */
+function nowStep(steps: readonly PlanStep[]): PlanStep | null {
+  // 판정은 `work-handler` 에 한 벌로 있습니다 — 워크스페이스·헤더 배지가 같은 것을
+  // 씁니다. 두 모듈의 타입이 각자 필요한 만큼만 선언해 놓아 여기서 넓힙니다
+  return currentStep(steps as unknown as readonly WorkStep[]) as unknown as PlanStep | null;
+}
 
 /**
  * 레일 한 칸의 상태를 그 칸에 걸린 단계들에서 정합니다.
@@ -180,9 +204,8 @@ export default function PlanView({
   // 공고는 `kind: "info"` 기한 하나입니다 — 사용자가 지킬 기한이 아닙니다 (§3.7)
   const notice = groups.info[0] ?? null;
 
-  // **지금 하실 일** — 진행 중인 단계 하나. 없으면 히어로가 「할 일이 없다」를 말합니다.
-  // 「다음 것을 골라 밀어붙이지」 않습니다 — 순차가 아니기 때문입니다 (ADR-035)
-  const now = steps.find((s) => s.state === "in_progress") ?? null;
+  // **지금 하실 일** — 하나입니다. 없으면 히어로가 「할 일이 없다」를 말합니다.
+  const now = nowStep(steps);
   const primary = now ? (groups.primary.find((d) => d.step_id === now.step_id) ?? null) : null;
   const grace = now ? (groups.grace.find((d) => d.step_id === now.step_id) ?? null) : null;
 
