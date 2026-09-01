@@ -37,7 +37,7 @@
  * 며칠 뒤 본인의 계좌가 남의 계좌로 복원됩니다.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { outgoing, toTurn } from "@/modules/chat-handler";
 import type {
@@ -443,7 +443,33 @@ export function useChatSend(
     typed: string;
     /** 되묻기에 답할 때 **다시 보낼 값** — 이미 가려서 맡긴 그것입니다 */
     sent: string;
+    /**
+     * **이 카드가 어느 슬롯의 것인가.**
+     *
+     * ⚠️ 이게 없어서 되묻기의 답이 **지금 질문**으로 나갔습니다. 카드가 떠 있는
+     * 동안 사용자가 컴포저로 한 마디 보내면 §3.9 응답에 다음 문항이 실려 오고,
+     * 질문만 앞서 가 있는 상태에서 「맞아요 — 가릴게요」를 누르면 앞 질문의 답이
+     * **다음 질문의 슬롯**에 적혔습니다. 원래 슬롯은 `pii_pending` 으로 남는데
+     * `slot-checker` 는 `empty` 만 순회해서 다시는 안 물어봅니다.
+     */
+    slotKey: string;
   } | null>(null);
+  /**
+   * 위 `confirm` 의 **지금 값** — 비동기 응답이 돌아왔을 때 읽습니다.
+   *
+   * 발화가 나가 있는 동안 사용자가 슬롯에 답하면 `send` 의 클로저가 든 `confirm`
+   * 은 낡은 값입니다. 상태와 함께 움직이는 자리를 `holdConfirm` 하나로 묶습니다.
+   */
+  const confirmRef = useRef<{ card: PiiConfirm; typed: string; sent: string; slotKey: string } | null>(
+    null,
+  );
+  const holdConfirm = useCallback(
+    (next: { card: PiiConfirm; typed: string; sent: string; slotKey: string } | null) => {
+      confirmRef.current = next;
+      setConfirm(next);
+    },
+    [],
+  );
   const [asking, setAsking] = useState(false);
   const [askFail, setAskFail] = useState<{ stage: SlotStage; fail: LoadFail } | null>(null);
 
@@ -523,8 +549,15 @@ export function useChatSend(
       // 패널을 그대로 두는 것이 부르는 쪽의 규칙입니다(`applySignal`)
       onReferenced?.(result.turn.referencedSteps);
       // 발화도 질문을 옮깁니다 — §3.9 응답에 `next_question` 이 실립니다.
-      // 이걸 안 받으면 답을 말로 했는데 **같은 질문이 그대로 남아** 있습니다
-      setQuestion(result.turn.question);
+      // 이걸 안 받으면 답을 말로 했는데 **같은 질문이 그대로 남아** 있습니다.
+      //
+      // ⚠️ **되묻기가 떠 있는 동안에는 옮기지 않습니다.** 카드는 그 슬롯의
+      // 것인데 질문만 앞서 가면, 화면이 **다음 질문의 문구 + 앞 질문의 카드**를
+      // 함께 그리고(카드가 있으면 선택지·입력칸을 안 그립니다) 새 질문에는
+      // 답할 수단이 없습니다. 아래 `put` 이 답을 제 슬롯으로 보내더라도 이
+      // 어긋남은 남습니다 — 「되묻기가 오면 질문은 그대로 둔다」는 규칙이
+      // 발화 쪽에도 있어야 합니다
+      if (confirmRef.current === null) setQuestion(result.turn.question);
       return true;
     },
     [caseToken, mappings, onReferenced, sending, store, vaultRead],
@@ -536,15 +569,22 @@ export function useChatSend(
       action: "answer" | "unknown" | "mask" | "keep",
       value: string | undefined,
       typed: string,
+      /**
+       * 어느 슬롯에 보낼 것인가. 기본은 **지금 질문**이고, 되묻기의 답만
+       * 카드가 만들어진 슬롯을 넘겨받습니다 — 그 사이 질문이 옮겨갔을 수
+       * 있어서, 지금 질문으로 보내면 **앞 질문의 답이 다른 슬롯에 적힙니다**
+       */
+      slotKey?: string,
     ) => {
       if (!caseToken || !question || asking) return;
+      const target = slotKey ?? question.slot_key;
 
       setAsking(true);
       setAskFail(null);
 
       const result = await answerSlot({
         caseToken,
-        slotKey: question.slot_key,
+        slotKey: target,
         action,
         ...(value === undefined ? {} : { value }),
         mappings,
@@ -564,17 +604,17 @@ export function useChatSend(
       // 아니라서입니다. 확인 전에는 없는 값과 같습니다 (ADR-041)
       const card = result.response.pii_confirm;
       if (card && result.sent !== null) {
-        setConfirm({ card, typed, sent: result.sent });
+        holdConfirm({ card, typed, sent: result.sent, slotKey: target });
         return;
       }
 
-      setConfirm(null);
+      holdConfirm(null);
       setQuestion(result.response.next_question);
       // **화면을 비우지 않는 갱신입니다** — 여기서 사건을 다시 읽으면 방금 한
       // 대화가 사라집니다 (`useCaseBundle` 의 `refresh`)
       if (result.response.plan_regenerated) onPlanChanged?.();
     },
-    [asking, caseToken, mappings, onPlanChanged, question, store, vaultRead],
+    [asking, caseToken, holdConfirm, mappings, onPlanChanged, question, store, vaultRead],
   );
 
   const ask = useMemo<SlotAsk>(
@@ -587,7 +627,9 @@ export function useChatSend(
       skip: () => put("unknown", undefined, ""),
       // **같은 값을 다시 보냅니다** — 이미 가렸고 이미 맡겼습니다
       resolve: (id: "mask" | "keep") =>
-        confirm ? put(id, confirm.sent, confirm.typed) : Promise.resolve(),
+        confirm
+          ? put(id, confirm.sent, confirm.typed, confirm.slotKey)
+          : Promise.resolve(),
     }),
     [asking, askFail, confirm, put, question],
   );

@@ -145,7 +145,12 @@ export async function chatTurn(
     contentMasked: body.reply,
     promptMasked: outcome.promptMasked,
     reasoningMasked: outcome.reply.reasoning ?? null,
-    citations: [...outcome.reply.citations],
+    // ⚠️ **모델이 낸 `{ref, why}` 를 남기고 있었습니다** — `label` 이 없습니다.
+    // §3.12 이력이 그것을 그대로 내리면 화면의 `sourceNote` 가 `label.length` 에서
+    // 던지고, 그 예외가 첫 로드 밖으로 새어 **새로고침하면 챗이 「불러오는 중」에
+    // 영영 멈췄습니다** (ADR-050). 위 `contentMasked` 와 같은 규칙입니다 —
+    // **실제로 나간 것**을 남깁니다
+    citations: [...body.citations],
     kbContextRefs: [...outcome.kbContextRefs],
     insufficient: outcome.reply.insufficient,
     // 사용자가 실제로 무엇을 말했는지도 남깁니다 — 다음 턴의 맥락입니다

@@ -47,9 +47,27 @@ export type Submission =
 export interface WorkspaceProps {
   /** 지금 열린 단계. `null` 이면 아무것도 안 그립니다 */
   step: FullStep | null;
-  /** 부산물을 냅니다. 보내는 중이면 `busy` */
-  onSubmit(stepId: string, one: Submission): void;
+  /**
+   * 부산물을 냅니다. 보내는 중이면 `busy`.
+   *
+   * **판정을 돌려주면 그때 입력칸을 비웁니다.** 못 냈으면(`null`) 적은 번호가
+   * 그대로 남습니다 — 다시 보내는 것은 사용자가 합니다 (§3.1).
+   * 아무것도 안 돌려주는 부름은 **낸 것으로 치지 않습니다**: 확인 못 한 성공을
+   * 화면이 단정하면, 안 들어간 접수번호를 들어간 것으로 보여 주게 됩니다
+   */
+  onSubmit(
+    stepId: string,
+    one: Submission,
+  ): void | Promise<{ verify_result: string; step_state: string } | null>;
   busy?: boolean;
+  /**
+   * 못 냈을 때 서버가 준 말 — **화면이 지어내지 않습니다.**
+   *
+   * ⚠️ 이 자리가 없어서 전송이 실패해도 **입력칸만 비고 아무 표시가 없었습니다.**
+   * 사용자는 기록됐다고 믿는데 단계는 안 끝나고, `after` 로 묶인 다음 단계와
+   * 기한도 안 열립니다
+   */
+  fail?: { message: string; retryable?: boolean } | null;
   /** 마지막 판정 — L1 이 실패하면 여기 다음 길이 담겨 옵니다 */
   verdict?: {
     verify_result: string;
@@ -286,7 +304,7 @@ function ArtifactSlot({
  * 그래서 이 짝은 `panels.test.tsx`(패널 단독)와 `workspace.test.tsx`(일곱 유형을
  * 이 호출부로 통과시키는 것) **양쪽에서** 지킵니다.
  */
-export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: WorkspaceProps) {
+export function Workspace({ step, onSubmit, busy, verdict, fail, onPickFile }: WorkspaceProps) {
   const [typed, setTyped] = useState("");
 
   if (!step) return null;
@@ -299,8 +317,14 @@ export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: Workspa
   const sendNumber = () => {
     const value = typed.trim();
     if (!value || busy) return;
-    onSubmit(step.step_id, { kind: "receipt_no", value });
-    setTyped("");
+    // ⚠️ **결과를 안 보고 비웠습니다.** 실패하면 적어 둔 번호가 화면에서 사라진
+    // 뒤라 다시 낼 수도 없었습니다 — 통화 중에 받아 적은 번호입니다.
+    // 낸 것이 **확인되면** 그때 비웁니다 (`artifact.ts` 가 적어 둔 계약)
+    void Promise.resolve(onSubmit(step.step_id, { kind: "receipt_no", value })).then(
+      (got) => {
+        if (got) setTyped("");
+      },
+    );
   };
 
   const sendSelfReport = () => {
@@ -373,6 +397,22 @@ export function Workspace({ step, onSubmit, busy, verdict, onPickFile }: Workspa
           onPickFile={onPickFile ? (file) => onPickFile(step.step_id, file) : undefined}
           busy={busy}
         />
+      ) : null}
+
+      {/* **못 냈으면 못 냈다고 말합니다.** 빨강을 쓰지 않습니다 — 앰버입니다 (§S-07) */}
+      {fail ? (
+        <div
+          role="alert"
+          className="mt-2.5 rounded-[11px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[11px_13px]"
+        >
+          <p className="text-[13.5px] leading-[1.6] text-ink-1">{fail.message}</p>
+          {fail.retryable ? (
+            <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-3">
+              <b className="font-[620] text-ink-2">적으신 번호는 그대로 있습니다.</b> 다시
+              「입력」을 눌러 주세요 — 화면이 스스로 다시 보내지 않습니다.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {verdict ? <Verdict verdict={verdict} /> : null}

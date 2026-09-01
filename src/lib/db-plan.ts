@@ -231,9 +231,14 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
     // **지우지 않습니다.** 조건이 다시 맞으면 되살아나야 하고, 딸린 부산물도
     // 남아 있어야 합니다 → §6.1
     if (result.skipped.length > 0) {
+      // ⚠️ **위 주석이 「여기 오지 않습니다」라고 적어 둔 것이 실제로 왔습니다**
+      // (2026-08-31). `preserved` 는 새 플랜에 **남은** 단계만 담아서, 활성 조건이
+      // 바뀌어 빠진 단계는 `done_verified` 여도 `skipped` 목록에 실렸습니다.
+      // planner 쪽을 고쳤고, 「마지막 문」이라고 적어 둔 이 자리에도 그물을 겁니다
       await tx`
         UPDATE plan_step SET state = 'skipped', updated_at = now()
         WHERE case_id = ${caseId} AND step_key = ANY(${[...result.skipped]})
+          AND state NOT IN ('done_verified', 'unconfirmed')
       `
     }
   }
