@@ -45,9 +45,9 @@ import { readEnv, type Env } from './env'
  * | `holidays` | ⬜ 정본의 환경변수 표에 공휴일 API 키 이름이 없습니다 |
  * | `ner` | ⬜ 2차 탐지 모델 미선정 → ARCHITECTURE §10. **없어도 1차 정규식으로 경계가 섭니다** |
  * | `llm` | Grok(xAI). 키는 이미 있습니다 |
- * | `mailer` | ⬜ 발송 수단 미정 → ADR-021 |
+ * | `mailer` | ⬜ 발송 수단 미정 → ADR-021. 열쇠 이름(`MAILER_API_KEY`)만 §1.2 에 자리 잡음 |
  * | `receiptFormat` | ⬜ 기관별 접수번호 포맷의 근거가 없습니다 |
- * | `sentLog` | ⬜ 발송 이력을 남길 칸이 스키마에 없습니다 |
+ * | `sentLog` | `reminder_sent` 표(§8.4 · 0008 마이그레이션). `DATABASE_URL` 이 있으면 붙습니다 |
  *
  * **환경변수가 있다고 바로 붙이지 않습니다.** 접속값이 있어도 그것을 쓰는
  * 코드가 있어야 붙은 것입니다 — 지금은 그 코드가 없어 전부 미설정입니다.

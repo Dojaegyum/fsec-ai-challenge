@@ -42,6 +42,7 @@ import {
   createCaseStore,
   createCaseTokenResolver,
   createChannelWriter,
+  createContactWriter,
   createDeadlineReader,
   createDeadlineWriter,
   createEvidenceReader,
@@ -55,6 +56,7 @@ import {
   createVaultStore,
 } from './db'
 import { createCasePlanStore } from './db-plan'
+import { createReminderSource, createSentLog } from './db-reminder'
 import { readEnv } from './env'
 import { newLinkToken, newUlid } from './ids'
 
@@ -809,6 +811,73 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
       expect(new Date(row!.lastActivityAt).getTime()).toBeGreaterThan(
         new Date(row!.createdAt).getTime(),
       )
+    })
+  })
+
+  describe('알림용 이메일 — 넣고 되읽고 지운다 (§2 notify_email · §3.13)', () => {
+    const contacts = createContactWriter(sql)
+    const source = createReminderSource(sql)
+
+    it('넣은 값이 그대로 되읽힌다 — 형식 검사 없이 (ADR-021)', async () => {
+      await contacts.saveNotifyEmail(caseId, 'name@example.com')
+
+      const found = await source.findContacts([caseId])
+      expect(found).toEqual([{ caseId, email: 'name@example.com' }])
+    })
+
+    it('안 준 사건은 null 로 온다 — 없는 것도 정상 사건입니다', async () => {
+      const found = await source.findContacts([otherId])
+      expect(found).toEqual([{ caseId: otherId, email: null }])
+    })
+
+    it('null 이면 지워진다', async () => {
+      await contacts.saveNotifyEmail(caseId, null)
+
+      const found = await source.findContacts([caseId])
+      expect(found).toEqual([{ caseId, email: null }])
+    })
+  })
+
+  describe('발송 이력 — 같은 열쇠는 한 번만 (§8.4 reminder_sent)', () => {
+    const sentLog = createSentLog(sql)
+    // 실제 열쇠와 같은 모양(가변 길이)입니다 — send.ts 의 dedupeKey
+    const KEY = `${caseId}|d:01J8DL00000000000000000000:2026-08-21`
+
+    it('적기 전에는 안 보낸 것이다', async () => {
+      expect(await sentLog.sentAlready(KEY)).toBe(false)
+    })
+
+    it('적으면 보낸 것이 된다', async () => {
+      await sentLog.markSent(KEY, caseId)
+      expect(await sentLog.sentAlready(KEY)).toBe(true)
+    })
+
+    it('같은 열쇠를 두 번 적어도 터지지 않는다 — 크론이 겹쳐 돌 수 있습니다', async () => {
+      await sentLog.markSent(KEY, caseId)
+      expect(await sentLog.sentAlready(KEY)).toBe(true)
+    })
+
+    it('열쇠가 다르면 새 알림이다 — 알릴 것이 늘면 다시 나가야 합니다', async () => {
+      expect(await sentLog.sentAlready(`${caseId}|d:다른기한:2026-09-03`)).toBe(false)
+    })
+
+    it('사건이 지워지면 이력도 함께 사라진다 — 파기 연쇄 (불변 규칙 3)', async () => {
+      // 일회용 사건을 하나 만들어 바로 지워 봅니다 — 본 사건은 afterAll 이 씁니다
+      const shortLived = newUlid()
+      await cases.createCase({
+        caseId: shortLived,
+        linkToken: newLinkToken(),
+        track: 'victim',
+        status: 'intake',
+        openedAt: OPENED_AT,
+        purgeAfter: PURGE_AFTER,
+      })
+      const key = `${shortLived}|d:D1:2026-08-21`
+      await sentLog.markSent(key, shortLived)
+      expect(await sentLog.sentAlready(key)).toBe(true)
+
+      await sql`DELETE FROM "case" WHERE case_id = ${shortLived}`
+      expect(await sentLog.sentAlready(key)).toBe(false)
     })
   })
 })

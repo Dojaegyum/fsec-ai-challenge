@@ -40,7 +40,7 @@
 
 ## 데이터 모델
 
-관계형 DB 테이블 **14개**입니다. 아래는 관계만 그린 것이고, **정본은
+관계형 DB 테이블 **16개**입니다. 아래는 관계만 그린 것이고, **정본은
 [`spec/backend/08-16-data-model.md`](spec/backend/08-16-data-model.md)** 입니다 — DDL·제약·허용값·저장 금지 목록이 거기 있습니다.
 
 ```mermaid
@@ -51,6 +51,7 @@ erDiagram
     case ||--o{ plan_step : "플랜 단계"
     case ||--o{ deadline : "기한"
     case ||--o{ message : "대화"
+    case ||--o{ reminder_sent : "보낸 알림"
     case ||..o{ audit_log : "감사 (논리 참조)"
     plan_step ||--o{ artifact : "부산물"
     plan_step }o..|| kb_entry : "인용 (논리 참조)"
@@ -67,8 +68,8 @@ erDiagram
 
 | 덩어리 | 테이블 | 무엇 |
 | --- | --- | --- |
-| **사건** | `case` `evidence` `case_channel` `case_slot` `plan_step` `artifact` `deadline` `message` `audit_log` | 한 사람의 사건 하나가 겪는 전부. 외래키가 `case`로 모입니다 |
-| **KB** | `kb_entry` `org` | 절차 지식과 기관 마스터. **릴리스로만 갱신**되므로 외래키를 걸지 않습니다 |
+| **사건** | `case` `evidence` `case_channel` `case_slot` `plan_step` `artifact` `deadline` `message` `reminder_sent` `audit_log` | 한 사람의 사건 하나가 겪는 전부. 외래키가 `case`로 모입니다 |
+| **KB** | `kb_entry` `org` `org_public` | 절차 지식과 기관 마스터. **릴리스로만 갱신**되므로 외래키를 걸지 않습니다 |
 | **수집** | `source_snapshot` `source_change` `source_registry` | `kb_entry` 앞단. 사람 승인 없이는 KB로 넘어가지 않습니다 → [ADR-012](decisions/012-kb-collection.md) |
 
 **원문 개인정보는 이 표들 어디에도 들어가지 않습니다.** 계좌·주민번호·전화·이름은 브라우저에서

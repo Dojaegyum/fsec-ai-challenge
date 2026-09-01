@@ -10,6 +10,7 @@ import { useRef, useState } from "react";
 import type { LoadFail } from "@/app/c/[token]/load";
 import { kindOf, uploadFile } from "@/app/c/[token]/upload";
 import { screenName } from "@/modules/file-sender";
+import { saveEmail } from "./contact";
 import { openCase, trackOf } from "./open";
 
 /**
@@ -37,7 +38,9 @@ import { openCase, trackOf } from "./open";
  *
  *  · [다음]·[건너뛰고 바로 시작] → `POST /api/cases` (§3.1). 주소에 실리는 것은
  *    응답의 **`link_token`** 입니다 — `case_id` 를 쓰면 조회가 언제나 빕니다 (ADR-039)
- *  · [저장하고 시작하기]·[이메일 없이 시작하기] → `/c/{token}` 으로 이동
+ *  · [저장하고 시작하기] → 이메일이 있으면 `PUT /api/cases/{case_token}/contact`
+ *    (§3.13) 후 `/c/{token}` 으로 이동. **실패해도 이동합니다** — 알림이 안 갈 뿐
+ *  · [이메일 없이 시작하기] → 아무것도 안 보내고 `/c/{token}` 으로 이동
  *
  * ## 동의 전문 — 4항은 **코드를 읽어 다시 썼습니다** (2026-08-30)
  *
@@ -63,10 +66,15 @@ import { openCase, trackOf } from "./open";
  *
  * ## 아직 안 붙은 것
  *
- *  · ⬜ **이메일이 갈 곳이 없습니다.** `case` 표에 칸도, 라우트도, §3 계약도
- *    없습니다. 화면은 「기한이 다가오면 알려드립니다」라고 적어 두었지만
- *    **지금은 아무 데도 안 갑니다** → QA 계획 Task 9 ⑤
- *  · ⬜ **「잘 모르겠어요」가 갈 `track` 이 없습니다** — `open.ts` 의 `trackOf` 참고
+ *  · ✅ ~~이메일이 갈 곳이 없습니다~~ → **생겼습니다** (2026-09-01 · Task 9 ⑤).
+ *    [저장하고 시작하기]가 `PUT …/contact`(§3.13)로 보낸 뒤 넘어갑니다 —
+ *    **실패해도 넘어갑니다**(알림이 안 갈 뿐 · 불변 규칙 5).
+ *    ⚠️ 저장은 되는데 **발송 수단은 아직 미정**이라(ADR-021 「남은 것」 ·
+ *    `MAILER_API_KEY`) 「기한이 다가오면 알려드립니다」는 절반만 참입니다 —
+ *    크론(§6)은 돌고, 메일만 안 나갑니다
+ *  · ✅ ~~「잘 모르겠어요」가 갈 `track` 이 없습니다~~ → **`victim` 으로 여는 것이
+ *    결정입니다** (2026-09-01 · ADR-060 · `open.ts` 의 `trackOf`). 계약에 값이
+ *    늘지 않습니다. ⚠️ `track` 을 되짚어 고치는 경로는 아직 없습니다 — Task 9 ④
  *  · ⬜ **전사·판독 서버가 어느 나라에 있는지 코드로 확인할 수 없습니다.**
  *    `TRANSCRIBER_URL`·`NER_URL` 은 배포 환경변수에만 있습니다(ADR-059). 그래서
  *    4항이 「국외일 수 있음」으로 적혀 있습니다 — **덮지 않는 쪽**입니다. 확정
@@ -562,6 +570,10 @@ export default function Start() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
   const [fail, setFail] = useState<LoadFail | null>(null);
+  /** 알림용 이메일. **선택입니다** — 비워 두면 아무것도 안 보냅니다 (ADR-021) */
+  const [email, setEmail] = useState("");
+  /** 이메일을 저장하고 넘어가는 중인가. 버튼 연타로 두 번 보내지 않습니다 */
+  const [entering, setEntering] = useState(false);
 
   /**
    * 고른 자료 — **아직 안 올라갔습니다.** [다음]으로 사건이 만들어진 뒤에 함께
@@ -657,6 +669,21 @@ export default function Start() {
   /** 사건 화면으로. **링크 토큰이 없으면 가지 않습니다** — 갈 곳이 없습니다 */
   const enter = () => {
     if (linkToken) router.push(`/c/${linkToken}`);
+  };
+
+  /**
+   * [저장하고 시작하기] — 이메일을 저장한 뒤 사건 화면으로.
+   *
+   * **실패해도 갑니다** (§3.13 · 불변 규칙 5). 이메일은 알림의 재료이지
+   * 사건의 재료가 아닙니다 — 저장이 안 되면 알림이 안 갈 뿐이고, 방금 발급된
+   * 주소 앞에서 사용자를 세우지 않습니다. 빈 칸이면 `saveEmail` 이 아무것도
+   * 안 보내고 바로 돌아옵니다 — [이메일 없이 시작하기]와 같은 길이 됩니다.
+   */
+  const saveAndEnter = async () => {
+    if (!linkToken || entering) return;
+    setEntering(true);
+    await saveEmail(linkToken, email);
+    router.push(`/c/${linkToken}`);
   };
 
   const issued = phase === "issued";
@@ -939,6 +966,8 @@ export default function Start() {
                     id="email"
                     type="email"
                     placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="mt-2 min-h-[48px] w-full rounded-[10px] border border-hairline bg-[oklch(0_0_0/34%)] px-[13px] text-[14px] text-ink-1 placeholder:text-ink-4 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-pii"
                   />
                   <p className="mt-2 text-[13px] leading-[1.6] text-ink-3">
@@ -952,12 +981,18 @@ export default function Start() {
                 </div>
               </div>
 
-              {/* ⚠️ **이메일은 아직 아무 데도 안 갑니다** — 보낼 곳이 없습니다
-                  (`case` 표에 칸도, 라우트도, §3 계약도 없음 → Task 9 ⑤).
-                  버튼 둘은 같은 곳으로 갑니다 */}
+              {/* 이메일은 `PUT …/contact`(§3.13)로 갑니다 — Task 9 ⑤ 해소.
+                  **저장이 실패해도 넘어갑니다**(알림이 안 갈 뿐 · 불변 규칙 5).
+                  [이메일 없이 시작하기]는 아무것도 안 보냅니다 — 안 준 것도
+                  정상 사건입니다(ADR-021) */}
               <div style={step(3)} className="rise mt-6 flex gap-[11px]">
-                <button type="button" onClick={enter} className={`${btnPrimary} flex-1`}>
-                  저장하고 시작하기
+                <button
+                  type="button"
+                  onClick={() => void saveAndEnter()}
+                  disabled={entering}
+                  className={`${btnPrimary} flex-1 disabled:opacity-60`}
+                >
+                  {entering ? "저장하고 있습니다" : "저장하고 시작하기"}
                 </button>
                 <button type="button" onClick={enter} className={`${btnGhost} flex-1`}>
                   이메일 없이 시작하기

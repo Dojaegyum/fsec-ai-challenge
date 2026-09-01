@@ -119,12 +119,18 @@ export interface ReminderSource {
 /**
  * 이 모듈이 밖에 요구하는 것 — 이미 보냈는지 기억하는 자리.
  *
- * ⬜ **정본에 이 자리가 없습니다.** `deadline`·`plan_step` 어디에도 발송 이력
- * 칼럼이 없어, 스키마가 정해질 때까지 인터페이스로 둡니다.
+ * 정본이 생겼습니다 — `reminder_sent` 표 → 09-data-model.md §8.4 (2026-09-01).
  */
 export interface SentLog {
   sentAlready(dedupeKey: string): Promise<boolean>
-  markSent(dedupeKey: string): Promise<void>
+  /**
+   * 보냈다고 적는다. **보낸 뒤에 부릅니다.**
+   *
+   * `caseId` 를 함께 받는 것은 **파기 연쇄** 때문입니다 — 사건이 파기되면
+   * 발송 이력도 함께 사라져야 하는데(불변 규칙 3), 열쇠 문자열을 저장소가
+   * 쪼개 읽게 하면 열쇠 형식이 바뀌는 순간 조용히 깨집니다.
+   */
+  markSent(dedupeKey: string, caseId: string): Promise<void>
 }
 
 /**

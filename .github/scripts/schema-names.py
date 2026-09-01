@@ -87,6 +87,9 @@ KEYWORDS = {
     "TRUE", "FALSE", "UNKNOWN", "DEFAULT", "FILTER", "OVER", "PARTITION",
     "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "LOCALTIME",
     "LOCALTIMESTAMP", "CURRENT_USER", "SESSION_USER", "COLLATE", "ESCAPE",
+    # `due_at AT TIME ZONE 'Asia/Seoul'` — 시간대 변환 연산자의 세 낱말입니다.
+    # 괄호가 안 붙어 함수로 걸러지지 않는데 칸도 아닙니다 (실제로 걸렸습니다)
+    "AT", "TIME", "ZONE",
     # 자주 쓰는 타입 이름 (`::` 뒤는 따로 거르지만 `CAST(x AS int)` 도 있습니다)
     "INT", "INT2", "INT4", "INT8", "INTEGER", "BIGINT", "SMALLINT", "TEXT",
     "DATE", "TIMESTAMPTZ", "TIMESTAMP", "NUMERIC", "DECIMAL", "BOOLEAN",

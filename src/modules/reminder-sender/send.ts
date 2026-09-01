@@ -98,8 +98,9 @@ export function createReminderSender(deps: {
 
         try {
           await mailer.send(reminder)
-          // 보낸 뒤에 표시합니다. 먼저 표시하고 발송이 실패하면 영영 안 갑니다
-          await sentLog.markSent(reminder.dedupeKey)
+          // 보낸 뒤에 표시합니다. 먼저 표시하고 발송이 실패하면 영영 안 갑니다.
+          // 사건 식별자는 파기 연쇄용입니다 → types.ts 의 `SentLog.markSent`
+          await sentLog.markSent(reminder.dedupeKey, reminder.caseId)
           sent.push(reminder)
         } catch (error) {
           // 한 사건이 실패해도 나머지를 계속합니다. 다음 회차가 다시 집습니다

@@ -120,6 +120,7 @@ src/kb/
 | **`deadline.owner`가 맞나** | 기관 기한을 사용자 기한으로 적으면 불필요한 불안을 줍니다 ([§11.4.2](../spec/backend/08-16-data-model.md#1142-기한의-주인을-명시합니다)) |
 | **`caveat`가 필요한 자리인가** | 환급·자율배상·사각지대에서 `caveat`가 비어 있으면 기대치를 부풀립니다 |
 | **`action`이 실제 행동과 맞나** | `wait`으로 적었는데 사용자 기한이 붙어 있는 단계가 있습니다 ([§11.4.6](../spec/backend/08-16-data-model.md#1146-stepsaction--사용자가-무슨-행동을-하나)) |
+| **`action: read`를 레일 `step_key`에 얹으면 그 국면이 「해당 없음」으로 그려진다** | `freeze-request`·`relief-apply`·`relief-documents`·`debt-extinction-notice`에 걸린 항목이 전부 `read`면 S-07 레일이 그 칸을 「해당 없음」으로 흐립니다([S-07](../spec/frontend/08-14-screens.md)). 「이 유형에는 없습니다」류 덮개([ADR-058](../decisions/058-crypto-not-applicable-overrides.md))에는 맞는 그림이지만, **진짜 정보 단계**(사각지대 고지처럼 읽을 내용이 있는 `read`)를 그 자리에 얹으면 있는 정보가 「해당 없음」이 됩니다 |
 
 ## 하지 않는 것
 
@@ -184,3 +185,4 @@ DDL이 바뀌면 마이그레이션이 함께 옵니다 ([ADR-019](../decisions/
 | --- | --- | --- |
 | 2026-08-18 | 제정 — KB 원본을 `src/kb/`에 JSON으로 두고, 유형 하나를 파일 하나로 가름 | |
 | 2026-08-18 | 수집 파이프라인과의 경계를 명시 — 파이프라인은 `kb_entry`를 직접 쓰지 않는다 | [ADR-012](../decisions/012-kb-collection.md) |
+| 2026-09-01 | 자기점검에 한 줄 — 레일 `step_key`에 얹은 `action: read`는 S-07이 「해당 없음」으로 그린다 | [ADR-058](../decisions/058-crypto-not-applicable-overrides.md) |
