@@ -264,3 +264,42 @@ describe("동의 전문 4항은 실제 흐름을 적는다", () => {
     expect(html.match(/확인했습니다/g)).toHaveLength(5);
   });
 });
+
+/**
+ * 시연에서 파일을 손으로 고르지 않으려고 두는 자리 → `mock.ts`.
+ *
+ * **동작을 안 받으면 버튼을 안 그립니다.** `work-handler/panels.tsx` 가 적어 둔
+ * 것과 같은 규칙입니다 — *"안 받은 값을 가리키는 것을 그리지 않습니다."*
+ * 눌러도 아무 일 없는 버튼이 이 저장소에서 실제로 두 번 나왔습니다.
+ */
+describe("Mock 파일로 실행", () => {
+  it("동작을 받으면 버튼이 그려진다", () => {
+    expect(textOf(draw({ onMock: () => {} }))).toContain("Mock 파일로 실행");
+  });
+
+  it("**동작을 안 받으면 안 그린다** — 눌러도 아무 일 없는 버튼을 만들지 않습니다", () => {
+    expect(textOf(draw())).not.toContain("Mock 파일로 실행");
+  });
+
+  it("사건을 만드는 중에는 못 누른다 — 슬롯 버튼과 같은 규칙", () => {
+    const html = draw({ onMock: () => {}, busy: true });
+    // 슬롯 넷 + Mock 하나. 하나라도 안 잠기면 그 사이에 목록이 바뀝니다
+    expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(5);
+  });
+
+  /**
+   * **화면이 예시라고 말합니다.** 심사위원이 실제 피해자 자료로 읽으면 안 되고,
+   * ADR-043 이 「합성 데이터만 올립니다」를 절대 조건으로 걸어 둔 것과도 맞습니다.
+   */
+  it("Mock 으로 담긴 줄에는 표시가 붙는다", () => {
+    const html = draw({
+      picked: [{ ...pickedOne(0, "통화녹음.wav"), mock: true }],
+    });
+    expect(textOf(html)).toContain("Mock");
+  });
+
+  it("사람이 고른 줄에는 그 표시가 없다", () => {
+    const html = draw({ picked: [pickedOne(1, "카톡캡처.png")] });
+    expect(textOf(html)).not.toContain("Mock");
+  });
+});
