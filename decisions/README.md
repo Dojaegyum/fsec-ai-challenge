@@ -136,6 +136,7 @@
 | [058](058-crypto-not-applicable-overrides.md) | 「적용되지 않는 것을 안다」면 덮는다 — 가상자산이 공통 넷을 덮는 근거 | 채택 |
 | [059](059-public-repo-secrets-out.md) | 저장소를 공개로 — 비밀은 Vercel env 에만 두고, 이력에 남은 값은 새 저장소로 지운다 | 채택 |
 | [060](060-unsure-opens-victim.md) | 「잘 모르겠어요」는 셋째 `track` 이 아니다 — `victim` 으로 연다 | 채택 |
+| [061](061-question-input-kinds.md) | 「질문은 전부 버튼」을 좁힌다 — 버튼으로 담을 수 있는 것은 전부 버튼 | 채택 |
 
 ## 아직 안 쓴 것
 
