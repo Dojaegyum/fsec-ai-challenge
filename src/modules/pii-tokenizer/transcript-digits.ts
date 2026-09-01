@@ -66,7 +66,7 @@
  * 붙었을 때 이미 누출 0 이었습니다 → `NerModel`.
  */
 
-import { passesLuhn } from '@/modules/pii-masker'
+import { foldForDetection, passesLuhn } from '@/modules/pii-masker'
 
 import type { TokenKind } from './types'
 
@@ -285,9 +285,10 @@ function toSpans(
  * **못 알아본 숫자는 가리는 쪽으로 떨어집니다.** 그것이 이 규칙의 전부입니다.
  */
 export function findTranscriptDigits(
-  text: string,
+  original: string,
   rule: DigitRule = DEFAULT_DIGIT_RULE,
 ): DigitSpan[] {
+  const text = foldForDetection(original)
   const runs: Run[] = []
   for (const m of text.matchAll(/\d+/g)) {
     if (m.index === undefined) continue
