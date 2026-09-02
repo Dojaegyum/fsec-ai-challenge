@@ -74,6 +74,9 @@ export default function TodoRail({
 
   return (
     <section aria-label="할 일" className="flex min-h-0 flex-col gap-2.5">
+      {/* 구역 이름표 — 오른쪽 「워크스페이스」와 짝. 없으니 어느 구역인지
+          이름으로 못 불렀습니다 (2026-09-03 지적) */}
+      <div className="text-[12.5px] tracking-[0.12em] text-ink-4">할 일</div>
       {/* 받는 것은 §3.2 가 정한 셋입니다 — 통지는 사진으로 찍어 올립니다 */}
       <input
         ref={noticeRef}
@@ -88,7 +91,7 @@ export default function TodoRail({
       />
 
       {/* ── 지금 카드 — 이 레일의 첫 줄이 「지금 뭘 해야 하나」의 답입니다 ── */}
-      <div className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/7%)] p-[12px_14px]">
+      <div className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/7%)] p-[12px_14px] shadow-[0_1px_0_oklch(1_0_0/7%)_inset,0_10px_24px_-12px_oklch(0_0_0/65%)]">
         <p className="text-[12px] font-[620] tracking-[0.08em] text-deadline-urgent">
           <span aria-hidden className="mr-1">◷</span>
           {now ? "지금 하실 일" : "지금 하실 일 없음"}
@@ -135,7 +138,7 @@ export default function TodoRail({
                 onClick={onPickStep ? () => onPickStep(s.step_id) : undefined}
                 disabled={!onPickStep}
                 aria-current={active ? "step" : undefined}
-                className={`flex w-full min-w-0 items-center gap-2.5 rounded-[11px] border px-[11px] py-[9px] text-left transition-colors duration-200 ${
+                className={`flex w-full min-w-0 items-center gap-2.5 rounded-[11px] border px-[11px] py-[9px] text-left transition-colors duration-200 shadow-[0_1px_0_oklch(1_0_0/7%)_inset,0_8px_20px_-10px_oklch(0_0_0/65%)] ${
                   active
                     ? "border-[oklch(0.697_0.16_258.2/45%)] bg-[oklch(0.697_0.16_258.2/9%)]"
                     : "border-hairline bg-surface hover:border-[oklch(1_0_0/22%)]"
