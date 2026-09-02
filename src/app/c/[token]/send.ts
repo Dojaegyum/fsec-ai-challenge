@@ -367,6 +367,19 @@ export interface ChatSend {
    */
   readonly restorable: readonly RestorableMapping[];
   /**
+   * 전사가 만든 대응표를 **이 기기 것으로** 만듭니다 → ADR-062.
+   *
+   * 서버는 토큰화한 그 폴링 응답에만 원문 포함 대응표를 실어 보내고 보관하지
+   * 않습니다 — **그 한 번이 짝의 유일한 생존 기회**입니다. 여기서 하는 일:
+   * ① 자기 열쇠로 잠가 볼트에 맡기고 ② 화면 복원 목록(`restorable`)과
+   * ③ 나가는 발화의 매핑 문맥(`mappings`)에 합칩니다 — 같은 계좌를 나중에
+   * 타이핑하면 같은 번호가 붙습니다(「같은 값 → 같은 번호」).
+   *
+   * 맡기기에 실패해도 화면에는 합칩니다(반환값 `false`) — 이번 세션에서는
+   * 보이고, 다시 열면 그 짝만 없는 상태가 됩니다.
+   */
+  readonly absorb: (fresh: readonly PiiMapping[]) => Promise<boolean>;
+  /**
    * 질문 자리 → §3.4 · §3.5.
    *
    * **같은 훅에 있는 것이 중요합니다.** 슬롯 답과 발화가 매핑 목록을 나눠 가지면
@@ -617,6 +630,42 @@ export function useChatSend(
     [asking, caseToken, holdConfirm, mappings, onPlanChanged, question, store, vaultRead],
   );
 
+  /** 전사가 만든 대응표를 봉해 맡기고, 화면·발화 문맥에 합칩니다 → ChatSend.absorb */
+  const absorb = useCallback(
+    async (fresh: readonly PiiMapping[]): Promise<boolean> => {
+      // 원문이 빈 것은 짝이 아닙니다 — 빈칸을 합치면 복원 목록이 어지럽습니다
+      const usable = fresh.filter((one) => (one.original ?? "").length > 0);
+      if (!caseToken || usable.length === 0) return false;
+
+      // **화면 먼저** 합칩니다 — 맡기기가 실패해도 이번 세션에서는 보여야 합니다.
+      // 기회가 한 번뿐이라(서버가 보관하지 않습니다) 버리는 쪽이 더 나쁩니다
+      setMappings((prev) => mergeContext(prev, usable));
+      setRestorable((prev) => {
+        const taken = new Set(prev.map((m) => m.token));
+        return [
+          ...prev,
+          ...usable
+            .filter((m) => !taken.has(m.token))
+            .map((m) => ({ token: m.token, original: m.original })),
+        ];
+      });
+
+      // 봉해서 맡깁니다 — 진술의 `screenAndSeal` 과 같은 길입니다
+      try {
+        const session = await loadOrCreateKey(store, caseToken, createSessionKey);
+        const entries = await sealAll(session, [...usable]);
+        const kept = await postJson(
+          `/api/cases/${encodeURIComponent(caseToken)}/vault`,
+          { entries },
+        );
+        return kept.ok;
+      } catch {
+        return false;
+      }
+    },
+    [caseToken, store],
+  );
+
   const ask = useMemo<SlotAsk>(
     () => ({
       question,
@@ -634,5 +683,5 @@ export function useChatSend(
     [asking, askFail, confirm, put, question],
   );
 
-  return { lines, sending, fail, send, loading, truncated, pastFailed, locked, restorable, ask };
+  return { lines, sending, fail, send, loading, truncated, pastFailed, locked, restorable, absorb, ask };
 }

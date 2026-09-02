@@ -68,7 +68,7 @@ describe("못 가린 파일을 막지 않는다", () => {
   });
 });
 
-describe("가리는 중에는 원본이 어디 있는지 밝힌다", () => {
+describe("개인정보 보호 처리중에는 원본이 어디 있는지 밝힌다", () => {
   it("브라우저 안에 있다고 말한다", () => {
     const text = textOf(renderToStaticMarkup(<FileRail files={FILES} />));
     expect(text).toContain("원본은 아직 이 브라우저 안에 있습니다");

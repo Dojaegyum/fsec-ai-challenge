@@ -83,6 +83,17 @@ export type ReadState =
       readonly tokens: readonly { token: string; kind: string }[]
       /** 기계가 못 읽은 것 — 화면이 「이건 직접 확인해 주세요」로 씁니다 */
       readonly shortfalls: readonly string[]
+      /**
+       * **이번 요청에서 막 만든** 대응표 — 원문이 들어 있습니다.
+       *
+       * 토큰화는 브라우저의 폴링 요청 안에서 딱 한 번 일어나고, 이 값은
+       * **그 응답에만** 실립니다. 저장을 거치지 않으므로(스키마의 「원문 금지」
+       * 그대로) 다음 폴링부터는 없습니다 — 브라우저가 받은 즉시 자기 열쇠로
+       * 잠가 볼트에 넣는 것이 짝의 유일한 생존 경로입니다 (ADR-062).
+       *
+       * 장부에서 이어받은 이름표는 여기 없습니다 — 그 원문은 서버가 모릅니다.
+       */
+      readonly freshMappings?: readonly TokenMapping[]
     }
   | { readonly status: 'failed'; readonly reason: string }
 
@@ -163,6 +174,8 @@ export async function collectReading(
     status: 'done',
     lines: masked.lines,
     tokens: masked.tokens,
+    // **이 응답에만 실립니다** — 저장(아래 finish)에는 안 들어갑니다
+    freshMappings: masked.fresh,
     shortfalls: [
       ...progress.result.shortfalls,
       // **조용히 넘어가지 않습니다.** 목록을 못 가져오면 절차는 그대로 가되
@@ -258,6 +271,8 @@ export async function maskLines(
 ): Promise<{
   lines: { speaker: string | null; text: string; startMs: number | null }[]
   tokens: { token: string; kind: string }[]
+  /** 막 만든 대응표 — 원문 포함. 부르는 쪽이 브라우저에 건넵니다 */
+  fresh: TokenMapping[]
   /**
    * **모델이 이름을 집는데 기관명을 지켜 줄 목록이 없었나.**
    * 둘이 겹칠 때만 위험합니다 → `pii-tokenizer` 의 `allowedTermsApplied`
@@ -266,6 +281,9 @@ export async function maskLines(
 }> {
   const out: { speaker: string | null; text: string; startMs: number | null }[] = []
   const seen = new Map<string, string>()
+  // 이번 줄 묶음에서 **막 만든** 것 — `original` 이 채워져 있습니다.
+  // 장부(issued)에서 온 것은 여기 안 들어옵니다
+  const fresh: TokenMapping[] = []
   let orgGuardMissing = false
 
   // 장부에서 이어받은 것으로 시작합니다. 줄을 돌면서 여기 쌓입니다
@@ -287,7 +305,10 @@ export async function maskLines(
     })
     mappings = result.mappings
     if (result.nerApplied && !result.allowedTermsApplied) orgGuardMissing = true
-    for (const one of result.added) seen.set(one.token, one.kind)
+    for (const one of result.added) {
+      seen.set(one.token, one.kind)
+      fresh.push(one)
+    }
 
     out.push({
       speaker: line.speaker,
@@ -300,6 +321,7 @@ export async function maskLines(
   return {
     lines: out,
     tokens: [...seen].map(([token, kind]) => ({ token, kind })),
+    fresh,
     orgGuardMissing,
   }
 }

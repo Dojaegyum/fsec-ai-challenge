@@ -5,6 +5,7 @@ import { useRef } from "react";
 import { FileRail } from "@/modules/file-sender";
 import { countTokens, TranscriptView } from "@/modules/transcript-viewer";
 
+import type { PiiMapping } from "@/modules/pii-masker";
 import type { RestorableMapping } from "@/modules/pii-restorer";
 
 import { FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
@@ -61,6 +62,7 @@ export default function EvidenceView({
   uploads,
   onContinue,
   restorable,
+  onMappings,
   locked = false,
 }: {
   token: string | null;
@@ -78,6 +80,12 @@ export default function EvidenceView({
    * 개발 경로(`token === null`)에서는 안 넘어오고 픽스처를 씁니다
    */
   restorable?: readonly RestorableMapping[];
+  /**
+   * 전사가 만든 원문 포함 대응표가 왔을 때 → ADR-062.
+   * 셸이 `chat.absorb` 를 이어 줍니다 — **그 응답 한 번뿐**이라 안 이으면
+   * 올린 본인의 기기에서도 원문이 영영 안 보입니다
+   */
+  onMappings?: (fresh: readonly PiiMapping[]) => void;
   /** 이 기기에 열쇠가 없나 — 가족이 링크를 받아 연 경우입니다 (ADR-050) */
   locked?: boolean;
 }) {
@@ -93,7 +101,7 @@ export default function EvidenceView({
   const file = files.find((f) => f.id === selected) ?? files.at(0);
 
   // 올라간 파일만 서버에 물을 것이 있습니다 — `evidence_id` 가 없으면 안 부릅니다
-  const server = useEvidence(token, file?.evidence_id);
+  const server = useEvidence(token, file?.evidence_id, onMappings);
   const read = server.phase === "ready" ? server.read : null;
 
   /**
@@ -229,7 +237,7 @@ export default function EvidenceView({
                 aria-hidden
                 className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
               />
-              가리는 중입니다. 끝나면 전사가 여기 뜹니다
+              개인정보 보호 처리중입니다. 끝나면 전사가 여기 뜹니다
             </p>
             <p className="text-[12.5px] text-ink-3">
               원본은 아직 이 브라우저 안에 있습니다.

@@ -14,7 +14,7 @@ const DOT: Record<EvidenceStatus, { cls: string; label: string }> = {
   pending: { cls: "border border-icon", label: "대기 중" },
   processing: {
     cls: "bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]",
-    label: "가리는 중",
+    label: "개인정보 보호 처리중",
   },
   done: { cls: "bg-pii", label: "전사 완료" },
   // **낱말만 같은 두 실패가 있습니다** — 기본 문구는 실제로 일어나는 쪽입니다.

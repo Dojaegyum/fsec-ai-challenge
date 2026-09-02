@@ -231,3 +231,65 @@ describe("되묻기 카드는 그 슬롯의 것이다 — §3.5 · ADR-041", () 
     expect(hookNow().ask.question?.slot_key).toBe("amount");
   });
 });
+
+/**
+ * ⚠️ **전사가 만든 대응표가 그 자리에서 버려지고 있었습니다** (ADR-062).
+ *
+ * 서버는 토큰화한 그 폴링 응답에만 원문 포함 대응표를 실어 보냅니다 — 보관하지
+ * 않으므로 **그 한 번이 짝의 유일한 생존 기회**입니다. 받는 쪽이 하는 일:
+ * ① 자기 열쇠로 잠가 볼트에 맡기고(`POST …/vault`) ② 화면 복원 목록과
+ * ③ 나가는 발화의 매핑 문맥에 합칩니다 — 같은 계좌를 나중에 타이핑하면
+ * 같은 번호가 붙어야 합니다(「같은 값 → 같은 번호」).
+ */
+describe("전사가 만든 대응표를 이 기기 것으로 만든다 — absorb", () => {
+  const FRESH = [
+    { token: "[계좌-3]", kind: "계좌", seq: 3, original: "110-234-567,890" },
+  ] as const;
+
+  it("볼트에 맡기고, 복원 목록에 합쳐진다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    const ok = await act(async () => hookNow().absorb([...FRESH]));
+
+    expect(ok).toBe(true);
+    const vaulted = calls.filter((one) => one.url.includes("/vault"));
+    expect(vaulted).toHaveLength(1);
+    // 봉해서 보냅니다 — 원문이 본문에 그대로 실리면 안 됩니다
+    expect(vaulted[0]?.body).not.toContain("110-234-567,890");
+    expect(hookNow().restorable.map((m) => m.token)).toContain("[계좌-3]");
+  });
+
+  it("**볼트가 실패해도 화면에는 합친다** — 기회가 한 번뿐입니다", async () => {
+    const calls: Call[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const body = typeof init?.body === "string" ? init.body : "";
+        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (url.includes("/vault") && init?.method === "POST")
+          return json({ error: { message: "잠시 뒤에", retryable: true } }, 503);
+        if (url.includes("/vault")) return json({ entries: [] });
+        return json({ messages: [], truncated: false });
+      }),
+    );
+    await mount();
+
+    const ok = await act(async () => hookNow().absorb([...FRESH]));
+
+    // 맡기지는 못했지만(다음 재접속에는 없음) 이번 화면에서는 보입니다
+    expect(ok).toBe(false);
+    expect(hookNow().restorable.map((m) => m.token)).toContain("[계좌-3]");
+  });
+
+  it("원문이 빈 항목은 안 합친다 — 뜻 없는 빈칸이 복원 목록을 어지럽힙니다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => hookNow().absorb([{ token: "[계좌-9]", kind: "계좌", seq: 9, original: "" }]));
+
+    expect(hookNow().restorable.map((m) => m.token)).not.toContain("[계좌-9]");
+  });
+});
