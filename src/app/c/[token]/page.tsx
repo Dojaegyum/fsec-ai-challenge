@@ -596,7 +596,7 @@ function CaseScreen({
       >
         {bundle.steps.length > 0 && (
           <div
-            className={`flex min-w-0 flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
+            className={`flex min-w-0 flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:my-[clamp(14px,2vh,22px)] md:ml-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:bg-stage md:p-4 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)] md:order-none ${
               atWork ? "order-3" : "order-1"
             }`}
           >
@@ -632,7 +632,15 @@ function CaseScreen({
           style={{
             transformOrigin: "top left",
             ...(ghost && focus === "chat"
-              ? { animation: `ghost-card-shed ${ABSORB_MS}ms linear both`, border: "1px solid transparent" }
+              ? {
+                  animation: `ghost-card-shed ${ABSORB_MS}ms linear both`,
+                  border: "1px solid transparent",
+                  // **층을 뒤집습니다** — 유령 겹이 z-40 인데 자료함 유령은 배경이
+                  // 투명해서, 그대로 두면 그 글자가 들어오는 카드 위에 그려집니다
+                  // (2026-09-03 배포본 프레임에서 확인). 흡수의 거울: 나는 쪽이 위
+                  position: "relative",
+                  zIndex: 50,
+                }
               : {}),
           }}
           className={`order-2 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none ${
@@ -701,7 +709,7 @@ function CaseScreen({
             본문이 챗이면 사건 파일 ↔ 워크스페이스,
             본문이 챗이 아니면 워크스페이스 **위** + 미니 챗 **아래** */}
         <aside
-          className={`flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:border-l md:border-t-0 ${
+          className={`flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:mr-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)] ${
             atWork ? "order-1 border-t-0 border-b" : "order-3"
           } ${atWork ? "side-in" : ""}`}
         >

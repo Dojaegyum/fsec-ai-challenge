@@ -45,8 +45,13 @@ import type { PanelId } from "./types";
    구분은 넷이 함께 만듭니다 — 그라데이션 · 밝기 · pii 테두리 · 채도 */
 const ACTIVE =
   "rounded-[14px] border border-[oklch(0.697_0.16_258.2/34%)] " +
-  "[background:linear-gradient(180deg,var(--panel-top),var(--panel-bottom))]";
-const PASSIVE = "rounded-[14px] border border-hairline bg-surface";
+  "[background:linear-gradient(180deg,var(--panel-top),var(--panel-bottom))] " +
+  // 입체감 — 위 모서리 하이라이트 + 아래 그림자. 평평한 테두리만으로는
+  // 어두운 바탕에서 안 뜹니다 (2026-09-03 지적)
+  "shadow-[0_1px_0_oklch(1_0_0/8%)_inset,0_14px_32px_-14px_oklch(0_0_0/70%)]";
+const PASSIVE =
+  "rounded-[14px] border border-hairline bg-surface " +
+  "shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_10px_24px_-12px_oklch(0_0_0/60%)]";
 
 const EYEBROW = "text-[12.5px] font-[620] tracking-[0.13em]";
 const TITLE = "mt-[5px] text-[16px] font-[640] text-ink-1";
