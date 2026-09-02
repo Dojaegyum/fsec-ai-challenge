@@ -279,8 +279,10 @@ export function UploadPanel({ title, onLater, children }: PanelProps & {
       <div className={INNER}>
         <div className="text-[12.5px] text-ink-3">올리면 먼저 하는 일</div>
         <p className="mt-1.5 text-[13.5px] leading-[1.65] text-ink-2">
+          {/* 파일은 브라우저가 못 가립니다 — 가리는 곳은 저희 서버(전사·판독)입니다.
+              바깥 AI 로는 가려진 것만 나갑니다 (2026-09-02 문구 정정) */}
           이름·계좌·전화번호를{" "}
-          <b className="font-[620] text-pii">브라우저에서 가린 뒤</b> 전송합니다
+          <b className="font-[620] text-pii">저희 서버에서 가린 뒤에야</b> 바깥 AI 로 보냅니다
         </p>
       </div>
       <Later onClick={onLater}>나중에 올릴게요</Later>
