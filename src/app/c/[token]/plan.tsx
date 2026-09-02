@@ -166,9 +166,9 @@ function railTones(steps: readonly PlanStep[]): StepTone[] {
   return tones.map((tone, i) => (RAIL[i].keys.length === 0 && allNa ? "na" : tone));
 }
 
-/** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작해야 합니다 —
+/** 부모 교차(`.view-enter` 0.32s)가 끝난 뒤에 자식 계단이 시작합니다 —
  *  안 그러면 자식이 다 나타난 뒤에 부모가 페이드인합니다 */
-const step = (i: number) => ({ animationDelay: `${520 + i * 120}ms` });
+const step = (i: number) => ({ animationDelay: `${360 + i * 120}ms` });
 
 export default function PlanView({
   steps,

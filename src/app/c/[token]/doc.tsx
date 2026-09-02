@@ -199,8 +199,8 @@ const FORM: readonly { id: string; name: string; fields: readonly FieldSpec[] }[
 /** 색이 어두운 란 — 신청인이 적지 않습니다 */
 const STAFF_FIELDS = "접수번호 · 접수일자";
 
-/** 이웃 화면과 같은 등장 리듬 (부모 `.view-in` 0.5s 지연 뒤에 시작) */
-const step = (i: number) => ({ animationDelay: `${520 + i * 90}ms` });
+/** 이웃 화면과 같은 등장 리듬 — 부모 교차(`.view-enter` 0.32s)가 끝난 뒤 시작합니다 */
+const step = (i: number) => ({ animationDelay: `${360 + i * 90}ms` });
 
 /** 아직 `[계좌-1]` 인가 — 이 기기에 짝이 없다는 뜻입니다 */
 const stillToken = (value: string) => /\[[^\]\s]+-\d+\]/.test(value);

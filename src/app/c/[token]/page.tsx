@@ -9,8 +9,6 @@ import { HorizonGlow } from "@/components/HorizonGlow";
 import { currentStep, isOpen, pickStep, Workspace } from "@/modules/work-handler";
 import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
-import type { DOMRectLike } from "./absorb";
-import { ABSORB_MS, absorbKeyframes, fadeKeyframes, prefersReducedMotion, rectOf } from "./absorb";
 import ChatView, { MiniChat } from "./chat";
 import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
@@ -39,8 +37,9 @@ import DocGuide from "./doc";
  *
  * 전환은 **바뀐 축**을 따릅니다
  *  · `side` 만 바뀜 → 오른쪽 열이 밖에서 들어옴 (`.side-in`)
- *  · `focus` 만 바뀜 → 본문 교차 (`.view-out` / `.view-in`) — 빈 화면을 만들지 않습니다
- *  · `chat` ↔ 그 밖 → **흡수**: 챗이 우하단 미니 챗 자리로 빨려듭니다 (`absorb.ts`)
+ *  · `focus` 가 바뀜 → 본문 교차: 페이드 + 소프트 줌 (`.view-enter` / `.view-leave`) —
+ *    빈 화면을 만들지 않습니다. **챗도 같습니다** — 흡수(챗이 슬롯으로 빨려드는
+ *    1.5s WAAPI · `absorb.ts`)는 2026-09-03 사용자 합의로 이것으로 대체하고 지웠습니다
  *
  * TODO(연결) — 지금은 UI 상태만 돕니다. 아래 「국면 고르기」는 **개발용 스위치**이고,
  * 실제로는 서버 시그널이 축을 정합니다
@@ -64,8 +63,12 @@ import DocGuide from "./doc";
  *    **한 번** 불러 가져옵니다 — `?view=` 가 붙어 있을 때만 픽스처로 그립니다
  */
 
-/** 유령을 띄워 두는 시간 — 흡수(1.5s)와 `.view-out`(0.3s 지연 + 0.7s) 중 긴 쪽 */
-const GHOST_MS = ABSORB_MS;
+/**
+ * 본문 전환 한 번의 길이 — **`.view-enter`/`.view-leave`(globals.css)와 같은 값**이어야
+ * 합니다. 유령을 치우는 시계가 이 값이라, 짧으면 나가는 화면이 뚝 끊기고
+ * 길면 다 사그라든 유령을 한 박자 더 그립니다.
+ */
+const FADE_MS = 320;
 
 /**
  * 사건 파일 카드가 보여주는 줄 — §S-06 「사건 파일 — 채워지는 것이 보입니다」.
@@ -383,112 +386,27 @@ function CaseScreen({
     return dday ? { title: running.title, dday } : null;
   }, [bundle.deadlines, bundle.steps]);
 
-  // ── 흡수 ────────────────────────────────────────────────
-  // 챗 본문과 미니 챗 자리의 **실제 위치를 재서** 그 사이를 잇습니다.
-  // 시안은 1280×720 고정 캔버스라 픽셀이 박혀 있지만 우리는 반응형이라
-  // 그 숫자를 그대로 못 씁니다 — 곡선만 가져오고 끝점은 잽니다 (absorb.ts).
-  const mainRef = useRef<HTMLElement>(null);
-  const miniRef = useRef<HTMLDivElement>(null);
+  // ── 본문 전환 — 페이드 + 소프트 줌 ──────────────────────
+  // 흡수(챗을 우하단 슬롯으로 빨아들이던 1.5s WAAPI · absorb.ts)를 2026-09-03 에
+  // 이것으로 대체했습니다. 좌표 측정·유령 카드 껍질·층 반전이 통째로 필요
+  // 없어집니다 — 나가는 본문을 **같은 자리**에서 0.32s 겹쳐 보낼 뿐입니다.
+  // 감속 모드는 globals.css 의 reduce 블록이 CSS 애니메이션째로 끕니다.
   const prevFocus = useRef<Focus>(focus);
-  /** 유령은 **화면에 있던 그대로**여야 합니다 — side 가 같은 턴에 바뀌므로 직전 값을 씁니다 */
-  const sideAtChange = useRef<boolean>(atWork);
-  /** 나가는 쪽은 이미 언마운트된 뒤라, 마지막으로 본 자리를 들고 있어야 합니다 */
-  const lastRects = useRef<{ main?: DOMRectLike; mini?: DOMRectLike }>({});
   /**
-   * **바뀌기 직전** 본문의 자리. 유령은 이걸 써야 합니다.
-   *
-   * `lastRects.main` 을 쓰면 안 됩니다 — 그건 이미 **새 본문**의 자리입니다.
-   * 플랜이 챗보다 길어서, 그 높이로 유령을 만들면 화면 아래로 늘어나고
-   * **맨 아래 컴포저가 잘려 나갑니다.** 챗이 떨어져 나가는 동안 입력창이
-   * 사라져 보이던 것이 이것 때문이었습니다.
-   */
-  const prevMain = useRef<DOMRectLike | undefined>(undefined);
-  /**
-   * 전환이 도는 동안만 **나가는 본문**을 유령으로 띄웁니다.
+   * 전환이 도는 동안만 **나가는 본문**을 유령으로 겹칩니다.
    * 없으면 새 본문이 뜨기 전에 빈 화면이 한 박자 생깁니다 — 시안이 금지한 것입니다.
-   *  · 챗에서 나갈 때 → 슬롯으로 빨려들며 사라집니다 (흡수)
-   *  · 플랜 ↔ 증거함 → 겹쳐 지나갑니다 (`.view-out`)
    */
-  const [ghost, setGhost] = useState<{ rect: DOMRectLike; from: Focus; atWork: boolean } | null>(
-    null,
-  );
-  const ghostRef = useRef<HTMLDivElement>(null);
-
-  // 자리를 계속 기억해 둡니다 (그려져 있을 때만 잴 수 있으므로).
-  // 본문은 **직전 것도** 남겨야 합니다 — 아래 focus 효과가 그걸 씁니다.
-  // 미니 챗은 반대로 **방금 마운트된 것**이 필요해서 덮어씁니다.
-  useEffect(() => {
-    if (mainRef.current) {
-      prevMain.current = lastRects.current.main;
-      lastRects.current.main = rectOf(mainRef.current);
-    }
-    if (miniRef.current) lastRects.current.mini = rectOf(miniRef.current);
-  });
+  const [ghost, setGhost] = useState<{ from: Focus; atWork: boolean } | null>(null);
 
   useEffect(() => {
     const was = prevFocus.current;
     prevFocus.current = focus;
     if (was === focus) return;
-
-    if (prefersReducedMotion()) return;
-
-    const miniBox = lastRects.current.mini;
-    // 유령은 **바뀌기 직전** 자리로, 복귀는 **지금** 본문 자리로 재야 합니다
-    const ghostBox = prevMain.current;
-    const mainBox = lastRects.current.main;
-    if (!ghostBox || !mainBox) return;
-
-    const enteringChat = was !== "chat" && focus === "chat";
-
-    // 나가는 본문을 그 자리에 유령으로 남깁니다 — 겹쳐야 공백이 없습니다
-    setGhost({ rect: ghostBox, from: was, atWork: sideAtChange.current });
-    const t = setTimeout(() => setGhost(null), GHOST_MS);
-
-    // 복귀 — 들어오는 본문에 같은 곡선을 거꾸로 겁니다 (뱉어내듯 펴짐)
-    let anim: Animation | undefined;
-    let fade: Animation | undefined;
-    if (enteringChat && miniBox && mainRef.current) {
-      anim = mainRef.current.animate(absorbKeyframes(mainBox, miniBox, "emit"), {
-        duration: ABSORB_MS,
-        easing: "linear",
-      });
-      // 슬롯에서 나올 때 톡 튀지 않게 앞머리만 살짝 — 카드 배경은
-      // `ghost-card-shed`(아래 className)가 입힙니다. 길게 페이드하면
-      // 카드가 반투명해져 지나가는 자료함 글자와 또 뒤엉킵니다
-      fade = mainRef.current.animate(
-        [
-          { offset: 0, opacity: 0 },
-          { offset: 0.12, opacity: 1 },
-          { offset: 1, opacity: 1 },
-        ],
-        { duration: ABSORB_MS, easing: "linear" },
-      );
-    }
-    return () => {
-      clearTimeout(t);
-      anim?.cancel();
-      fade?.cancel();
-    };
-  }, [focus]);
-
-  // 유령이 챗이면 슬롯으로 빨아들입니다. 그 밖은 CSS(`.view-out`)가 합니다
-  useEffect(() => {
-    const el = ghostRef.current;
-    const miniBox = lastRects.current.mini;
-    if (!ghost || ghost.from !== "chat" || !el || !miniBox) return;
-    el.animate(absorbKeyframes(ghost.rect, miniBox, "absorb"), {
-      duration: ABSORB_MS,
-      easing: "linear",
-      fill: "forwards",
-    });
-    el.animate(fadeKeyframes("out"), { duration: ABSORB_MS, easing: "linear", fill: "forwards" });
-  }, [ghost]);
-
-  // ⚠️ **맨 마지막 효과**여야 합니다. 효과는 선언 순서로 도니, 위의 focus 효과가
-  // 「바뀌기 직전 side」를 읽고 난 뒤에 갱신돼야 유령이 화면에 있던 그대로 나옵니다
-  useEffect(() => {
-    sideAtChange.current = atWork;
-  });
+    // `atWork` 는 파생값이라 탭 전환으로는 안 바뀝니다 — 지금 값이 곧 직전 값입니다
+    setGhost({ from: was, atWork });
+    const t = setTimeout(() => setGhost(null), FADE_MS);
+    return () => clearTimeout(t);
+  }, [focus, atWork]);
 
   const copyUrl = async () => {
     try {
@@ -622,34 +540,22 @@ function CaseScreen({
         )}
 
         {/* ── 본문 ───────────────────────────────────────── */}
-        <section
-          ref={mainRef}
-          key={focus}
-          // ⚠️ `absorb.ts` 의 좌표는 **왼쪽 위 기준**으로 계산합니다.
-          // 기본값(가운데)으로 두면 축소 기준이 어긋나 화면 밖으로 나갑니다.
-          // 복귀 중에는 카드 껍질을 입고 옵니다 — 나가는 유령의 `ghost-card` 거울.
-          // 맨몸으로 날리면 지나가는 화면 글자와 뒤엉킵니다 (2026-09-03 실측)
-          style={{
-            transformOrigin: "top left",
-            ...(ghost && focus === "chat"
-              ? {
-                  animation: `ghost-card-shed ${ABSORB_MS}ms linear both`,
-                  border: "1px solid transparent",
-                  // **층을 뒤집습니다** — 유령 겹이 z-40 인데 자료함 유령은 배경이
-                  // 투명해서, 그대로 두면 그 글자가 들어오는 카드 위에 그려집니다
-                  // (2026-09-03 배포본 프레임에서 확인). 흡수의 거울: 나는 쪽이 위
-                  position: "relative",
-                  zIndex: 50,
-                }
-              : {}),
-          }}
-          className={`order-2 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none ${
-            /* 챗은 읽기 폭으로 가운데에 — 「중앙 고정」의 고정감은 폭에서 옵니다 (ADR-063) */
-            focus === "chat" ? "mx-auto w-full max-w-[760px]" : "view-in"
-          }`}
-        >
-          {/* T0 는 본문 위에 뜹니다 — 어느 국면이든 같은 자리 (ADR-063 · 2026-09-03) */}
+        <section className="order-2 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none">
+          {/* T0 는 본문 위에 뜹니다 — 어느 국면이든 같은 자리 (ADR-063 · 2026-09-03).
+              전환 무대 밖입니다 — 어차피 양쪽에 다 있어서 교차시키면 같은 픽셀이
+              반투명으로 겹쳐 한 박자 어른거립니다 */}
           <T0Overlay />
+          {/* 전환 무대 — 들어오는 본문과 나가는 유령이 **같은 자리**에서 교차합니다.
+              폭 제약(챗의 760px)은 이 안쪽에 겁니다 — 무대가 국면마다 넓어졌다
+              좁아지면 유령과 새 본문의 기준이 어긋납니다 */}
+          <div className="relative flex min-w-0 flex-1 flex-col">
+          <div
+            key={focus}
+            className={`view-enter flex min-w-0 flex-1 flex-col ${
+              /* 챗은 읽기 폭으로 가운데에 — 「중앙 고정」의 고정감은 폭에서 옵니다 (ADR-063) */
+              focus === "chat" ? "mx-auto w-full max-w-[760px]" : ""
+            }`}
+          >
           {focus === "chat" && (
             <ChatView
               atWork={atWork}
@@ -703,6 +609,60 @@ function CaseScreen({
               restorable={dataToken === null ? FIXTURE_MAPPINGS : chat.restorable}
             />
           )}
+          </div>
+
+          {/* 나가는 본문의 유령 — 새 본문 위에서 0.32s 사그라듭니다.
+              `overflow-hidden` 은 긴 본문이 짧은 새 본문 밑단 아래로 삐져나오는 것을,
+              `pointer-events-none` 은 사그라드는 중에 눌리는 것을 막습니다 */}
+          {ghost && (
+            <div
+              aria-hidden
+              className="view-leave pointer-events-none absolute inset-0 overflow-hidden"
+            >
+              {/* `[&_.rise]:animate-none` — 나가는 중인데 내용이 새로 등장하면 안 됩니다 */}
+              <div
+                className={`flex h-full min-w-0 flex-col [&_.rise]:animate-none ${
+                  ghost.from === "chat" ? "mx-auto w-full max-w-[760px]" : ""
+                }`}
+              >
+                {ghost.from === "chat" && (
+                  <ChatView
+                    atWork={ghost.atWork}
+                    token={dataToken}
+                    chat={chat}
+                    onPickChoice={() => undefined}
+                  />
+                )}
+                {ghost.from === "plan" && (
+                  <PlanView
+                    steps={bundle.steps}
+                    deadlines={bundle.deadlines}
+                    onPickStep={(id) => setPicked(id)}
+                    onOpenDoc={() => setFocus("doc")}
+                  />
+                )}
+                {ghost.from === "evidence" && (
+                  <EvidenceView
+                    token={dataToken}
+                    uploads={uploads}
+                    restorable={chat.restorable}
+                    // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-063)
+                    onMappings={(fresh) => void chat.absorb(fresh)}
+                    locked={chat.locked}
+                    onContinue={() => setFocus("chat")}
+                  />
+                )}
+                {ghost.from === "doc" && (
+                  <DocGuide
+                    caseToken={token}
+                    slots={bundle.slots}
+                    restorable={dataToken === null ? FIXTURE_MAPPINGS : chat.restorable}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          </div>
         </section>
 
         {/* ── 오른쪽 열 — 자리는 하나, 내용이 바뀝니다 ──────
@@ -715,6 +675,17 @@ function CaseScreen({
         >
           {atWork ? (
             <>
+              {/* 미니 챗은 **맨 위**입니다 (2026-09-03 결정). 본문이 자료함·기재
+                  안내로 가 있어도 대화는 계속 눈에 보이는 곳에 있어야 하는데,
+                  아래쪽에 두면 워크스페이스 길이만큼 내려가 접혔습니다. 우상단은
+                  헤더의 「대화」 탭과도 가까워 돌아가는 길이 한눈에 잡힙니다 */}
+              {!chatIsMain && (
+                <div className="mb-4 flex max-h-[300px] min-h-[180px] flex-col border-b border-hairline pb-4">
+                  {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
+                      봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
+                  <MiniChat chat={chat} token={dataToken} />
+                </div>
+              )}
               <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">워크스페이스</div>
               {/* **서버가 준 단계를 그립니다** — 어느 패널인지는 `body.action` 이
                   정합니다(ADR-024). 전에는 시안 값이 하드코딩돼 있어 사용자가
@@ -733,35 +704,12 @@ function CaseScreen({
                 fail={artifact.fail}
                 onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
               />
-              {chatIsMain && ghost ? (
-                /* 복귀 중 — 미니 챗이 떠나는 챗에게 자리를 돌려줍니다 (mini-take 거울).
-                   즉시 힌트로 갈아끼우면 슬롯이 한 프레임에 비어 눈에 걸립니다 */
-                <div
-                  style={{ animation: `mini-give ${ABSORB_MS}ms linear both` }}
-                  className="mt-4 flex min-h-[220px] flex-col border-t border-hairline pt-4"
-                >
-                  <MiniChat chat={chat} token={dataToken} />
-                </div>
-              ) : chatIsMain ? (
+              {chatIsMain && (
                 <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
                   챗이 다른 단계를 가리키면 이 패널이 바뀝니다. 언급이 없으면{" "}
                   <b className="font-[620] text-ink-2">그대로 둡니다.</b> 적던 접수번호가
                   사라지지 않습니다.
                 </p>
-              ) : (
-                <div
-                  ref={miniRef}
-                  style={
-                    ghost?.from === "chat"
-                      ? { animation: `mini-take ${ABSORB_MS}ms linear both` }
-                      : undefined
-                  }
-                  className="mt-4 flex min-h-[220px] flex-col border-t border-hairline pt-4"
-                >
-                  {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
-                      봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
-                  <MiniChat chat={chat} token={dataToken} />
-                </div>
               )}
             </>
           ) : (
@@ -811,68 +759,6 @@ function CaseScreen({
       </div>
       )}
 
-      {/* 나가는 본문의 유령 — 새 본문과 **겹쳐** 지나갑니다.
-          바깥 겹은 반드시 있어야 합니다: 유령이 기울고 늘어나며 화면 밖으로 나가는데,
-          가두지 않으면 **문서가 넓어져 아래 레이아웃이 통째로 오른쪽으로 밀립니다** */}
-      {ghost && (
-        <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
-          <div
-            ref={ghostRef}
-            aria-hidden
-            className={`absolute overflow-hidden ${
-              ghost.from === "chat" ? "border border-transparent" : "view-out"
-            }`}
-            style={{
-              ...(ghost.from === "chat"
-                ? { animation: `ghost-card ${ABSORB_MS}ms linear both` }
-                : null),
-              left: ghost.rect.x,
-              top: ghost.rect.y,
-              width: ghost.rect.w,
-              height: ghost.rect.h,
-              transformOrigin: "top left",
-            }}
-          >
-            {/* `[&_.rise]:animate-none` — 나가는 중인데 내용이 새로 등장하면 안 됩니다 */}
-            <div className="flex h-full flex-col overflow-hidden px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] [&_.rise]:animate-none">
-              {ghost.from === "chat" && (
-                <ChatView
-                  atWork={ghost.atWork}
-                  token={dataToken}
-                  chat={chat}
-                  onPickChoice={() => undefined}
-                />
-              )}
-              {ghost.from === "plan" && (
-                <PlanView
-              steps={bundle.steps}
-              deadlines={bundle.deadlines}
-              onPickStep={(id) => setPicked(id)}
-              onOpenDoc={() => setFocus("doc")}
-            />
-              )}
-              {ghost.from === "evidence" && (
-                <EvidenceView
-                  token={dataToken}
-                  uploads={uploads}
-                  restorable={chat.restorable}
-              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-063)
-              onMappings={(fresh) => void chat.absorb(fresh)}
-                  locked={chat.locked}
-                  onContinue={() => setFocus("chat")}
-                />
-              )}
-              {ghost.from === "doc" && (
-                <DocGuide
-                  caseToken={token}
-                  slots={bundle.slots}
-                  restorable={dataToken === null ? FIXTURE_MAPPINGS : chat.restorable}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
