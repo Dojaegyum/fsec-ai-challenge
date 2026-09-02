@@ -337,15 +337,15 @@ function CaseScreen({
   };
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : openedFocus);
-  const [side, setSide] = useState<Side>(
-    // **단계가 서 있으면 오른쪽은 처음부터 워크스페이스입니다** — 탭 전환 규칙과
-    // 같은 원칙입니다(위 VIEWS onClick). 사건 파일은 문진 중에만 뜹니다
-    wanted
-      ? devFocus === "chat" && bundle.steps.length === 0
-        ? "casefile"
-        : "work"
-      : opened.side,
-  );
+  /**
+   * 오른쪽 열은 **문진이 끝났는가 하나로만** 갈립니다 (2026-09-03 결정 —
+   * TODO·챗·사건파일|WS 구조). 탭을 오가도 오른쪽이 안 바뀌니, 챗이
+   * 중앙으로 미끄러지는 동안 사건 파일이 먼저 그려지던 것이 사라집니다.
+   * 상태가 아니라 파생값인 이유입니다 — 손으로 옮길 수 있으면 또 어긋납니다.
+   * `devSide` 는 개발 스위치 전용입니다.
+   */
+  const [devSide, setDevSide] = useState<Side | null>(null);
+  const side: Side = devSide ?? (bundle.steps.length > 0 ? "work" : "casefile");
   const [copied, setCopied] = useState(false);
 
   const atWork = side === "work";
@@ -446,15 +446,29 @@ function CaseScreen({
 
     // 복귀 — 들어오는 본문에 같은 곡선을 거꾸로 겁니다 (뱉어내듯 펴짐)
     let anim: Animation | undefined;
+    let fade: Animation | undefined;
     if (enteringChat && miniBox && mainRef.current) {
       anim = mainRef.current.animate(absorbKeyframes(mainBox, miniBox, "emit"), {
         duration: ABSORB_MS,
         easing: "linear",
       });
+      // 흡수의 거울 — 나갈 때 55~90% 에서 사라지므로 들어올 때 10~45% 에서
+      // 나타납니다. 이게 없으면 챗이 슬롯 자리에서 불투명하게 튀어나와
+      // 역의 관계가 깨집니다 (2026-09-03)
+      fade = mainRef.current.animate(
+        [
+          { offset: 0, opacity: 0 },
+          { offset: 0.1, opacity: 0 },
+          { offset: 0.45, opacity: 1 },
+          { offset: 1, opacity: 1 },
+        ],
+        { duration: ABSORB_MS, easing: "linear" },
+      );
     }
     return () => {
       clearTimeout(t);
       anim?.cancel();
+      fade?.cancel();
     };
   }, [focus]);
 
@@ -531,16 +545,8 @@ function CaseScreen({
                 <button
                   key={id}
                   type="button"
-                  onClick={() => {
-                    setFocus(id);
-                    // 챗으로 갈 때는 오른쪽 열이 사건 파일이어야 진술이 채워지는 것이
-                    // 보입니다 — 그 밖에는 할 일 패널이 먼저입니다 (§S-06)
-                    // **단계가 서 있으면 오른쪽은 늘 워크스페이스입니다** — 대화로
-                    // 돌아올 때 사건 파일로 갈아끼우면, 챗이 중앙으로 미끄러지는
-                    // 동안 오른쪽이 먼저 바뀌어 눈에 걸립니다(2026-09-03 지적).
-                    // 사건 파일은 문진 중(단계 없음)에만 뜹니다
-                    setSide(id === "chat" && bundle.steps.length === 0 ? "casefile" : "work");
-                  }}
+                  // 오른쪽 열은 안 건드립니다 — 문진이 끝났는가로만 갈립니다 (위 side)
+                  onClick={() => setFocus(id)}
                   aria-current={focus === id ? "page" : undefined}
                   className={`inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] transition-colors duration-200 ${
                     focus === id
@@ -600,12 +606,8 @@ function CaseScreen({
                 steps={bundle.steps}
                 deadlines={bundle.deadlines}
                 activeStepId={activeStep?.step_id ?? null}
-                onPickStep={(id) => {
-                  setPicked(id);
-                  // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
-                  // 아무 일도 안 일어난 것처럼 보입니다
-                  setSide("work");
-                }}
+                /* side 는 파생이라 옮길 것이 없습니다 — 단계가 있는 한 오른쪽은 WS 입니다 */
+                onPickStep={(id) => setPicked(id)}
                 /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
                 onOpenDoc={() => setFocus("doc")}
                 /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
@@ -639,19 +641,16 @@ function CaseScreen({
               atWork={atWork}
               token={dataToken}
               chat={chat}
-              onPickChoice={() => setSide("work")}
+              /* 답해도 오른쪽은 그대로입니다 — 플랜이 생기는 순간 side 가
+                 파생으로 work 가 됩니다. 손으로 옮길 것이 없습니다 */
+              onPickChoice={() => undefined}
             />
           )}
           {focus === "plan" && (
             <PlanView
               steps={bundle.steps}
               deadlines={bundle.deadlines}
-              onPickStep={(id) => {
-                setPicked(id);
-                // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
-                // 아무 일도 안 일어난 것처럼 보입니다
-                setSide("work");
-              }}
+              onPickStep={(id) => setPicked(id)}
               /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
               onOpenDoc={() => setFocus("doc")}
               /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
@@ -748,10 +747,6 @@ function CaseScreen({
                 사건 파일
               </div>
               <CaseFileCard slots={bundle.slots} asking={bundle.question?.slot_key ?? null} />
-              <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
-                답변이 끝나면 이 자리가 <b className="font-[620] text-ink-2">할 일 패널</b>로
-                바뀝니다. 챗과 플랜은 같은 주소입니다.
-              </p>
             </>
           )}
         </aside>
@@ -772,7 +767,7 @@ function CaseScreen({
             type="button"
             onClick={() => {
               setFocus(id);
-              if (id !== "chat") setSide("work");
+              if (id !== "chat") setDevSide("work");
             }}
             aria-pressed={focus === id}
             className={`rounded-full px-2.5 py-1 transition-colors duration-200 ${
@@ -784,7 +779,7 @@ function CaseScreen({
         ))}
         <button
           type="button"
-          onClick={() => setSide(atWork ? "casefile" : "work")}
+          onClick={() => setDevSide(atWork ? "casefile" : "work")}
           disabled={!chatIsMain}
           className="rounded-full px-2.5 py-1 text-ink-3 transition-colors duration-200 hover:text-ink-1 disabled:opacity-30"
         >
@@ -829,12 +824,7 @@ function CaseScreen({
                 <PlanView
               steps={bundle.steps}
               deadlines={bundle.deadlines}
-              onPickStep={(id) => {
-                setPicked(id);
-                // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
-                // 아무 일도 안 일어난 것처럼 보입니다
-                setSide("work");
-              }}
+              onPickStep={(id) => setPicked(id)}
               onOpenDoc={() => setFocus("doc")}
             />
               )}
