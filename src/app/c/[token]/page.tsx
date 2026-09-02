@@ -18,7 +18,7 @@ import { useCaseBundle, type CaseBundle, type CaseSlot } from "./load";
 import { useChatSend } from "./send";
 import { useArtifact } from "./artifact";
 import { useUploads } from "./upload";
-import T0Rail from "./safety";
+import T0Overlay from "./safety";
 import TodoRail from "./todo";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
@@ -338,7 +338,13 @@ function CaseScreen({
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : openedFocus);
   const [side, setSide] = useState<Side>(
-    wanted ? (devFocus === "chat" ? "casefile" : "work") : opened.side,
+    // **단계가 서 있으면 오른쪽은 처음부터 워크스페이스입니다** — 탭 전환 규칙과
+    // 같은 원칙입니다(위 VIEWS onClick). 사건 파일은 문진 중에만 뜹니다
+    wanted
+      ? devFocus === "chat" && bundle.steps.length === 0
+        ? "casefile"
+        : "work"
+      : opened.side,
   );
   const [copied, setCopied] = useState(false);
 
@@ -529,7 +535,11 @@ function CaseScreen({
                     setFocus(id);
                     // 챗으로 갈 때는 오른쪽 열이 사건 파일이어야 진술이 채워지는 것이
                     // 보입니다 — 그 밖에는 할 일 패널이 먼저입니다 (§S-06)
-                    setSide(id === "chat" ? "casefile" : "work");
+                    // **단계가 서 있으면 오른쪽은 늘 워크스페이스입니다** — 대화로
+                    // 돌아올 때 사건 파일로 갈아끼우면, 챗이 중앙으로 미끄러지는
+                    // 동안 오른쪽이 먼저 바뀌어 눈에 걸립니다(2026-09-03 지적).
+                    // 사건 파일은 문진 중(단계 없음)에만 뜹니다
+                    setSide(id === "chat" && bundle.steps.length === 0 ? "casefile" : "work");
                   }}
                   aria-current={focus === id ? "page" : undefined}
                   className={`inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] transition-colors duration-200 ${
@@ -568,21 +578,23 @@ function CaseScreen({
         </div>
       </header>
 
-      {/* 셸은 **세 열**입니다 — T0 레일 · 본문 · 오른쪽 열 (ADR-036).
-          T0 를 본문 밖에 두어야 국면이 바뀌어도 사라지지 않습니다 */}
-      <div className="mx-auto grid w-full max-w-shell flex-1 gap-0 md:grid-cols-[320px_minmax(0,1fr)_350px]">
-        {/* 좁은 폭 순서 — spec S-06 「워크스페이스가 맨 위로 옵니다」.
-            워크스페이스가 있을 때만 그렇습니다. 아직 진술을 받는 중(`casefile`)이면
-            할 일이 없으니 T0 가 먼저입니다 — 그때가 T0 가 가장 급한 때이기도 합니다 */}
-        <div
-          className={`flex flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
-            atWork ? "order-3" : "order-1"
-          }`}
-        >
-          <T0Rail />
-          {/* **단계가 서기 전에는 안 그립니다** — 문진 중에 「기다리는 구간」이
-              뜨면 거짓말입니다. 플랜이 생기면 이 레일이 보드를 대신합니다 (ADR-063) */}
-          {bundle.steps.length > 0 && (
+      {/* 셸은 **세 열**입니다 — 할 일 레일 · 본문 · 오른쪽 열 (ADR-036 · ADR-063).
+          T0 안전 절차는 열이 아니라 **본문 위 오버레이 알약**입니다(2026-09-03
+          자리 정정 → safety.tsx 머리말). 단계가 서기 전에는 왼쪽 열을 통째로
+          접습니다 — 문진 중에 빈 레일이 서 있으면 자리만 먹습니다 */}
+      <div
+        className={`mx-auto grid w-full max-w-shell flex-1 gap-0 ${
+          bundle.steps.length > 0
+            ? "md:grid-cols-[320px_minmax(0,1fr)_350px]"
+            : "md:grid-cols-[minmax(0,1fr)_350px]"
+        }`}
+      >
+        {bundle.steps.length > 0 && (
+          <div
+            className={`flex flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
+              atWork ? "order-3" : "order-1"
+            }`}
+          >
             <div className="md:sticky md:top-[clamp(18px,3vh,28px)]">
               <TodoRail
                 steps={bundle.steps}
@@ -605,8 +617,8 @@ function CaseScreen({
                 busy={uploads.busy}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ── 본문 ───────────────────────────────────────── */}
         <section
@@ -620,6 +632,8 @@ function CaseScreen({
             focus === "chat" ? "mx-auto w-full max-w-[760px]" : "view-in"
           }`}
         >
+          {/* T0 는 본문 위에 뜹니다 — 어느 국면이든 같은 자리 (ADR-063 · 2026-09-03) */}
+          <T0Overlay />
           {focus === "chat" && (
             <ChatView
               atWork={atWork}
