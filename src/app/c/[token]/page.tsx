@@ -508,7 +508,7 @@ function CaseScreen({
           화면이고 보드에는 앰버(기한)·horizon(공고 대기) 이 이미 있어 한 단계 죽였습니다
           (2026-08-25 검수). 2026-08-27 에 전부 40% 연해져 0.7 → 0.42 입니다.
           `isolate` 가 있어야 세 열 아래에 깔립니다 (HorizonGlow 머리말) */}
-      <HorizonGlow attach="viewport" opacity={0.42} />
+      <HorizonGlow attach="viewport" opacity={0.55} />
       {/* ── 헤더 ─────────────────────────────────────────── */}
       <header className="border-b border-hairline bg-stage">
         <div className="mx-auto flex min-h-[56px] w-full max-w-shell flex-wrap items-center justify-between gap-x-4 gap-y-2 px-[clamp(16px,3vw,32px)] py-2">
@@ -701,7 +701,7 @@ function CaseScreen({
             본문이 챗이면 사건 파일 ↔ 워크스페이스,
             본문이 챗이 아니면 워크스페이스 **위** + 미니 챗 **아래** */}
         <aside
-          className={`flex min-w-0 flex-col border-t border-hairline bg-[oklch(1_0_0/1.5%)] p-[clamp(16px,3vw,20px)] md:order-none md:border-l md:border-t-0 ${
+          className={`flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:border-l md:border-t-0 ${
             atWork ? "order-1 border-t-0 border-b" : "order-3"
           } ${atWork ? "side-in" : ""}`}
         >
