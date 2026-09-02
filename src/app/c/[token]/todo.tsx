@@ -146,7 +146,7 @@ export default function TodoRail({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span
-                    className={`block truncate text-[13.5px] leading-[1.4] ${
+                    className={`block text-[13.5px] leading-[1.4] ${
                       s.state === "skipped" ? "text-ink-4" : "font-[580] text-ink-1"
                     }`}
                   >
