@@ -596,7 +596,7 @@ function CaseScreen({
       >
         {bundle.steps.length > 0 && (
           <div
-            className={`flex flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
+            className={`flex min-w-0 flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
               atWork ? "order-3" : "order-1"
             }`}
           >
