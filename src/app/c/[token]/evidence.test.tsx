@@ -28,6 +28,7 @@ const uploadsOf = (files: readonly RailFile[] = []): Uploads => ({
   add: async () => null,
   select: () => {},
   selectedId: files[0]?.id,
+  mark: () => {},
 });
 
 const railFile = (over: Partial<RailFile> = {}): RailFile => ({

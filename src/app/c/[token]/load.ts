@@ -463,6 +463,15 @@ export function useEvidence(
 ) {
   const key = `${caseToken}/${evidenceId}`;
   const [got, setGot] = useState<{ key: string; state: EvidenceState } | null>(null);
+  /**
+   * 「다시 확인」을 누른 횟수 — 효과의 열쇠에 넣어 폴링을 처음부터 다시 겁니다.
+   *
+   * ⚠️ **이게 없어서 조회가 한 번 실패하면 화면이 「개인정보 보호 처리중」에
+   * 영영 멈췄습니다.** 실패하면 `verdict.poll` 이 꺼져 되풀이가 서는데(§3.1 —
+   * 에러 응답을 스스로 다시 부르지 않습니다), 사용자가 다시 물을 길도 없었습니다.
+   * 다시 부르는 것은 **사용자**입니다.
+   */
+  const [asked, setAsked] = useState(0);
   // 콜백이 바뀌어도 폴링을 다시 시작하지 않습니다 — 최신 것만 부릅니다.
   // 그리는 중에 ref 를 쓰면 안 되므로(리액트 규칙) 효과에서 갱신합니다 —
   // 폴링 응답은 비동기라 효과가 먼저 돕니다
@@ -503,7 +512,16 @@ export function useEvidence(
       ac.abort();
       clearTimeout(timer);
     };
-  }, [caseToken, evidenceId, key]);
+    // `asked` 는 「다시 확인」 — 값이 오르면 처음부터 다시 묻습니다
+  }, [caseToken, evidenceId, key, asked]);
 
-  return got?.key === key ? got.state : ({ phase: "loading" } as EvidenceState);
+  const again = useCallback(() => {
+    setGot(null);
+    setAsked((n) => n + 1);
+  }, []);
+
+  return {
+    state: got?.key === key ? got.state : ({ phase: "loading" } as EvidenceState),
+    again,
+  };
 }

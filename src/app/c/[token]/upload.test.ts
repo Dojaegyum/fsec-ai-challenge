@@ -10,8 +10,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { screenName } from "@/modules/file-sender";
+import type { RailFile } from "@/modules/file-sender";
 
-import { kindOf, mergeRail, uploadFile } from "./upload";
+import { kindOf, markRail, mergeRail, uploadFile } from "./upload";
 
 const TOKEN = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 const PUT_URL = "https://storage.example.com/put/01EV";
@@ -187,5 +188,38 @@ describe("서버 목록과 로컬 목록을 합친다", () => {
     const got = mergeRail([], [mine]);
 
     expect(got).toEqual([mine]);
+  });
+});
+
+/**
+ * ⚠️ **레일의 처리 상태가 서버 응답으로 안 바뀌었습니다** (2026-09-03).
+ *
+ * 오른쪽에 전사문이 다 떠 있는데 왼쪽 자료 레일은 계속 점이 깜빡이며
+ * 「개인정보 보호 처리중」이라고 말했습니다 — 레일 줄의 상태가 **올리던 순간의
+ * 값** 그대로였기 때문입니다. 판독이 실패한 파일도 레일에서는 처리중이라,
+ * 실패 갈림길이 영영 안 떴습니다. **처리 상태의 주인은 서버입니다.**
+ */
+describe("서버가 말한 상태로 레일을 맞춘다 — markRail", () => {
+  const row = (id: string, status: string, evidence_id?: string) =>
+    ({ id, name: `${id}.wav`, status, ...(evidence_id ? { evidence_id } : {}) }) as RailFile;
+
+  it("그 증거의 줄만 바꾼다", () => {
+    const got = markRail([row("a", "processing", "E1"), row("b", "processing", "E2")], "E1", "done");
+    expect(got.map((f) => f.status)).toEqual(["done", "processing"]);
+  });
+
+  it("**이미 그 상태면 같은 목록을 돌려준다** — 폴링마다 화면을 다시 그리지 않습니다", () => {
+    const before = [row("a", "done", "E1")];
+    expect(markRail(before, "E1", "done")).toBe(before);
+  });
+
+  it("실패도 옮긴다 — 그래야 실패 갈림길이 뜬다", () => {
+    const got = markRail([row("a", "processing", "E1")], "E1", "failed");
+    expect(got[0]?.status).toBe("failed");
+  });
+
+  it("모르는 증거 번호면 그대로", () => {
+    const before = [row("a", "processing", "E1")];
+    expect(markRail(before, "E9", "done")).toBe(before);
   });
 });

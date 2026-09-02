@@ -175,7 +175,7 @@ export default function ChatView({
             )}
 
             {/* 기다리는 동안 **무엇을 하는지 문장으로** — 스트리밍을 안 쓰는 대가입니다 */}
-            {sending && <PendingBubble currentIndex={1} />}
+            {sending && <PendingBubble />}
           </>
         )}
 
@@ -416,9 +416,10 @@ export function Bubble({
  * 점 3개·스켈레톤·타자기를 쓰지 않고 **무엇을 하는지 문장으로** 말합니다.
  * 값은 서버(poll-checker)가 내준 것 그대로이고, 화면이 단계를 추측하지 않습니다.
  *
- * TODO(연결): poll-checker 응답이 붙으면 currentIndex 를 그 값으로 바꿉니다.
+ * ⬜ 서버가 진행값을 내리는 칸이 계약에 서면 그때 단계별 표시를 되살립니다 —
+ * 그 전까지는 「무엇을 하는지」만 말하고 어디까지 왔는지는 주장하지 않습니다.
  */
-export function PendingBubble({ currentIndex }: { currentIndex: number }) {
+export function PendingBubble() {
   return (
     <div className="max-w-[78%] rounded-[15px] rounded-bl-[5px] border border-hairline bg-surface px-[15px] py-[11px]">
       <div className="flex items-center gap-2 text-[14.5px] text-ink-2">
@@ -428,28 +429,24 @@ export function PendingBubble({ currentIndex }: { currentIndex: number }) {
           className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
         />
       </div>
+      {/* ⚠️ **체크(✓)와 「서버가 알려준 그대로」 문장을 걷었습니다** (2026-09-03).
+          진행값을 서버가 안 내리는데(§3.9 에 그런 칸이 없습니다) 첫 줄에 ✓ 를
+          켜고 「서버가 알려준 그대로」라고 적어 — **화면이 스스로 한 주장을
+          스스로 어기고** 있었습니다. 요청이 실패해도 같은 화면이 떴습니다.
+          지금은 「무엇을 하는지」만 말합니다 — 어디까지 왔는지는 주장하지 않습니다 */}
       <ul className="mt-2.5 grid gap-1.5">
-        {PENDING_STEPS.map((label, i) => {
-          const done = i < currentIndex;
-          const now = i === currentIndex;
-          return (
-            <li
-              key={label}
-              className={`flex items-start gap-2 text-[13px] leading-[1.6] ${
-                done ? "text-ink-3" : now ? "text-ink-1" : "text-ink-3 opacity-55"
-              }`}
-            >
-              <span aria-hidden className="mt-[3px] shrink-0 text-pii">
-                {done ? "✓" : now ? "◉" : "○"}
-              </span>
-              {label}
-            </li>
-          );
-        })}
+        {PENDING_STEPS.map((label) => (
+          <li
+            key={label}
+            className="flex items-start gap-2 text-[13px] leading-[1.6] text-ink-3"
+          >
+            <span aria-hidden className="mt-[3px] shrink-0 text-pii">
+              ·
+            </span>
+            {label}
+          </li>
+        ))}
       </ul>
-      <p className="mt-2.5 text-[12.5px] text-ink-3">
-        이 단계는 서버가 알려준 그대로입니다. 화면이 추측하지 않습니다
-      </p>
     </div>
   );
 }

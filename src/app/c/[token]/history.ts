@@ -145,8 +145,21 @@ export async function openVault(
   store: KeyStore,
   signal?: AbortSignal,
 ): Promise<OpenedVault> {
-  // **여기서 키를 만들지 않습니다** — 위 경고 참고
-  const session = await store.get(caseToken);
+  // **여기서 키를 만들지 않습니다** — 위 경고 참고.
+  //
+  // ⚠️ **던지게 두면 화면이 영영 안 풀립니다.** 사이트 데이터를 막아 둔
+  // 브라우저에서는 IndexedDB 열기 자체가 거절되는데, 이 예외가 첫 로드 효과
+  // 밖으로 새면 `setLoading(false)` 까지 못 가서 「불러오는 중」에 굳고,
+  // 발화 경로에서 새면 「보내는 중」이 다시는 안 풀렸습니다. **열쇠를 못
+  // 꺼낸 것은 열쇠가 없는 것과 같이 다룹니다** — 볼트 목록은 서버 것이라
+  // 그대로 확인하고, 못 푸는 칸은 이름표만 이어받습니다(아래 「못 열어도
+  // 이름표는 자리를 지킵니다」).
+  let session: Awaited<ReturnType<KeyStore["get"]>> = null;
+  try {
+    session = await store.get(caseToken);
+  } catch {
+    session = null;
+  }
 
   let res: Response;
   try {

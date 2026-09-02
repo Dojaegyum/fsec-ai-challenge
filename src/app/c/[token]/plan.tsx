@@ -248,12 +248,21 @@ export default function PlanView({
                 ◷
               </span>
               {now ? "지금 하실 일은 하나입니다" : "지금 하실 일은 없습니다"}
-              {dueText && (
-                <>
-                  {" · "}
-                  <span data-numeric>{dueText}</span>까지
-                </>
-              )}
+              {/* **지난 기한은 지났다고 말합니다** (§3.7). 서버는 지난 기한에
+                  `days_left` 를 안 싣고 `status: "missed"` 로만 말합니다 —
+                  「까지」로 그리면 아직 시간이 있는 것처럼 읽힙니다 */}
+              {dueText &&
+                (primary?.status === "missed" ? (
+                  <>
+                    {" · 본 기한 "}
+                    <span data-numeric>{dueText}</span> · 지남
+                  </>
+                ) : (
+                  <>
+                    {" · "}
+                    <span data-numeric>{dueText}</span>까지
+                  </>
+                ))}
             </p>
             {/* **기산점이 확인 안 된 기한입니다.** 히어로는 이 사건에서 가장
                 크게 읽히는 자리라, 여기서 확정처럼 보이면 배지에 「미확인」이
@@ -389,7 +398,10 @@ export default function PlanView({
           deadlineFor={(id) => {
             const d = groups.primary.find((x) => x.step_id === id);
             const label = d ? dueLabel(d) : null;
-            return label && `${label}까지`;
+            if (!label) return null;
+            // 지난 기한에 「까지」를 붙이면 아직 시간이 있는 것처럼 읽힙니다 —
+            // 배지 어휘(`badgeOf` 의 「지남」)를 그대로 따릅니다 (§3.7)
+            return d?.status === "missed" ? `${label} · 지남` : `${label}까지`;
           }}
           /* 부산물은 §3.6 `required_artifact` 입니다 — **화면이 고르지 않습니다.**
              완료를 판정하는 것이 무엇인지 미리 보이게 하는 자리입니다 (불변 규칙 6) */

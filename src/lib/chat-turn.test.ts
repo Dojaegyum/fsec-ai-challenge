@@ -758,6 +758,8 @@ function chatHarness(
     readonly history?: readonly { speaker: 'user' | 'assistant'; text: string }[]
     /** 물을 것이 남지 않은 사건 — 슬롯을 다 채운 자리입니다 */
     readonly noQuestion?: boolean
+    /** 사건의 슬롯 — `caseState` 라벨 시험이 씁니다 */
+    readonly slots?: readonly { slotKey: string; state: string; valueMasked: string }[]
     /** 브라우저가 볼트에 맡겨 둔 이름표 — **값이 아니라 번호만** 옵니다 */
     readonly vaultTokens?: readonly string[]
     /** 서버가 앞서 전사문에 붙인 이름표가 박혀 있는 줄 */
@@ -831,7 +833,8 @@ function chatHarness(
         return { turns: [], truncated: false }
       },
     },
-    slots: { read: async () => [] },
+    // 시험은 필요한 세 칸만 적습니다 — 나머지는 이 흐름이 안 읽습니다
+    slots: { read: async () => (over.slots ?? []) as never },
     deadlines: { read: async () => [] },
     deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
     // 이름표 장부 → 04-pii-boundary.md 「번호의 단위」. 이 파일이 보는 것은
@@ -1172,5 +1175,39 @@ describe('쓰인 이름표를 모아 넘긴다 — 04-pii-boundary.md 「번호�
     await runTurn(one)
 
     expect(one.received[0].issuedTokens).toEqual([])
+  })
+})
+
+/**
+ * ⚠️ **프롬프트의 슬롯 라벨이 내부 키 그대로였습니다** (2026-09-03).
+ *
+ * 시스템 지시문이 「`org_name`·`freeze_requested_at` … 을 `reply` 에 한 글자도
+ * 쓰지 말라」고 하면서, 같은 프롬프트의 `case_state` 가 그 낱말을 라벨로 먹이고
+ * 있었습니다. 슬롯 열다섯 전부 **사람 말**로 나가는지 하나씩 봅니다 —
+ * 정본은 데이터 모델 §5.1 의 「뜻」 칸입니다.
+ */
+describe('프롬프트의 슬롯 라벨은 사람 말이다', () => {
+  const KEYS = [
+    'transferred', 'channel', 'org_name', 'amount', 'amount_hint',
+    'occurred_at', 'elapsed_hint', 'contact_method', 'counterpart_account',
+    'impersonated_org', 'freeze_requested_at', 'relief_applied_at',
+    'report_filed_at', 'objection_submitted_at', 'notice_started_at',
+  ]
+
+  it('내부 키가 라벨로 새지 않는다 — 열다섯 전부', async () => {
+    const one = chatHarness({
+      slots: KEYS.map((slotKey) => ({ slotKey, state: 'confirmed', valueMasked: '값' })),
+    })
+    await runTurn(one)
+
+    const got = one.received[0] as unknown as {
+      caseContext?: { caseState?: readonly { label: string }[] }
+    }
+    const labels = (got.caseContext?.caseState ?? []).map((s) => s.label)
+    for (const key of KEYS) {
+      expect(labels).not.toContain(key)
+    }
+    expect(labels).toContain('기관명')
+    expect(labels).toContain('지급정지 요청 시각')
   })
 })

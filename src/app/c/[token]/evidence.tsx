@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { FileRail } from "@/modules/file-sender";
 import { countTokens, TranscriptView } from "@/modules/transcript-viewer";
@@ -101,8 +101,21 @@ export default function EvidenceView({
   const file = files.find((f) => f.id === selected) ?? files.at(0);
 
   // 올라간 파일만 서버에 물을 것이 있습니다 — `evidence_id` 가 없으면 안 부릅니다
-  const server = useEvidence(token, file?.evidence_id, onMappings);
+  const { state: server, again } = useEvidence(token, file?.evidence_id, onMappings);
   const read = server.phase === "ready" ? server.read : null;
+  /** 조회 자체가 실패했다 — 전사가 실패한 것(`readFailed`)과 다릅니다 */
+  const askFailed = server.phase === "failed" ? server.fail : null;
+
+  // **처리 상태의 주인은 서버입니다** — 응답이 오면 레일 줄도 그 값으로 맞춥니다.
+  // 이게 없으면 전사가 끝나도 레일이 「개인정보 보호 처리중」에 남고,
+  // 실패한 파일의 갈림길이 영영 안 뜹니다 (`markRail`)
+  const mark = uploads.mark;
+  useEffect(() => {
+    if (!read?.evidence_id) return;
+    if (read.ingest_status === "done" || read.ingest_status === "failed") {
+      mark(read.evidence_id, read.ingest_status);
+    }
+  }, [mark, read?.evidence_id, read?.ingest_status]);
 
   /**
    * **처리 상태의 주인은 서버입니다.** 레일의 값은 브라우저가 방금 올리며 적어 둔
@@ -230,7 +243,27 @@ export default function EvidenceView({
           )}
         </header>
 
-        {status === "processing" ? (
+        {askFailed ? (
+          /* **조회가 끊긴 것을 말합니다.** 조용히 「처리중」으로 두면 사용자는
+             영영 기다립니다. 스스로 다시 부르지 않습니다 — 누르는 것은
+             사용자입니다 (§3.1) */
+          <div
+            role="alert"
+            className="m-[18px_16px] rounded-[11px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/6%)] p-[13px_15px]"
+          >
+            <p className="text-[13.5px] leading-[1.6] text-ink-1">{askFailed.message}</p>
+            {askFailed.retryable !== false && (
+              <button
+                type="button"
+                data-hit
+                onClick={again}
+                className="mt-2.5 rounded-full border border-hairline px-3.5 py-1.5 text-[13px] text-ink-2 transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/45%)] hover:text-ink-1"
+              >
+                다시 확인
+              </button>
+            )}
+          </div>
+        ) : status === "processing" ? (
           <div className="grid gap-2 p-[18px_16px]">
             <p className="flex items-center gap-2 text-[14px] text-ink-2">
               <span

@@ -253,3 +253,61 @@ describe('막 만든 대응표는 브라우저에 건넨다 — 버리지 않습
     expect(one.finished[0].transcriptMasked).not.toContain(MINE)
   })
 })
+
+/**
+ * ⚠️ **전사 교정이 사용자가 확정한 기관명을 덮어썼습니다** (2026-09-03).
+ *
+ * 문진에서 「카카오뱅크」라고 답해 `org_name` 이 `confirmed` 가 된 뒤 통화
+ * 녹음을 올리면, `repairOrgs` 가 전사문에서 집은 다른 기관을 `extracted` 로
+ * **그 위에 적었습니다.** `extracted` 는 되묻기를 다시 열므로(§11.4.4 ①),
+ * 이미 답한 사람에게 「어느 곳이었는지 골라 주세요」가 다시 왔습니다.
+ * `anchor-from-artifact` 가 같은 자리에서 이미 쓰는 그물 — **`confirmed` 는
+ * 안 덮는다** — 을 여기에도 겁니다.
+ */
+describe('전사 교정은 사용자의 답을 덮지 않는다', () => {
+  function orgHarness(base: {
+    readonly already: readonly { slotKey: string; state: string; valueMasked: string | null }[]
+  }) {
+    const wrote: { slotKey: string; state: string; valueMasked: string }[] = []
+    const one = harness({ lines: [lineOf('국민은행에서 왔다고 했어요')] })
+    const container = one.container as unknown as Record<string, unknown>
+    container.channelWrite = {
+      allCandidates: async () => [
+        { orgId: 'kb', name: '국민은행', aliases: ['KB국민은행'] },
+      ],
+      allPublicNames: async () => [],
+    }
+    ;(container.ports as Record<string, unknown>).llm = {
+      completeText: async () => ({
+        text: JSON.stringify({ orgs: [{ heard: '국민은행', candidates: ['국민은행'] }] }),
+      }),
+    }
+    container.slots = { read: async () => base.already }
+    container.slotWrite = {
+      write: async (input: { slotKey: string; state: string; valueMasked: string }) => {
+        wrote.push(input)
+      },
+    }
+    return { container: one.container, wrote }
+  }
+
+  it('빈 슬롯에는 올린다 — 지금까지처럼', async () => {
+    const one = orgHarness({ already: [] })
+    await collectReading(
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', stored: null },
+      one.container,
+    )
+    expect(one.wrote.map((w) => w.slotKey)).toContain('org_name')
+  })
+
+  it('**사용자가 확정한 값은 덮지 않는다**', async () => {
+    const one = orgHarness({
+      already: [{ slotKey: 'org_name', state: 'confirmed', valueMasked: '카카오뱅크' }],
+    })
+    await collectReading(
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', stored: null },
+      one.container,
+    )
+    expect(one.wrote.map((w) => w.slotKey)).not.toContain('org_name')
+  })
+})
