@@ -623,6 +623,8 @@ function CaseScreen({
               token={dataToken}
               uploads={uploads}
               restorable={chat.restorable}
+              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-062)
+              onMappings={(fresh) => void chat.absorb(fresh)}
               locked={chat.locked}
               /* 「없이 진행」의 도착지 — 「사건은 그대로 진행됩니다」를 참으로 만듭니다 */
               onContinue={() => setFocus("plan")}
@@ -790,6 +792,8 @@ function CaseScreen({
                   token={dataToken}
                   uploads={uploads}
                   restorable={chat.restorable}
+              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-062)
+              onMappings={(fresh) => void chat.absorb(fresh)}
                   locked={chat.locked}
                   onContinue={() => setFocus("plan")}
                 />

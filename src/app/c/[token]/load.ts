@@ -25,12 +25,13 @@
  * 「몇 초 뒤라고 적을지」이고, **누르는 것은 사용자입니다** (에러 §3.1).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { isCaseToken, type CaseResponse } from "@/modules/case-opener";
 import type { NextQuestion } from "@/modules/chat-handler";
 import type { Deadline } from "@/modules/deadline-viewer";
 import type { EvidenceStatus } from "@/modules/file-sender";
+import type { PiiMapping } from "@/modules/pii-masker";
 import type { PlanStep } from "@/modules/plan-viewer";
 import { decidePoll, type PollVerdict } from "@/modules/poll-checker";
 import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
@@ -357,6 +358,17 @@ export interface EvidenceRead {
   /** `done` 일 때만. **토큰화된 상태로 내려옵니다** — 원문 복원은 브라우저에서 */
   readonly transcript?: readonly RawLine[];
   readonly pii_tokens?: readonly PiiToken[];
+  /**
+   * **토큰화가 막 일어난 그 응답에만** 실리는 원문 포함 대응표 → ADR-062.
+   * 서버가 보관하지 않으므로 다음 폴링부터는 없습니다 — 받는 즉시
+   * `ChatSend.absorb` 로 잠가 맡기는 것이 유일한 생존 경로입니다
+   */
+  readonly pii_mappings?: readonly {
+    token: string;
+    kind: string;
+    seq: number;
+    original: string;
+  }[];
   /** 기계가 못 읽은 것 — 화면이 「직접 확인해 주세요」로 씁니다 */
   readonly shortfalls?: readonly unknown[];
   /** `failed` 일 때만 */
@@ -439,9 +451,25 @@ export async function fetchEvidence(
  * 다시 부르는 것」이고, 여기서 되풀이하는 것은 **서버가 `poll_after_ms` 로 시킨**
  * 정상 진행입니다. 간격을 화면이 지어내면 그때 부하 조절이 무의미해집니다 (§3.3).
  */
-export function useEvidence(caseToken: string | null, evidenceId: string | undefined) {
+export function useEvidence(
+  caseToken: string | null,
+  evidenceId: string | undefined,
+  /**
+   * 원문 포함 대응표가 실려 왔을 때 — **한 응답에 한 번만** 옵니다 (ADR-062).
+   * 셸이 `ChatSend.absorb` 를 이어 줍니다. 안 이으면 그 짝은 여기서 버려져
+   * 올린 본인의 기기에서도 원문이 영영 안 보입니다
+   */
+  onMappings?: (fresh: readonly PiiMapping[]) => void,
+) {
   const key = `${caseToken}/${evidenceId}`;
   const [got, setGot] = useState<{ key: string; state: EvidenceState } | null>(null);
+  // 콜백이 바뀌어도 폴링을 다시 시작하지 않습니다 — 최신 것만 부릅니다.
+  // 그리는 중에 ref 를 쓰면 안 되므로(리액트 규칙) 효과에서 갱신합니다 —
+  // 폴링 응답은 비동기라 효과가 먼저 돕니다
+  const onMappingsRef = useRef(onMappings);
+  useEffect(() => {
+    onMappingsRef.current = onMappings;
+  }, [onMappings]);
 
   useEffect(() => {
     if (!caseToken || !evidenceId) return;
@@ -453,6 +481,17 @@ export function useEvidence(caseToken: string | null, evidenceId: string | undef
       const next = await fetchEvidence(caseToken, evidenceId, ac.signal);
       if (!next || !alive) return;
       setGot({ key, state: next });
+      // 대응표는 이 응답 한 번뿐입니다 — 화면 상태와 무관하게 즉시 건넵니다
+      if (next.phase === "ready" && next.read.pii_mappings?.length) {
+        onMappingsRef.current?.(
+          next.read.pii_mappings.map((one) => ({
+            token: one.token,
+            kind: one.kind as PiiMapping["kind"],
+            seq: one.seq,
+            original: one.original,
+          })),
+        );
+      }
       if (next.phase === "ready" && next.verdict.poll) {
         timer = setTimeout(() => void ask(), next.verdict.delayMs);
       }

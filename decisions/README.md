@@ -137,6 +137,7 @@
 | [059](059-public-repo-secrets-out.md) | 저장소를 공개로 — 비밀은 Vercel env 에만 두고, 이력에 남은 값은 새 저장소로 지운다 | 채택 |
 | [060](060-unsure-opens-victim.md) | 「잘 모르겠어요」는 셋째 `track` 이 아니다 — `victim` 으로 연다 | 채택 |
 | [061](061-question-input-kinds.md) | 「질문은 전부 버튼」을 좁힌다 — 버튼으로 담을 수 있는 것은 전부 버튼 | 채택 |
+| [062](062-transcript-mapping-handover.md) | 전사가 만든 대응표는 그 응답에서 브라우저에 건넨다 | 채택 |
 
 ## 아직 안 쓴 것
 

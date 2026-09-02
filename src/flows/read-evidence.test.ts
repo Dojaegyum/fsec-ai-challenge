@@ -184,3 +184,72 @@ describe('흐름이 그 장부를 실제로 읽는다', () => {
     expect(got.lines[0].text).toBe('[계좌-1] 요')
   })
 })
+
+/**
+ * ⚠️ **대응표를 그 자리에서 버리고 있었습니다** (2026-09-02).
+ *
+ * 토큰화는 **브라우저의 폴링 요청 안에서** 딱 한 번 일어납니다. 그 순간
+ * `token ↔ 원문` 대응표가 메모리에 있는데, 아무에게도 안 주고 버렸습니다 —
+ * 그래서 올린 녹음의 계좌번호를 **올린 본인의 기기에서도** 영영 못 봤고,
+ * 화면은 그 이유를 「기기가 달라서」라고 틀리게 말했습니다.
+ *
+ * 이제 그 요청의 응답에 실어 브라우저에 건네고, 브라우저가 자기 열쇠로 잠가
+ * 볼트에 넣습니다. 서버에는 여전히 가려진 것만 남습니다(ADR-009 그대로 —
+ * 서버는 원문을 **보관하지 않습니다**, 이미 보고 있던 것을 건넬 뿐입니다).
+ */
+describe('막 만든 대응표는 브라우저에 건넨다 — 버리지 않습니다', () => {
+  it('토큰화한 그 응답에 원문 포함 대응표가 실린다', async () => {
+    const one = harness({ lines: [lineOf(`${MINE} 로 보냈어요`)] })
+
+    const got = await read(one)
+
+    if (got.status !== 'done') throw new Error('끝났어야 합니다')
+    expect(got.freshMappings).toHaveLength(1)
+    expect(got.freshMappings?.[0]).toMatchObject({
+      token: '[계좌-1]',
+      kind: '계좌',
+      original: MINE,
+    })
+  })
+
+  it('**저장된 것을 읽는 폴링에는 없다** — 서버가 원문을 보관하지 않았습니다', async () => {
+    const one = harness({ lines: [] })
+    const got = await collectReading(
+      {
+        caseId: CASE_ID,
+        evidenceId: EVIDENCE_ID,
+        kind: 'audio',
+        stored: JSON.stringify({
+          lines: [{ speaker: 'A', text: '[계좌-1] 로 보냈어요', startMs: 0 }],
+          tokens: [{ token: '[계좌-1]', kind: '계좌' }],
+          shortfalls: [],
+        }),
+      },
+      one.container,
+    )
+
+    if (got.status !== 'done') throw new Error('끝났어야 합니다')
+    expect(got.freshMappings ?? []).toHaveLength(0)
+  })
+
+  it('장부에서 이어받은 이름표는 안 실린다 — 그 원문은 서버가 모릅니다', async () => {
+    const one = harness({
+      vaultTokens: ['[계좌-1]'],
+      lines: [lineOf(`${THEIRS} 로 보내라고 했어요`)],
+    })
+
+    const got = await read(one)
+
+    if (got.status !== 'done') throw new Error('끝났어야 합니다')
+    // 새로 만든 [계좌-2] 하나뿐 — 볼트에서 온 [계좌-1] 은 원문이 없어 못 싣습니다
+    expect(got.freshMappings?.map((m) => m.token)).toEqual(['[계좌-2]'])
+    expect(got.freshMappings?.[0].original).toBe(THEIRS)
+  })
+
+  it('저장되는 본문에는 여전히 원문이 없다 — 스키마의 「원문 금지」 그대로', async () => {
+    const one = harness({ lines: [lineOf(`${MINE} 로 보냈어요`)] })
+    await read(one)
+
+    expect(one.finished[0].transcriptMasked).not.toContain(MINE)
+  })
+})

@@ -95,6 +95,20 @@ export async function GET(
         })),
         // 어떤 토큰이 있는지만. **원문을 담지 않습니다**
         pii_tokens: state.tokens.map((one) => ({ token: one.token, kind: one.kind })),
+        // **토큰화가 이 요청에서 막 일어났을 때만** 원문 포함 대응표를 건넵니다.
+        // 다음 폴링부터는 저장된 것을 읽어 이 칸이 없습니다 — 서버는 원문을
+        // 보관하지 않습니다(스키마 「원문 금지」· ADR-009). 받는 쪽(브라우저)이
+        // 즉시 자기 열쇠로 잠가 볼트에 넣습니다 → ADR-062
+        ...(state.freshMappings && state.freshMappings.length > 0
+          ? {
+              pii_mappings: state.freshMappings.map((one) => ({
+                token: one.token,
+                kind: one.kind,
+                seq: one.seq,
+                original: one.original ?? '',
+              })),
+            }
+          : {}),
         // 기계가 못 읽은 것 — 화면이 「직접 확인해 주세요」로 씁니다
         shortfalls: state.shortfalls,
       },
