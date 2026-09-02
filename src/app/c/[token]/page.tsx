@@ -452,14 +452,13 @@ function CaseScreen({
         duration: ABSORB_MS,
         easing: "linear",
       });
-      // 흡수의 거울 — 나갈 때 55~90% 에서 사라지므로 들어올 때 10~45% 에서
-      // 나타납니다. 이게 없으면 챗이 슬롯 자리에서 불투명하게 튀어나와
-      // 역의 관계가 깨집니다 (2026-09-03)
+      // 슬롯에서 나올 때 톡 튀지 않게 앞머리만 살짝 — 카드 배경은
+      // `ghost-card-shed`(아래 className)가 입힙니다. 길게 페이드하면
+      // 카드가 반투명해져 지나가는 자료함 글자와 또 뒤엉킵니다
       fade = mainRef.current.animate(
         [
           { offset: 0, opacity: 0 },
-          { offset: 0.1, opacity: 0 },
-          { offset: 0.45, opacity: 1 },
+          { offset: 0.12, opacity: 1 },
           { offset: 1, opacity: 1 },
         ],
         { duration: ABSORB_MS, easing: "linear" },
@@ -627,8 +626,15 @@ function CaseScreen({
           ref={mainRef}
           key={focus}
           // ⚠️ `absorb.ts` 의 좌표는 **왼쪽 위 기준**으로 계산합니다.
-          // 기본값(가운데)으로 두면 축소 기준이 어긋나 화면 밖으로 나갑니다
-          style={{ transformOrigin: "top left" }}
+          // 기본값(가운데)으로 두면 축소 기준이 어긋나 화면 밖으로 나갑니다.
+          // 복귀 중에는 카드 껍질을 입고 옵니다 — 나가는 유령의 `ghost-card` 거울.
+          // 맨몸으로 날리면 지나가는 화면 글자와 뒤엉킵니다 (2026-09-03 실측)
+          style={{
+            transformOrigin: "top left",
+            ...(ghost && focus === "chat"
+              ? { animation: `ghost-card-shed ${ABSORB_MS}ms linear both`, border: "1px solid transparent" }
+              : {}),
+          }}
           className={`order-2 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none ${
             /* 챗은 읽기 폭으로 가운데에 — 「중앙 고정」의 고정감은 폭에서 옵니다 (ADR-063) */
             focus === "chat" ? "mx-auto w-full max-w-[760px]" : "view-in"
@@ -719,7 +725,16 @@ function CaseScreen({
                 fail={artifact.fail}
                 onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
               />
-              {chatIsMain ? (
+              {chatIsMain && ghost ? (
+                /* 복귀 중 — 미니 챗이 떠나는 챗에게 자리를 돌려줍니다 (mini-take 거울).
+                   즉시 힌트로 갈아끼우면 슬롯이 한 프레임에 비어 눈에 걸립니다 */
+                <div
+                  style={{ animation: `mini-give ${ABSORB_MS}ms linear both` }}
+                  className="mt-4 flex min-h-[220px] flex-col border-t border-hairline pt-4"
+                >
+                  <MiniChat chat={chat} token={dataToken} />
+                </div>
+              ) : chatIsMain ? (
                 <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
                   챗이 다른 단계를 가리키면 이 패널이 바뀝니다. 언급이 없으면{" "}
                   <b className="font-[620] text-ink-2">그대로 둡니다.</b> 적던 접수번호가

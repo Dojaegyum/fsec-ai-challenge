@@ -352,6 +352,29 @@
     }
   }
 
+  /* **들어오는 챗이 껍질을 벗습니다** — ghost-card 의 거울 (2026-09-03).
+     복귀에서 들어오는 챗은 진짜 본문이라 배경이 투명한데, 그대로 날리면
+     지나가는 자료함 글자와 뒤엉킵니다. 나갈 때 카드를 입듯 들어올 때도
+     입고 오다가 끝에서 벗습니다 — 시점은 ghost-card(22~32%)의 거울입니다 */
+  @keyframes ghost-card-shed {
+    0%, 68% {
+      background-color: var(--stage);
+      border-color: var(--hairline);
+      box-shadow: 0 30px 60px -30px #000;
+    }
+    78%, 100% {
+      background-color: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+  }
+
+  /* 미니 챗이 떠나는 챗에게 자리를 돌려주는 구간 — mini-take 의 거울 */
+  @keyframes mini-give {
+    0% { opacity: 1; }
+    35%, 100% { opacity: 0; }
+  }
+
   /* 미니 챗이 유령 챗을 이어받는 구간 — absorb.ts 의 CROSSFADE.in 과 같은 값입니다.
      축소된 사본을 남기지 않고, 제 크기의 진짜 폼이 그 자리에서 켜집니다 */
   @keyframes mini-take {
