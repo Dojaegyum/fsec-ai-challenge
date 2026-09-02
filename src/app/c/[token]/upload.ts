@@ -164,6 +164,8 @@ export interface Uploads {
   readonly add: (file: File) => Promise<string | null>;
   readonly select: (id: string) => void;
   readonly selectedId: string | undefined;
+  /** 서버가 말한 처리 상태로 레일 줄을 맞춥니다 → `markRail` */
+  readonly mark: (evidenceId: string, status: RailFile["status"]) => void;
 }
 
 /* ── 서버에 이미 올라와 있는 자료를 되받는 자리 ─────────────────────
@@ -224,6 +226,26 @@ const STATUSES: readonly string[] = ["pending", "processing", "done", "failed"];
  * `local-3` 이고 서버에서 온 같은 파일은 증거 번호라, 키가 달라 **같은 파일이
  * 두 줄로** 그려집니다.
  */
+/**
+ * 서버가 말한 처리 상태로 레일 한 줄을 맞춥니다.
+ *
+ * ⚠️ **이게 없어서 전사가 끝나도 레일이 「개인정보 보호 처리중」에 남았습니다.**
+ * 레일 줄의 상태는 올리던 순간의 값이고, **처리 상태의 주인은 서버입니다**
+ * (§3.3). 판독이 실패한 파일도 레일에서는 처리중이라 실패 갈림길이 영영 안 떴습니다.
+ *
+ * **이미 그 상태면 같은 목록을 그대로 돌려줍니다** — 폴링이 몇 초마다 오는데
+ * 매번 새 배열을 내면 화면이 쓸데없이 다시 그려집니다.
+ */
+export function markRail(
+  files: readonly RailFile[],
+  evidenceId: string,
+  status: RailFile["status"],
+): readonly RailFile[] {
+  const at = files.findIndex((one) => one.evidence_id === evidenceId);
+  if (at < 0 || files[at].status === status) return files;
+  return files.map((one, i) => (i === at ? { ...one, status } : one));
+}
+
 export function mergeRail(
   server: readonly RailFile[],
   local: readonly RailFile[],
@@ -367,5 +389,9 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
 
   const select = useCallback((id: string) => setSelectedId(id), []);
 
-  return { files, busy, fail, add, select, selectedId };
+  const mark = useCallback((evidenceId: string, status: RailFile["status"]) => {
+    setFiles((prev) => markRail(prev, evidenceId, status));
+  }, []);
+
+  return { files, busy, fail, add, select, selectedId, mark };
 }

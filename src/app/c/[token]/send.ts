@@ -499,24 +499,35 @@ export function useChatSend(
     let alive = true;
 
     void (async () => {
-      const vault = await openVault(caseToken, store, ac.signal);
-      if (!alive) return;
-      setMappings(vault.maskContext);
-      // 이력만 되살리고 버리면 증거함이 볼 것이 없습니다 — 그래서 들고 있습니다
-      setRestorable(vault.restorable);
-      // **못 물어봤으면 `false` 로 둡니다.** 그래야 값이 실린 첫 발화가
-      // 번호를 붙이기 전에 한 번 더 물어봅니다 (`screenAndSeal`)
-      setVaultRead(vault.read);
-      // 볼트에 맡긴 것이 있는데 열쇠가 없을 때만 잠긴 것입니다 —
-      // 아직 아무것도 안 맡긴 새 사건은 잠긴 것이 아닙니다
-      setLocked(!vault.hasKey && vault.stored > 0);
+      // ⚠️ **여기서 던지면 「불러오는 중」이 영영 안 풀립니다.** `openVault` 와
+      // `fetchHistory` 는 각자 안에서 받아 내지만, 그 약속이 한 줄이라도 새면
+      // `setLoading(false)` 에 못 닿습니다 — 실제로 이력의 근거 모양 하나로
+      // 그렇게 굳은 적이 있습니다(§3.12 `label`). 못 읽었으면 못 읽었다고
+      // 말하고 화면은 풉니다
+      try {
+        const vault = await openVault(caseToken, store, ac.signal);
+        if (!alive) return;
+        setMappings(vault.maskContext);
+        // 이력만 되살리고 버리면 증거함이 볼 것이 없습니다 — 그래서 들고 있습니다
+        setRestorable(vault.restorable);
+        // **못 물어봤으면 `false` 로 둡니다.** 그래야 값이 실린 첫 발화가
+        // 번호를 붙이기 전에 한 번 더 물어봅니다 (`screenAndSeal`)
+        setVaultRead(vault.read);
+        // 볼트에 맡긴 것이 있는데 열쇠가 없을 때만 잠긴 것입니다 —
+        // 아직 아무것도 안 맡긴 새 사건은 잠긴 것이 아닙니다
+        setLocked(!vault.hasKey && vault.stored > 0);
 
-      const past = await fetchHistory(caseToken, vault.restorable, ac.signal);
-      if (!alive) return;
-      setLines(past.lines);
-      setTruncated(past.truncated);
-      setPastFailed(past.failed === true);
-      setLoading(false);
+        const past = await fetchHistory(caseToken, vault.restorable, ac.signal);
+        if (!alive) return;
+        setLines(past.lines);
+        setTruncated(past.truncated);
+        setPastFailed(past.failed === true);
+      } catch {
+        if (!alive) return;
+        setPastFailed(true);
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
 
     return () => {
@@ -538,13 +549,29 @@ export function useChatSend(
       // 내가 한 말은 곧바로 화면에 남깁니다 — **원문으로** (ADR-034)
       setLines((prev) => [...prev, { who: "me", text: trimmed }]);
 
-      const result = await sendUtterance({
-        caseToken,
-        text: trimmed,
-        mappings,
-        vaultRead,
-        store,
-      });
+      // ⚠️ 어떤 예외가 새어도 「보내는 중」은 반드시 풀려야 합니다 —
+      // 안 풀리면 입력칸이 영영 잠기고, 사용자는 새로고침 말고 할 게 없습니다
+      let result: Awaited<ReturnType<typeof sendUtterance>>;
+      try {
+        result = await sendUtterance({
+          caseToken,
+          text: trimmed,
+          mappings,
+          vaultRead,
+          store,
+        });
+      } catch {
+        result = {
+          ok: false,
+          stage: "vault",
+          fail: {
+            poll: false,
+            reason: "error",
+            retryable: true,
+            message: "보내지 못했습니다. 잠시 뒤 다시 보내 주세요.",
+          },
+        };
+      }
       setSending(false);
 
       if (!result.ok) {

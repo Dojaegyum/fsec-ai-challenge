@@ -382,6 +382,15 @@ async function repairOrgs(
     const name = first.options[0]
     if (!name) return
 
+    // ⚠️ **사용자가 확정한 답은 덮지 않습니다** (2026-09-03). 문진에서 이미
+    // 「카카오뱅크」라고 답했는데(`confirmed`) 여기서 `extracted` 로 덮으면,
+    // 되묻기가 다시 열려 **답한 질문을 다시 묻습니다** — `anchor-from-artifact`
+    // 가 같은 자리에서 이미 쓰는 그물입니다. 자동끼리는 덮습니다 —
+    // 「모른다」(`unknown`)로 표시된 것은 비어 있는 것과 같아 채웁니다
+    const already = await container.slots.read(caseId)
+    const held = already.find((one) => one.slotKey === 'org_name')
+    if (held && held.state === 'confirmed' && held.valueMasked !== null) return
+
     await container.slotWrite.write({
       caseId,
       slotKey: 'org_name',

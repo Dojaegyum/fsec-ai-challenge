@@ -68,6 +68,15 @@ export interface ArtifactSend {
   readonly sendingStepId: string | null;
   /** 마지막 판정. 화면이 이걸 보고 다음 길을 그립니다 */
   readonly verdict: ArtifactVerdict | null;
+  /**
+   * 그 판정이 **어느 단계의 것인가.**
+   *
+   * ⚠️ 이게 없어서 한 단계를 완료하면 워크스페이스가 다음 단계로 넘어가는데,
+   * **아직 아무것도 안 한 그 단계 아래에** 「확인했습니다. 이 단계는
+   * 끝났습니다」가 그대로 떠 있었습니다. 판정은 그 단계에서만 그립니다 —
+   * 부르는 쪽(`page.tsx`)이 이 값과 지금 단계를 대조합니다
+   */
+  readonly verdictStepId: string | null;
   readonly fail: LoadFail | null;
   submit(stepId: string, submission: ArtifactSubmission): Promise<ArtifactVerdict | null>;
   /** 판정 표시를 걷습니다 — 사용자가 다음 단계로 넘어갈 때 */
@@ -101,7 +110,10 @@ export function useArtifact(
   onPlanChanged?: () => void,
 ): ArtifactSend {
   const [sendingStepId, setSendingStepId] = useState<string | null>(null);
-  const [verdict, setVerdict] = useState<ArtifactVerdict | null>(null);
+  const [verdict, setVerdict] = useState<{
+    stepId: string;
+    got: ArtifactVerdict;
+  } | null>(null);
   const [fail, setFail] = useState<LoadFail | null>(null);
 
   const submit = useCallback(
@@ -128,7 +140,7 @@ export function useArtifact(
       // **깊이 검사하지 않습니다** — 모양은 서버가 지키는 계약입니다
       // (`load.ts` 의 `toBundle` 과 같은 이유)
       const got = sent.json as ArtifactVerdict;
-      setVerdict(got);
+      setVerdict({ stepId, got });
 
       // 사슬이 실제로 움직였을 때만 플랜을 다시 읽습니다
       if (got.unlocked_steps?.length || got.step_state === "done_verified") {
@@ -145,5 +157,12 @@ export function useArtifact(
     setFail(null);
   }, []);
 
-  return { sendingStepId, verdict, fail, submit, clear };
+  return {
+    sendingStepId,
+    verdict: verdict?.got ?? null,
+    verdictStepId: verdict?.stepId ?? null,
+    fail,
+    submit,
+    clear,
+  };
 }

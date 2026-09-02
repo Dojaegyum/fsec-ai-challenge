@@ -199,7 +199,14 @@ export function PlanBoard({
                 number={numbers.get(s.step_id) ?? null}
                 deadlineLabel={deadlineFor?.(s.step_id) ?? null}
                 artifactLabel={artifactFor?.(s.step_id) ?? null}
-                onPick={onPickStep ? () => onPickStep(s.step_id) : undefined}
+                // **갈 수 없는 줄은 버튼이 아닙니다.** 완료(✓)·해당 없음(—)은
+                // 워크스페이스가 안 그리는 단계라(`work-handler` 의 `isOpen`),
+                // 눌리게 두면 관계없는 다른 단계가 뜨거나 아무 일도 없습니다
+                onPick={
+                  onPickStep && tone !== "done" && tone !== "na"
+                    ? () => onPickStep(s.step_id)
+                    : undefined
+                }
               />
               {after && <li>{after}</li>}
             </Fragment>

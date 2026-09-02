@@ -115,3 +115,32 @@ describe("조건부 단계를 지우지 않는다", () => {
     expect(text).toContain("카카오페이로 보냈다면");
   });
 });
+
+/**
+ * ⚠️ **완료·해당없음 줄도 버튼처럼 눌렸습니다** (2026-09-03).
+ *
+ * `role="button"`·`cursor-pointer` 가 모든 줄에 붙어서, ✓(완료)·—(해당 없음)
+ * 줄을 눌러도 그 단계는 안 열리는데 눌리는 것처럼 보였습니다 — 워크스페이스는
+ * 열린 단계만 그리므로(`isOpen`), 눌러도 **관계없는 다른 단계**가 뜨거나
+ * 아무 일도 없었습니다. 갈 수 없는 줄은 버튼이 아니어야 합니다.
+ */
+describe("갈 수 없는 줄은 버튼이 아니다", () => {
+  const 셋 = [
+    step({ step_id: "s1", state: "done_verified", title: "끝난 것" }),
+    step({ step_id: "s2", state: "skipped", title: "해당 없는 것" }),
+    step({ step_id: "s3", state: "not_started", title: "남은 것" }),
+  ];
+
+  it("완료·해당없음 줄에는 role=button 이 없다", () => {
+    const html = renderToStaticMarkup(
+      <PlanBoard steps={셋} onPickStep={() => {}} />,
+    );
+    // 눌리는 줄은 남은 것 하나뿐이어야 합니다
+    expect(html.match(/role="button"/g) ?? []).toHaveLength(1);
+  });
+
+  it("동작을 안 받으면 아무 줄도 버튼이 아니다 — 원래 규칙 그대로", () => {
+    const html = renderToStaticMarkup(<PlanBoard steps={셋} />);
+    expect(html).not.toContain('role="button"');
+  });
+});

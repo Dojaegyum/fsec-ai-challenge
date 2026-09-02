@@ -287,3 +287,38 @@ describe("히어로는 지금 할 일을 가리킨다 — §S-07", () => {
     expect(text).toContain("지금 하실 일은 없습니다");
   });
 });
+
+/**
+ * ⚠️ **지난 기한이 「8월 20일까지」로 남았습니다** (2026-09-03).
+ *
+ * 서버는 지난 기한에 `days_left` 를 안 싣고 `status: "missed"` 하나로 말하는데
+ * (§3.7 · deadline-viewer 의 `badgeOf` 가 그 어휘를 이미 갖고 있습니다),
+ * 히어로와 단계 행이 `status` 를 한 번도 안 읽어 **아직 시간이 있는 것처럼**
+ * 그렸습니다. 3영업일을 넘긴 사람이 그걸 첫 줄로 읽습니다.
+ */
+describe("지난 기한은 지났다고 말한다 — §3.7", () => {
+  const 지난기한 = {
+    deadline_id: "d1",
+    step_id: "s-report-112",
+    kind: "primary",
+    title: "피해구제 신청",
+    due_at: "2026-08-20",
+    status: "missed",
+  } as unknown as Parameters<typeof PlanView>[0]["deadlines"][number];
+
+  it("히어로가 「까지」 대신 「지남」을 말한다", () => {
+    const text = textOf(
+      renderToStaticMarkup(<PlanView steps={FRESH} deadlines={[지난기한]} />),
+    );
+    expect(text).toContain("지남");
+    expect(text).not.toContain("8월 20일까지");
+  });
+
+  it("단계 행도 같다", () => {
+    const text = textOf(
+      renderToStaticMarkup(<PlanView steps={FRESH} deadlines={[지난기한]} />),
+    );
+    // 행에도 「~까지」로 그리지 않습니다 — 배지 어휘(「지남」)를 따릅니다
+    expect(text.match(/까지/g) ?? []).toHaveLength(0);
+  });
+});

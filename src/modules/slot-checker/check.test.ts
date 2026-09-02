@@ -32,6 +32,10 @@ const questions: QuestionSource = {
         return { input: 'buttons', text: '대략 어느 정도였나요?', options: ['100만원 미만'] }
       case 'occurred_at':
         return { input: 'date', text: '언제 보내셨나요?' }
+      case 'freeze_requested_at':
+        return { input: 'date', text: '지급정지는 언제 요청하셨나요?' }
+      case 'relief_applied_at':
+        return { input: 'date', text: '피해구제 신청은 언제 하셨나요?' }
       default:
         return undefined
     }
@@ -169,6 +173,32 @@ describe('질문은 한 번에 하나, T1 부터', () => {
     expect(result.nextQuestion?.slotKey).not.toBe('transferred')
   })
 
+  /**
+   * ⚠️ **「모름」을 고르면 뒤 문항 두 개가 통째로 사라졌습니다** (2026-09-03).
+   *
+   * `freeze_requested_at`·`relief_applied_at` 의 `askWhen` 이
+   * `transferred === 'confirmed'` 만 봐서, 첫 문항에 「모름·기억 안 남」을
+   * 고른 사람에게는 지급정지·피해구제 신청일을 물을 자리가 **한 번도 안
+   * 왔습니다.** 이미 두 절차를 밟고 들어온 사람은 그 날짜를 댈 수 없어
+   * **3영업일 기한이 안 섰습니다.** 「모름」은 실패가 아니라 답입니다
+   * (불변 규칙 5) — 답을 받았으면 다음으로 갑니다.
+   */
+  it('**「모름」도 답이다** — 뒤의 날짜 문항이 사라지면 안 된다', () => {
+    const result = checker.check({
+      slots: [
+        slot('transferred', 'unknown'),
+        slot('channel', 'unknown'),
+        slot('org_name', 'unknown', 'T2'),
+        slot('amount', 'unknown', 'T2'),
+        slot('amount_hint', 'unknown', 'T2'),
+        slot('occurred_at', 'unknown', 'T2'),
+        slot('freeze_requested_at', 'empty', 'T2'),
+        slot('relief_applied_at', 'empty', 'T2'),
+      ],
+    })
+    expect(result.nextQuestion?.slotKey).toBe('freeze_requested_at')
+  })
+
   it('자동 추출된 슬롯도 다시 묻지 않는다', () => {
     // 질문 대상은 empty 뿐이다 → 08-14-api.md §3.4 예시
     const result = checker.check({
@@ -187,6 +217,9 @@ describe('질문은 한 번에 하나, T1 부터', () => {
         slot('org_name', 'confirmed', 'T2'),
         slot('amount', 'confirmed', 'T2'),
         slot('occurred_at', 'confirmed', 'T2'),
+        // 날짜 둘도 답해야 남는 것이 문구 없는 둘뿐입니다
+        slot('freeze_requested_at', 'confirmed', 'T2'),
+        slot('relief_applied_at', 'confirmed', 'T2'),
       ],
     })
     expect(result.nextQuestion).toBeNull()
@@ -205,6 +238,9 @@ describe('질문은 한 번에 하나, T1 부터', () => {
         // 비로소 물을 것이 없습니다 → 08-16-data-model.md §5.1
         slot('amount_hint', 'unknown', 'T2'),
         slot('occurred_at', 'unknown', 'T2'),
+        // 「모름」도 답이라 날짜 둘이 이어서 나옵니다 — 그것까지 「모름」이어야 끝
+        slot('freeze_requested_at', 'unknown', 'T2'),
+        slot('relief_applied_at', 'unknown', 'T2'),
       ],
     })
     expect(result.nextQuestion).toBeNull()

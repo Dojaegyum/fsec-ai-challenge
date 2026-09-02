@@ -665,7 +665,11 @@ function CaseScreen({
                 // 삼켜 버리면 못 낸 접수번호가 낸 것처럼 사라집니다 (§3.1)
                 onSubmit={(stepId, one) => artifact.submit(stepId, one)}
                 busy={artifact.sendingStepId !== null || uploads.busy}
-                verdict={artifact.verdict}
+                // **그 단계의 판정만** 그립니다 — 앞 단계의 「끝났습니다」가
+                // 다음 단계에 붙어 있으면 안 한 일이 한 것처럼 보입니다
+                verdict={
+                  artifact.verdictStepId === activeStep?.step_id ? artifact.verdict : null
+                }
                 fail={artifact.fail}
                 onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
               />

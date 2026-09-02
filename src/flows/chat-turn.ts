@@ -354,7 +354,8 @@ async function gatherContext(
       ...slots
         // 「모름」과 「확인 전」은 값이 아닙니다 — 넣으면 모델이 그것을 사실로 씁니다
         .filter((one) => one.state === 'confirmed' && one.valueMasked !== null)
-        .map((one) => ({ label: one.slotKey, value: one.valueMasked ?? '' })),
+        // **사람 말로 붙입니다** — 내부 키는 지시문이 금지한 낱말입니다 (위 SLOT_LABEL)
+        .map((one) => ({ label: SLOT_LABEL[one.slotKey] ?? one.slotKey, value: one.valueMasked ?? '' })),
       // `stepId` 는 프롬프트에 안 들어갑니다 — 모델이 `case-N` 을 인용했을 때
       // 그것이 어느 단계였는지 되짚는 데만 씁니다 (§3.9 `referenced_steps`)
       ...steps.map((one) => ({
@@ -418,6 +419,38 @@ const KIND_LABEL: Readonly<Record<string, string>> = {
  * 그것을 사실로 옮겨 적습니다. **화면에는 「미확인」 배지가 붙는데 챗만 단정하면
  * 두 자리가 다른 말을 합니다** → 08-16-deadline-rules.md.
  */
+
+/**
+ * 슬롯 이름을 **사람 말로** — 프롬프트의 `case_state` 라벨입니다.
+ *
+ * ⚠️ **내부 키를 그대로 라벨로 넣고 있었습니다** (2026-09-03). 같은 요청의
+ * 시스템 지시문이 `org_name`·`freeze_requested_at` 같은 낱말을 「`reply` 에
+ * 한 글자도 쓰지 말라」고 못박아 두는데, **그 낱말을 같은 프롬프트가 라벨로
+ * 먹이고** 있었습니다 — 모델이 사건 값을 지칭하려면 금칙어를 옮겨 적는 위험을
+ * 지게 됩니다. 단계(`단계: ${title}`)·기한(`기한: ${title}`) 줄은 사람 말인데
+ * 슬롯만 날 키였습니다. spec 의 `case_state` 예시도 한국어입니다(§3.4 · §4.1).
+ *
+ * **정본은 데이터 모델 §5.1 의 「뜻」 칸입니다** — 새 슬롯을 만들면 거기와
+ * 여기에 함께 적으세요. 빠지면 키가 그대로 나가는 것이 아니라 시험이 잡습니다.
+ */
+const SLOT_LABEL: Readonly<Record<string, string>> = {
+  transferred: '송금 여부',
+  channel: '송금 수단',
+  org_name: '기관명',
+  amount: '금액',
+  amount_hint: '금액 구간',
+  occurred_at: '송금 시각',
+  elapsed_hint: '경과 시간',
+  contact_method: '상대 연락 수단',
+  counterpart_account: '상대 계좌',
+  impersonated_org: '사칭 기관',
+  freeze_requested_at: '지급정지 요청 시각',
+  relief_applied_at: '피해구제 신청 시각',
+  report_filed_at: '신고 접수 시각',
+  objection_submitted_at: '이의제기 제출 시각',
+  notice_started_at: '채권소멸공고 시작일',
+}
+
 export function deadlineState(
   rows: readonly ApiDeadline[],
 ): readonly { label: string; value: string; deadlineId: string }[] {

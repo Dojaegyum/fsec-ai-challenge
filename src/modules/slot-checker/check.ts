@@ -99,13 +99,19 @@ const ASK_ORDER: readonly AskStep[] = [
   // `askWhen` 은 슬롯의 **상태**만 보고 값은 못 봅니다(`amount_hint` 도 같습니다).
   // 돈이 안 나간 사건에는 불필요한 문항이지만 「모름」으로 넘어갈 수 있어
   // 막히지는 않습니다. 값까지 보려면 이 자리의 시그니처를 넓혀야 합니다.
+  //
+  // ⚠️ **「받은 뒤」는 `confirmed` 만이 아닙니다** (2026-09-03). `confirmed` 만
+  // 보면 첫 문항에 「모름·기억 안 남」을 고른 사람에게 이 두 문항이 **한 번도
+  // 안 옵니다** — 이미 지급정지·피해구제를 밟고 들어온 사람이 그 날짜를 댈
+  // 자리가 없어 3영업일 기한이 안 섰습니다. 「모름」은 실패가 아니라 답입니다
+  // (불변 규칙 5). 빈 것(`empty`)만 「아직 안 받은 것」입니다.
   {
     slotKey: 'freeze_requested_at',
-    askWhen: (stateOf) => stateOf('transferred') === 'confirmed',
+    askWhen: (stateOf) => stateOf('transferred') !== 'empty',
   },
   {
     slotKey: 'relief_applied_at',
-    askWhen: (stateOf) => stateOf('transferred') === 'confirmed',
+    askWhen: (stateOf) => stateOf('transferred') !== 'empty',
   },
 ]
 
