@@ -32,12 +32,27 @@ describe("지금 카드 — 이 레일의 첫 줄이 「지금 뭘 해야 하나
     expect(textOf(draw())).toContain("피해구제 신청서 제출");
   });
 
-  it("진행 중이 없으면 「기다리는 구간」 — 다음 것을 지어내지 않는다", () => {
-    const waiting = steps.map((s) =>
+  /**
+   * ⚠️ **진행 중이 없다고 「기다리는 구간」이 아닙니다** (2026-09-03). 갓 만든
+   * 사건은 단계가 전부 not_started 이고 in_progress 는 접수번호 검증 실패에서만
+   * 생깁니다 — 그때 「지금 하실 일 없음」이 뜨면 막 신고를 마치고 들어온 사람이
+   * 첫 줄로 그걸 읽습니다. 히어로·헤더 배지와 같은 판정(`currentStep`)입니다.
+   */
+  it("진행 중이 없어도 남은 단계 중 앞선 것을 가리킨다", () => {
+    const fresh = steps.map((s) =>
       s.state === "in_progress" ? { ...s, state: "not_started" as const } : s,
     );
-    const text = textOf(draw({ steps: waiting }));
-    expect(text).toContain("기다리는 구간입니다");
+    const text = textOf(draw({ steps: fresh }));
+    // 남은 것이 있으니 「기다리는 구간」이 아니라 그 단계를 말합니다
+    expect(text).not.toContain("기다리는 구간입니다");
+    expect(text).not.toContain("지금 하실 일 없음");
+  });
+
+  it("정말로 남은 것이 없을 때만 「기다리는 구간」", () => {
+    const allDone = steps.map((s) =>
+      s.state === "skipped" ? s : { ...s, state: "done_verified" as const },
+    );
+    expect(textOf(draw({ steps: allDone }))).toContain("기다리는 구간입니다");
   });
 });
 

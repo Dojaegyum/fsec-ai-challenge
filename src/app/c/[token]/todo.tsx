@@ -4,6 +4,8 @@ import { useRef } from "react";
 
 import { ddayLabel, dueLabel, groupDeadlines } from "@/modules/deadline-viewer";
 import type { Deadline } from "@/modules/deadline-viewer";
+import { currentStep } from "@/modules/work-handler";
+import type { PlanStep as WorkStep } from "@/modules/work-handler";
 import type { PlanStep } from "@/modules/plan-viewer";
 
 /**
@@ -60,8 +62,11 @@ export default function TodoRail({
   const groups = groupDeadlines(deadlines);
   const notice = groups.info[0] ?? null;
 
-  // 「다음 것을 골라 밀어붙이지」 않습니다 — 순차가 아닙니다 (ADR-035)
-  const now = steps.find((s) => s.state === "in_progress") ?? null;
+  // **「지금 하실 일」은 in_progress 만이 아닙니다** (2026-09-03). 그 상태는
+  // 접수번호가 L1 검증에 실패했을 때만 생기고, 갓 만든 사건은 전부
+  // not_started 라 — 막 신고를 마치고 들어온 사람에게 「지금 하실 일 없음」이
+  // 떴습니다. 히어로·헤더 배지와 같은 판정을 씁니다 (`currentStep`)
+  const now = currentStep(steps as unknown as readonly WorkStep[]) as PlanStep | null;
   const primary = now ? (groups.primary.find((d) => d.step_id === now.step_id) ?? null) : null;
 
   const noticeRef = useRef<HTMLInputElement>(null);
@@ -113,8 +118,12 @@ export default function TodoRail({
         )}
       </div>
 
-      {/* ── 단계 리스트 — 하나가 카드 하나입니다 (ADR-063 「구역을 눈으로」) ── */}
-      <ol className="grid gap-1.5">
+      {/* ── 단계 리스트 — 하나가 카드 하나입니다 (ADR-063 「구역을 눈으로」) ──
+          ⚠️ **`grid` 가 아니라 `flex flex-col` 입니다** (2026-09-03). 명시적 열이
+          없는 grid 는 암묵 열을 `auto`(max-content)로 잡아, 긴 제목의 버튼이 열
+          폭(320px)이 아니라 **제목 길이만큼** 자라 옆 채팅 열로 삐져나왔습니다.
+          flex-col 은 자식을 열 폭에 맞춰(stretch) truncate 가 실제로 자릅니다 */}
+      <ol className="flex flex-col gap-1.5">
         {steps.map((s) => {
           const mark = MARK[s.state] ?? MARK.not_started;
           const dl = byStep.get(s.step_id);
@@ -126,7 +135,7 @@ export default function TodoRail({
                 onClick={onPickStep ? () => onPickStep(s.step_id) : undefined}
                 disabled={!onPickStep}
                 aria-current={active ? "step" : undefined}
-                className={`flex w-full items-center gap-2.5 rounded-[11px] border px-[11px] py-[9px] text-left transition-colors duration-200 ${
+                className={`flex w-full min-w-0 items-center gap-2.5 rounded-[11px] border px-[11px] py-[9px] text-left transition-colors duration-200 ${
                   active
                     ? "border-[oklch(0.697_0.16_258.2/45%)] bg-[oklch(0.697_0.16_258.2/9%)]"
                     : "border-hairline bg-surface hover:border-[oklch(1_0_0/22%)]"

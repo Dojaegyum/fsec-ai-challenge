@@ -575,7 +575,7 @@ function CaseScreen({
             워크스페이스가 있을 때만 그렇습니다. 아직 진술을 받는 중(`casefile`)이면
             할 일이 없으니 T0 가 먼저입니다 — 그때가 T0 가 가장 급한 때이기도 합니다 */}
         <div
-          className={`flex flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
+          className={`flex min-w-0 flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
             atWork ? "order-3" : "order-1"
           }`}
         >
