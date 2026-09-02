@@ -36,11 +36,14 @@ const RADIUS = 26; // px — 중간에 더해지는 둥글기
  * 축별 타이밍. 총 1.5초 안에서 축이 **따로 움직여** 곡선 궤적이 됩니다.
  *
  * · 흡수 — x 가 먼저 붙고 → y 가 늦게 다이브 → 스케일이 따라붙습니다
- * · 복귀 — **역재생이 아닙니다.** y 가 먼저(위로 떠오른 뒤) → x 가 나중(왼쪽으로 펼쳐짐)
+ * · 복귀 — **흡수의 정확한 역재생입니다** (2026-09-03 사용자 결정).
+ *   시안은 복귀에 다른 타이밍을 줬는데, 실제로 보니 「나갈 때와 들어올 때
+ *   챗의 움직임이 다르다」로 읽혔습니다 — 두 전환이 역의 관계여야
+ *   같은 문이 열리고 닫히는 것으로 보입니다. 시안과 다른 이 판단은
+ *   사람이 정했습니다 (RFC-003).
  */
 const TIMING = {
   absorb: { x: [0.2, 1.35], y: [0.45, 1.55], s: [0.35, 1.5] },
-  emit: { x: [0.65, 1.8], y: [0.5, 1.55], s: [0.55, 1.7] },
 } as const;
 
 const TOTAL = 1.5; // 초 — `--motion-absorb`
@@ -73,18 +76,20 @@ export function absorbKeyframes(
   to: Rect,
   direction: AbsorbDirection,
 ): Keyframe[] {
-  const t = TIMING[direction];
+  const t = TIMING.absorb;
   const scaleTo = to.w / from.w;
   const frames: Keyframe[] = [];
 
   for (let i = 0; i <= SAMPLES; i++) {
-    const time = (i / SAMPLES) * TOTAL;
+    // **복귀는 시간축을 뒤집어 같은 표본을 읽습니다** — i 번째 프레임이
+    // 흡수의 (끝-i) 번째 모습입니다. 궤적·변형·둥글기가 전부 거울입니다
+    const k = direction === "absorb" ? i : SAMPLES - i;
+    const time = (k / SAMPLES) * TOTAL;
 
-    // 복귀는 같은 곡선을 거꾸로 읽습니다 — 끝점이 뒤바뀔 뿐 상수는 같습니다
     const raw = (a: number, b: number) => seg(time, a, b);
-    const mx = direction === "absorb" ? raw(t.x[0], t.x[1]) : 1 - raw(t.x[0], t.x[1]);
-    const my = direction === "absorb" ? raw(t.y[0], t.y[1]) : 1 - raw(t.y[0], t.y[1]);
-    const ms = direction === "absorb" ? raw(t.s[0], t.s[1]) : 1 - raw(t.s[0], t.s[1]);
+    const mx = raw(t.x[0], t.x[1]);
+    const my = raw(t.y[0], t.y[1]);
+    const ms = raw(t.s[0], t.s[1]);
 
     // 블랙홀 변형 — 중간에서 최대, 양 끝점은 0. 그래서 시작·끝이 정형입니다
     const d = Math.sin(Math.min(1, Math.max(0, ms)) * Math.PI);

@@ -18,7 +18,7 @@ import { useCaseBundle, type CaseBundle, type CaseSlot } from "./load";
 import { useChatSend } from "./send";
 import { useArtifact } from "./artifact";
 import { useUploads } from "./upload";
-import T0Rail from "./safety";
+import T0Overlay from "./safety";
 import TodoRail from "./todo";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
@@ -337,9 +337,15 @@ function CaseScreen({
   };
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : openedFocus);
-  const [side, setSide] = useState<Side>(
-    wanted ? (devFocus === "chat" ? "casefile" : "work") : opened.side,
-  );
+  /**
+   * 오른쪽 열은 **문진이 끝났는가 하나로만** 갈립니다 (2026-09-03 결정 —
+   * TODO·챗·사건파일|WS 구조). 탭을 오가도 오른쪽이 안 바뀌니, 챗이
+   * 중앙으로 미끄러지는 동안 사건 파일이 먼저 그려지던 것이 사라집니다.
+   * 상태가 아니라 파생값인 이유입니다 — 손으로 옮길 수 있으면 또 어긋납니다.
+   * `devSide` 는 개발 스위치 전용입니다.
+   */
+  const [devSide, setDevSide] = useState<Side | null>(null);
+  const side: Side = devSide ?? (bundle.steps.length > 0 ? "work" : "casefile");
   const [copied, setCopied] = useState(false);
 
   const atWork = side === "work";
@@ -440,15 +446,28 @@ function CaseScreen({
 
     // 복귀 — 들어오는 본문에 같은 곡선을 거꾸로 겁니다 (뱉어내듯 펴짐)
     let anim: Animation | undefined;
+    let fade: Animation | undefined;
     if (enteringChat && miniBox && mainRef.current) {
       anim = mainRef.current.animate(absorbKeyframes(mainBox, miniBox, "emit"), {
         duration: ABSORB_MS,
         easing: "linear",
       });
+      // 슬롯에서 나올 때 톡 튀지 않게 앞머리만 살짝 — 카드 배경은
+      // `ghost-card-shed`(아래 className)가 입힙니다. 길게 페이드하면
+      // 카드가 반투명해져 지나가는 자료함 글자와 또 뒤엉킵니다
+      fade = mainRef.current.animate(
+        [
+          { offset: 0, opacity: 0 },
+          { offset: 0.12, opacity: 1 },
+          { offset: 1, opacity: 1 },
+        ],
+        { duration: ABSORB_MS, easing: "linear" },
+      );
     }
     return () => {
       clearTimeout(t);
       anim?.cancel();
+      fade?.cancel();
     };
   }, [focus]);
 
@@ -489,7 +508,7 @@ function CaseScreen({
           화면이고 보드에는 앰버(기한)·horizon(공고 대기) 이 이미 있어 한 단계 죽였습니다
           (2026-08-25 검수). 2026-08-27 에 전부 40% 연해져 0.7 → 0.42 입니다.
           `isolate` 가 있어야 세 열 아래에 깔립니다 (HorizonGlow 머리말) */}
-      <HorizonGlow attach="viewport" opacity={0.42} />
+      <HorizonGlow attach="viewport" opacity={0.55} />
       {/* ── 헤더 ─────────────────────────────────────────── */}
       <header className="border-b border-hairline bg-stage">
         <div className="mx-auto flex min-h-[56px] w-full max-w-shell flex-wrap items-center justify-between gap-x-4 gap-y-2 px-[clamp(16px,3vw,32px)] py-2">
@@ -525,12 +544,8 @@ function CaseScreen({
                 <button
                   key={id}
                   type="button"
-                  onClick={() => {
-                    setFocus(id);
-                    // 챗으로 갈 때는 오른쪽 열이 사건 파일이어야 진술이 채워지는 것이
-                    // 보입니다 — 그 밖에는 할 일 패널이 먼저입니다 (§S-06)
-                    setSide(id === "chat" ? "casefile" : "work");
-                  }}
+                  // 오른쪽 열은 안 건드립니다 — 문진이 끝났는가로만 갈립니다 (위 side)
+                  onClick={() => setFocus(id)}
                   aria-current={focus === id ? "page" : undefined}
                   className={`inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] transition-colors duration-200 ${
                     focus === id
@@ -568,32 +583,30 @@ function CaseScreen({
         </div>
       </header>
 
-      {/* 셸은 **세 열**입니다 — T0 레일 · 본문 · 오른쪽 열 (ADR-036).
-          T0 를 본문 밖에 두어야 국면이 바뀌어도 사라지지 않습니다 */}
-      <div className="mx-auto grid w-full max-w-shell flex-1 gap-0 md:grid-cols-[320px_minmax(0,1fr)_350px]">
-        {/* 좁은 폭 순서 — spec S-06 「워크스페이스가 맨 위로 옵니다」.
-            워크스페이스가 있을 때만 그렇습니다. 아직 진술을 받는 중(`casefile`)이면
-            할 일이 없으니 T0 가 먼저입니다 — 그때가 T0 가 가장 급한 때이기도 합니다 */}
-        <div
-          className={`flex min-w-0 flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
-            atWork ? "order-3" : "order-1"
-          }`}
-        >
-          <T0Rail />
-          {/* **단계가 서기 전에는 안 그립니다** — 문진 중에 「기다리는 구간」이
-              뜨면 거짓말입니다. 플랜이 생기면 이 레일이 보드를 대신합니다 (ADR-063) */}
-          {bundle.steps.length > 0 && (
+      {/* 셸은 **세 열**입니다 — 할 일 레일 · 본문 · 오른쪽 열 (ADR-036 · ADR-063).
+          T0 안전 절차는 열이 아니라 **본문 위 오버레이 알약**입니다(2026-09-03
+          자리 정정 → safety.tsx 머리말). 단계가 서기 전에는 왼쪽 열을 통째로
+          접습니다 — 문진 중에 빈 레일이 서 있으면 자리만 먹습니다 */}
+      <div
+        className={`mx-auto grid w-full max-w-shell flex-1 gap-0 ${
+          bundle.steps.length > 0
+            ? "md:grid-cols-[320px_minmax(0,1fr)_350px]"
+            : "md:grid-cols-[minmax(0,1fr)_350px]"
+        }`}
+      >
+        {bundle.steps.length > 0 && (
+          <div
+            className={`flex min-w-0 flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
+              atWork ? "order-3" : "order-1"
+            }`}
+          >
             <div className="md:sticky md:top-[clamp(18px,3vh,28px)]">
               <TodoRail
                 steps={bundle.steps}
                 deadlines={bundle.deadlines}
                 activeStepId={activeStep?.step_id ?? null}
-                onPickStep={(id) => {
-                  setPicked(id);
-                  // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
-                  // 아무 일도 안 일어난 것처럼 보입니다
-                  setSide("work");
-                }}
+                /* side 는 파생이라 옮길 것이 없습니다 — 단계가 있는 한 오른쪽은 WS 입니다 */
+                onPickStep={(id) => setPicked(id)}
                 /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
                 onOpenDoc={() => setFocus("doc")}
                 /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
@@ -605,39 +618,45 @@ function CaseScreen({
                 busy={uploads.busy}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ── 본문 ───────────────────────────────────────── */}
         <section
           ref={mainRef}
           key={focus}
           // ⚠️ `absorb.ts` 의 좌표는 **왼쪽 위 기준**으로 계산합니다.
-          // 기본값(가운데)으로 두면 축소 기준이 어긋나 화면 밖으로 나갑니다
-          style={{ transformOrigin: "top left" }}
+          // 기본값(가운데)으로 두면 축소 기준이 어긋나 화면 밖으로 나갑니다.
+          // 복귀 중에는 카드 껍질을 입고 옵니다 — 나가는 유령의 `ghost-card` 거울.
+          // 맨몸으로 날리면 지나가는 화면 글자와 뒤엉킵니다 (2026-09-03 실측)
+          style={{
+            transformOrigin: "top left",
+            ...(ghost && focus === "chat"
+              ? { animation: `ghost-card-shed ${ABSORB_MS}ms linear both`, border: "1px solid transparent" }
+              : {}),
+          }}
           className={`order-2 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none ${
             /* 챗은 읽기 폭으로 가운데에 — 「중앙 고정」의 고정감은 폭에서 옵니다 (ADR-063) */
             focus === "chat" ? "mx-auto w-full max-w-[760px]" : "view-in"
           }`}
         >
+          {/* T0 는 본문 위에 뜹니다 — 어느 국면이든 같은 자리 (ADR-063 · 2026-09-03) */}
+          <T0Overlay />
           {focus === "chat" && (
             <ChatView
               atWork={atWork}
               token={dataToken}
               chat={chat}
-              onPickChoice={() => setSide("work")}
+              /* 답해도 오른쪽은 그대로입니다 — 플랜이 생기는 순간 side 가
+                 파생으로 work 가 됩니다. 손으로 옮길 것이 없습니다 */
+              onPickChoice={() => undefined}
             />
           )}
           {focus === "plan" && (
             <PlanView
               steps={bundle.steps}
               deadlines={bundle.deadlines}
-              onPickStep={(id) => {
-                setPicked(id);
-                // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
-                // 아무 일도 안 일어난 것처럼 보입니다
-                setSide("work");
-              }}
+              onPickStep={(id) => setPicked(id)}
               /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
               onOpenDoc={() => setFocus("doc")}
               /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
@@ -682,7 +701,7 @@ function CaseScreen({
             본문이 챗이면 사건 파일 ↔ 워크스페이스,
             본문이 챗이 아니면 워크스페이스 **위** + 미니 챗 **아래** */}
         <aside
-          className={`flex min-w-0 flex-col border-t border-hairline bg-[oklch(1_0_0/1.5%)] p-[clamp(16px,3vw,20px)] md:order-none md:border-l md:border-t-0 ${
+          className={`flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:border-l md:border-t-0 ${
             atWork ? "order-1 border-t-0 border-b" : "order-3"
           } ${atWork ? "side-in" : ""}`}
         >
@@ -706,7 +725,16 @@ function CaseScreen({
                 fail={artifact.fail}
                 onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
               />
-              {chatIsMain ? (
+              {chatIsMain && ghost ? (
+                /* 복귀 중 — 미니 챗이 떠나는 챗에게 자리를 돌려줍니다 (mini-take 거울).
+                   즉시 힌트로 갈아끼우면 슬롯이 한 프레임에 비어 눈에 걸립니다 */
+                <div
+                  style={{ animation: `mini-give ${ABSORB_MS}ms linear both` }}
+                  className="mt-4 flex min-h-[220px] flex-col border-t border-hairline pt-4"
+                >
+                  <MiniChat chat={chat} token={dataToken} />
+                </div>
+              ) : chatIsMain ? (
                 <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
                   챗이 다른 단계를 가리키면 이 패널이 바뀝니다. 언급이 없으면{" "}
                   <b className="font-[620] text-ink-2">그대로 둡니다.</b> 적던 접수번호가
@@ -734,10 +762,6 @@ function CaseScreen({
                 사건 파일
               </div>
               <CaseFileCard slots={bundle.slots} asking={bundle.question?.slot_key ?? null} />
-              <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
-                답변이 끝나면 이 자리가 <b className="font-[620] text-ink-2">할 일 패널</b>로
-                바뀝니다. 챗과 플랜은 같은 주소입니다.
-              </p>
             </>
           )}
         </aside>
@@ -758,7 +782,7 @@ function CaseScreen({
             type="button"
             onClick={() => {
               setFocus(id);
-              if (id !== "chat") setSide("work");
+              if (id !== "chat") setDevSide("work");
             }}
             aria-pressed={focus === id}
             className={`rounded-full px-2.5 py-1 transition-colors duration-200 ${
@@ -770,7 +794,7 @@ function CaseScreen({
         ))}
         <button
           type="button"
-          onClick={() => setSide(atWork ? "casefile" : "work")}
+          onClick={() => setDevSide(atWork ? "casefile" : "work")}
           disabled={!chatIsMain}
           className="rounded-full px-2.5 py-1 text-ink-3 transition-colors duration-200 hover:text-ink-1 disabled:opacity-30"
         >
@@ -815,12 +839,7 @@ function CaseScreen({
                 <PlanView
               steps={bundle.steps}
               deadlines={bundle.deadlines}
-              onPickStep={(id) => {
-                setPicked(id);
-                // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
-                // 아무 일도 안 일어난 것처럼 보입니다
-                setSide("work");
-              }}
+              onPickStep={(id) => setPicked(id)}
               onOpenDoc={() => setFocus("doc")}
             />
               )}
