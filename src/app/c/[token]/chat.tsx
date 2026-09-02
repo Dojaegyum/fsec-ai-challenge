@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   AnswerBubble,
@@ -452,11 +452,11 @@ export function PendingBubble() {
 }
 
 /**
- * 미니 챗 — 본문이 플랜·증거함일 때 오른쪽 열 **아래쪽**에 앉는 대응 비서.
+ * 미니 챗 — 본문이 플랜·증거함·기재 안내일 때 오른쪽 열 **맨 위**에 앉는 대응 비서.
  *
- * 흡수 모션의 **착지점**입니다. 축소된 사본을 남기는 게 아니라 **자연 크기의
- * 진짜 폼**이고, 원본 챗이 사라지는 자리에서 교차로 이어받습니다
- * (`absorb.ts` 의 `CROSSFADE`).
+ * 위인 이유(2026-09-03 결정): 본문이 어디에 가 있어도 **대화는 계속 눈에 보이는
+ * 곳**에 있어야 하는데, 아래쪽에 두면 워크스페이스 길이만큼 내려가 접혔습니다.
+ * 축소된 사본이 아니라 **자연 크기의 진짜 폼**입니다 — 본문 챗과 같은 한 벌을 봅니다.
  */
 export function MiniChat({
   chat,
@@ -482,10 +482,18 @@ export function MiniChat({
   // **좁은 자리라 최근 것만** 보여줍니다. 전부는 「대화」로 넘어가면 있습니다
   const recent = lines.slice(-4);
 
+  // **막내가 보여야 합니다** — 좁은 칸이라 목록이 넘치는 게 보통인데, 위에
+  // 붙어 있으면 지금 묻는 문항·선택지가 잘린 채로 뜹니다 (2026-09-03 실측)
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lines.length, sending, chat.ask]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2.5 text-[12.5px] tracking-[0.12em] text-ink-4">대응 비서</div>
-      <div className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
+      <div ref={listRef} className="grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
         {recent.length === 0 && (
           <p className="rounded-[13px] rounded-bl-[4px] border border-hairline bg-surface px-3 py-2.5 text-[13px] leading-[1.55] text-ink-2">
             궁금한 것을 여기서 바로 물어보셔도 됩니다.

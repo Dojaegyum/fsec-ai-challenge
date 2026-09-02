@@ -54,8 +54,8 @@ import type { Uploads } from "./upload";
  * `token` 이 `null` 이면 **서버를 부르지 않고 픽스처로 그립니다** (`?view=` 개발 경로).
  */
 
-/** 부모 `.view-in` 이 0.5초 지연이라, 자식 계단도 그 뒤에서 시작합니다 */
-const step = (i: number) => ({ animationDelay: `${520 + i * 80}ms` });
+/** 부모 교차(`.view-enter` 0.32s)가 끝난 뒤에 자식 계단이 시작합니다 */
+const step = (i: number) => ({ animationDelay: `${360 + i * 80}ms` });
 
 export default function EvidenceView({
   token,
