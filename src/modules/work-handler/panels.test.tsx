@@ -239,7 +239,8 @@ describe("제출 — 올리는 길은 하나입니다", () => {
 
   it("「올려도 되는 이유」는 남는다", () => {
     const text = textOf(renderToStaticMarkup(<UploadPanel title={T} />));
-    expect(text).toContain("브라우저에서 가린 뒤");
+    // 2026-09-02 문구 정정 — 파일은 브라우저가 못 가립니다. 가리는 곳은 저희 서버입니다
+    expect(text).toContain("저희 서버에서 가린 뒤");
   });
 });
 
