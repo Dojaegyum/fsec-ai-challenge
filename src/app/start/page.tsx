@@ -1123,9 +1123,14 @@ export default function Start() {
                   </p>
                 </div>
                 <div className="rounded-[12px] border border-[oklch(0.697_0.16_258.2/40%)] bg-pii-bg p-[12px_14px]">
-                  <div className="text-[13.5px] font-[640] text-pii">브라우저에서 가려집니다</div>
+                  {/* **가리는 자리는 둘입니다** — 적은 글은 브라우저(1차 정규식),
+                      올린 파일은 저희 서버(전사·판독 인프라). 전에는 「브라우저에서
+                      가려집니다」라고만 적어 파일까지 브라우저에서 가리는 것처럼
+                      읽혔습니다(2026-09-02 지적) — 파일은 브라우저가 못 가립니다 */}
+                  <div className="text-[13.5px] font-[640] text-pii">가려진 뒤에야 AI 로 갑니다</div>
                   <p className="mt-1 text-[13px] leading-[1.55] text-ink-2">
-                    토큰으로 바뀐 뒤에야 서버로 갑니다.
+                    적으신 글은 브라우저에서, 올리신 파일은 저희 서버에서 가립니다.
+                    바깥 AI 에는 가려진 것만 갑니다.
                   </p>
                 </div>
                 <div className="rounded-[12px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[12px_14px]">

@@ -19,6 +19,7 @@ import { useChatSend } from "./send";
 import { useArtifact } from "./artifact";
 import { useUploads } from "./upload";
 import T0Rail from "./safety";
+import TodoRail from "./todo";
 import PlanView from "./plan";
 import EvidenceView from "./evidence";
 import DocGuide from "./doc";
@@ -124,9 +125,10 @@ function caseFileTone(
  * **`?view=` 는 대체 경로가 아닙니다** — 그쪽은 픽스처를 그리는 개발 경로라
  * 사용자 자기 사건을 보는 길이 아닙니다.
  */
+/** 「할 일」 탭이 없습니다 — 할 일은 왼쪽 레일에 **상시**입니다 (ADR-063).
+ *  플랜 화면 자체는 개발 경로(`?view=plan`)에만 남습니다 */
 const VIEWS: readonly [Focus, string][] = [
   ["chat", "대화"],
-  ["plan", "할 일"],
   ["evidence", "자료함"],
   ["doc", "기재 안내"],
 ];
@@ -263,6 +265,10 @@ function CaseScreen({
 
   // `?view=` 가 없으면 **규칙**이 첫 화면을 고릅니다 — 서버가 지목하지 않습니다 (§3.10)
   const opened = openCase(bundle.case);
+  // `case-opener` 는 단계가 있으면 `plan` 을 고르지만, 챗이 중앙에 고정되면서
+  // (ADR-063) 그 역할은 왼쪽 할 일 레일의 「지금 카드」가 맡습니다 — 본문은 챗.
+  // `case-opener` 를 안 고친 것은 `?view=plan` 개발 경로가 그 값을 아직 쓰기 때문입니다
+  const openedFocus: Focus = opened.focus === "plan" ? "chat" : opened.focus;
 
   /** 증거함·챗이 서버를 부를 때 쓰는 토큰. **개발 경로에서는 `null`** — 픽스처로 그립니다 */
   const dataToken = wanted === null ? token : null;
@@ -330,7 +336,7 @@ function CaseScreen({
     await artifact.submit(stepId, { kind: "receipt_doc", evidenceId });
   };
 
-  const [focus, setFocus] = useState<Focus>(wanted ? devFocus : opened.focus);
+  const [focus, setFocus] = useState<Focus>(wanted ? devFocus : openedFocus);
   const [side, setSide] = useState<Side>(
     wanted ? (devFocus === "chat" ? "casefile" : "work") : opened.side,
   );
@@ -564,16 +570,42 @@ function CaseScreen({
 
       {/* 셸은 **세 열**입니다 — T0 레일 · 본문 · 오른쪽 열 (ADR-036).
           T0 를 본문 밖에 두어야 국면이 바뀌어도 사라지지 않습니다 */}
-      <div className="mx-auto grid w-full max-w-shell flex-1 gap-0 md:grid-cols-[288px_1fr_350px]">
+      <div className="mx-auto grid w-full max-w-shell flex-1 gap-0 md:grid-cols-[320px_minmax(0,1fr)_350px]">
         {/* 좁은 폭 순서 — spec S-06 「워크스페이스가 맨 위로 옵니다」.
             워크스페이스가 있을 때만 그렇습니다. 아직 진술을 받는 중(`casefile`)이면
             할 일이 없으니 T0 가 먼저입니다 — 그때가 T0 가 가장 급한 때이기도 합니다 */}
         <div
-          className={`px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
+          className={`flex flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:border-r md:border-hairline md:px-5 md:pb-[clamp(18px,3vh,28px)] md:order-none ${
             atWork ? "order-3" : "order-1"
           }`}
         >
           <T0Rail />
+          {/* **단계가 서기 전에는 안 그립니다** — 문진 중에 「기다리는 구간」이
+              뜨면 거짓말입니다. 플랜이 생기면 이 레일이 보드를 대신합니다 (ADR-063) */}
+          {bundle.steps.length > 0 && (
+            <div className="md:sticky md:top-[clamp(18px,3vh,28px)]">
+              <TodoRail
+                steps={bundle.steps}
+                deadlines={bundle.deadlines}
+                activeStepId={activeStep?.step_id ?? null}
+                onPickStep={(id) => {
+                  setPicked(id);
+                  // 누른 단계의 작업 자리가 보여야 합니다 — 안 옮기면 눌러도
+                  // 아무 일도 안 일어난 것처럼 보입니다
+                  setSide("work");
+                }}
+                /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
+                onOpenDoc={() => setFocus("doc")}
+                /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
+                onPickFile={
+                  dataToken
+                    ? (file) => void uploads.add(file).then(() => setFocus("evidence"))
+                    : undefined
+                }
+                busy={uploads.busy}
+              />
+            </div>
+          )}
         </div>
 
         {/* ── 본문 ───────────────────────────────────────── */}
@@ -584,7 +616,8 @@ function CaseScreen({
           // 기본값(가운데)으로 두면 축소 기준이 어긋나 화면 밖으로 나갑니다
           style={{ transformOrigin: "top left" }}
           className={`order-2 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none ${
-            focus === "chat" ? "" : "view-in"
+            /* 챗은 읽기 폭으로 가운데에 — 「중앙 고정」의 고정감은 폭에서 옵니다 (ADR-063) */
+            focus === "chat" ? "mx-auto w-full max-w-[760px]" : "view-in"
           }`}
         >
           {focus === "chat" && (
@@ -623,11 +656,11 @@ function CaseScreen({
               token={dataToken}
               uploads={uploads}
               restorable={chat.restorable}
-              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-062)
+              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-063)
               onMappings={(fresh) => void chat.absorb(fresh)}
               locked={chat.locked}
               /* 「없이 진행」의 도착지 — 「사건은 그대로 진행됩니다」를 참으로 만듭니다 */
-              onContinue={() => setFocus("plan")}
+              onContinue={() => setFocus("chat")}
             />
           )}
           {focus === "doc" && (
@@ -792,10 +825,10 @@ function CaseScreen({
                   token={dataToken}
                   uploads={uploads}
                   restorable={chat.restorable}
-              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-062)
+              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-063)
               onMappings={(fresh) => void chat.absorb(fresh)}
                   locked={chat.locked}
-                  onContinue={() => setFocus("plan")}
+                  onContinue={() => setFocus("chat")}
                 />
               )}
               {ghost.from === "doc" && (

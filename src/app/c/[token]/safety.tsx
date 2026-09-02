@@ -3,18 +3,19 @@
 import { useState } from "react";
 
 /**
- * T0 안전 절차 — `/c/{token}` 의 **왼쪽 고정 레일**.
+ * T0 안전 절차 — `/c/{token}` 왼쪽 열의 **위쪽, 접이식**.
  *
  * 계약: spec/backend/08-14-slot-tiering.md 「T0 · 없어도 시작」 ·
- *       spec/frontend/08-14-screens.md 「셸은 세 열입니다」 · ADR-036
+ *       spec/frontend/08-14-screens.md 「셸은 세 열입니다」 · ADR-036 · **ADR-063**
  *
- * **본문이 무엇이든 여기 있습니다.** 챗·플랜·증거함 어디로 가도 사라지지 않습니다 —
- * `slot-tiering` 이 「슬롯과 무관하게 상시 노출」이라 했고, 모듈 명세도 `plan-viewer` 가
- * T0 를 상시 노출한다고 적고 있습니다. 본문 안에 두면 국면이 바뀔 때 같이 사라집니다.
+ * **2026-09-02 에 접이식으로 격하됐습니다** (ADR-063). 전에는 「넓은 폭에서
+ * 접히지 않는다」가 규칙이었는데, 왼쪽 열에 할 일 레일이 들어오면서 안전 절차는
+ * 부가 정보가 됐습니다. slot-tiering 의 「상시 노출」은 **접힌 상태에서도 항상
+ * 보이는 요약 한 줄**(112 신고 · 1332 상담 · 추가 송금 금지 · 비행기모드)이
+ * 지킵니다 — 「급하면 안 보이는 것」이 되지 않습니다.
  *
  * 절대 하지 않는 것
- *  · **넓은 폭에서 접히지 않습니다.** 자리가 남으니 접을 이유가 없고,
- *    접는 순간 「급하면 안 보이는 것」이 됩니다. 접기는 **좁은 폭 전용**입니다
+ *  · 요약 줄을 숨기지 않습니다 — 접혀도 넷의 이름은 읽힙니다
  *  · 슬롯이 얼마나 찼는지에 따라 바뀌지 않습니다 — 어떤 분기에서도 틀리지 않는 슈퍼셋입니다
  *  · 여기서 절차를 늘리지 마세요. **넷을 넘기면 T0 가 아닙니다**
  */
@@ -28,63 +29,67 @@ const T0 = [
 ] as const;
 
 export default function T0Rail() {
-  // 좁은 폭에서만 씁니다 — 넓은 폭에서는 아래 `md:` 가 상태와 무관하게 펼쳐 둡니다
-  const [open, setOpen] = useState(true);
+  // **기본이 접힘입니다** (ADR-063) — 요약 줄이 상시라 접혀도 넷은 보입니다
+  const [open, setOpen] = useState(false);
 
   return (
-    <aside className="md:sticky md:top-[clamp(18px,3vh,28px)] md:self-start">
-      <div className="rounded-[14px] border border-[oklch(0.697_0.16_258.2/40%)] bg-pii-bg p-[14px_15px]">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 className="text-[13px] font-[620] tracking-[0.08em] text-pii">
+    <aside>
+      <div className="rounded-[13px] border border-[oklch(0.697_0.16_258.2/40%)] bg-pii-bg p-[12px_14px]">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex min-h-[var(--size-touch)] w-full items-center justify-between gap-3 text-left"
+        >
+          <span className="text-[12.5px] font-[620] tracking-[0.08em] text-pii">
             지금 당장, 무슨 일이든
-          </h2>
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            className="inline-flex min-h-[var(--size-touch)] items-center text-[13px] text-pii md:hidden"
-          >
-            {open ? "접기 ▴" : "펼치기 ▾"}
-          </button>
-        </div>
+          </span>
+          <span aria-hidden className="text-[12px] text-pii">
+            {open ? "▴" : "▾"}
+          </span>
+        </button>
 
-        <p className="mt-1 text-[13px] leading-[1.6] text-ink-3 md:hidden">
-          112 신고 · 1332 상담 · 추가 송금 금지 · 비행기모드
-        </p>
+        {/* **접혀도 이 줄은 항상 보입니다** — slot-tiering 「상시 노출」의 최소형 */}
+        {!open && (
+          <p className="mt-0.5 text-[12.5px] leading-[1.6] text-ink-3">
+            <b data-numeric className="font-[640] text-pii">112</b> 신고 ·{" "}
+            <b data-numeric className="font-[640] text-pii">1332</b> 상담 · 추가 송금 금지 ·
+            비행기모드
+          </p>
+        )}
 
-        {/* 넓은 폭에서는 `md:grid` 가 상태와 무관하게 펼칩니다 — 접기는 좁은 폭 전용입니다 */}
-        <ul className={`mt-3 gap-3.5 border-t border-[oklch(0.697_0.16_258.2/22%)] pt-3 ${open ? "grid" : "hidden md:grid"}`}>
-          {/* 들여쓰기를 두지 않습니다. 번호 칸을 따로 주면 번호 없는 절차가
-              빈 칸만큼 밀려나고, 레일이 좁아 설명이 더 접힙니다.
-              번호는 이름과 한 줄에 두고 **전부 왼쪽 끝에서** 시작합니다 */}
-          {T0.map(([num, name, why]) => (
-            <li key={name}>
-              <p className="text-[14px] font-[600] leading-[1.45] text-ink-1">
-                {num ? (
-                  <>
-                    <b data-numeric className="font-[680] text-pii">
-                      {num}
-                    </b>{" "}
-                    {name}
-                  </>
-                ) : (
-                  <>
-                    <span aria-hidden className="mr-1.5 text-icon">
-                      ·
-                    </span>
-                    {name}
-                  </>
-                )}
-              </p>
-              <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">{why}</p>
+        {open && (
+          <ul className="mt-2.5 grid gap-3 border-t border-[oklch(0.697_0.16_258.2/22%)] pt-2.5">
+            {/* 들여쓰기를 두지 않습니다 — 번호 칸을 따로 주면 번호 없는 절차가
+                밀려나고, 레일이 좁아 설명이 더 접힙니다 */}
+            {T0.map(([num, name, why]) => (
+              <li key={name}>
+                <p className="text-[13.5px] font-[600] leading-[1.45] text-ink-1">
+                  {num ? (
+                    <>
+                      <b data-numeric className="font-[680] text-pii">
+                        {num}
+                      </b>{" "}
+                      {name}
+                    </>
+                  ) : (
+                    <>
+                      <span aria-hidden className="mr-1.5 text-icon">
+                        ·
+                      </span>
+                      {name}
+                    </>
+                  )}
+                </p>
+                <p className="mt-0.5 text-[12.5px] leading-[1.55] text-ink-3">{why}</p>
+              </li>
+            ))}
+            <li className="border-t border-[oklch(0.697_0.16_258.2/22%)] pt-2 text-[12px] leading-[1.6] text-ink-3">
+              이 넷은 <b className="font-[620] text-ink-2">어떤 경우에도 맞습니다.</b> 화면이
+              바뀌어도 여기 그대로 있습니다.
             </li>
-          ))}
-        </ul>
-
-        <p className="mt-3 border-t border-[oklch(0.697_0.16_258.2/22%)] pt-2.5 text-[12.5px] leading-[1.6] text-ink-3">
-          이 넷은 <b className="font-[620] text-ink-2">어떤 경우에도 맞습니다.</b> 화면이 바뀌어도
-          여기 그대로 있습니다.
-        </p>
+          </ul>
+        )}
       </div>
     </aside>
   );
