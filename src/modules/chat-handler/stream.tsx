@@ -155,7 +155,9 @@ export function QuestionField({
             // 조합 중(한글 입력)에 Enter 를 먹으면 마지막 글자가 잘립니다
             if (e.key === "Enter" && !e.nativeEvent.isComposing) send();
           }}
-          className="min-h-[48px] flex-1 bg-transparent text-[14.5px] text-ink-1 placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed"
+          // ⚠️ `min-w-0` 필수 — input 은 고유 최소폭이 있어 flex-1 만으로는 안
+          // 줄어들고, 오른쪽 미니 챗 열(330px)에서 줄 전체가 밖으로 넘칩니다
+          className="min-h-[48px] min-w-0 flex-1 bg-transparent text-[14.5px] text-ink-1 placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed"
         />
         <button
           type="button"
