@@ -316,7 +316,20 @@ export function planLoad(
         }
         afterKeys.push(key)
       }
-      edges.set(entry.step_key, afterKeys)
+      // ⚠️ **덮어쓰면 고리가 숨습니다** (2026-09-03 까지 `edges.set(…)` 이었습니다).
+      //
+      // 같은 `step_key` 가 여러 파일에 있습니다 — 공통 파일의 단계를 유형 파일이
+      // 덮는 것이 §11.2 병합의 모양입니다. 그런데 여기서 그냥 `set` 하면 **파일을
+      // 읽은 순서에서 마지막 것만** 남아, 앞 파일이 만든 `after` 가 사라집니다.
+      // 공통이 `A after B`, 유형이 `B after A` 면 어느 한쪽만 남아 **고리가 검사에
+      // 안 걸리고**, 그 사실은 나중에 「무한 루프나 빈 플랜」으로만 나타납니다
+      // (→ `cycles` 머리말).
+      //
+      // 그래서 **합칩니다.** 어느 조합에서든 고리가 될 수 있으면 여기서 막는
+      // 편이 낫습니다 — 과하게 잡으면 사람이 KB 를 고치면 되지만, 놓치면
+      // 피해자의 화면에서 단계가 사라집니다
+      const already = edges.get(entry.step_key) ?? []
+      edges.set(entry.step_key, [...new Set([...already, ...afterKeys])])
 
       // ── 단계 ────────────────────────────────────────────────────
       const steps = Array.isArray(body.steps) ? (body.steps as KbStep[]) : []

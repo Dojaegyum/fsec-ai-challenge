@@ -104,6 +104,32 @@ export function createMediaReader(env: Env): MediaReader | null {
         ? signed
         : `${base.replace(/\/$/, '')}/storage/v1${signed}`
     },
+
+    /**
+     * 글 파일의 본문을 그대로 가져옵니다 — `kind: 'text'` 만 이 길로 옵니다.
+     *
+     * 위에서 낸 임시 주소를 서버가 자기 손으로 한 번 받습니다. **녹음·사진은
+     * 이 길로 오지 않습니다** — 그쪽은 주소만 추론 서비스에 건네고 바이트는
+     * 우리 함수를 통과하지 않습니다(§3.2).
+     */
+    async readText(objectKey: string): Promise<string> {
+      const url = await this.readUrl(objectKey)
+
+      let res: Response
+      try {
+        res = await fetch(url, { cache: 'no-store' })
+      } catch {
+        // ⚠️ **주소를 메시지에 담지 않습니다** — 서명이 붙어 있고 이 값은
+        // 감사 기록으로 갑니다
+        throw new Error('저장소에서 파일을 받지 못했습니다')
+      }
+
+      if (!res.ok) throw new Error(`저장소가 파일을 안 냈습니다 (${res.status})`)
+
+      // **자르는 것은 부르는 쪽이 합니다** — 여기서 자르면 얼마나 잘렸는지를
+      // 밖에서 알 길이 없습니다
+      return await res.text()
+    },
   }
 }
 

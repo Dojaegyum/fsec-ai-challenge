@@ -78,7 +78,16 @@ export interface PiiTokenizer {
       allowedTerms?: readonly string[]
       mappings?: readonly IssuedToken[]
     },
-  ): Promise<{ masked: string }>
+  ): Promise<{
+    masked: string
+    /**
+     * 유형별로 몇 건을 가렸나. **건수만입니다 — 값도 토큰도 없습니다.**
+     *
+     * 계측 헤더 `X-Pii-Token-Count` 가 이 값으로 섭니다(§1.1). 이 칸이 없어서
+     * 챗 응답의 그 헤더가 언제나 `none` 이었습니다 → `TurnOutcome.piiCounts`
+     */
+    counts: Readonly<Record<string, number>>
+  }>
 }
 
 /**
@@ -266,6 +275,19 @@ export interface TurnOutcome {
   readonly utteranceMasked: string
   /** 감사 로그(`chat.context_built`)에 넣을 건수. **여기서 쓰지 않습니다** → §7.2 */
   readonly counts: { applied: number; reference: number; transcriptLines: number }
+  /**
+   * 이번 발화를 토큰화하며 **유형별로 몇 건**을 가렸나 → 08-14-api.md §1.1
+   * (`X-Pii-Token-Count`).
+   *
+   * ⚠️ **2026-09-03 까지 이 값을 여기서 버렸습니다.** 토크나이저가 내는 것을
+   * `const { masked } = ...` 로 받아 건수를 흘렸고, 그래서 **이 제품에서 개인정보가
+   * 가장 많이 지나가는 경로인 챗 응답**의 계측 헤더가 언제나 `none` 이었습니다.
+   * §1.1 이 그 헤더를 두는 이유가 *"작동할 뿐 아니라 보여야 합니다"* 인데,
+   * 정작 보여야 할 자리에서 안 보였습니다.
+   *
+   * **건수만입니다. 값도 토큰도 담지 않습니다** (불변 규칙 2 · §10.1).
+   */
+  readonly piiCounts: Readonly<Record<string, number>>
   /** 모델을 몇 번 불렀나. 1 또는 2입니다 */
   readonly attempts: number
 }

@@ -54,6 +54,9 @@ export async function GET(
         caseId,
         evidenceId,
         kind: found.kind,
+        // 글로 올린 자료는 **서버가 직접 읽습니다** — 전사기가 할 일이 없어
+        // 그 몫이 흐름에 있습니다 (`flows/read-evidence.ts` 의 `readWritten`)
+        objectKey: found.objectKey,
         stored: found.transcriptMasked,
       },
       container,

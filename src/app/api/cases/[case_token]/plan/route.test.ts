@@ -85,7 +85,7 @@ function wiredContainer(steps: readonly StoredStep[]) {
     ...unconfiguredPorts(readEnv({})),
     casePlan: planStoreOf(steps),
     kbStore: { async findApplied() { return [] }, async findReference() { return [] } },
-    auditStore: { lastHash: async () => null, append: async () => {} },
+    auditStore: { appendChained: async (build) => build(null) },
     kbVersion: { current: async () => '2026.08.1' },
   } as Ports
 

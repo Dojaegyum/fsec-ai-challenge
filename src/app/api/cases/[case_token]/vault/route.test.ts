@@ -57,7 +57,7 @@ async function vaultOf(
   holder.container = {
     ...createContainer(readEnv({}), {
       ...unconfiguredPorts(readEnv({})),
-      auditStore: { lastHash: async () => null, append: async () => {} },
+      auditStore: { appendChained: async (build) => build(null) },
     } as Ports),
     caseTokens: { toCaseId: async () => CASE_ID },
     vaultWrite: {

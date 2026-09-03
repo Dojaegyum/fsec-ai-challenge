@@ -61,9 +61,34 @@ export interface AuditRecord {
  * 않습니다 → §10.1.
  */
 export interface AuditStore {
-  /** 가장 최근 기록의 hash. 하나도 없으면 null */
-  lastHash(): Promise<string | null>
-  append(record: AuditRecord): Promise<void>
+  /**
+   * 앞줄을 읽고 그 뒤에 잇는다.
+   *
+   * ## ⚠️ 읽기와 쓰기가 **한 덩어리**여야 합니다
+   *
+   * 2026-09-03 까지 이 자리가 `lastHash()` 와 `append()` 둘이었습니다. 그래서
+   * 요청 둘이 겹치면 —
+   *
+   * ```
+   * A: lastHash() → H0        B: lastHash() → H0      (둘 다 같은 앞줄을 봅니다)
+   * A: append(prev=H0)        B: append(prev=H0)      ← 사슬이 두 갈래로 갈립니다
+   * ```
+   *
+   * `verifyChain` 은 이것을 **「위조됨」으로 읽습니다.** 아무도 손대지 않았는데
+   * 사슬이 끊어진 것으로 보이고, 그러면 사슬을 두는 이유 자체가 사라집니다 —
+   * 진짜 위조와 구분이 안 되니까요. 사슬은 사건별이 아니라 **표 하나에 하나**라
+   * (§10.1) 사용자 둘이 동시에 쓰기만 해도 납니다.
+   *
+   * 그래서 「앞줄을 보고 → 그것으로 만들고 → 붙인다」를 **저장소가 통째로**
+   * 맡습니다. 관계형 저장소는 트랜잭션과 잠금으로, 시험용 메모리 저장소는
+   * `build` 를 부르는 사이에 `await` 를 두지 않는 것으로 지킵니다.
+   *
+   * **update·delete 가 없습니다** — 감사 로그는 고치지도 지우지도 않습니다 → §10.1.
+   *
+   * @param build 앞줄의 hash 를 받아 이번 줄을 만든다. **동기 함수입니다** —
+   *              여기서 `await` 하면 잠금을 그만큼 오래 쥡니다
+   */
+  appendChained(build: (prevHash: string | null) => AuditRecord): Promise<AuditRecord>
 }
 
 export interface AuditLogger {

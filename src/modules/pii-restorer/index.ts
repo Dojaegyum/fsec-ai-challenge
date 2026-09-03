@@ -6,7 +6,7 @@
  */
 
 export { restore, restoreValue, scopeFor } from "./restore";
-export { parseToken, scopeOf, maskPartial } from "./policy";
+export { parseToken, scopeOf } from "./policy";
 export type {
   DenialEvent,
   DenialReason,

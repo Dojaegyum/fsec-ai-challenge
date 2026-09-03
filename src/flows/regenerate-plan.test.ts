@@ -155,7 +155,7 @@ function portsWith(over: Partial<Ports>): Ports {
   const env = readEnv({})
   return {
     ...unconfiguredPorts(env),
-    auditStore: { lastHash: async () => null, append: async () => {} },
+    auditStore: { appendChained: async (build) => build(null) },
     ...over,
   } as Ports
 }

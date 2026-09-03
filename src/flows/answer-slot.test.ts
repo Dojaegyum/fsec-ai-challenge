@@ -59,7 +59,7 @@ function portsWith(over: Partial<Ports>): Ports {
   const env = readEnv({})
   return {
     ...unconfiguredPorts(env),
-    auditStore: { lastHash: async () => null, append: async () => {} },
+    auditStore: { appendChained: async (build) => build(null) },
     // **미설정 대역이면 `recordChannel` 의 `try` 가 삼킵니다** — 기관을 못 고른
     // 것과 조회가 터진 것이 한 결과로 뭉개져, 되묻기 시험이 조용히 통과합니다
     kbVersion: { current: async () => '2026.08.1' },

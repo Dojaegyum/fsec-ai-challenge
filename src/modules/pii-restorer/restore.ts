@@ -12,7 +12,7 @@
  * 이 파일에 네트워크 호출이 없어야 합니다.
  */
 
-import { maskPartial, parseToken, scopeOf, tokenPattern } from "./policy";
+import { scopeOf, tokenPattern } from "./policy";
 import type {
   DenialEvent,
   RestorableMapping,
@@ -55,16 +55,20 @@ export function restore(
       return token;
     }
 
-    if (scope === "full") return mapping.original;
-
-    const parsed = parseToken(token);
-    const masked = parsed ? maskPartial(parsed.kind, mapping.original) : null;
-    if (masked === null) {
-      deny({ token, site: options.site, reason: "kind_not_allowed" });
+    // **원문이 아닌 대역은 그리지 않습니다.** 볼트를 못 연 기기에서는 「번호만
+    // 잡아 둔 칸」이 원문 자리에 표시값을 넣고 다닙니다(`app/c/[token]/history.ts`
+    // 의 `RESERVED_ORIGINAL`). 그것이 화면에 그려지면 **없는 값을 원문인 양**
+    // 보여 주는 셈입니다. 부르는 쪽이 그런 칸을 안 넘기는 것이 원칙이지만,
+    // 그리는 자리에서 한 번 더 막습니다 — 사용자가 못 적는 글자로 가릅니다
+    if (mapping.original.includes("\u0000")) {
+      deny({ token, site: options.site, reason: "not_in_mapping" });
       return token;
     }
 
-    return mapping.label ? `${mapping.label} ${masked}` : masked;
+    // **브라우저면 전부입니다** → ADR-034. 종류로 다시 가르지 않습니다 —
+    // 주민번호도 예외가 아닙니다(ADR-026 이 애초에 수집하지 않기로 했으므로
+    // 복원할 값이 우리에게 없고, 있다면 그건 수집이 새고 있다는 뜻입니다)
+    return mapping.original;
   });
 }
 

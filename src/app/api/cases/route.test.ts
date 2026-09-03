@@ -132,7 +132,7 @@ function wiredPorts(): Ports {
     ...unconfiguredPorts(env),
     caseStore: caseStoreOf().store,
     kbStore,
-    auditStore: { lastHash: async () => null, append: async () => {} },
+    auditStore: { appendChained: async (build) => build(null) },
     casePlan,
     kbVersion: { current: async () => '2026.08.1' },
   } as Ports

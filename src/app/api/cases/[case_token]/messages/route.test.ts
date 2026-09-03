@@ -51,7 +51,7 @@ vi.mock('@/lib/wire', () => ({
 function wiredContainer(turns: readonly Turn[], truncated = false) {
   const ports = {
     ...unconfiguredPorts(readEnv({})),
-    auditStore: { lastHash: async () => null, append: async () => {} },
+    auditStore: { appendChained: async (build) => build(null) },
   } as Ports
 
   const messages: MessageStore = {

@@ -30,6 +30,7 @@ import { collectReading, maskLines } from './read-evidence'
 
 const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
 const EVIDENCE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4B'
+const KEY = `${CASE_ID}/${EVIDENCE_ID}`
 
 /** 피해자 본인 계좌 — 브라우저가 챗에서 이미 `[계좌-1]` 로 맡긴 값입니다 */
 const MINE = '110-234-567890'
@@ -137,7 +138,7 @@ function harness(base: {
 
 const read = (one: ReturnType<typeof harness>) =>
   collectReading(
-    { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', stored: null },
+    { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', objectKey: KEY, stored: null },
     one.container,
   )
 
@@ -219,6 +220,7 @@ describe('막 만든 대응표는 브라우저에 건넨다 — 버리지 않습
         caseId: CASE_ID,
         evidenceId: EVIDENCE_ID,
         kind: 'audio',
+        objectKey: KEY,
         stored: JSON.stringify({
           lines: [{ speaker: 'A', text: '[계좌-1] 로 보냈어요', startMs: 0 }],
           tokens: [{ token: '[계좌-1]', kind: '계좌' }],
@@ -294,7 +296,7 @@ describe('전사 교정은 사용자의 답을 덮지 않는다', () => {
   it('빈 슬롯에는 올린다 — 지금까지처럼', async () => {
     const one = orgHarness({ already: [] })
     await collectReading(
-      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', stored: null },
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', objectKey: KEY, stored: null },
       one.container,
     )
     expect(one.wrote.map((w) => w.slotKey)).toContain('org_name')
@@ -305,9 +307,108 @@ describe('전사 교정은 사용자의 답을 덮지 않는다', () => {
       already: [{ slotKey: 'org_name', state: 'confirmed', valueMasked: '카카오뱅크' }],
     })
     await collectReading(
-      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', stored: null },
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', objectKey: KEY, stored: null },
       one.container,
     )
     expect(one.wrote.map((w) => w.slotKey)).not.toContain('org_name')
+  })
+})
+
+/**
+ * ⚠️ **글로 올린 자료의 내용이 통째로 버려지고 있었습니다** (2026-09-03).
+ *
+ * 자료 레일이 `text/*` 를 받습니다(`evidence.tsx` 의 `accept`). 카카오톡
+ * 「대화 내보내기」가 내는 것이 `.txt` 라, 사기범과의 대화 전체를 그것으로
+ * 올리는 것은 **가장 자연스러운 경로**입니다. 그런데 —
+ *
+ * ```
+ * startReading   kind === 'text' 면 바로 돌아섬 (맡길 것이 없음 — 맞습니다)
+ * collectReading transcriber.collect → {status:'done', lines: []}
+ *                                       ^^^^^^^^^^^^^^^^^^^^^^^^ 내용이 여기서 사라집니다
+ * 화면            「다 읽었습니다」
+ * ```
+ *
+ * 파일은 저장소에 멀쩡히 있는데 **아무도 안 읽습니다.** 전사기의 주석이
+ * *"부르는 쪽이 토큰화만 거쳐 그대로 저장하면 됩니다"* 라고 그 몫을 부르는
+ * 쪽에 넘겨 놓았는데, 부르는 쪽인 이 흐름이 그것을 안 하고 있었습니다.
+ *
+ * 사용자에게는 **가장 나쁜 실패 모양**입니다 — 실패했다고 말하지 않으니
+ * 다시 올리지도 않고, 그 대화에 들어 있던 계좌·기관은 영영 안 잡힙니다.
+ */
+describe('글로 올린 자료도 읽는다', () => {
+  const CHAT = `안녕하세요 김수사관입니다\n${THEIRS} 로 보내주세요\n네 알겠습니다`
+
+  function textHarness(body: string | Error) {
+    const one = harness({ lines: [] })
+    const container = one.container as unknown as Record<string, unknown>
+    ;(container.ports as Record<string, unknown>).mediaReader = {
+      readUrl: async () => 'https://store.example/x',
+      readText: async () => {
+        if (body instanceof Error) throw body
+        return body
+      },
+    }
+    return { ...one, container: one.container }
+  }
+
+  it('본문을 줄로 갈라 토큰화한다 — 버리지 않습니다', async () => {
+    const one = textHarness(CHAT)
+
+    const got = await collectReading(
+      {
+        caseId: CASE_ID,
+        evidenceId: EVIDENCE_ID,
+        kind: 'text',
+        objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
+        stored: null,
+      },
+      one.container,
+    )
+
+    if (got.status !== 'done') throw new Error('끝났어야 합니다')
+    expect(got.lines.map((l) => l.text)).toEqual([
+      '안녕하세요 김수사관입니다',
+      '[계좌-1] 로 보내주세요',
+      '네 알겠습니다',
+    ])
+    // 저장되는 것도 가려진 쪽입니다 — 스키마의 「원문 금지」
+    expect(one.finished[0].transcriptMasked).toContain('[계좌-1]')
+    expect(one.finished[0].transcriptMasked).not.toContain(THEIRS)
+  })
+
+  it('막 만든 대응표를 브라우저에 건넨다 — 녹음과 같은 길', async () => {
+    const one = textHarness(CHAT)
+
+    const got = await collectReading(
+      {
+        caseId: CASE_ID,
+        evidenceId: EVIDENCE_ID,
+        kind: 'text',
+        objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
+        stored: null,
+      },
+      one.container,
+    )
+
+    if (got.status !== 'done') throw new Error('끝났어야 합니다')
+    expect(got.freshMappings?.[0]).toMatchObject({ token: '[계좌-1]', original: THEIRS })
+  })
+
+  /** **못 읽으면 못 읽었다고 말합니다** — 「다 됐다」로 덮지 않습니다 */
+  it('읽지 못하면 실패로 답한다', async () => {
+    const one = textHarness(new Error('저장소에 닿지 못했습니다'))
+
+    const got = await collectReading(
+      {
+        caseId: CASE_ID,
+        evidenceId: EVIDENCE_ID,
+        kind: 'text',
+        objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
+        stored: null,
+      },
+      one.container,
+    )
+
+    expect(got.status).toBe('failed')
   })
 })
