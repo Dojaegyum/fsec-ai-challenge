@@ -113,8 +113,10 @@ describe("내 기기에서는 되살아난다", () => {
 
     expect(line?.who).toBe("ai");
     if (line?.who !== "ai") return;
-    // **전부 펼치지 않습니다** — 인젝션으로 값을 캐내려는 시도를 막는 자리입니다 (§3.9)
-    expect(line.reply).not.toContain(ACCOUNT);
+    // **전부 펼칩니다** → ADR-034 「브라우저 화면에는 원문」. 2026-09-03 까지
+    // 이 자리만 `****6789` 였고, 그래서 같은 계좌가 자료함과 챗에서 다르게
+    // 보였습니다 — 사용자는 그것을 보안이 아니라 고장으로 읽습니다
+    expect(line.reply).toContain(ACCOUNT);
     expect(line.sourceNote).toBe("피해구제 신청서 제출");
   });
 
@@ -213,7 +215,13 @@ describe("못 열어도 이름표는 자리를 지킨다", () => {
     stubApi(entries, []);
     const vault = await openVault(TOKEN, memoryKeyStore());
 
-    // 비서의 답에 섞여 온 토큰. 원문을 모르므로 **펼치면 안 됩니다**
+    // **되살리는 목록에는 애초에 안 들어갑니다** — 그것이 첫 번째 방어입니다
+    expect(vault.restorable).toHaveLength(0);
+    expect(restore("[계좌-1] 로 보내셨죠", vault.restorable, { site: "chat-answer" }))
+      .toBe("[계좌-1] 로 보내셨죠");
+
+    // 실수로 섞여 들어와도 그리지 않습니다 — `pii-restorer` 가 `\u0000` 을 보고
+    // 거릅니다. ADR-034 로 전체 복원이 되면서 이 그물이 필요해졌습니다
     const shown = restore("[계좌-1] 로 보내셨죠", [...vault.maskContext], {
       site: "chat-answer",
     });

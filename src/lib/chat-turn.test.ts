@@ -124,13 +124,14 @@ describe('층 2 한 턴이 끝까지 이어진다', () => {
     // 사건 정보 인용에는 식별자가 없다
     expect(body.citations[1].kb_entry_id).toBeUndefined()
 
-    // 6. 브라우저: 부분 복원
+    // 6. 브라우저: **전체 복원** → ADR-034 「브라우저 화면에는 원문」
     //    **이음매: 마스킹이 만든 매핑을 복원이 그대로 받는다** — 필요한 칸이 같다
     const shown = restore(`${body.reply} [계좌-1]`, masked.mappings, {
       site: 'chat-answer',
     })
-    expect(shown).toContain('7890')
-    expect(shown).not.toContain('110-234-567890')
+    expect(shown).toContain('110-234-567890')
+    // **나간 것은 여전히 토큰뿐입니다** — 화면 표시와 무관합니다 (불변 규칙 2)
+    expect(body.reply).not.toContain('110-234-567890')
   })
 })
 
@@ -391,12 +392,11 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
     expect(body.citations[0].kb_entry_id).toBe('relief-application')
     expect(body.citations[0].label).toBe('피해구제 신청서 제출')
 
-    // 3. 브라우저에서 복원
+    // 3. 브라우저에서 복원 — **전체**입니다 (ADR-034)
     const shown = restore(`${body.reply} [계좌-1]`, masked.mappings, {
       site: 'chat-answer',
     })
-    expect(shown).toContain('7890')
-    expect(shown).not.toContain('110-234-567890')
+    expect(shown).toContain('110-234-567890')
   })
 
   it('조회가 0건이면 절차를 말하지 않고 1332 안내로 간다', async () => {

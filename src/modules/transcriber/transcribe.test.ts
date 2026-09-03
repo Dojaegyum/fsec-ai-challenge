@@ -553,6 +553,37 @@ describe('이미지의 대화 구조 — 애매하면 안 가른다', () => {
     expect(result.shortfalls).toContain('no_layout')
   })
 
+  /**
+   * ⚠️ **문서 캡처가 대화로 갈렸습니다** (2026-09-03).
+   *
+   * 이체 내역·접수 문자처럼 **한 줄로 죽 적힌 것**은 왼쪽 끝이 전부 같고 길이만
+   * 다릅니다. 가운데(`x + width/2`)만 보면 짧은 줄은 왼쪽에, 긴 줄은 오른쪽에
+   * 서서 **길이가 화자를 가릅니다.** 위의 「좌우가 안 벌어지면」 시험이 이것을
+   * 못 잡은 이유는 줄 너비를 전부 같게(200) 두었기 때문입니다 — 실제 캡처는
+   * 줄마다 길이가 다릅니다.
+   *
+   * 그 전사문은 매 턴 모델의 맥락으로 들어가고 화면은 그것을 대화로 그립니다.
+   * 이 절의 머리말이 *"사기범이 한 말이 피해자가 한 말로"* 라고 적은 자리입니다.
+   */
+  it('**길이만 다른 문서 캡처를 대화로 읽지 않는다**', async () => {
+    const transcriber = build({
+      ocr: ocrOf({
+        lines: [
+          // 왼쪽 끝은 같고 길이만 다릅니다 — 이체 내역 캡처의 모양
+          bubble('입금 3,000,000원', 40, 100, 120),
+          bubble('거래일시 2026-08-20 14:32:11', 40, 160, 500),
+          bubble('잔액 120,000원', 40, 220, 200),
+          bubble('받는분 통장 표시 김철수 010-1234-5678', 40, 280, 620),
+        ],
+      }),
+    })
+
+    const result = await read(transcriber, image)
+
+    expect(result.lines.every((one) => one.speaker === null)).toBe(true)
+    expect(result.shortfalls).toContain('no_layout')
+  })
+
   it('줄이 적으면 안 가른다', async () => {
     const transcriber = build({
       ocr: ocrOf({ lines: [bubble('안녕', 40, 100), bubble('네', 700, 160)] }),

@@ -253,16 +253,37 @@ function applyLayout(
   if (span <= 0) return { lines: [...lines], count: 0, laidOut: false }
 
   const mid = (Math.min(...centers) + Math.max(...centers)) / 2
-  const nearSide = centers.filter((one) => one <= mid)
-  const farSide = centers.filter((one) => one > mid)
+  const nearSide = boxed.filter((line) => line.at.x + line.at.width / 2 <= mid)
+  const farSide = boxed.filter((line) => line.at.x + line.at.width / 2 > mid)
   if (nearSide.length === 0 || farSide.length === 0) {
     return { lines: [...lines], count: 0, laidOut: false }
   }
 
   const mean = (values: number[]): number =>
     values.reduce((sum, one) => sum + one, 0) / values.length
-  const gap = mean(farSide) - mean(nearSide)
+  const centerOf = (group: typeof boxed) =>
+    mean(group.map((line) => line.at.x + line.at.width / 2))
+  const gap = centerOf(farSide) - centerOf(nearSide)
   if (gap / span < rule.minGapRatio) return { lines: [...lines], count: 0, laidOut: false }
+
+  // ⚠️ **가운데만 보면 문서 캡처가 대화가 됩니다** (2026-09-03).
+  //
+  // 이체 내역·접수 문자처럼 **한 줄로 죽 적힌 것**은 왼쪽 끝이 전부 같고 길이만
+  // 다릅니다. 그러면 짧은 줄의 가운데는 왼쪽에, 긴 줄의 가운데는 오른쪽에 서서
+  // **길이가 화자를 가르는** 상태가 됩니다 — 실측으로 이체 내역 캡처가
+  // `A: 입금 3,000,000원` · `B: 거래일시 …` 로 갈렸습니다.
+  //
+  // 그 전사문이 매 턴 모델의 맥락으로 들어가고(`flows/chat-turn.ts` 의 `caseTalk`),
+  // 화면은 그것을 대화로 그립니다. 이 함수의 머리말이 *"사기범이 한 말이 피해자가
+  // 한 말로 기록되면 판정이 통째로 뒤집힙니다"* 라고 적은 바로 그 자리입니다.
+  //
+  // **가르는 것은 왼쪽 끝입니다.** 말풍선은 한쪽이 왼쪽에 붙고 다른 쪽이 오른쪽에
+  // 붙어 시작 자리가 벌어지지만, 문서는 전부 같은 여백에서 시작합니다.
+  const leftOf = (group: typeof boxed) => mean(group.map((line) => line.at.x))
+  const leftGap = leftOf(farSide) - leftOf(nearSide)
+  if (leftGap / span < rule.minGapRatio) {
+    return { lines: [...lines], count: 0, laidOut: false }
+  }
 
   const out = lines.map((line) => {
     if (line.at === null || line.at.kind !== 'image') return line

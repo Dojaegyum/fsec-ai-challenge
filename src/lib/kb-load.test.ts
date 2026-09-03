@@ -242,6 +242,35 @@ describe('선행 참조와 고리', () => {
     const b = good({ kb_entry_id: 'b', step_key: 'b' }, { after: ['a'] })
     expect(rulesOf([a, b])).toContain('CYCLE')
   })
+
+  /**
+   * ⚠️ **파일을 건너뛴 고리가 검사에 안 걸렸습니다** (2026-09-03).
+   *
+   * 같은 `step_key` 가 공통 파일과 유형 파일에 함께 있는 것이 §11.2 병합의
+   * 모양입니다. 그런데 선행 참조를 모으는 자리가 `edges.set(step_key, …)` 이라
+   * **나중에 읽은 파일이 앞의 것을 덮었습니다.** 공통이 `a after b`, 유형이
+   * `b after a` 면 어느 한쪽만 남아 고리가 안 보이고, 그 사실은 나중에
+   * **빈 플랜이나 무한 루프**로만 나타납니다.
+   */
+  it('**한 단계를 두 파일이 적어도 고리를 잡는다** — 덮지 않고 합칩니다', () => {
+    // 유형 파일이 `a` 에 「`b` 다음」을 붙입니다
+    const bank = {
+      ...file([
+        good({ kb_entry_id: 'a-bank', step_key: 'a' }, { after: ['b'] }),
+        good({ kb_entry_id: 'b-bank', step_key: 'b' }, { after: ['a'] }),
+      ]),
+      name: 'ch-bank.json',
+    }
+    // 공통 파일이 **같은 `a`** 를 선행 없이 적습니다 — §11.2 병합의 흔한 모양
+    const common = {
+      ...file([good({ kb_entry_id: 'a-common', step_key: 'a' }, { after: [] })]),
+      name: 'common.json',
+    }
+
+    // 나중에 읽은 `common` 이 `a` 의 선행을 덮어 **고리가 사라져 보였습니다**
+    const rules = planLoad([bank, common], OPTS).problems.map((one) => one.rule)
+    expect(rules).toContain('CYCLE')
+  })
 })
 
 describe('행동과 창구 — 화면이 열 패널을 정하는 값', () => {
