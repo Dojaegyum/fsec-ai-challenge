@@ -481,3 +481,104 @@ describe('안 붙은 자원은 조용히 넘어가지 않는다', () => {
     ).rejects.toBeInstanceOf(NotConfiguredError)
   })
 })
+
+describe('경유 서비스에 제출처를 붙인다 — §3.6 `channels[].submit` · ADR-042 (GitHub #40)', () => {
+  const stepOf = (): StoredStep => ({
+    planStepId: '01J8STEP00000000000000000A',
+    stepKey: 'report-112',
+    seq: 1,
+    title: '112에 신고하기',
+    actor: 'victim',
+    conditional: null,
+    state: 'not_started',
+    body: { text: '본문', action: 'call' },
+    kbEntryId: 'report-112',
+    kbVersion: '2026.08.1',
+    legalBasis: '통신사기피해환급법 제3조',
+    sourceUrl: 'https://www.law.go.kr/...',
+    effectiveFrom: '2020-01-01',
+    artifacts: [],
+    requiredArtifact: null,
+  })
+
+  const KB_ORG = {
+    orgId: 'kb-bank',
+    channelId: 'CH-bank',
+    name: 'KB국민은행',
+    contact: {
+      report_tel: '1588-9999',
+      submit: [{ how: 'branch', text: '가까운 영업점에 피해구제 신청서를 서면으로 제출합니다' }],
+      caution: '앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다',
+    },
+    sourceUrl: 'https://portal.kfb.or.kr/voice/vphishing_report.php',
+    verifiedAt: '2026-08-25',
+  }
+
+  /** 기관 하나를 아는 컨테이너로 조회 경로(§3.6 · §3.10)를 지납니다 */
+  function readChannelsWith(orgId: string | null, steps: readonly StoredStep[] = [stepOf()]) {
+    const kb = kbStoreOf([kbRow()])
+    const plans = planStoreOf({
+      async readSteps() {
+        return steps
+      },
+      async readChannels() {
+        return [{ channelId: 'CH-bank', orgId, orgNameRaw: '국민', amount: 3_000_000, confidence: 0.9 }]
+      },
+    })
+    const seen: { orgId: string; kbVersion: string }[] = []
+    const container = {
+      ...containerFor(kb.store),
+      orgs: {
+        async read(id: string, kbVersion: string) {
+          seen.push({ orgId: id, kbVersion })
+          return id === KB_ORG.orgId ? KB_ORG : null
+        },
+        async list() {
+          return []
+        },
+      },
+    }
+    return readCasePlan(CASE_ID, { container, store: plans.store }).then((snapshot) => ({
+      snapshot,
+      seen,
+    }))
+  }
+
+  it('기관이 풀리면 `submit`·`caution` 이 **기관 행 그대로** 실린다', async () => {
+    const { snapshot } = await readChannelsWith('kb-bank')
+
+    expect(snapshot.channels).toHaveLength(1)
+    expect(snapshot.channels[0]!.submit).toEqual([
+      { how: 'branch', text: '가까운 영업점에 피해구제 신청서를 서면으로 제출합니다' },
+    ])
+    expect(snapshot.channels[0]!.caution).toBe(
+      '앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다',
+    )
+    // 이름과 제출처가 **같은 읽기**에서 옵니다 — 다른 기관을 말할 수 없습니다
+    expect(snapshot.channels[0]!.orgName).toBe('KB국민은행')
+  })
+
+  it('기관을 특정 못 했으면 빈 배열·`null` — **그래도 경유 서비스는 나간다**', async () => {
+    const { snapshot, seen } = await readChannelsWith(null)
+
+    expect(snapshot.channels).toHaveLength(1)
+    expect(snapshot.channels[0]!.submit).toEqual([])
+    expect(snapshot.channels[0]!.caution).toBeNull()
+    // 사용자가 말한 표기는 그대로 남습니다
+    expect(snapshot.channels[0]!.orgName).toBe('국민')
+    // 풀 것이 없으니 기관 표를 읽지 않습니다
+    expect(seen).toEqual([])
+  })
+
+  it('릴리스에 그 기관이 없으면 빈 배열 — 안내를 멈출 이유가 아니다 (§11.4.3)', async () => {
+    const { snapshot } = await readChannelsWith('unknown-bank')
+
+    expect(snapshot.channels[0]!.submit).toEqual([])
+    expect(snapshot.channels[0]!.caution).toBeNull()
+  })
+
+  it('**단계가 만들어진 릴리스**로 기관을 읽는다 — 옛 플랜에 새 제출처가 붙으면 안 된다', async () => {
+    const { seen } = await readChannelsWith('kb-bank')
+    expect(seen).toEqual([{ orgId: 'kb-bank', kbVersion: '2026.08.1' }])
+  })
+})

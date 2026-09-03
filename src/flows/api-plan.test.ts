@@ -8,8 +8,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { toApiPlan, toApiStep } from './api-plan'
-import type { StoredStep } from './regenerate-plan'
+import { toApiChannel, toApiPlan, toApiStep } from './api-plan'
+import type { PlanChannel, StoredStep } from './regenerate-plan'
 
 const step = (over: Partial<StoredStep> = {}): StoredStep => ({
   planStepId: '01J8XKR7000000000000000000',
@@ -78,5 +78,57 @@ describe('§3.1 과 §3.6 이 같은 모양을 쓴다 — ADR-047', () => {
       'freeze-request',
       'relief-apply',
     ])
+  })
+})
+
+describe('경유 서비스에 제출처가 실린다 — §3.6 `channels[].submit` · ADR-042', () => {
+  const channel = (over: Partial<PlanChannel> = {}): PlanChannel => ({
+    channelId: 'CH-bank',
+    orgId: 'kb-bank',
+    orgName: 'KB국민은행',
+    amount: 3_000_000,
+    confidence: 0.94,
+    submit: [
+      { how: 'branch', text: '가까운 영업점에 서면 제출', url: 'https://kb.example/branch' },
+    ],
+    caution: '앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다',
+    ...over,
+  })
+
+  it('`submit`·`caution` 이 계약의 이름으로 나간다', () => {
+    const got = toApiChannel(channel())
+    expect(got.submit).toEqual([
+      { how: 'branch', text: '가까운 영업점에 서면 제출', url: 'https://kb.example/branch' },
+    ])
+    expect(got.caution).toBe('앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다')
+    // 있던 칸은 그대로입니다
+    expect(got.org_id).toBe('kb-bank')
+    expect(got.org_name).toBe('KB국민은행')
+  })
+
+  it('**순서를 안 바꾼다** — 배열 순서가 곧 권장 순서다 (ADR-042 ②)', () => {
+    const got = toApiChannel(
+      channel({
+        submit: [
+          { how: 'app', text: '앱에서' },
+          { how: 'branch', text: '영업점에서' },
+        ],
+      }),
+    )
+    expect(got.submit.map((one) => one.how)).toEqual(['app', 'branch'])
+  })
+
+  it('기관 미특정이면 빈 배열·`null` — **칸을 빼지 않는다**', () => {
+    // 「칸이 없다」와 「길이 없다」가 갈리면 화면이 둘을 따로 다뤄야 합니다.
+    // §3.6 `after` 가 같은 이유로 빈 배열을 요구합니다
+    const got = toApiChannel(channel({ orgId: null, orgName: '국민', submit: [], caution: null }))
+    expect(got).toHaveProperty('submit', [])
+    expect(got).toHaveProperty('caution', null)
+  })
+
+  it('원본 배열을 응답에 그대로 물리지 않는다', () => {
+    const one = channel()
+    const got = toApiChannel(one)
+    expect(got.submit).not.toBe(one.submit)
   })
 })

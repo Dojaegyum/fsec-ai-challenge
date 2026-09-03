@@ -48,7 +48,7 @@ import type { ChannelRow } from '@/lib/channels'
 import { serverClock } from '@/lib/clock'
 import { CaseNotFoundError } from '@/lib/http'
 import type { Container } from '@/lib/container'
-import { withContacts } from '@/lib/contact'
+import { cautionOf, submitPathsOf, withContacts, type SubmitPath } from '@/lib/contact'
 import type { DeadlineChange } from '@/lib/db'
 
 import type { OpenedCase, Track } from '@/modules/case-intake'
@@ -235,6 +235,16 @@ export interface PlanChannel {
   readonly orgName: string | null
   readonly amount: number | null
   readonly confidence: number | null
+  /**
+   * 신청서를 내는 길 — `org.contact.submit` **순서 그대로** → 계약 §3.6 · ADR-042.
+   *
+   * 기관을 특정 못 했거나 KB 에 확인된 길이 없으면 **빈 배열**입니다.
+   * 화면은 그때 제출처 카드를 아예 안 그립니다 — 「모른다」를 「없다」로
+   * 그리지 않으려는 것이고, 서버가 그 둘을 여기서 뭉개지 않습니다.
+   */
+  readonly submit: readonly SubmitPath[]
+  /** 그 기관에서 헷갈리기 쉬운 것 — `org.contact.caution`. 없으면 `null` */
+  readonly caution: string | null
 }
 
 export interface PlanSnapshot {
@@ -473,6 +483,11 @@ async function dressContacts(
  *
  * `kbVersion` 이 `null` 인 것은 단계가 아직 없다는 뜻이라 그때는 이름을
  * 풀지 않습니다. 기관 표는 릴리스마다 따로 있어 읽을 기준이 없습니다.
+ *
+ * **제출처(`submit`)와 주의(`caution`)도 같은 읽기에서 옵니다** → §3.6.
+ * 기재 안내 화면의 제출처 카드가 받을 자리가 없어 영영 안 그려지고 있었습니다
+ * (GitHub #40). 기관 행을 이미 읽고 있으니 왕복이 늘지 않습니다 — 그리고
+ * **같은 행에서 나와야** 이름과 제출처가 서로 다른 기관을 말하지 않습니다.
  */
 async function dressChannels(
   rows: readonly ChannelRow[],
@@ -493,6 +508,10 @@ async function dressChannels(
         orgName: org?.name ?? one.orgNameRaw,
         amount: one.amount,
         confidence: one.confidence,
+        // 기관이 없으면 빈 배열·null — `org` 가 없다고 칸을 빼지 않습니다.
+        // 「칸이 없다」와 「길이 없다」가 화면에서 갈리면 안 됩니다(§3.6 `after` 와 같은 규칙)
+        submit: submitPathsOf(org?.contact ?? null),
+        caution: cautionOf(org?.contact ?? null),
       }
     }),
   )
