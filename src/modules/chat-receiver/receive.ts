@@ -77,7 +77,9 @@ export function createChatReceiver(deps: {
       // 안 넘기면 발화마다 번호가 1부터라, 브라우저가 앞서 볼트에 맡긴
       // `[계좌-1]` 자리에 이번 턴의 다른 계좌가 겹쳐 앉습니다 — 화면이 복원할 때
       // **엉뚱한 계좌가 그려집니다.** 원문은 안 옵니다(서버는 볼트를 못 엽니다)
-      const { masked } = await tokenizer.tokenize(input.utterance, {
+      // **건수를 함께 받습니다** — 계측 헤더가 이 값으로 섭니다(§1.1).
+      // 버리면 챗 응답이 「토큰화한 것이 없다」로 나갑니다
+      const { masked, counts: piiCounts } = await tokenizer.tokenize(input.utterance, {
         allowedTerms,
         mappings: input.issuedTokens ?? [],
       })
@@ -123,6 +125,7 @@ export function createChatReceiver(deps: {
           reference: prompt.counts.reference,
           transcriptLines: ctx.caseTalk.length,
         },
+        piiCounts,
         attempts,
       }
     },

@@ -145,7 +145,7 @@ function wiredContainer(
         return []
       },
     },
-    auditStore: { lastHash: async () => null, append: async () => {} },
+    auditStore: { appendChained: async (build) => build(null) },
     kbVersion: { current: async () => '2026.08.1' },
   } as Ports
 

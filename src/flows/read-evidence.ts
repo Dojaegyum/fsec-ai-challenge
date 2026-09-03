@@ -36,7 +36,7 @@ import {
 import type { EvidenceKind, IngestStatus } from '@/modules/case-intake'
 import { readIssuedLedger } from '@/modules/pii-tokenizer'
 import type { TokenMapping } from '@/modules/pii-tokenizer'
-import type { IngestPhase, Line } from '@/modules/transcriber'
+import type { CollectResult, IngestPhase, Line, Shortfall } from '@/modules/transcriber'
 
 /** 화면이 다음에 언제 물을지 → §3.3 `poll_after_ms` */
 const POLL_AFTER_MS = 1500
@@ -58,7 +58,9 @@ export async function startReading(
   },
   container: Container,
 ): Promise<void> {
-  // 글로 올라온 것은 읽을 것이 없습니다 — 이미 글입니다
+  // 글로 올라온 것은 **맡길 것이** 없습니다 — 이미 글이라 엔진이 할 일이
+  // 없습니다. 다만 **아무도 안 읽는다는 뜻은 아닙니다** — 본문을 가져와
+  // 토큰화하는 것은 `collectReading` 이 합니다 (아래 `readWritten`)
   if (input.kind === 'text') return
 
   await container.transcriber.start({
@@ -108,6 +110,11 @@ export async function collectReading(
     readonly caseId: string
     readonly evidenceId: string
     readonly kind: EvidenceKind
+    /**
+     * 저장소의 파일 자리. **글(`kind: 'text'`)에만 씁니다** — 녹음·사진은
+     * 주소만 추론 서비스에 건네고 바이트가 우리 함수를 통과하지 않습니다.
+     */
+    readonly objectKey: string
     /** 이미 저장된 결과. 있으면 다시 읽지 않습니다 */
     readonly stored: string | null
   },
@@ -120,12 +127,19 @@ export async function collectReading(
   // 30분 뒤 작업을 버리므로, 그 뒤에는 아예 못 읽습니다
   if (input.stored !== null) return fromStored(input.stored)
 
-  const progress = await container.transcriber.collect({
-    jobId: input.evidenceId,
-    // 아래 둘은 `collect` 가 결과를 어느 갈래로 읽을지 정할 때만 씁니다
-    phase: input.kind === 'audio' ? 'stt' : 'ocr',
-    kind: input.kind,
-  })
+  // **글은 우리가 읽습니다.** 전사기는 옮길 것이 없어 `not_applicable` 로
+  // 돌려주고(`transcribe.ts` 의 `nothingToRead`), 그 주석이 *"부르는 쪽이
+  // 토큰화만 거쳐 그대로 저장하면 됩니다"* 로 몫을 여기에 넘겼습니다 —
+  // 그 몫을 2026-09-03 까지 아무도 안 해서 **올린 대화 전체가 사라졌습니다**
+  const progress =
+    input.kind === 'text'
+      ? await readWritten(input.objectKey, container)
+      : await container.transcriber.collect({
+          jobId: input.evidenceId,
+          // 아래 둘은 `collect` 가 결과를 어느 갈래로 읽을지 정할 때만 씁니다
+          phase: input.kind === 'audio' ? 'stt' : 'ocr',
+          kind: input.kind,
+        })
 
   if (progress.status === 'running') {
     return {
@@ -323,6 +337,74 @@ export async function maskLines(
     tokens: [...seen].map(([token, kind]) => ({ token, kind })),
     fresh,
     orgGuardMissing,
+  }
+}
+
+/**
+ * 글 파일에서 읽어 올 상한 — 글자 수와 줄 수.
+ *
+ * **자릅니다. 거절하지 않습니다.** 카카오톡 「대화 내보내기」는 몇 년치가
+ * 한 파일로 나오기도 하는데, 그걸 통째로 토큰화하면 요청 하나가 함수의
+ * 수명을 넘깁니다. 앞에서부터 자르는 이유는 **사건이 대개 앞에 있기**
+ * 때문이 아니라 — 그건 우리가 모릅니다 — 어디를 남길지 고르는 순간
+ * 그것이 판단이 되기 때문입니다. 자른 사실은 `shortfalls` 로 나갑니다.
+ */
+const TEXT_CHAR_LIMIT = 200_000
+const TEXT_LINE_LIMIT = 3_000
+
+/**
+ * 글로 올린 자료를 읽는다 — **전사기가 아니라 이 흐름의 몫입니다.**
+ *
+ * ⚠️ **2026-09-03 까지 이 함수가 없었습니다.** 자료 레일이 `text/*` 를 받는데
+ * (`evidence.tsx` 의 `accept`), 전사기는 글을 `not_applicable` 로 돌려주고
+ * 이 흐름은 그 빈 결과를 그대로 저장했습니다. 그래서 **올린 대화 전체가
+ * 조용히 사라지고 화면은 「다 읽었습니다」라고 말했습니다** — 실패했다고
+ * 말하지 않으니 다시 올리지도 않는, 가장 나쁜 실패 모양입니다.
+ *
+ * 돌려주는 모양을 `CollectResult` 에 맞춥니다 — 부르는 쪽이 녹음·사진과
+ * **같은 길**로 흘려보내야 토큰화·장부·저장이 한 벌로 남습니다.
+ */
+async function readWritten(
+  objectKey: string,
+  container: Container,
+): Promise<CollectResult> {
+  let body: string
+  try {
+    body = await container.ports.mediaReader.readText(objectKey)
+  } catch {
+    // **「다 됐다」로 덮지 않습니다.** 못 읽었으면 못 읽었다고 해야 사용자가
+    // 다시 올릴 수 있습니다 → 08-16-errors.md §2
+    return { status: 'failed', reason: 'text_read_failed' }
+  }
+
+  const clipped = body.length > TEXT_CHAR_LIMIT
+  const rows = body
+    .slice(0, TEXT_CHAR_LIMIT)
+    .split(/\r?\n/)
+    .map((one) => one.trim())
+    .filter((one) => one.length > 0)
+
+  const lines: Line[] = rows.slice(0, TEXT_LINE_LIMIT).map((text) => ({
+    // **화자를 지어내지 않습니다.** 카톡 내보내기의 「[홍길동] 」 같은 머리말을
+    // 잘라 화자로 세울 수도 있지만, 그 형식은 앱·버전마다 다르고 틀리면
+    // **누가 계좌를 불렀는지가 뒤집힙니다** → `Line.speaker` 의 경고
+    speaker: null,
+    speakerConfidence: null,
+    text,
+    // 글에는 시각도 좌표도 없습니다
+    at: null,
+    pieces: [],
+  }))
+
+  const shortfalls: Shortfall[] = ['no_speakers', 'no_anchors', 'no_pieces']
+  if (lines.length === 0) shortfalls.unshift('empty')
+  // **잘랐으면 잘랐다고 남깁니다** — 뒷부분이 안 읽힌 것을 모르면
+  // 「그 계좌가 왜 안 잡혔지」의 답을 영영 못 찾습니다
+  if (clipped || rows.length > TEXT_LINE_LIMIT) shortfalls.push('truncated')
+
+  return {
+    status: 'done',
+    result: { phase: null, lines, speakerCount: 0, shortfalls, dropped: 0, engine: null },
   }
 }
 

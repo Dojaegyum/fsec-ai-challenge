@@ -24,6 +24,7 @@ import type { CasePlanStore } from '@/flows/regenerate-plan'
 import { createContainer, unconfiguredPorts } from '@/lib/container'
 import type { Container, Ports } from '@/lib/container'
 import { createMessageStore } from '@/lib/db'
+import { KbCitationMissingError, KbUnavailableError } from '@/lib/errors'
 import type { MessageStore, Sql } from '@/lib/db'
 import { readEnv } from '@/lib/env'
 
@@ -189,11 +190,10 @@ describe('감사 로그가 각 자리에서 남는다', () => {
   it('프롬프트 조립 건수를 그대로 넘길 수 있다', async () => {
     const rows: AuditRecord[] = []
     const store: AuditStore = {
-      async lastHash() {
-        return rows.length > 0 ? rows[rows.length - 1].hash : null
-      },
-      async append(record) {
+      async appendChained(build) {
+        const record = build(rows.at(-1)?.hash ?? null)
         rows.push(record)
+        return record
       },
     }
 
@@ -241,11 +241,10 @@ describe('감사 로그가 각 자리에서 남는다', () => {
     const rows: AuditRecord[] = []
     const audit = createAuditLogger({
       store: {
-        async lastHash() {
-          return null
-        },
-        async append(record) {
+        async appendChained(build) {
+          const record = build(null)
           rows.push(record)
+          return record
         },
       },
       now: () => '2026-08-18T10:00:00.000000+09:00',
@@ -319,7 +318,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
 
     const chat = createChatReceiver({
       // 아직 없는 자리. 1차 마스킹이 이미 지난 텍스트가 들어온다
-      tokenizer: { tokenize: async (text) => ({ masked: text }) },
+      tokenizer: { tokenize: async (text) => ({ masked: text, counts: {} }) },
       orgTerms: { list: async (): Promise<readonly string[]> => [] },
       kb: { find: (query) => asPromptEntries(kbFinder, query) },
       prompts: builder,
@@ -406,7 +405,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
     })
 
     const chat = createChatReceiver({
-      tokenizer: { tokenize: async (text) => ({ masked: text }) },
+      tokenizer: { tokenize: async (text) => ({ masked: text, counts: {} }) },
       orgTerms: { list: async (): Promise<readonly string[]> => [] },
       kb: { find: (query) => asPromptEntries(kbFinder, query) },
       prompts: createPromptBuilder(),
@@ -729,6 +728,8 @@ function turnOf(over: Partial<TurnOutcome> = {}): TurnOutcome {
     promptMasked: '(프롬프트 전문)',
     utteranceMasked: '이제 뭘 하죠',
     counts: { applied: 5, reference: 7, transcriptLines: 42 },
+    // 계측 헤더가 이 값으로 섭니다 → §1.1 · `X-Pii-Token-Count`
+    piiCounts: { account: 1 },
     attempts: 1,
     ...over,
   }
@@ -764,6 +765,8 @@ function chatHarness(
     readonly vaultTokens?: readonly string[]
     /** 서버가 앞서 전사문에 붙인 이름표가 박혀 있는 줄 */
     readonly transcript?: readonly { speaker: string; text: string }[]
+    /** `chat-receiver` 가 던지는 턴 — 모델을 부르다 걸린 자리를 세웁니다 */
+    readonly throws?: unknown
   } = {},
 ): ChatHarness {
   const written: MessageWrite[] = []
@@ -801,11 +804,10 @@ function chatHarness(
     kbVersion: { current: async () => KB_VERSION },
     // **진짜 사슬이 여기 쌓입니다** — 앞 해시를 돌려줘야 이어집니다
     auditStore: {
-      async lastHash() {
-        return audits.at(-1)?.hash ?? null
-      },
-      async append(record: AuditRecord) {
+      async appendChained(build: (prev: string | null) => AuditRecord) {
+        const record = build(audits.at(-1)?.hash ?? null)
         audits.push(record)
+        return record
       },
     },
   } as Ports
@@ -816,6 +818,7 @@ function chatHarness(
     chatReceiver: {
       receive: async (input: { issuedTokens?: readonly { token: string }[] }) => {
         received.push(input)
+        if (over.throws) throw over.throws
         return over.turn ?? turnOf()
       },
     },
@@ -1111,6 +1114,64 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     expect(one.audits[1]?.detail).toEqual({ attempts: 2 })
     // 모델이 답한 줄이라 행위자가 `model` 입니다 → §10 `actor_type`
     expect(one.audits[1]?.actorType).toBe('model')
+  })
+
+  /**
+   * ⚠️ **챗 응답의 계측 헤더 넷이 전부 「없음」이었습니다** (2026-09-03).
+   *
+   * §1.1 이 그 넷을 두는 이유는 *"개인정보 보호가 작동한다는 것을 응답 자체가
+   * 증명해야 한다"* 입니다. 그런데 **이 제품의 유일한 외부 모델 호출인 챗**만
+   * 그 넷을 아무도 안 채워서, 가장 증명이 필요한 자리가 언제나 비어 있었습니다.
+   *
+   * 특히 `X-Pii-Egress-Residual` 은 안 채우면 기본값 `0` 이 나가는데, 그것은
+   * **「검사했고 0 건」과 「검사를 안 했음」이 같은 값**이라는 뜻입니다.
+   */
+  it('계측 넷을 채워 돌려준다 — 헤더가 이 값으로 섭니다', async () => {
+    const one = chatHarness()
+    const got = await chatTurn({ caseId: CASE_ID, content: '이제 뭘 하죠' }, one.container)
+
+    // 발화를 토큰화한 건수 — 「없음」이 아니라 실제 건수
+    expect(got.telemetry.piiTokenCounts).toEqual({ account: 1 })
+    // `publish` 를 지났다는 것이 곧 「검사했고 0 건」입니다
+    expect(got.telemetry.piiEgressResidual).toBe(0)
+    expect(got.telemetry.kbVersion).toBe(KB_VERSION)
+    // 감사 기록이 실제로 남은 줄의 번호여야 합니다 — 지어낸 값이 아니라
+    expect(got.telemetry.auditId).toBe(one.audits[0]?.auditId)
+  })
+
+  /**
+   * ⚠️ **인용 검증에 걸린 턴이 감사에서 통째로 빠졌습니다** (2026-09-03).
+   *
+   * 모델이 발급하지 않은 ref 를 인용하면 한 번 더 물어보고, 그것도 어기면
+   * `KbCitationMissingError` 가 나갑니다. 그 예외가 `llm.called` 를 건너뛰어
+   * **모델을 한두 번 부른 사실이 어디에도 안 남았습니다** — 하필 모델이
+   * 불변 규칙 1 을 어기려 한 턴, 즉 가장 세어야 할 턴입니다.
+   */
+  it('인용 검증에 걸려 터져도 부른 사실은 남는다', async () => {
+    const one = chatHarness({
+      throws: new KbCitationMissingError('인용 형식을 어겼습니다', {
+        attempts: 2,
+        violations: [{ ref: 'kb-9' }, { ref: 'kb-8' }],
+      }),
+    })
+
+    await expect(runTurn(one)).rejects.toThrow(KbCitationMissingError)
+
+    expect(one.audits.map((row) => row.eventType)).toEqual(['llm.called'])
+    expect(one.audits[0]?.detail).toEqual({
+      attempts: 2,
+      failed: 'citation_invalid',
+      // **건수만입니다** — 모델이 지어낸 ref 문자열은 안 담습니다
+      violations: 2,
+    })
+  })
+
+  it('**부르기 전에 터진 턴은 안 남는다** — 없는 호출을 세지 않습니다', async () => {
+    const one = chatHarness({ throws: new KbUnavailableError('조회에 실패했습니다') })
+
+    await expect(runTurn(one)).rejects.toThrow(KbUnavailableError)
+
+    expect(one.audits).toHaveLength(0)
   })
 
   it('사슬로 이어진다 — 뒷줄의 앞 해시가 앞줄의 해시', async () => {

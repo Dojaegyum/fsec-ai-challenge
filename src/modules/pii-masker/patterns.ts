@@ -195,6 +195,34 @@ const ACCOUNT_HYPHEN = new RegExp(
 );
 const ACCOUNT_PLAIN = /\d{10,16}/g;
 
+/**
+ * ⚠️ **공백으로 끊어 적은 계좌가 그대로 나갔습니다** (2026-09-03).
+ *
+ * 하이픈 대신 **띄어쓰기**로 끊어 적는 사람이 있습니다 — 은행 앱에서 복사하면
+ * 하이픈이 붙지만, 보고 옮겨 적거나 문자에서 긁어 오면 `3333 05 1122334` 처럼
+ * 됩니다. 위의 두 패턴은 어느 쪽도 이것을 못 잡습니다: `ACCOUNT_HYPHEN` 은
+ * 하이픈을 요구하고 `ACCOUNT_PLAIN` 은 붙어 있기를 요구합니다. 그래서
+ * **가려지지 않은 계좌번호가 외부 모델로 나갔습니다** — 불변 규칙 2 위반입니다.
+ *
+ * ## 왜 맨 뒤인가
+ *
+ * 공백을 구분자로 보면 잡는 폭이 넓어집니다. **먼저 잡은 쪽이 이기는** 구조라
+ * (`findHits`), 전화·카드·주민번호 뒤에 두면 그것들이 자기 것을 먼저 가져가고
+ * 남은 것만 봅니다 — `010 1234 5678` 은 전화로 남습니다.
+ *
+ * ## 무엇이 안 걸리나
+ *
+ * 열 자리 미만은 안 봅니다(`digitCount >= 10`). 그래서 `2026 08 18`(여덟 자리)
+ * 같은 날짜는 그대로입니다. 뒤에 「원」이 붙으면 금액이라 비켜 갑니다
+ * (`looksLikeMoney`) — 한국에서 금액은 쉼표로 끊지 공백으로 안 끊지만,
+ * 걸리는 경우를 위해 같은 그물을 씁니다.
+ *
+ * 남는 위험은 **공백으로 자릿수를 끊은 큰 금액**(`1 000 000 000`)이 계좌로
+ * 잡히는 것입니다. 그쪽으로 틀리는 것을 고릅니다 — 금액이 가려지면 화면이
+ * 복원해 되살리지만, **계좌가 새면 되돌릴 수 없습니다.**
+ */
+const ACCOUNT_SPACED = /\d{2,7}(?:\x20\d{2,7}){1,4}/g;
+
 const PATTERNS: PatternSpec[] = [
   { kind: "주민번호", re: RRN },
   { kind: "카드", re: CARD, accept: (v) => passesLuhn(v) },
@@ -210,6 +238,14 @@ const PATTERNS: PatternSpec[] = [
     kind: "계좌",
     re: ACCOUNT_PLAIN,
     accept: (value, text, start, end) => !looksLikeMoney(text, end),
+  },
+  {
+    // **맨 뒤입니다** — 위 패턴들이 자기 것을 먼저 가져간 뒤에 봅니다.
+    // 열여섯 자리를 넘으면 계좌가 아닙니다(그런 계좌가 없습니다)
+    kind: "계좌",
+    re: ACCOUNT_SPACED,
+    accept: (value, text, start, end) =>
+      digitCount(value) >= 10 && digitCount(value) <= 16 && !looksLikeMoney(text, end),
   },
 ];
 

@@ -29,6 +29,7 @@ import 'server-only'
 
 import { seoulDayLabel } from '@/lib/clock'
 import type { Container } from '@/lib/container'
+import { KbCitationMissingError } from '@/lib/errors'
 import { newUlid } from '@/lib/ids'
 
 import type { Citation, NextQuestion, PublishInput } from '@/modules/chat-publisher'
@@ -44,6 +45,24 @@ export interface TurnResult {
   readonly body: Record<string, unknown>
   readonly referencedSteps: readonly string[]
   readonly referencedDeadlines: readonly string[]
+  /**
+   * 응답 헤더 넷에 실릴 값 → 08-14-api.md §1.1.
+   *
+   * ⚠️ **2026-09-03 까지 이 자리가 없어서 챗 응답의 계측이 늘 비어 있었습니다.**
+   * 넷 다 「없음」(`none`·`0`)으로 나갔는데, **이 경로가 이 제품의 유일한 외부
+   * 모델 호출**입니다 — 개인정보 보호가 작동한다는 것을 응답이 증명해야 하는
+   * 자리가 정확히 여기인데 그 자리만 비어 있었던 셈입니다.
+   *
+   * `piiEgressResidual` 이 특히 그렇습니다. 안 부르면 기본값 `0` 이 나가는데
+   * 그것은 **「검사했고 0 건」과 「검사를 안 했음」이 같은 값**이라는 뜻입니다
+   * → [telemetry.ts](../lib/telemetry.ts) 의 `setEgressResidual`.
+   */
+  readonly telemetry: {
+    readonly piiTokenCounts: Readonly<Record<string, number>>
+    readonly piiEgressResidual: number
+    readonly kbVersion: string
+    readonly auditId: string
+  }
 }
 
 /**
@@ -74,16 +93,32 @@ export async function chatTurn(
   ])
   const nextQuestion = asWireQuestion(plan.nextQuestion)
 
-  const outcome = await container.chatReceiver.receive({
-    caseContext: context,
-    utterance: input.content,
-    kbVersion,
-    issuedTokens,
-  })
+  // ⚠️ **인용 검증에 걸려 터진 턴이 감사에서 통째로 사라지고 있었습니다**
+  // (2026-09-03). 모델이 발급하지 않은 ref 를 인용하면 `chat-receiver` 가
+  // 한 번 더 물어보고, 그것도 어기면 `KbCitationMissingError` 를 던집니다.
+  // 그 예외가 아래 `llm.called` 를 **건너뛰고 나가서**, 모델을 한두 번 부른
+  // 사실이 어디에도 안 남았습니다.
+  //
+  // 하필 **가장 남아야 할 턴**입니다 — 모델이 [불변 규칙 1](../../CLAUDE.md)을
+  // 어기려 한 순간이고, 04-pii-boundary.md 「감사」가 *"모든 LLM 호출을 감사
+  // 로그로 기록"* 한다고 정한 이유가 바로 그런 턴을 세기 위해서입니다.
+  // 「인용 위반이 몇 %인가」를 물으면 지금까지는 **0 건**이라고 답했습니다.
+  let outcome
+  try {
+    outcome = await container.chatReceiver.receive({
+      caseContext: context,
+      utterance: input.content,
+      kbVersion,
+      issuedTokens,
+    })
+  } catch (error) {
+    await recordFailedCall(input.caseId, error, container)
+    throw error
+  }
 
   // 09-data-model.md §10.2 · 11-chat-context.md §7.2 — **건수만 담습니다.**
   // 식별자도 본문도 토큰도 넣지 않습니다 (불변 규칙 2·3 · §10.1)
-  await container.auditLogger.record({
+  const contextAudit = await container.auditLogger.record({
     eventType: 'chat.context_built',
     actorType: 'system',
     caseId: input.caseId,
@@ -161,6 +196,60 @@ export async function chatTurn(
     body: body as unknown as Record<string, unknown>,
     referencedSteps: stepsCited(outcome),
     referencedDeadlines: deadlinesCited(outcome),
+    telemetry: {
+      piiTokenCounts: outcome.piiCounts,
+      // **`publish` 를 지났다는 것이 곧 「검사했고 0 건」입니다.** 잔여가
+      // 있었으면 위에서 `EgressBlockedError` 로 던져 여기 못 옵니다 —
+      // 그래서 이 자리에서만 0 을 단언할 수 있습니다
+      piiEgressResidual: 0,
+      kbVersion,
+      auditId: contextAudit.auditId,
+    },
+  }
+}
+
+/**
+ * 모델을 부르다 터진 턴을 감사에 남긴다.
+ *
+ * ## 무엇을 남기고 무엇을 안 남기나
+ *
+ * **모델이 실제로 불렸다는 것을 아는 예외에만 남깁니다.** `KbCitationMissingError`
+ * 가 그것입니다 — 답을 받아 검증하다 걸린 것이라 호출은 이미 일어났습니다.
+ * 조회가 먼저 실패한 턴(`KbUnavailableError`)에 `llm.called` 를 적으면
+ * **부르지 않은 호출을 셉니다.** 감사 기록이 거짓이 되느니 비는 편이 낫습니다.
+ *
+ * ⬜ **모델이 안 떴을 때(연결 실패·시간 초과)는 아직 안 남깁니다.** 「보내려다
+ * 못 보냄」과 「보냈는데 답이 없음」을 밖에서 못 가르고, 지금 그것을 가를 신호가
+ * `lib/llm.ts` 에서 안 올라옵니다. 생기면 이 함수에 갈래를 하나 더 두세요.
+ *
+ * ## 실패해도 원래 예외를 지킵니다
+ *
+ * 감사 기록이 못 남는다고 여기서 던지면, 사용자가 받는 오류가 **인용 위반이
+ * 아니라 저장소 오류**로 바뀝니다 — 원인이 가려집니다.
+ */
+async function recordFailedCall(
+  caseId: string,
+  error: unknown,
+  container: Container,
+): Promise<void> {
+  if (!(error instanceof KbCitationMissingError)) return
+
+  const detail = error.detail
+  try {
+    await container.auditLogger.record({
+      eventType: 'llm.called',
+      actorType: 'model',
+      caseId,
+      // **건수와 판정만입니다** — 모델이 뭐라고 인용했는지(ref 문자열)는 안
+      // 담습니다. `violations` 에는 모델이 지어낸 글자가 섞여 올 수 있습니다
+      detail: {
+        ...(typeof detail.attempts === 'number' ? { attempts: detail.attempts } : {}),
+        failed: 'citation_invalid',
+        violations: Array.isArray(detail.violations) ? detail.violations.length : 0,
+      },
+    })
+  } catch {
+    // 위 주석 「실패해도 원래 예외를 지킵니다」
   }
 }
 

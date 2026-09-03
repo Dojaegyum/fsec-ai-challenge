@@ -260,6 +260,16 @@ export function createCaseStore(sql: Sql): CaseStore {
 }
 
 /**
+ * 감사 사슬을 잇는 동안 쥐는 자문 잠금의 번호.
+ *
+ * **아무 숫자나 됩니다** — 같은 번호를 쓰는 쪽끼리만 줄을 섭니다. 표 이름을
+ * 그대로 쓸 수 없어(잠금은 `bigint` 를 받습니다) 이 저장소에서 이 자리에만
+ * 쓰는 값으로 못 박습니다. **다른 곳에서 이 번호를 재사용하지 마세요** —
+ * 상관없는 두 작업이 서로를 기다리게 됩니다.
+ */
+const AUDIT_CHAIN_LOCK = 20_260_903
+
+/**
  * 감사 기록 → `audit-logger`.
  *
  * **줄을 사슬로 잇습니다** — 각 줄이 앞줄의 hash 를 들고 있어, 중간을 지우면
@@ -267,27 +277,39 @@ export function createCaseStore(sql: Sql): CaseStore {
  */
 export function createAuditStore(sql: Sql): AuditStore {
   return {
-    async lastHash(): Promise<string | null> {
-      const rows = await sql<{ hash: string }[]>`
-        SELECT hash FROM audit_log ORDER BY created_at DESC, audit_id DESC LIMIT 1
-      `
-      return rows[0]?.hash ?? null
-    },
+    async appendChained(build): Promise<AuditRecord> {
+      // **한 트랜잭션 안에서 잠그고 읽고 씁니다** → `AuditStore` 의 경고.
+      // 잠금을 안 걸면 요청 둘이 같은 앞줄을 보고 사슬이 갈라지는데,
+      // `verifyChain` 은 그것을 「위조됨」으로 읽습니다 — 아무도 손대지
+      // 않았는데 사슬이 깨진 것으로 보이면 사슬을 두는 이유가 없어집니다.
+      //
+      // `pg_advisory_xact_lock` 은 **커밋·롤백에 자동으로 풀립니다** —
+      // 함수가 중간에 죽어도 잠금이 남지 않습니다. 표를 잠그지 않는 이유는
+      // 읽기(`SELECT`)까지 막을 이유가 없기 때문입니다
+      return await sql.begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(${AUDIT_CHAIN_LOCK})`
 
-    async append(record: AuditRecord): Promise<void> {
-      // ⚠️ **`created_at` 을 반드시 받은 값으로 넣습니다.** 칼럼에 `DEFAULT now()`
-      // 가 있어서 빼도 삽입은 되지만, **그 순간 사슬이 통째로 깨집니다** —
-      // 해시 재료 다섯 중 하나가 `created_at` 이라(§10.1 · `hashOf`), DB 가 찍은
-      // 시각으로 덮이면 `verifyChain` 이 다시 계산한 값과 영영 안 맞습니다.
-      // 터지지 않고 「위조됨」으로 보이는 종류라 더 나쁩니다
-      await sql`
-        INSERT INTO audit_log
-          (audit_id, case_id, event_type, actor_type, detail,
-           prev_hash, hash, created_at)
-        VALUES (${record.auditId}, ${record.caseId ?? null}, ${record.eventType},
-                ${record.actorType}, ${sql.json(record.detail as never)},
-                ${record.prevHash ?? null}, ${record.hash}, ${record.createdAt})
-      `
+        const rows = await tx<{ hash: string }[]>`
+          SELECT hash FROM audit_log ORDER BY created_at DESC, audit_id DESC LIMIT 1
+        `
+        const record = build(rows[0]?.hash ?? null)
+
+        // ⚠️ **`created_at` 을 반드시 받은 값으로 넣습니다.** 칼럼에 `DEFAULT now()`
+        // 가 있어서 빼도 삽입은 되지만, **그 순간 사슬이 통째로 깨집니다** —
+        // 해시 재료 다섯 중 하나가 `created_at` 이라(§10.1 · `hashOf`), DB 가 찍은
+        // 시각으로 덮이면 `verifyChain` 이 다시 계산한 값과 영영 안 맞습니다.
+        // 터지지 않고 「위조됨」으로 보이는 종류라 더 나쁩니다
+        await tx`
+          INSERT INTO audit_log
+            (audit_id, case_id, event_type, actor_type, detail,
+             prev_hash, hash, created_at)
+          VALUES (${record.auditId}, ${record.caseId ?? null}, ${record.eventType},
+                  ${record.actorType}, ${tx.json(record.detail as never)},
+                  ${record.prevHash ?? null}, ${record.hash}, ${record.createdAt})
+        `
+
+        return record
+      })
     },
   }
 }

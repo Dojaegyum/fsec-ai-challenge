@@ -97,7 +97,9 @@ function receiver(over: {
       ctx?: { allowedTerms?: readonly string[]; mappings?: readonly IssuedToken[] },
     ) => {
       void ctx
-      return { masked: text.replace(/110-234-567890/g, '[계좌-1]') }
+      const masked = text.replace(/110-234-567890/g, '[계좌-1]')
+      const counts: Record<string, number> = masked === text ? {} : { account: 1 }
+      return { masked, counts }
     },
   )
   const kbFind = vi.fn(async () => {

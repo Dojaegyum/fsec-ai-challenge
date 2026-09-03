@@ -110,9 +110,11 @@ function toPlannerStep(row: KbRow): KbStep {
 function auditSpy() {
   const written: AuditRecord[] = []
   const store: AuditStore = {
-    lastHash: async () => written.at(-1)?.hash ?? null,
-    append: async (record) => {
+    // 읽기와 쓰기 사이에 `await` 가 없습니다 — 그것이 이 자리의 계약입니다
+    appendChained: async (build) => {
+      const record = build(written.at(-1)?.hash ?? null)
       written.push(record)
+      return record
     },
   }
   return { store, written }

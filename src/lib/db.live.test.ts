@@ -69,13 +69,20 @@ live('실제 데이터베이스에 붙는다', () => {
   it('감사 기록이 사슬로 이어진다 — **다시 읽어 검증까지**', async () => {
     const store = createAuditStore(sql!)
     const first = ulidSource.next()
-    const prev = await store.lastHash()
-    await store.append({
+    // **앞줄을 읽는 것도 이 한 번에 들어 있습니다** — 잠금 안에서 읽습니다
+    const written = await store.appendChained((prev) => ({
       auditId: first, caseId, eventType: 'case.opened', actorType: 'system',
-      detail: { note: '시험' }, prevHash: prev, hash: 'H1'.padEnd(64, '0'),
+      detail: { note: '시험', prev }, prevHash: prev, hash: 'H1'.padEnd(64, '0'),
       createdAt: new Date().toISOString(),
-    })
-    expect(await store.lastHash()).toBe('H1'.padEnd(64, '0'))
+    }))
+    expect(written.hash).toBe('H1'.padEnd(64, '0'))
+    // 다음 줄이 방금 것을 앞줄로 봅니다
+    const second = await store.appendChained((prev) => ({
+      auditId: ulidSource.next(), caseId, eventType: 'case.opened', actorType: 'system',
+      detail: { note: '시험2' }, prevHash: prev, hash: 'H2'.padEnd(64, '0'),
+      createdAt: new Date().toISOString(),
+    }))
+    expect(second.prevHash).toBe('H1'.padEnd(64, '0'))
   })
 
   it('저장한 기록을 다시 읽어도 해시가 그대로다', async () => {

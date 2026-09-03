@@ -131,6 +131,14 @@ export async function POST(
 
     const turn = await chatTurn({ caseId, content: body.content }, container)
 
+    // **계측 넷을 여기서 채웁니다** → §1.1. 안 채우면 넷 다 「없음」으로 나가는데,
+    // 이 경로가 **이 제품의 유일한 외부 모델 호출**입니다 — 개인정보 보호가
+    // 작동한다는 것을 응답이 증명해야 하는 자리가 바로 여기입니다
+    ctx.telemetry.addTokenCounts(turn.telemetry.piiTokenCounts)
+    ctx.telemetry.setEgressResidual(turn.telemetry.piiEgressResidual)
+    ctx.telemetry.useKbVersion(turn.telemetry.kbVersion)
+    ctx.telemetry.useAuditId(turn.telemetry.auditId)
+
     return {
       body: {
         ...turn.body,

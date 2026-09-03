@@ -41,7 +41,11 @@ async function thrownBy<T>(run: () => Promise<unknown>): Promise<T> {
   throw new Error('던졌어야 합니다')
 }
 
-const reader: MediaReader = { readUrl: async (key) => `https://store.example/${key}` }
+const reader: MediaReader = {
+  readUrl: async (key) => `https://store.example/${key}`,
+  // 글은 이 모듈이 안 읽습니다 → `flows/read-evidence.ts`
+  readText: async () => '',
+}
 
 const audio: MediaRef = { objectKey: 'ev/01J8', kind: 'audio', mimeType: 'audio/m4a' }
 const image: MediaRef = { objectKey: 'ev/01J9', kind: 'image', mimeType: 'image/png' }
@@ -188,6 +192,7 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
         readUrl: async () => {
           throw new Error('저장소 연결 실패')
         },
+        readText: async () => '',
       },
       stt: sttOf({ lines: [] }),
     })
@@ -234,6 +239,7 @@ describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다'
         readUrl: async () => {
           throw new StoreError('객체 저장소가 아직 설정되지 않았습니다')
         },
+        readText: async () => '',
       },
       stt: sttOf({ lines: [] }),
     })

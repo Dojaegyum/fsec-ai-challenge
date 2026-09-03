@@ -200,6 +200,15 @@ export type Shortfall =
   | 'no_layout'
   /** 이 종류는 이 모듈이 읽을 것이 없다 (`kind: 'text'`) */
   | 'not_applicable'
+  /**
+   * 너무 길어 앞부분만 읽었다.
+   *
+   * 글로 올린 자료에서 납니다 — 카카오톡 「대화 내보내기」는 몇 년치가 한
+   * 파일로 나오기도 합니다. **이 모듈이 내는 값은 아닙니다**(전사기는 글을
+   * 안 읽습니다) — `flows/read-evidence.ts` 가 씁니다. 어휘를 한 곳에 두려고
+   * 여기 둡니다.
+   */
+  | 'truncated'
 
 export interface TranscribeResult {
   /** 무엇을 읽었나. 08-14-api.md §3.3 의 `progress.phase` 와 같은 값을 씁니다 */
@@ -251,6 +260,21 @@ export interface MediaRef {
 export interface MediaReader {
   /** 유효기간이 있는 읽기 전용 주소를 낸다 */
   readUrl(objectKey: string): Promise<string>
+
+  /**
+   * 글 파일의 본문을 **서버가 직접** 읽어 온다.
+   *
+   * ⚠️ **위의 「바이트가 통과하지 않는다」와 어긋나지 않습니다.** 그 제한은
+   * 수십 MB 짜리 녹음 때문이고, 여기서 읽는 것은 `kind: 'text'` — 카카오톡
+   * 「대화 내보내기」가 내는 `.txt` 같은 것이라 킬로바이트 단위입니다.
+   * **읽는 쪽은 이 모듈이 아니라 `flows/read-evidence.ts`** 입니다
+   * (전사기는 글을 `not_applicable` 로 둡니다 — 옮길 것이 없으니까).
+   * 자리를 여기 두는 것은 저장소 읽기 포트가 여기 하나뿐이기 때문입니다.
+   *
+   * @throws Error 저장소에 못 닿았을 때. **부르는 쪽이 「못 읽었다」로 답합니다**
+   *         — 조용히 빈 글로 넘기면 올린 사람이 「다 됐다」로 읽습니다
+   */
+  readText(objectKey: string): Promise<string>
 }
 
 /**

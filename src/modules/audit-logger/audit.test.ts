@@ -19,11 +19,12 @@ function memoryStore(): AuditStore & { rows: AuditRecord[] } {
   const rows: AuditRecord[] = []
   return {
     rows,
-    async lastHash() {
-      return rows.length > 0 ? rows[rows.length - 1].hash : null
-    },
-    async append(record) {
+    // **읽고 쓰는 사이에 `await` 를 두지 않습니다** — 진짜 저장소가
+    // 트랜잭션·잠금으로 지키는 것을 여기서는 이렇게 지킵니다
+    async appendChained(build) {
+      const record = build(rows.at(-1)?.hash ?? null)
       rows.push(record)
+      return record
     },
   }
 }
@@ -184,6 +185,31 @@ describe('중간을 건드리면 드러난다', () => {
 
   it('기록이 없으면 온전한 것으로 본다', () => {
     expect(verifyChain([])).toEqual({ intact: true })
+  })
+
+  /**
+   * ⚠️ **겹친 요청이 사슬을 갈랐습니다** (2026-09-03).
+   *
+   * `record` 가 `lastHash()` 를 따로 부르고 그 뒤에 `append()` 했습니다.
+   * 요청 둘이 겹치면 **둘 다 같은 앞줄을 보고** 같은 `prev_hash` 로 붙어,
+   * 사슬이 두 갈래가 됩니다. 사슬은 사건별이 아니라 **표 하나에 하나**라
+   * (§10.1) 사용자 둘이 동시에 쓰기만 해도 납니다 — 시연에서 흔한 일입니다.
+   *
+   * 그리고 `verifyChain` 은 그것을 **「위조됨」으로 읽습니다.** 아무도 손대지
+   * 않았는데 깨진 것으로 보이면, 진짜 위조와 구분이 안 되어 **사슬을 두는
+   * 이유 자체가 사라집니다.**
+   */
+  it('동시에 남겨도 사슬이 갈라지지 않는다', async () => {
+    const logger = newLogger()
+
+    await Promise.all([
+      logger.record({ eventType: 'case.opened', actorType: 'user', detail: { n: 1 } }),
+      logger.record({ eventType: 'case.opened', actorType: 'user', detail: { n: 2 } }),
+      logger.record({ eventType: 'case.opened', actorType: 'user', detail: { n: 3 } }),
+    ])
+
+    expect(store.rows).toHaveLength(3)
+    expect(verifyChain(store.rows)).toEqual({ intact: true })
   })
 })
 

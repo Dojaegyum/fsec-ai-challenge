@@ -46,29 +46,30 @@ export function createAuditLogger(deps: {
     async record(event: AuditEvent): Promise<AuditRecord> {
       assertNoToken(event.detail)
 
-      const prevHash = await store.lastHash()
-      const auditId = newId()
-      const createdAt = now()
+      // **앞줄을 보고 잇는 것까지 저장소가 한 덩어리로 합니다.** 여기서
+      // `lastHash()` 를 따로 부르면 요청이 겹칠 때 사슬이 갈라지고,
+      // `verifyChain` 이 그것을 「위조됨」으로 읽습니다 → `AuditStore` 의 경고
+      return await store.appendChained((prevHash) => {
+        const auditId = newId()
+        const createdAt = now()
 
-      const record: AuditRecord = {
-        auditId,
-        caseId: event.caseId ?? null,
-        eventType: event.eventType,
-        actorType: event.actorType,
-        detail: event.detail,
-        prevHash,
-        hash: hashOf({
-          prevHash,
+        return {
           auditId,
+          caseId: event.caseId ?? null,
           eventType: event.eventType,
+          actorType: event.actorType,
           detail: event.detail,
+          prevHash,
+          hash: hashOf({
+            prevHash,
+            auditId,
+            eventType: event.eventType,
+            detail: event.detail,
+            createdAt,
+          }),
           createdAt,
-        }),
-        createdAt,
-      }
-
-      await store.append(record)
-      return record
+        }
+      })
     },
   }
 }
