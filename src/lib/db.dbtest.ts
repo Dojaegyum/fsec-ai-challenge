@@ -49,6 +49,7 @@ import {
   createEvidenceWriter,
   createKbStore,
   createMessageStore,
+  createPurgeCaseStore,
   createSlotReader,
   createSlotWriter,
   createSql,
@@ -839,23 +840,90 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
     const contacts = createContactWriter(sql)
     const source = createReminderSource(sql)
 
+    /**
+     * ⚠️ **`linkToken` 이 세 번째 칸으로 늘었는데 이 시험 셋이 안 따라왔습니다**
+     * (2026-09-03 에 발견). 알림 메일이 「돌아오는 길」을 실어야 해서 붙은 값인데
+     * (`db-reminder.ts` 의 주석), 시험이 두 칸만 기대해 `npm run test:db` 가
+     * **세 건 빨간불**이었습니다. 빨간불을 두면 진짜 회귀를 아무도 안 봅니다.
+     */
     it('넣은 값이 그대로 되읽힌다 — 형식 검사 없이 (ADR-021)', async () => {
       await contacts.saveNotifyEmail(caseId, 'name@example.com')
 
       const found = await source.findContacts([caseId])
-      expect(found).toEqual([{ caseId, email: 'name@example.com' }])
+      expect(found).toEqual([{ caseId, email: 'name@example.com', linkToken }])
     })
 
     it('안 준 사건은 null 로 온다 — 없는 것도 정상 사건입니다', async () => {
       const found = await source.findContacts([otherId])
-      expect(found).toEqual([{ caseId: otherId, email: null }])
+      expect(found).toEqual([{ caseId: otherId, email: null, linkToken: otherToken }])
     })
 
     it('null 이면 지워진다', async () => {
       await contacts.saveNotifyEmail(caseId, null)
 
       const found = await source.findContacts([caseId])
-      expect(found).toEqual([{ caseId, email: null }])
+      expect(found).toEqual([{ caseId, email: null, linkToken }])
+    })
+  })
+
+  /**
+   * 파기 — **`purge_after` 가 지난 사건을 집고, 지우고, 지워졌는지 확인한다.**
+   *
+   * ⚠️ **2026-09-03 까지 이 포트가 미설정 대역이었습니다.** `case-purger` 모듈도
+   * 조립도 다 서 있는데 관계형 DB 쪽 셋만 없어서, 파기를 부르면 그 자리에서
+   * 터졌습니다. 그래서 「마지막 활동일부터 180일 뒤 파기」(§14 · ADR-016)를
+   * 코드가 한 번도 지킨 적이 없습니다.
+   *
+   * **여기만 실제로 행을 지웁니다.** 위 시험들이 쓰는 사건 둘을 건드리지 않도록
+   * 이 절 전용 사건을 따로 엽니다.
+   */
+  describe('파기 대상 조회와 삭제 (§14)', () => {
+    const purger = createPurgeCaseStore(sql)
+    const doomedId = newUlid()
+
+    beforeAll(async () => {
+      await cases.createCase({
+        caseId: doomedId,
+        linkToken: newLinkToken(),
+        track: 'victim',
+        status: 'intake',
+        openedAt: OPENED_AT,
+        // 이미 지난 날짜입니다 — 오늘이 언제든 대상이 됩니다
+        purgeAfter: '2020-01-01',
+      })
+    })
+
+    it('파기일이 지난 사건을 집는다 — 안 지난 것은 안 집는다', async () => {
+      const due = await purger.findDue('2026-09-03', 200)
+      const ids = due.map((one) => one.caseId)
+
+      expect(ids).toContain(doomedId)
+      // 위 시험들이 쓰는 사건은 파기일이 2027 이라 아직 아닙니다
+      expect(ids).not.toContain(caseId)
+    })
+
+    it('파기일을 `YYYY-MM-DD` 로 돌려준다 — 드라이버가 주는 `Date` 그대로가 아니라', async () => {
+      const due = await purger.findDue('2026-09-03', 200)
+      const found = due.find((one) => one.caseId === doomedId)
+
+      expect(found?.purgeAfter).toBe('2020-01-01')
+    })
+
+    it('한 번에 가져올 수를 제한한다 — 서버리스는 실행 시간 상한이 있습니다', async () => {
+      const due = await purger.findDue('2026-09-03', 1)
+
+      expect(due.length).toBeLessThanOrEqual(1)
+    })
+
+    it('지우면 남지 않는다 — 지웠다고 믿지 않고 다시 봅니다 (ADR-016)', async () => {
+      expect(await purger.remains(doomedId)).toBe(true)
+
+      await purger.delete(doomedId)
+
+      expect(await purger.remains(doomedId)).toBe(false)
+      // 지운 뒤에는 대상 목록에서도 사라집니다
+      const due = await purger.findDue('2026-09-03', 200)
+      expect(due.map((one) => one.caseId)).not.toContain(doomedId)
     })
   })
 

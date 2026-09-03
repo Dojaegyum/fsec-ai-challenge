@@ -55,6 +55,7 @@ import {
   createSlotReader,
   createSlotWriter,
   createSql,
+  createPurgeCaseStore,
   createVaultStore,
   createMaskedTexts,
   createVaultMappings,
@@ -397,7 +398,10 @@ export function unconfiguredPorts(env: Env): Ports {
     caseStore: sql ? createCaseStore(sql) : unconfigured('CaseStore', db),
     kbStore: sql ? createKbStore(sql) : unconfigured('KbStore', db),
     auditStore: sql ? createAuditStore(sql) : unconfigured('AuditStore', db),
-    purgeCaseStore: unconfigured('PurgeCaseStore', db),
+    // ⚠️ **2026-09-03 까지 미설정 대역이었습니다** — 파기를 부르면 그 자리에서
+    // 터졌고, 그래서 부르는 라우트도 없었습니다. 「180일 뒤 파기」(§14 · ADR-016)를
+    // 코드가 한 번도 지킨 적이 없었다는 뜻입니다
+    purgeCaseStore: sql ? createPurgeCaseStore(sql) : unconfigured('PurgeCaseStore', db),
     // 알릴 거리를 넓게 퍼 주는 조회 → db-reminder.ts. 좁히는 판단은 모듈이 합니다
     reminderSource: sql ? createReminderSource(sql) : unconfigured('ReminderSource', db),
     casePlan: sql
