@@ -345,6 +345,11 @@ function CaseScreen({
     const evidenceId = await uploads.add(file);
     if (!evidenceId) return;
     await artifact.submit(stepId, { kind: "receipt_doc", evidenceId });
+    // **자료함으로 넘깁니다** — 할 일 레일의 올리기와 같은 규칙. 전사 폴링이
+    // 자료함 화면 안에서만 돌아서(`useEvidence` → evidence.tsx), 안 넘기면
+    // 이 파일은 사용자가 탭을 직접 누를 때까지 「처리중」에 머뭅니다 (감사 F3).
+    // 워크스페이스는 왼쪽 레일이라 판정은 계속 보입니다
+    setFocus("evidence");
   };
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : openedFocus);
