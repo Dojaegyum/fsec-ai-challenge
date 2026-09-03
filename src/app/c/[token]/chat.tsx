@@ -558,7 +558,8 @@ export function MiniChat({
           }}
           disabled={dev || sending}
           placeholder={dev ? "예시 화면입니다" : sending ? "보내는 중입니다" : "무엇이든 물어보세요"}
-          className="min-h-[var(--size-touch)] min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed"
+          /* `w-0` — input 고유 폭이 열 최소폭 계산에 끼지 않게 (stream.tsx 와 같은 이유) */
+          className="min-h-[var(--size-touch)] w-0 min-w-0 flex-1 bg-transparent text-[13px] text-ink-1 placeholder:text-ink-4 focus:outline-none disabled:cursor-not-allowed"
         />
         <button
           type="button"
