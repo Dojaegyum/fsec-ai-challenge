@@ -207,7 +207,7 @@ describe('값을 짝짓는다', () => {
 describe('원문을 다루지 않는다 — 규칙 6', () => {
   it('토큰화된 값을 그대로 내보낸다', () => {
     // 서버에는 복호화 키가 없어 원문을 만들 수 없습니다.
-    // 복원은 doc-filler 가 브라우저에서 합니다
+    // 복원은 셸 화면(doc.tsx)이 pii-restorer 로 브라우저에서 합니다 (ADR-064)
     const guide = builder.build({
       form: formOf(),
       slots: [slot('counterpart_account', 'confirmed', '[계좌-1]')],
