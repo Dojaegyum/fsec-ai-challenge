@@ -504,23 +504,23 @@ function CaseScreen({
 
       {/* 셸은 **두 열**입니다 — 왼쪽 레일(워크스페이스·할 일·사건 파일) · 본문(챗).
           2026-09-03 사용자 확정: **좌상단 WS · 좌하단 TODO · 오른쪽 챗**.
+          **챗은 늘 오른쪽에 삽니다** — 본문이 자료함·기재 안내로 바뀌면 챗이
+          왼쪽으로 오는 것이 아니라 **오른쪽 미니 챗 열**로 줄어듭니다(같은 날
+          정정 — 처음엔 레일 맨 위에 넣었다가 「챗이 왜 좌상단에 있나」).
           T0 안전 절차는 열이 아니라 **본문 위 오버레이 알약**입니다 (safety.tsx).
           레일은 문진 중에도 서 있습니다 — 사건 파일이 그 자리에서 채워지는 것이
           보여야 화면 구조가 처음부터 보입니다(문진 중 왼쪽이 통째로 비어
           「TODO·WS 를 볼 수 없다」는 지적이 같은 날 세 번 나왔습니다) */}
-      <div className="mx-auto grid w-full max-w-shell flex-1 gap-0 md:grid-cols-[350px_minmax(0,1fr)]">
-        {/* ── 왼쪽 레일 — 위에서부터 (본문이 챗이 아닐 때) 미니 챗 · 워크스페이스 ·
-            할 일 · 사건 파일. 좁은 폭에서는 본문 아래로 갑니다 — 챗이 먼저입니다 */}
-        <div className="order-2 flex min-w-0 flex-col gap-3 border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:ml-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)]">
-          {/* 미니 챗 — 본문이 자료함·기재 안내여도 대화는 계속 보여야 합니다 */}
-          {!chatIsMain && (
-            <div className="flex max-h-[300px] min-h-[180px] flex-col border-b border-hairline pb-4">
-              {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
-                  봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
-              <MiniChat chat={chat} token={dataToken} />
-            </div>
-          )}
-
+      <div
+        className={`mx-auto grid w-full max-w-shell flex-1 gap-0 ${
+          chatIsMain
+            ? "md:grid-cols-[350px_minmax(0,1fr)]"
+            : "md:grid-cols-[350px_minmax(0,1fr)_330px]"
+        }`}
+      >
+        {/* ── 왼쪽 레일 — 위에서부터 워크스페이스 · 할 일 · 사건 파일.
+            좁은 폭에서는 맨 아래로 갑니다 — 챗이 먼저입니다 */}
+        <div className="order-3 flex min-w-0 flex-col gap-3 border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:ml-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)]">
           {/* ── 워크스페이스 — 지금 할 단계가 있을 때만, **위에서 토스트처럼
               열립니다.** 높이(0fr→1fr)가 실제로 늘어나 아래 할 일이 부드럽게
               밀려 내려가는 것까지가 모션입니다 (globals.css `.ws-toast`) ── */}
@@ -708,6 +708,20 @@ function CaseScreen({
           )}
           </div>
         </section>
+
+        {/* ── 오른쪽 미니 챗 열 — 본문이 챗이 아닐 때만 섭니다. **챗은 늘
+            오른쪽에 삽니다** — 본문일 땐 넓게, 아닐 땐 이 열로 줄어들 뿐입니다.
+            챗 단독인 열이라 위아래 경계 상자를 두지 않습니다(2026-09-03 사용자
+            확정) — 열 전체가 챗이고, 뷰포트 높이에 붙여 컴포저가 늘 손에 있습니다 */}
+        {!chatIsMain && (
+          <aside className="order-2 flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:mr-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)]">
+            {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
+                봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
+            <div className="flex min-h-[320px] flex-1 flex-col md:sticky md:top-[clamp(14px,2vh,22px)] md:h-[calc(100svh-130px)] md:flex-none">
+              <MiniChat chat={chat} token={dataToken} />
+            </div>
+          </aside>
+        )}
 
       </div>
 
