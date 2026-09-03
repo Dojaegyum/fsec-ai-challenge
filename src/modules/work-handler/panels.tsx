@@ -365,7 +365,8 @@ export function DownloadPanel({
  * 세지 않습니다**(불변 규칙 7 · 기한 규칙 「기준 시계는 서버」).
  *
  * 진행 정도를 보여줄 것이 생기면 **서버가 계산해 내려야** 합니다 — 자리는
- * `GET …/deadlines` 의 `kind: "info"` 에 `elapsed` 로 이미 잡혀 있고(§3.7 · 서버 미구현),
+ * `GET …/deadlines` 의 `kind: "info"` 에 `elapsed` 로 잡혀 있고 서버가 냅니다
+ * (§3.7 · `flows/api-deadlines.ts` — 「미구현」이라던 낡은 주석을 2026-09-03 정정),
  * 그 값을 그리는 것은 `deadline-viewer` 쪽입니다. 화면이 폭을 계산하는 순간 다시
  * 카운트다운이 됩니다.
  */

@@ -10,7 +10,7 @@
 | [`pii-masker/`](pii-masker/) | 나가기 전 계좌·주민번호·카드·전화를 가린다 (층 C) |
 | [`key-handler/`](key-handler/) | 세션키를 만들고 지키며, 매핑을 봉하고 연다 (층 C) |
 | [`pii-restorer/`](pii-restorer/) | 복원해도 되는지 심사하고 되돌린다 (층 C) |
-| [`work-handler/`](work-handler/) | 어느 작업 패널을 열지 정하고 그 패널을 맡는다 (층 C) — **판정만, 렌더는 아직** |
+| [`work-handler/`](work-handler/) | 어느 작업 패널을 열지 정하고 그 패널을 맡는다 (층 C) |
 | [`case-intake/`](case-intake/) | 사건 생성, 파일 접수 자리 발급 (층 1) |
 | [`chat-receiver/`](chat-receiver/) | 층 2의 순서를 부르고 모델을 1회 호출 (층 2) |
 | [`kb-finder/`](kb-finder/) | KB 를 적용·참고 두 묶음으로 조회, 우선순위 병합 (층 2) |

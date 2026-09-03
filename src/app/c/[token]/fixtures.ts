@@ -144,7 +144,8 @@ export const FIXTURE_DEADLINES: { deadlines: Deadline[] } = {
 /**
  * 공고 대기 카드가 쓰는 값 둘 — 시안 「wait-card」(2a).
  *
- * **§3.7 에 `starts_at`·`elapsed` 로 넣기로 확정됐고(2026-08-23) 서버는 아직 미구현입니다.**
+ * **§3.7 에 `starts_at`·`elapsed` 로 확정됐고(2026-08-23), 서버도 냅니다**
+ * (`flows/api-deadlines.ts` — 「미구현」이라던 낡은 주석을 2026-09-03 정정).
  * 화면이 대신 만들 수 없습니다 — 만들려면 기기 시계를 읽어야 하고 그건
  * 「화면이 날짜를 세지 않는다」 위반입니다 (불변 규칙 7).
  */

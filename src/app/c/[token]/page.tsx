@@ -312,9 +312,13 @@ function CaseScreen({
    * | 보드에서 눌렀으면 | **그 단계** — 사용자의 뜻이 우선입니다 |
    * | 안 눌렀으면 | 아직 안 끝난 것 중 **앞선 것** |
    *
-   * ⬜ 챗의 `referenced_steps` 로 옮기는 것(`applySignal`)은 아직입니다 —
-   * **서버가 그 값을 빈 배열로만 냅니다**(§3.9 · `flows/chat-turn.ts`).
-   * 모델이 돌려준 `ref` 를 단계 번호로 되짚는 자리가 먼저 필요합니다.
+   * 챗의 `referenced_steps` 는 **끝까지 배선돼 있습니다** — 서버가 인용을
+   * 단계로 되짚어 내고(`flows/chat-turn.ts` `cited()`), 셸이 `pickStep` 으로
+   * 받습니다(위 `useChatSend` 콜백). `applySignal` 은 안 씁니다 — 같은 규칙을
+   * `picked` 한 값으로 직접 굴립니다. ⚠️ 이 자리에 「서버가 빈 배열만 낸다」는
+   * 낡은 주석이 있었고, 그걸 믿은 오판이 실제로 나왔습니다(2026-09-03).
+   * 남은 공백은 **이력 복원**뿐입니다 — §3.12 에 그 칸이 없어 새로고침하면
+   * 과거 턴의 연결이 사라집니다(`history.ts`).
    */
   const activeStep = useMemo(() => {
     const open = bundle.steps.filter((one) => isOpen(one as WorkStep));
