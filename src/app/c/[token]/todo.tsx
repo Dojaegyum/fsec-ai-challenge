@@ -139,11 +139,18 @@ export default function TodoRail({
         {steps.map((s) => {
           const dl = byStep.get(s.step_id);
           // 「언제든」은 상태가 아니라 **기한이 없다는 사실**입니다 — 기한 목록을
-          // 아는 쪽이 넣어 줍니다 (toneOf 머리말)
-          const tone = toneOf(s, dl !== undefined);
+          // 아는 쪽이 넣어 줍니다 (toneOf 머리말). ⚠️ 본 기한(primary)만 보면
+          // 추가 기간(grace)·안내(info)만 붙은 단계가 「언제든」이 됩니다 —
+          // 보드(plan.tsx)와 같은 판정으로 **모든 종류**를 봅니다 (2026-09-03 검증)
+          const hasOwnDeadline = deadlines.some((one) => one.step_id === s.step_id);
+          const tone = toneOf(s, hasOwnDeadline);
           const mark = TONE_MARK[tone];
-          // `unconfirmed`(자기 신고)만 앰버 — 부산물이 아직 판정하지 않았습니다
-          const tag = tagOf(s, tone);
+          // `unconfirmed`(자기 신고)만 앰버 — 부산물이 아직 판정하지 않았습니다.
+          // now 인데 그릴 D-day 가 없으면(기한 없는 단계가 L1 실패로 in_progress)
+          // 「지금 차례」 — 기한 없는 now 의 어휘는 §S-07 레일 규칙 그대로입니다.
+          // 비워 두면 이 행만 읽히는 상태 글자가 없어집니다 (2026-09-03 검증)
+          const dday = dl ? ddayLabel(dl) : null;
+          const tag = tagOf(s, tone) || (tone === "now" && !dday ? "지금 차례" : "");
           const tagCls = s.state === "unconfirmed" ? "text-deadline-urgent" : mark.cls;
           const active = s.step_id === activeStepId;
           return (
@@ -174,12 +181,12 @@ export default function TodoRail({
                       (tagOf 머리말). 빈 줄을 그리지 않습니다 */}
                   {tag && <span className={`text-[12.5px] ${tagCls}`}>{tag}</span>}
                 </span>
-                {dl && ddayLabel(dl) && (
+                {dday && (
                   <span
                     data-numeric
                     className="shrink-0 text-[12.5px] font-[640] text-deadline-urgent"
                   >
-                    {ddayLabel(dl)}
+                    {dday}
                   </span>
                 )}
               </button>

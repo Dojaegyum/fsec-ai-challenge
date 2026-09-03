@@ -59,8 +59,9 @@ const next = openStep(current, stepId, plan.steps);
 
 ## 아직 아닌 것
 
-- ⬜ **렌더.** 지금은 판정만 서 있습니다. 화면이 설 때 같은 폴더에 붙습니다 —
-  **판정과 렌더를 섞지 않는 것**이 이 모듈의 규칙입니다.
+- ~~⬜ 렌더~~ → **섰습니다** (`workspace.tsx`·`panels.tsx` — 2026-09-03 정정.
+  「판정만」이라던 이 줄이 낡은 채 남아 있었습니다). **판정과 렌더를 파일로
+  가르는 것**이 이 모듈의 규칙입니다.
 - ⬜ **`WS-visit`에서 돌아왔는지 감지.** 탭 복귀로 물어볼지, 사용자가 올릴 때까지 기다릴지 미정.
 - ⬜ **`WS-download`가 가리킬 초안.** `doc-builder`(F-08)가 P1이라 엔드포인트 계약이 없습니다.
 - ⬜ **한 단계에 유형이 둘일 때**(통화 → 받아적기)를 한 패널의 단계로 볼지 두 패널로 볼지.
@@ -71,5 +72,7 @@ const next = openStep(current, stepId, plan.steps);
 | --- | --- |
 | `panel.ts` | `action` → `WS-*` · 유형별 규칙 · 나갈 곳 |
 | `signal.ts` | 어느 단계를 열지 고르기 · 패널 상태 전이 |
+| `workspace.tsx` | 워크스페이스 렌더 — 단계 하나를 패널로 |
+| `panels.tsx` | 패널 뼈대·제출 폼 렌더 |
 | `types.ts` | `PanelId` · `PlanStep` · `PanelState` · `Exit` |
 | `signal.test.ts` | 27건. `npm test` |

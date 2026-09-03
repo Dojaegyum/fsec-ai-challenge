@@ -112,7 +112,7 @@
 | [034](034-browser-shows-plaintext.md) | 브라우저 화면에는 원문을 보여준다 — 토큰은 경계 밖으로 나갈 때만 | 채택 |
 | [035](035-screen-state-axes.md) | 화면 상태는 두 축이다 — 「국면」은 여정에만 쓴다 | 채택 |
 | [036](036-t0-rail.md) | 셸을 세 열로 하고, T0 안전 절차를 왼쪽 고정 레일에 둔다 | 채택 |
-| [037](037-doc-guidance-not-generation.md) | 서류를 만들어 주지 않는다 — 무엇을 어떻게 적는지 안내한다 | 채택 |
+| [037](037-doc-guidance-not-generation.md) | 서류를 만들어 주지 않는다 — 무엇을 어떻게 적는지 안내한다 | 부분 대체됨 → 064 |
 | [038](038-transcript-confirm.md) | 기계가 읽은 값을 사용자가 확인하는 자리를 둔다 — `confirm` · `WS-confirm` | 채택 |
 | [039](039-link-token.md) | 링크 토큰을 `case_id` 와 분리하고, 경로 이름을 `{case_token}` 으로 바꾼다 | 채택 |
 | [040](040-write-path-boundary.md) | 쓰기 경로도 경계를 지난다 — 다만 토큰화가 아니라 거부다 | 채택 |
