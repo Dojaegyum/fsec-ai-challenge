@@ -339,11 +339,24 @@ export function Workspace({ step, onSubmit, busy, verdict, fail, onPickFile }: W
         </div>
       ) : null}
 
-      {lines(step).map((text, i) => (
-        <p key={i} className="mt-2 text-[13.5px] leading-[1.65] text-ink-2">
-          {text}
-        </p>
-      ))}
+      {/* **상세 안내는 접습니다** (2026-09-04) — 이 문단들이 패널 높이의 절반을
+          먹어 왼쪽 레일에서 할 일이 폴드 밑으로 밀렸습니다. 요약(위 상자)과
+          행동 입력은 상시이고, 접힌 것은 한 번의 탭 안에 있습니다. 네이티브
+          `details` 라 보조기기·키보드가 공짜이고, 단계가 바뀌면 key 로 다시
+          접힙니다 — 앞 단계에서 펼친 상태가 새 단계에 붙어 오지 않습니다 */}
+      {lines(step).length > 0 && (
+        <details key={step.step_id} className="group mt-2">
+          <summary className="flex min-h-[var(--size-touch)] cursor-pointer list-none items-center gap-1.5 text-[13px] text-pii [&::-webkit-details-marker]:hidden">
+            <span aria-hidden className="text-[11px] transition-transform duration-200 group-open:rotate-90">▸</span>
+            자세한 안내 보기
+          </summary>
+          {lines(step).map((text, i) => (
+            <p key={i} className="mt-2 text-[13.5px] leading-[1.65] text-ink-2">
+              {text}
+            </p>
+          ))}
+        </details>
+      )}
 
       {contact ? (
         <p className="mt-2.5 text-[13.5px] text-ink-2">
