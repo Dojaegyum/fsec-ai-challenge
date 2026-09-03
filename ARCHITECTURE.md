@@ -299,7 +299,7 @@ flowchart LR
         DV["deadline-viewer"]
         CH["chat-handler"]
         WH["work-handler"]
-        DF["doc-filler"]
+        DF["doc.tsx (셸)"]
     end
 
     OPEN --> SHOW
@@ -321,7 +321,7 @@ flowchart LR
 | `deadline-viewer` | 기한 표시 (`primary`·`grace`·`info`) | **날짜를 계산하기** |
 | `chat-handler` | 발화 전송 · 응답·슬롯 질문 표시 | 인용 번호·판단 근거를 화면에 쓰기 |
 | `work-handler` | 작업 차례 판정 + 유형별 패널 렌더 | 판정을 렌더 안에 섞기 |
-| `doc-filler` | 초안에 원문을 채워 완성 | 서버가 만든 완성 문서를 그대로 받기 |
+| 기재 안내 셸 화면(`doc.tsx`) | 서식 칸에 원문을 채워 보여줌 ([ADR-064](decisions/064-doc-filler-retired.md)) | 서버가 만든 완성 문서를 그대로 받기 |
 
 **`pii-masker` 가 1차, 서버의 `pii-tokenizer` 가 2차입니다.** 둘 다 지나야 외부 LLM에 닿습니다.
 

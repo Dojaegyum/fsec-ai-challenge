@@ -6,7 +6,8 @@ import { ddayLabel, dueLabel, groupDeadlines } from "@/modules/deadline-viewer";
 import type { Deadline } from "@/modules/deadline-viewer";
 import { currentStep } from "@/modules/work-handler";
 import type { PlanStep as WorkStep } from "@/modules/work-handler";
-import type { PlanStep } from "@/modules/plan-viewer";
+import { tagOf, toneOf } from "@/modules/plan-viewer";
+import type { PlanStep, StepTone } from "@/modules/plan-viewer";
 
 /**
  * 할 일 레일 — `/c/{token}` 왼쪽 열의 아래쪽. 챗이 중앙에 고정되면서(ADR-063)
@@ -28,13 +29,21 @@ import type { PlanStep } from "@/modules/plan-viewer";
  * 이 레일은 **그 결과를 그릴 뿐** 스스로 단계를 고르지 않습니다.
  */
 
-/** §S-07 「단계 상태 어휘」 — 기호·태그·색 셋이 함께 갑니다 */
-const MARK: Record<string, { sign: string; tag: string; cls: string }> = {
-  done_verified: { sign: "✓", tag: "증빙됨", cls: "text-pii" },
-  in_progress: { sign: "→", tag: "지금 차례", cls: "text-ink-1" },
-  unconfirmed: { sign: "◔", tag: "확인 필요", cls: "text-deadline-urgent" },
-  skipped: { sign: "—", tag: "해당 없음", cls: "text-ink-4" },
-  not_started: { sign: "○", tag: "미시작", cls: "text-ink-3" },
+/**
+ * §S-07 「단계 상태 어휘」의 기호·색 — **태그 낱말은 `plan-viewer`(`tagOf`)가
+ * 정본**이라 여기 안 적습니다.
+ *
+ * ⚠️ 2026-09-03 까지 여기 자체 표(MARK)가 낱말까지 다시 적어, 같은 상태를
+ * 보드는 「증빙 대기」·레일은 「확인 필요」로 불렀습니다 (감사 F5) —
+ * 「미확인」 계열은 슬롯 배지·전사 스팬과 섞여서 2026-08-23 에 명시적으로
+ * 피한 낱말인데 레일이 되살린 셈입니다. 정본 하나로 합칩니다.
+ */
+const TONE_MARK: Record<StepTone, { sign: string; cls: string }> = {
+  done: { sign: "✓", cls: "text-pii" },
+  now: { sign: "→", cls: "text-ink-1" },
+  todo: { sign: "○", cls: "text-ink-3" },
+  anytime: { sign: "◇", cls: "text-ink-3" },
+  na: { sign: "—", cls: "text-ink-4" },
 };
 
 export default function TodoRail({
@@ -92,7 +101,7 @@ export default function TodoRail({
 
       {/* ── 지금 카드 — 이 레일의 첫 줄이 「지금 뭘 해야 하나」의 답입니다 ── */}
       <div className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/7%)] p-[12px_14px] shadow-[0_1px_0_oklch(1_0_0/7%)_inset,0_10px_24px_-12px_oklch(0_0_0/65%)]">
-        <p className="text-[12px] font-[620] tracking-[0.08em] text-deadline-urgent">
+        <p className="text-[12.5px] font-[620] tracking-[0.08em] text-deadline-urgent">
           <span aria-hidden className="mr-1">◷</span>
           {now ? "지금 하실 일" : "지금 하실 일 없음"}
         </p>
@@ -128,8 +137,14 @@ export default function TodoRail({
           flex-col 은 자식을 열 폭에 맞춰(stretch) truncate 가 실제로 자릅니다 */}
       <ol className="flex flex-col gap-1.5">
         {steps.map((s) => {
-          const mark = MARK[s.state] ?? MARK.not_started;
           const dl = byStep.get(s.step_id);
+          // 「언제든」은 상태가 아니라 **기한이 없다는 사실**입니다 — 기한 목록을
+          // 아는 쪽이 넣어 줍니다 (toneOf 머리말)
+          const tone = toneOf(s, dl !== undefined);
+          const mark = TONE_MARK[tone];
+          // `unconfirmed`(자기 신고)만 앰버 — 부산물이 아직 판정하지 않았습니다
+          const tag = tagOf(s, tone);
+          const tagCls = s.state === "unconfirmed" ? "text-deadline-urgent" : mark.cls;
           const active = s.step_id === activeStepId;
           return (
             <li key={s.step_id}>
@@ -155,12 +170,14 @@ export default function TodoRail({
                   >
                     {s.title}
                   </span>
-                  <span className={`text-[11.5px] ${mark.cls}`}>{mark.tag}</span>
+                  {/* `now` 의 태그는 빈 문자열 — D-day 가 그 자리를 대신합니다
+                      (tagOf 머리말). 빈 줄을 그리지 않습니다 */}
+                  {tag && <span className={`text-[12.5px] ${tagCls}`}>{tag}</span>}
                 </span>
                 {dl && ddayLabel(dl) && (
                   <span
                     data-numeric
-                    className="shrink-0 text-[12px] font-[640] text-deadline-urgent"
+                    className="shrink-0 text-[12.5px] font-[640] text-deadline-urgent"
                   >
                     {ddayLabel(dl)}
                   </span>
@@ -202,7 +219,7 @@ export default function TodoRail({
         </button>
       )}
 
-      <p className="text-[11.5px] leading-[1.6] text-ink-4">
+      <p className="text-[12.5px] leading-[1.6] text-ink-4">
         기한은 서버가 계산한 값입니다. 완료는 체크가 아니라 부산물(◆)이 판정합니다.
       </p>
     </section>

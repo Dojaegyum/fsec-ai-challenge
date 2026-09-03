@@ -139,6 +139,7 @@
 | [061](061-question-input-kinds.md) | 「질문은 전부 버튼」을 좁힌다 — 버튼으로 담을 수 있는 것은 전부 버튼 | 채택 |
 | [062](062-transcript-mapping-handover.md) | 전사가 만든 대응표는 그 응답에서 브라우저에 건넨다 | 채택 |
 | [063](063-chat-centered-layout.md) | 사건 화면을 챗 중심으로 재편한다 — 왼쪽은 안전 절차(접이식) + 할 일 레일 | 채택 |
+| [064](064-doc-filler-retired.md) | doc-filler 를 폐기한다 — 기재 안내 화면은 셸 소유, plan-viewer 는 어휘의 정본 | 채택 |
 
 ## 아직 안 쓴 것
 

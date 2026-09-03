@@ -71,7 +71,7 @@ export default function T0Overlay() {
           {/* ── 펼친 카드 — 챗 위에 떠서 스크롤을 안 밉니다 ── */}
           {open && (
             <div className="absolute inset-x-0 top-full mt-1.5 rounded-[14px] border border-[oklch(0.697_0.16_258.2/45%)] bg-[oklch(0.19_0.018_262/97%)] p-[14px_16px] shadow-[0_12px_36px_oklch(0_0_0/45%)] backdrop-blur">
-              <p className="text-[12px] font-[620] tracking-[0.08em] text-pii">
+              <p className="text-[12.5px] font-[620] tracking-[0.08em] text-pii">
                 지금 당장, 무슨 일이든 — 이 넷은 어떤 경우에도 맞습니다
               </p>
               <ul className="mt-2.5 grid gap-2.5 border-t border-[oklch(0.697_0.16_258.2/22%)] pt-2.5 sm:grid-cols-2">

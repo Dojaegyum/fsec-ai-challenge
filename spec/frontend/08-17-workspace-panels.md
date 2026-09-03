@@ -76,7 +76,7 @@
 
 패널이 쓰는 재료는 **전부 이미 있는 모듈에서 옵니다** — `WS-write`·`WS-upload`의 완료 판정은
 `completion-checker`, `WS-wait`의 기한은 `date-checker`, `WS-download`의 초안은 `doc-builder`가 만들고
-`doc-filler`가 브라우저에서 채웁니다. **패널은 원자 모듈 위의 추상화이지 새 동작이 아닙니다.**
+셸 화면(`doc.tsx`)이 `pii-restorer` 로 브라우저에서 채웁니다([ADR-064](../../decisions/064-doc-filler-retired.md)). **패널은 원자 모듈 위의 추상화이지 새 동작이 아닙니다.**
 
 ## 시그널 — 어느 패널을 여는가
 

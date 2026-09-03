@@ -9,6 +9,7 @@ import { HorizonGlow } from "@/components/HorizonGlow";
 import { currentStep, isOpen, pickStep, Workspace } from "@/modules/work-handler";
 import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
+import { slotFace } from "./shape";
 import ChatView, { MiniChat } from "./chat";
 import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
@@ -196,7 +197,9 @@ export function CaseFileCard({
                       hasToken(slot.value) ? "text-pii" : "text-ink-1"
                     }`}
                   >
-                    {slot.value}
+                    {/* 값은 서버 것 그대로, **얼굴만** 다듬습니다 — 기재 안내와
+                        같은 성형기(shape.ts)라 두 화면이 같은 모양을 보입니다 (D1) */}
+                    {slotFace(key, slot.value)}
                   </span>
                 ) : (
                   <span className="text-[13px] text-ink-3">
@@ -312,9 +315,13 @@ function CaseScreen({
    * | 보드에서 눌렀으면 | **그 단계** — 사용자의 뜻이 우선입니다 |
    * | 안 눌렀으면 | 아직 안 끝난 것 중 **앞선 것** |
    *
-   * ⬜ 챗의 `referenced_steps` 로 옮기는 것(`applySignal`)은 아직입니다 —
-   * **서버가 그 값을 빈 배열로만 냅니다**(§3.9 · `flows/chat-turn.ts`).
-   * 모델이 돌려준 `ref` 를 단계 번호로 되짚는 자리가 먼저 필요합니다.
+   * 챗의 `referenced_steps` 는 **끝까지 배선돼 있습니다** — 서버가 인용을
+   * 단계로 되짚어 내고(`flows/chat-turn.ts` `cited()`), 셸이 `pickStep` 으로
+   * 받습니다(위 `useChatSend` 콜백). `applySignal` 은 안 씁니다 — 같은 규칙을
+   * `picked` 한 값으로 직접 굴립니다. ⚠️ 이 자리에 「서버가 빈 배열만 낸다」는
+   * 낡은 주석이 있었고, 그걸 믿은 오판이 실제로 나왔습니다(2026-09-03).
+   * 남은 공백은 **이력 복원**뿐입니다 — §3.12 에 그 칸이 없어 새로고침하면
+   * 과거 턴의 연결이 사라집니다(`history.ts`).
    */
   const activeStep = useMemo(() => {
     const open = bundle.steps.filter((one) => isOpen(one as WorkStep));
@@ -338,6 +345,11 @@ function CaseScreen({
     const evidenceId = await uploads.add(file);
     if (!evidenceId) return;
     await artifact.submit(stepId, { kind: "receipt_doc", evidenceId });
+    // **자료함으로 넘깁니다** — 할 일 레일의 올리기와 같은 규칙. 전사 폴링이
+    // 자료함 화면 안에서만 돌아서(`useEvidence` → evidence.tsx), 안 넘기면
+    // 이 파일은 사용자가 탭을 직접 누를 때까지 「처리중」에 머뭅니다 (감사 F3).
+    // 워크스페이스는 왼쪽 레일이라 판정은 계속 보입니다
+    setFocus("evidence");
   };
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : openedFocus);
@@ -440,7 +452,8 @@ function CaseScreen({
               priority
               className="h-[23px] w-auto invert"
             />
-            <span className="text-[18px] font-[660] tracking-[-0.02em] text-ink-1">
+            {/* 좁은 폭에선 심벌이 정체성을 맡습니다 — 이름은 보조기기에 남깁니다 (감사 D7) */}
+            <span className="sr-only text-[18px] font-[660] tracking-[-0.02em] text-ink-1 sm:not-sr-only">
               Fin<span className="text-pii">Ally</span>
             </span>
           </div>
@@ -448,7 +461,8 @@ function CaseScreen({
           <div className="flex flex-wrap items-center gap-2">
             <span
               data-numeric
-              className="inline-flex items-center gap-2 rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3"
+              /* 정보성 칩이라 좁은 폭 우선순위 최하 — 토큰은 주소창에 이미 보입니다 */
+              className="hidden items-center gap-2 rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3 md:inline-flex"
             >
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
               사건 {token.slice(0, 5)}…
@@ -476,7 +490,7 @@ function CaseScreen({
                   {/* 올린 자료 수는 **브라우저가 들고 있는 목록**입니다 —
                       못 올린 것도 세어야 사용자가 자기가 고른 것을 다 봅니다 */}
                   {id === "evidence" && uploads.files.length > 0 && (
-                    <span data-numeric className="ml-1.5 text-[12px] text-ink-4">
+                    <span data-numeric className="ml-1.5 text-[12.5px] text-ink-4">
                       {uploads.files.length}
                     </span>
                   )}
@@ -487,16 +501,20 @@ function CaseScreen({
                 (불변 규칙 7). 없으면 배지가 통째로 안 뜹니다 */}
             {headerDue && (
               <span className="inline-flex max-w-[260px] items-center gap-2 rounded-full border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/10%)] px-3 py-[5px] text-[13px] font-[620] text-deadline-urgent">
-                <span className="min-w-0 truncate font-[560] text-ink-2">{headerDue.title}</span>
+                <span className="hidden min-w-0 truncate font-[560] text-ink-2 sm:block">{headerDue.title}</span>
                 <span data-numeric>{headerDue.dday}</span>
               </span>
             )}
             <button
               type="button"
               onClick={copyUrl}
+              data-hit
+              aria-label="가족에게 링크 보내기"
               className="inline-flex min-h-[var(--size-touch)] items-center rounded-full border border-hairline bg-chip px-3 text-[13px] text-ink-3 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)] hover:text-ink-1"
             >
-              {copied ? "복사됨 ✓" : "가족에게 링크 보내기"}
+              {/* 기능은 같고 라벨만 좁은 폭에서 짧아집니다 — 아이콘 어휘를 새로 만들지 않습니다 */}
+              <span className="md:hidden">{copied ? "✓" : "공유"}</span>
+              <span className="hidden md:inline">{copied ? "복사됨 ✓" : "가족에게 링크 보내기"}</span>
             </button>
           </div>
         </div>

@@ -267,7 +267,9 @@ export default function Landing() {
               </div>
             </article>
 
-            {/* 보드 — 지금 할 일 */}
+            {/* 할 일 레일 — 지금 할 일. ⚠️ 2026-09-03 까지 「보드」였습니다 —
+                챗 중앙 재편(ADR-063)으로 없어진 화면을 랜딩이 계속 팔았고(감사 D4),
+                목업에 제품이 금지한 가로 진행률 막대(§S-07)까지 그려져 있었습니다 */}
             <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
               <div aria-hidden className="flex h-[118px] flex-col gap-[7px] border-b border-hairline bg-stage p-4">
                 <div className="flex items-center gap-2">
@@ -283,17 +285,20 @@ export default function Landing() {
                   <div className="size-3 rounded-full border border-[oklch(0.305_0.013_267.1/70%)]" />
                   <div className={`${wireBarDim} h-2 w-[50%]`} />
                 </div>
-                <div className="mt-auto h-1.5 w-full rounded-[4px] bg-[oklch(0.305_0.013_267.1/40%)]">
-                  <div className="h-full w-[38%] rounded-[4px] bg-[oklch(0.697_0.16_258.2/60%)]" />
+                {/* 진행률 막대가 아닙니다 — 제품에 없는 것을 목업이 그리지 않습니다 */}
+                <div className="mt-auto flex items-center gap-2">
+                  <div className="size-3 rounded-full border border-[oklch(0.305_0.013_267.1/70%)]" />
+                  <div className={`${wireBarDim} h-2 w-[36%]`} />
                 </div>
               </div>
               <div className="px-[18px] pt-[15px] pb-[17px]">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-[13px] font-[660] text-pii">보드</span>
+                  <span className="text-[13px] font-[660] text-pii">할 일</span>
                   <h3 className="text-[15px] font-[640] text-ink-1">지금 뭘 해야 하나</h3>
                 </div>
                 <p className="mt-1.5 text-[13px] leading-[1.6] text-ink-3">
-                  며칠 뒤에 열어도 첫 줄이 답합니다. 기한은 서버가 셉니다.
+                  며칠 뒤에 열어도 첫 줄이 답합니다. 기한은 서버가 셉니다. 늘 왼쪽에 서
+                  있습니다.
                 </p>
               </div>
             </article>

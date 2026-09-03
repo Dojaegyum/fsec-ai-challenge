@@ -28,7 +28,7 @@ pii-restorer               감사 로그(토큰화 기준)
 **서버·LLM 어디에도 "누구의 어떤 계좌"인지 완성된 정보가 존재하지 않는 구조**가 목표입니다.
 들어올 때(`pii-tokenizer`)와 나갈 때(`chat-publisher`)가 각각 한 자리라 우회할 자리도 하나씩입니다.
 
-## 브라우저 — 층 C (12)
+## 브라우저 — 층 C (11)
 
 층 C 는 「언제 도는가」가 아니라 「무엇을 책임지는가」로 갈립니다 → [ADR-023](../../decisions/023-frontend-module-names.md).
 **브라우저가 보여주는 것은 전부 원문**입니다 — 토큰은 경계를 넘어갈 때의 형태이지 사용자가 볼 형태가 아닙니다 ([ADR-034](../../decisions/034-browser-shows-plaintext.md)).
@@ -46,12 +46,15 @@ pii-restorer               감사 로그(토큰화 기준)
 | `deadline-viewer` | `GET /deadlines` | D-day · 유예 · `info` | **날짜를 계산하기**(기준 시계는 서버) · 지난 기한 지우기(유예가 남아 있을 수 있음) · 환급을 카운트다운으로 만들기 |
 | `chat-handler` | 발화 | 응답 · 슬롯 질문 버튼 | 인용 번호·판단 근거를 화면에 쓰기([ADR-022](../../decisions/022-chat-turn-boundaries.md) 셋 — 보류) · 「모름」 없애기 · 응답을 스트리밍하기 |
 | `work-handler` | `referenced_steps` + 플랜 | 패널 하나(`WS-*`) | **판정을 렌더 안에 섞기** · 「나중에 하기」 막기 · `WS-read` 에 체크박스 두기 · 서버가 준 `action` 을 프론트가 추론하기([ADR-024](../../decisions/024-step-action-and-url.md)) |
-| `doc-filler` | 기재 안내 + 매핑 | 값이 원문으로 채워진 안내 — 브라우저에서만 | **서버가 만든 완성 문서를 그대로 받기** · 조판된 문서를 내려주기(`.docx` 는 P2 → [ADR-037](../../decisions/037-doc-guidance-not-generation.md)) |
 
 **`work-handler` 의 「판정을 렌더 안에 섞기」가 이 표에서 유일하게 모듈 안쪽을 향한 금지입니다.** 판정과 렌더를
 한 모듈이 맡기로 했으므로 경계가 이름이 아니라 모듈 안의 규칙으로만 남습니다 — 섞이면 "왜 이 패널이 떴나"를 짚을 수 없습니다.
 
-> **구현 상태 (2026-08-26)** — `doc-filler` 는 폴더만 있고(`.gitkeep`), `pii-masker` 의 파일 마스킹은 구현 전입니다.
+> **구현 상태 (2026-09-03)** — `pii-masker` 의 파일 마스킹은 구현 전입니다.
+>
+> **`doc-filler` 는 폐기됐습니다** → [ADR-064](../../decisions/064-doc-filler-retired.md). 기재 안내
+> 화면은 셸(`doc.tsx`) 소유이고, 그 행에 있던 금지(완성 문서 수신 · 조판 문서 다운로드,
+> `.docx` 는 P2 → [ADR-037](../../decisions/037-doc-guidance-not-generation.md))는 셸 화면이 그대로 집니다.
 > `pii-restorer` 는 코드가 아직 [ADR-034](../../decisions/034-browser-shows-plaintext.md) 이전의 부분 복원을 따릅니다 —
 > 계약은 위 표이고 코드가 뒤처진 것입니다 → [doc-gardening 4절](../../docs/plans/08-26-doc-gardening.md).
 

@@ -6,6 +6,7 @@ import { restore } from "@/modules/pii-restorer";
 import type { RestorableMapping } from "@/modules/pii-restorer";
 
 import type { CaseSlot } from "./load";
+import { amountShape, whenShape } from "./shape";
 
 /**
  * S-10 서류 기재 안내 — `/c/{token}` 의 `focus: "doc"` 일 때의 본문.
@@ -37,7 +38,8 @@ import type { CaseSlot } from "./load";
  *    ⚠️ **비어 있으면 이 카드를 아예 그리지 않습니다.** 확인 못 한 것과 「앱으로 안 된다」는
  *    다릅니다 — 배열에 없는 것이 「모른다」입니다 (ADR-042 ③)
  *  · restored → PII 로컬 복원 성공 여부. 실패는 **에러가 아닙니다**(다른 기기)
- *  · 층 C: doc-filler · key-handler
+ *  · 층 C 소속: **셸 소유 화면**입니다 (ADR-064 — doc-filler 폐기). 복원은
+ *    pii-restorer · key-handler 를 부릅니다. 서버가 만든 완성 문서를 받지 않습니다
  */
 
 type FieldState = "confirmed" | "unread" | "unknown" | "staff";
@@ -205,38 +207,6 @@ const step = (i: number) => ({ animationDelay: `${360 + i * 90}ms` });
 /** 아직 `[계좌-1]` 인가 — 이 기기에 짝이 없다는 뜻입니다 */
 const stillToken = (value: string) => /\[[^\]\s]+-\d+\]/.test(value);
 
-/**
- * 금액을 서식에 옮겨 적기 좋게 — `3000000` → `3,000,000원`.
- *
- * **숫자만인 값에만 손댑니다.** 「300만원쯤」처럼 사용자가 말한 그대로가 들어오면
- * 그대로 둡니다 — 우리가 해석해 바꾸면 **본인이 한 말과 다른 값**이 서류에 갑니다.
- *
- * 복사되는 값은 숫자뿐입니다. 은행 앱 금액 칸이 쉼표를 안 받습니다.
- */
-function amountShape(value: string): { display: string; raw: string } {
-  const digits = value.replace(/[\s,]/g, "");
-  if (!/^\d+$/.test(digits)) return { display: value, raw: value };
-  return { display: `${Number(digits).toLocaleString("ko-KR")}원`, raw: digits };
-}
-
-/**
- * 시각을 읽기 좋게 — `2026-08-14T14:02:00Z` → `2026. 8. 14. 14:02`.
- *
- * ⚠️ **날짜를 세지 않습니다.** 법정 기한은 코드의 규칙이 계산하고(불변 규칙 7)
- * 이 함수는 **있는 값을 다르게 적을 뿐**입니다. 여기서 하루를 더하거나 빼지 마세요.
- *
- * 못 읽는 모양이면 **받은 그대로** 냅니다 — 우리가 만든 값을 서류에 적게 하는 것보다
- * 사용자가 자기가 말한 문자열을 보는 편이 낫습니다.
- */
-function whenShape(value: string): { display: string; raw: string } {
-  const at = new Date(value);
-  if (Number.isNaN(at.getTime())) return { display: value, raw: value };
-  const two = (n: number) => String(n).padStart(2, "0");
-  const display =
-    `${at.getFullYear()}. ${at.getMonth() + 1}. ${at.getDate()}. ` +
-    `${two(at.getHours())}:${two(at.getMinutes())}`;
-  return { display, raw: display };
-}
 
 /**
  * 서식 칸 + 이 사건의 슬롯 → 화면에 그릴 구획.

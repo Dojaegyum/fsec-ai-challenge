@@ -33,7 +33,7 @@
 | `S-06` | 사건 · **본문이 챗** (+ 워크스페이스) | `/c/{token}` | 국면 1~4 | `chat-handler` · `poll-checker` · `pii-restorer` · `work-handler` |
 | `S-07` | 사건 · **본문이 플랜** | `/c/{token}` | 국면 2~5 | `plan-viewer` · `deadline-viewer` |
 | `S-08` | 증거함 | `/c/{token}` | 국면 1~3 | `transcript-viewer` · `file-sender` |
-| `S-10` | 서류 기재 안내 | `/c/{token}` | 국면 3 | `doc-filler` · `key-handler` |
+| `S-10` | 서류 기재 안내 | `/c/{token}` | 국면 3 | 셸 `doc.tsx` · `pii-restorer` · `key-handler` ([ADR-064](../../decisions/064-doc-filler-retired.md)) |
 | `S-11` | **이 답변에 무엇이 나갔나** | `/c/{token}` (시트) | 국면 1~4 | `pii-restorer` · `key-handler` |
 | `S-03` | 피싱 백신 (부가) | `/vaccine` | 평시 | — |
 
@@ -684,7 +684,7 @@ side    plan.steps 에 지금 할 단계가 있으면  → 'work'
 | | |
 | --- | --- |
 | 무엇 | 필수 기재 항목 + 그 자리에 넣을 값. **값마다 복사** |
-| 누가 | `doc-builder`가 항목과 값을 짝짓고, `doc-filler`가 **브라우저에서** 원문으로 복원합니다 |
+| 누가 | `doc-builder`가 항목과 값을 짝짓고, 셸 화면(`doc.tsx`)이 `pii-restorer` 로 **브라우저에서** 원문으로 복원합니다 ([ADR-064](../../decisions/064-doc-filler-retired.md)) |
 | 왜 안내인가 | **별지 제1호서식 원본이 미확인**(`U-17`)이고 파일 제출 경로도 미확인(`U-25`)입니다. 우리가 조판한 것은 법정 서식이 아니고, **틀린 서류는 반려 → 3영업일 상실**입니다 |
 | 금지 | **문서를 조판해 내려주는 것.** 서버가 완성 문서를 만드는 것은 [04-pii-boundary.md](../common/08-14-pii-boundary.md) 규칙 6 위반이기도 합니다 |
 | 기대치 | 자율배상은 **대상인지 진단해주는 것**까지입니다. 「받을 수 있다」고 쓰지 않습니다 |

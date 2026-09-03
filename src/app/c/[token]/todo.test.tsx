@@ -4,7 +4,7 @@
  * **여기서 못 박는 것 넷:**
  * 1. 지금 카드가 진행 중 단계 하나를 말한다 — 「다음 것」을 지어내지 않는다
  * 2. D-day 는 서버 값(`days_left`)이 있을 때만 그린다 — 화면이 날짜를 세지 않는다
- * 3. `unconfirmed` 는 완료가 아니라 「확인 필요」다 (불변 규칙 6)
+ * 3. `unconfirmed` 는 완료가 아니라 「증빙 대기」다 (불변 규칙 6 · 어휘 정본 tagOf)
  * 4. 챗이 가리킨 단계(`activeStepId`)가 강조된다 — 「채팅 상황에 맞는」의 뜻
  */
 
@@ -71,10 +71,13 @@ describe("D-day — 서버가 센 값만 그립니다 (불변 규칙 7)", () => 
 });
 
 describe("상태 어휘 — §S-07 그대로", () => {
-  it("`unconfirmed` 는 「확인 필요」다 — 완료가 아닙니다 (불변 규칙 6)", () => {
+  // 낱말은 plan-viewer(tagOf)가 정본 — 「확인 필요」는 2026-08-23 에 피한 「미확인」
+  // 계열이라 레일이 되살렸던 것을 2026-09-03 에 되돌렸습니다 (감사 F5)
+  it("`unconfirmed` 는 「증빙 대기」다 — 완료가 아닙니다 (불변 규칙 6)", () => {
     const one = steps.map((s, i) => (i === 0 ? { ...s, state: "unconfirmed" as const } : s));
     const text = textOf(draw({ steps: one }));
-    expect(text).toContain("확인 필요");
+    expect(text).toContain("증빙 대기");
+    expect(text).not.toContain("확인 필요");
   });
 
   it("`done_verified` 는 「증빙됨」", () => {

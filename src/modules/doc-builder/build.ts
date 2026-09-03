@@ -28,7 +28,7 @@
  *
  * 값은 **토큰화된 상태** 그대로 나갑니다. 서버에는 복호화 키가 없어 원문을
  * 만들 수 없고, 만들면 안 됩니다 → 04-pii-boundary.md 규칙 6.
- * 복원은 `doc-filler` 가 브라우저에서 합니다.
+ * 복원은 셸 화면(`doc.tsx`)이 `pii-restorer` 로 브라우저에서 합니다 (ADR-064).
  */
 
 import { KbError } from '@/lib/errors'

@@ -37,8 +37,13 @@ describe("서버가 준 슬롯만 그린다", () => {
     expect(text).not.toContain("검찰");
   });
 
-  it("채워진 값은 그대로 그린다", () => {
-    expect(textOf(draw([slot("amount", "confirmed", "3000000")]))).toContain("3000000");
+  it("금액은 기재 안내와 같은 얼굴로 다듬는다 — 값은 서버 것 그대로", () => {
+    // 2026-09-03 까지 이 시험이 「3000000 생숫자」를 계약으로 박고 있었습니다 (감사 D1)
+    expect(textOf(draw([slot("amount", "confirmed", "3000000")]))).toContain("3,000,000원");
+  });
+
+  it("문장으로 말한 금액은 해석하지 않고 그대로 그린다", () => {
+    expect(textOf(draw([slot("amount", "confirmed", "300만원쯤")]))).toContain("300만원쯤");
   });
 
   it("빈 칸은 「모름이어도 진행」이라고 말한다 — 실패로 보이면 안 됩니다", () => {

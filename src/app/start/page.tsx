@@ -5,7 +5,7 @@ import { HorizonGlow } from "@/components/HorizonGlow";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { LoadFail } from "@/app/c/[token]/load";
 import { kindOf, uploadFile } from "@/app/c/[token]/upload";
@@ -326,7 +326,7 @@ export function EvidenceSlots({
                   </span>
                   {/* **합성이라는 사실을 화면이 말합니다** → ADR-043 */}
                   {one.mock ? (
-                    <span className="shrink-0 rounded-full bg-[oklch(1_0_0/8%)] px-2 py-0.5 text-[11.5px] text-ink-3">
+                    <span className="shrink-0 rounded-full bg-[oklch(1_0_0/8%)] px-2 py-0.5 text-[12.5px] text-ink-3">
                       Mock
                     </span>
                   ) : null}
@@ -595,6 +595,21 @@ export function ConsentClauses({
 }
 
 export default function Start() {
+  /**
+   * 시연 전용 게이트 — `?demo` 가 붙었을 때만 「Mock 파일로 실행」 칩을 그립니다.
+   * ⚠️ 2026-09-03 까지 조건 없이 항상 그려져 **실사용자(피해자) 화면에 시연용
+   * 개발 용어가 노출**됐습니다 (감사 D5). dev 빌드에서는 늘 보입니다 —
+   * 시연 때는 주소에 `?demo` 를 붙이세요.
+   *
+   * `useSearchParams` 가 아니라 마운트 뒤 location 입니다 — 이 페이지는 정적
+   * 프리렌더라 그 훅이 Suspense 경계를 요구하고(빌드가 실제로 깨졌습니다),
+   * 시연 칩 하나 때문에 페이지를 동적으로 만들 이유가 없습니다.
+   */
+  const [demo, setDemo] = useState(process.env.NODE_ENV !== "production");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("demo")) setDemo(true);
+  }, []);
+
   const router = useRouter();
   const [phase, setPhase] = useState<"intake" | "issued">("intake");
   const [modalOpen, setModalOpen] = useState(false);
@@ -920,7 +935,7 @@ export default function Start() {
                 rejected={rejected}
                 onPick={pick}
                 onUnpick={unpick}
-                onMock={() => void runMock()}
+                onMock={demo ? () => void runMock() : undefined}
               />
 
               {/* 못 만들었으면 앰버로. **스스로 다시 부르지 않습니다** — 누르는 것은

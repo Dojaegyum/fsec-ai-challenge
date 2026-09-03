@@ -112,7 +112,7 @@ export interface CaseSlotValue {
    * **토큰화된 값**입니다. 원문이 아닙니다.
    *
    * 서버에는 복호화 키가 없어 원문을 만들 수 없습니다. 화면에 뜨는 값의 복원은
-   * `doc-filler` 가 **브라우저에서** 합니다 → 04-pii-boundary.md 규칙 6.
+   * 셸 화면(`doc.tsx`)이 `pii-restorer` 로 **브라우저에서** 합니다 (ADR-064) → 04-pii-boundary.md 규칙 6.
    */
   readonly valueMasked: string | null
 }

@@ -376,7 +376,7 @@ export default function PlanView({
                   </span>
                 </div>
                 <p
-                  className={`mt-0.5 pl-[19px] text-[12px] ${
+                  className={`mt-0.5 pl-[19px] text-[12.5px] ${
                     tone === "now" ? "text-deadline-urgent" : "text-ink-4"
                   }`}
                 >

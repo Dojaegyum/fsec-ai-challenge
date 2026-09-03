@@ -517,7 +517,7 @@ export function MiniChat({
             >
               <p className="text-[13px] leading-[1.55] text-ink-2">{line.reply}</p>
               {line.sourceNote && (
-                <p className="mt-1.5 text-[11.5px] leading-[1.5] text-ink-4">
+                <p className="mt-1.5 text-[12.5px] leading-[1.5] text-ink-4">
                   {line.sourceNote}을 보고 안내했습니다
                 </p>
               )}

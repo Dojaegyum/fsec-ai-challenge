@@ -87,7 +87,7 @@
    나가는 길    pii-masker → file-sender → (서버)
    들어오는 길  (서버) → poll-checker → pii-restorer ← key-handler
    보여주는 곳  transcript-viewer · plan-viewer · deadline-viewer
-                chat-handler · work-handler · doc-filler
+                chat-handler · work-handler
 ```
 
 **층 C만 「언제 도는가」가 아니라 「무엇을 책임지는가」로 묶습니다.** 브라우저는 화면이 열려 있는 동안
@@ -322,14 +322,15 @@ ADR-016이 「Supabase Storage에 네이티브 만료가 없어 **실제로 지�
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
 | `work-handler` | 어느 단계를 할 차례인지 판정하고, 그 유형의 패널을 렌더한다 | 브라우저 | [워크스페이스 패널](../frontend/08-17-workspace-panels.md) |
-| `doc-filler` | 기재 안내에 뜨는 값을 **브라우저에서** 원문으로 복원한다 | 브라우저 | `F-08` [04](08-14-pii-boundary.md) · [ADR-037](../../decisions/037-doc-guidance-not-generation.md) |
 
 **`work-handler`는 판정과 렌더를 함께 맡습니다.** 나누는 안을 검토하고 합쳤습니다
 → [ADR-023](../../decisions/023-frontend-module-names.md). **대신 모듈 안에서 판정을 렌더와 섞지 않습니다** —
 섞이면 "왜 이 패널이 떴나"를 짚을 수 없습니다 → [모듈 경계](08-16-module-boundaries.md).
 
-**`doc-filler`는 서버가 만든 완성 문서를 받지 않습니다.** 초안에 원문을 채우는 것은 브라우저의 일이고,
-서버가 완성본을 내려주는 구조는 [04](08-14-pii-boundary.md) 위반입니다.
+**`doc-filler` 는 폐기됐습니다** → [ADR-064](../../decisions/064-doc-filler-retired.md).
+기재 안내 화면(S-10)은 셸(`src/app/c/[token]/doc.tsx`) 소유이고, 값 복원은
+`pii-restorer`·`key-handler` 가 합니다. 서버가 만든 완성 문서를 받지 않는다는
+금지는 그대로입니다([04](08-14-pii-boundary.md)).
 
 ---
 
