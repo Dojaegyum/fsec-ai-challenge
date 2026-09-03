@@ -174,7 +174,6 @@
   /* 전환 — 핸드오프 「Phase Transition Motion」 v2 의 확정값.
      이징은 이 하나만 씁니다. 다른 곡선을 새로 만들지 마세요 */
   --motion-ease: cubic-bezier(0.65, 0, 0.35, 1);
-  --motion-panel-in: 0.9s;   /* 오른쪽 열이 밖에서 들어오는 데 걸리는 시간 */
   --motion-view: 0.32s;      /* 본문 교차 한 번. ⚠️ page.tsx 의 FADE_MS 와 같은 값이어야 합니다 */
 }
 
@@ -333,14 +332,15 @@
   .view-enter { animation: view-enter var(--motion-view) var(--motion-ease) both; }
   .view-leave { animation: view-leave var(--motion-view) var(--motion-ease) both; }
 
-  /* 오른쪽 열이 밖에서 들어옵니다 — +8px 드리프트가 붙어 있습니다.
-     ⚠️ **넓은 폭 전용입니다.** 좁은 폭에서는 이 열이 옆이 아니라 **위아래로 쌓이므로**
-     옆에서 밀고 들어올 자리가 없고, 도는 동안 308px 이 화면 밖으로 나가
-     가로 스크롤이 생깁니다 */
-  @keyframes side-in  { from { opacity: 0; transform: translateX(308px); } to { opacity: 1; transform: none; } }
-  @media (min-width: 48rem) {
-    .side-in { animation: side-in var(--motion-panel-in) var(--motion-ease) 0.15s both; }
+  /* 워크스페이스가 레일 **위에서 토스트처럼 열립니다** (2026-09-03 사용자 확정).
+     높이(0fr→1fr)가 실제로 늘어나야 아래 할 일이 **밀려 내려가는** 것까지가
+     모션이 됩니다 — transform 은 레이아웃을 안 움직여서 못 씁니다.
+     마크업은 .ws-toast(grid) > div(min-h-0 overflow-hidden) 두 겹입니다 */
+  @keyframes ws-toast-in {
+    from { grid-template-rows: 0fr; opacity: 0; }
+    to   { grid-template-rows: 1fr; opacity: 1; }
   }
+  .ws-toast { animation: ws-toast-in 0.5s var(--motion-ease) both; }
 
   /* 전정 장애가 있는 사용자에게 회전하는 테두리는 증상을 유발합니다. 선택이 아닙니다 */
   @media (prefers-reduced-motion: reduce) {

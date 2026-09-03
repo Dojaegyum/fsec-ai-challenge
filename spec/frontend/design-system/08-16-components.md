@@ -35,7 +35,7 @@ Claude Design 핸드오프로 들어온 화면에서 나온 것들입니다
 | `Bubble` | 챗 말풍선 (AI/사용자). 꼬리 반경 5px | [screens S-06](../08-14-screens.md) | `app/c/[token]/chat.tsx` |
 | `PendingBubble` | **스트리밍 금지의 대가** — 무엇을 하는지 문장으로 | [screens S-06](../08-14-screens.md) · [ADR-022](../../../decisions/022-chat-turn-boundaries.md) | `app/c/[token]/chat.tsx` |
 | `CaseFile` | 진술에서 파악한 슬롯이 채워지는 것을 보여줌 | [screens S-06](../08-14-screens.md) | `app/c/[token]/page.tsx` |
-| `T0Rail` | 셸 왼쪽 288px 고정 레일. **본문 밖**이라 국면이 바뀌어도 남습니다. 넓은 폭에서 접히지 않습니다 | [screens](../08-14-screens.md) 「셸은 세 열입니다」 · [ADR-036](../../../decisions/036-t0-rail.md) | `app/c/[token]/safety.tsx` |
+| `T0Rail` | 셸 왼쪽 288px 고정 레일. **본문 밖**이라 국면이 바뀌어도 남습니다. 넓은 폭에서 접히지 않습니다 | [screens](../08-14-screens.md) 「셸은 두 열입니다」 · [ADR-036](../../../decisions/036-t0-rail.md) | `app/c/[token]/safety.tsx` |
 | `MiniChat` | 본문이 챗이 아닐 때 오른쪽 열 **아래**의 대응 비서. **흡수의 착지점** — 축소 사본이 아니라 제 크기의 진짜 폼 | [screens S-07](../08-14-screens.md) | `app/c/[token]/chat.tsx` |
 | `HeroStrip` | S-07 맨 위 「지금 하실 일은 하나」 + D-day. 앰버 6% / 45% | [screens S-07](../08-14-screens.md) | `app/c/[token]/plan.tsx` |
 | `PlanBoard`·`StepRow` | 단계 다섯 상태(`done`·`now`·`todo`·`anytime`·`na`). **기호·라벨·색 셋이 함께.** 배지 한 칸이 **순번(숫자) 또는 상태 기호**를 겸합니다 — 세로 목록이 순서로 읽히는 것을 막습니다. `todo`·`anytime` 은 **빈 원**(글리프 없음)이고 가르는 것은 우측 태그 글자입니다. `afterStep` 슬롯이 단계 사이에 카드를 끼웁니다 | [screens S-07](../08-14-screens.md) | **`modules/plan-viewer/board.tsx`** |
