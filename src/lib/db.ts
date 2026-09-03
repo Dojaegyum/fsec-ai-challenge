@@ -1299,6 +1299,13 @@ export interface MessageStore {
     readonly citations: readonly unknown[]
     readonly kbContextRefs: readonly unknown[]
     readonly insufficient: boolean
+    /**
+     * 답이 가리킨 단계·기한 → §3.9 `referenced_steps`·`referenced_deadlines`.
+     * **이력(§3.12)이 그대로 되돌려줍니다** — 새로고침 뒤에도 챗↔단계 연결이
+     * 남습니다(ADR-065 · 09-data-model.md §9.4). 없으면 빈 배열
+     */
+    readonly referencedSteps: readonly string[]
+    readonly referencedDeadlines: readonly string[]
     /** 사용자 발화. 다음 턴의 맥락이 됩니다 */
     readonly utteranceMasked: string
   }): Promise<void>
@@ -1333,6 +1340,9 @@ export interface MessageStore {
       readonly contentMasked: string
       readonly citations: readonly unknown[]
       readonly insufficient: boolean
+      /** 답이 가리킨 단계·기한 — §3.9 와 같은 모양. 비서 줄에만 값이 있고, 없으면 빈 배열 */
+      readonly referencedSteps: readonly string[]
+      readonly referencedDeadlines: readonly string[]
       readonly createdAt: string
     }[]
     readonly truncated: boolean
@@ -1341,6 +1351,19 @@ export interface MessageStore {
 
 /** 맥락에 넣을 앞 대화의 최대 턴 수 */
 const HISTORY_TURNS = 20
+
+/**
+ * JSONB 로 남긴 식별자 배열을 되읽는다 → 09-data-model.md §9.4.
+ *
+ * **`NULL` 은 빈 배열입니다** — 사용자 줄과, 이 칼럼이 생기기 전(0009) 행이
+ * 그렇습니다. §3.12 는 칸을 빼지 않습니다. 문자열이 아닌 것은 버립니다 —
+ * 화면이 `step_id` 로 대조하는 값이라 다른 것이 섞이면 대조가 조용히 빗나갑니다
+ */
+function idList(value: unknown): readonly string[] {
+  return Array.isArray(value)
+    ? value.filter((one): one is string => typeof one === 'string')
+    : []
+}
 
 
 export function createMessageStore(sql: Sql, newId: () => string): MessageStore {
@@ -1359,21 +1382,27 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
       await sql`
         INSERT INTO message
           (message_id, case_id, turn_no, role, content_masked, citations,
-           kb_context_refs, insufficient, prompt_masked, reasoning_masked)
+           kb_context_refs, insufficient, prompt_masked, reasoning_masked,
+           referenced_steps, referenced_deadlines)
         VALUES
           (${newId()}, ${input.caseId},
            (SELECT COALESCE(MAX(turn_no), 0) + 1 FROM message
              WHERE case_id = ${input.caseId}),
            'user',
            ${input.utteranceMasked}, ${sql.json([] as never)},
-           ${sql.json([] as never)}, false, '', NULL),
+           ${sql.json([] as never)}, false, '', NULL,
+           -- 가리킨 단계·기한은 비서 줄에만 → §9.4. 사용자 줄은 NULL 이고
+           -- 읽는 쪽(idList)이 빈 배열로 되돌립니다
+           NULL, NULL),
           (${input.messageId}, ${input.caseId},
            (SELECT COALESCE(MAX(turn_no), 0) + 1 FROM message
              WHERE case_id = ${input.caseId}),
            ${input.role},
            ${input.contentMasked}, ${sql.json(input.citations as never)},
            ${sql.json(input.kbContextRefs as never)}, ${input.insufficient},
-           ${input.promptMasked}, ${input.reasoningMasked})
+           ${input.promptMasked}, ${input.reasoningMasked},
+           ${sql.json(input.referencedSteps as never)},
+           ${sql.json(input.referencedDeadlines as never)})
       `
     },
 
@@ -1441,10 +1470,13 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
           content_masked: string
           citations: unknown
           insufficient: boolean
+          referenced_steps: unknown
+          referenced_deadlines: unknown
           created_at: Date
         }[]
       >`
-        SELECT message_id, role, content_masked, citations, insufficient, created_at
+        SELECT message_id, role, content_masked, citations, insufficient,
+               referenced_steps, referenced_deadlines, created_at
         FROM message
         WHERE case_id = ${caseId}
 
@@ -1470,6 +1502,8 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
           contentMasked: one.content_masked,
           citations: Array.isArray(one.citations) ? one.citations : [],
           insufficient: one.insufficient,
+          referencedSteps: idList(one.referenced_steps),
+          referencedDeadlines: idList(one.referenced_deadlines),
           createdAt: one.created_at.toISOString(),
         })),
         truncated,

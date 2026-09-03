@@ -190,6 +190,9 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
           citations: [{ id: `kb-${turnNo}` }],
           kbContextRefs: [{ kb_entry_id: `kb-${turnNo}`, kb_version: '2026.07.9' }],
           insufficient: false,
+          // 답이 가리킨 단계 → §9.4. 아래 시험이 비서 줄에서 되읽습니다
+          referencedSteps: [`01JSTEP${turnNo}`],
+          referencedDeadlines: [],
           utteranceMasked: `발화 ${turnNo}`,
         })
       }
@@ -233,6 +236,24 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
       const { turns } = await messages.turns(caseId, 10)
       const user = turns.find((one) => one.role === 'user')
       expect(user?.citations).toEqual([])
+    })
+
+    it('비서 줄에 가리킨 단계가 **그대로** 되돌아온다 — §9.4 · ADR-065', async () => {
+      // 새로고침 뒤에도 챗↔단계 연결이 남아야 합니다. `citations` 로는 되짚을 수
+      // 없어 따로 남긴 값입니다 — 실제로 JSONB 를 지나 배열로 돌아오는지 봅니다
+      const { turns } = await messages.turns(caseId, 10)
+      const assistant = turns.filter((one) => one.role === 'assistant')
+      expect(assistant.map((one) => one.referencedSteps)).toEqual([
+        ['01JSTEP1'], ['01JSTEP2'], ['01JSTEP3'],
+      ])
+      expect(assistant.map((one) => one.referencedDeadlines)).toEqual([[], [], []])
+    })
+
+    it('사용자 줄은 빈 배열 — `NULL` 을 그대로 내리지 않는다', async () => {
+      const { turns } = await messages.turns(caseId, 10)
+      const user = turns.find((one) => one.role === 'user')
+      expect(user?.referencedSteps).toEqual([])
+      expect(user?.referencedDeadlines).toEqual([])
     })
   })
 
