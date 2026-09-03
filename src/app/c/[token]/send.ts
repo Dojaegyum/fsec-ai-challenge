@@ -63,8 +63,11 @@ import { fetchHistory, isReserved, openVault } from "./history";
 import { postJson, sendJson } from "./load";
 import type { LoadFail } from "./load";
 
+/** 브라우저 1차(정규식)가 책임지는 종류 — 검산(①'')은 이 넷만 봅니다 */
+const FIRST_PASS_KINDS: ReadonlySet<string> = new Set(["주민번호", "카드", "전화", "계좌"]);
+
 /** 어느 걸음에서 멈췄나 — 화면이 무엇을 말할지가 갈립니다 */
-export type SendStage = "vault" | "message";
+export type SendStage = "vault" | "mask" | "message";
 
 export type SendResult =
   | {
@@ -129,7 +132,7 @@ async function screenAndSeal(input: {
   signal?: AbortSignal;
 }): Promise<
   | { ok: true; content: string; mappings: PiiMapping[]; vaultRead: boolean }
-  | { ok: false; fail: LoadFail }
+  | { ok: false; stage: "vault" | "mask"; fail: LoadFail }
 > {
   const { caseToken, text, store, signal } = input;
   let vaultRead = input.vaultRead;
@@ -141,10 +144,37 @@ async function screenAndSeal(input: {
   //     가릴 것이 없으면 여기 안 옵니다 — 볼트를 괜히 부르지 않습니다
   if (out.added.length > 0 && !vaultRead) {
     const again = await openVault(caseToken, store, signal);
-    if (!again.read) return { ok: false, fail: VAULT_UNKNOWN };
+    if (!again.read) return { ok: false, stage: "vault", fail: VAULT_UNKNOWN };
     vaultRead = true;
     // 예약 칸까지 들어 있는 목록으로 **다시** 가립니다. 이번엔 번호가 이어집니다
     out = outgoing(text, { mappings: mergeContext(again.maskContext, input.mappings) });
+  }
+
+  // ①'' **마스킹 검산** — 1차(정규식) 종류의 원문이 치환을 비껴 남았는지 봅니다.
+  //     ⚠️ 이 검사의 범위는 정직하게: **패턴이 아예 못 집는 새 값은 매핑이 없어
+  //     여기서 못 잡습니다** — 그건 자사 서버 2차(pii-tokenizer)의 몫이고,
+  //     이 검사를 믿고 1차 패턴 보강을 미루면 안 됩니다 (2026-09-03 검증 지적).
+  //     **이름·기관 매핑은 거르지 않습니다** — 브라우저 1차에는 이름 패턴이
+  //     없고(pii-masker/types.ts) 이름은 서버 2차가 가리는 설계라, 전사 NER 이
+  //     만든 이름 매핑까지 검사하면 그 이름이 든 발화가 영구 차단됩니다.
+  //     볼트 POST 보다 **앞**입니다 — 걸리면 네트워크 호출이 정말 0회입니다.
+  //     실패 문구에 원문을 싣지 않습니다. (2026-09-03 까지는 이 함수가 선언만
+  //     있고 호출이 없었습니다)
+  const firstPass = out.mappings.filter((m) => FIRST_PASS_KINDS.has(m.kind));
+  try {
+    assertNoLeak(out.content, firstPass);
+  } catch {
+    return {
+      ok: false,
+      stage: "mask",
+      fail: {
+        poll: false,
+        reason: "error",
+        retryable: true,
+        message:
+          "적으신 내용 일부를 안전하게 가리지 못했습니다. 문장을 조금 바꿔 다시 보내 주세요.",
+      },
+    };
   }
 
   // ② 새로 생긴 매핑이 있으면 봉해서 먼저 맡깁니다.
@@ -167,6 +197,7 @@ async function screenAndSeal(input: {
         // 그 값은 영영 못 풉니다
         return {
           ok: false,
+          stage: "vault",
           fail: {
             poll: false,
             reason: "error",
@@ -181,29 +212,10 @@ async function screenAndSeal(input: {
         { entries },
         signal,
       );
-      if (!kept.ok) return { ok: false, fail: kept.fail };
+      if (!kept.ok) return { ok: false, stage: "vault", fail: kept.fail };
     }
   }
 
-  // ②' **마지막 방어선** — 가린 결과에 원문이 남아 있으면 여기서 멈춥니다.
-  //    상류(maskText)가 패턴을 놓쳐도 이 검사가 있으면 네트워크에 안 탑니다
-  //    (불변 규칙 2). ⚠️ 2026-09-04 까지 이 함수는 **선언만 있고 호출이
-  //    없었습니다** — 「나가기 직전에 부르세요」라는 제 머리말을 아무도 안
-  //    지키고 있었습니다. 실패 문구에 원문을 싣지 않습니다
-  try {
-    assertNoLeak(out.content, out.mappings);
-  } catch {
-    return {
-      ok: false,
-      fail: {
-        poll: false,
-        reason: "error",
-        retryable: true,
-        message:
-          "적으신 내용 일부를 안전하게 가리지 못했습니다. 문장을 조금 바꿔 다시 보내 주세요.",
-      },
-    };
-  }
 
   return { ok: true, content: out.content, mappings: out.mappings, vaultRead };
 }
@@ -220,7 +232,7 @@ export async function sendUtterance(input: {
   const { caseToken, signal } = input;
 
   const out = await screenAndSeal(input);
-  if (!out.ok) return { ok: false, stage: "vault", fail: out.fail };
+  if (!out.ok) return { ok: false, stage: out.stage, fail: out.fail };
 
   // ③ 이제 보냅니다. 태우는 것은 `content` 뿐입니다
   const said = await postJson(
@@ -243,7 +255,7 @@ export async function sendUtterance(input: {
 /* ── 슬롯 답변 — §3.5 ───────────────────────────────────────── */
 
 /** 어느 걸음에서 멈췄나 */
-export type SlotStage = "vault" | "answer";
+export type SlotStage = "vault" | "mask" | "answer";
 
 export type SlotResult =
   | {
@@ -312,7 +324,7 @@ export async function answerSlot(input: {
 
   if (action === "answer") {
     const out = await screenAndSeal({ ...input, text: content });
-    if (!out.ok) return { ok: false, stage: "vault", fail: out.fail };
+    if (!out.ok) return { ok: false, stage: out.stage, fail: out.fail };
     content = out.content;
     mappings = out.mappings;
     vaultRead = out.vaultRead;
