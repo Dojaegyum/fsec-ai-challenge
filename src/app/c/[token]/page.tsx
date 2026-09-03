@@ -362,6 +362,24 @@ function CaseScreen({
    * 상태가 아니라 파생값인 이유입니다 — 손으로 옮길 수 있으면 또 어긋납니다.
    * `devSide` 는 개발 스위치 전용입니다.
    */
+  /**
+   * 할 일이 레일 시야에서 벗어났는가 — 이정표 칩(아래)의 스위치입니다.
+   * IntersectionObserver 는 조상 스크롤 클리핑까지 계산하므로 레일 내부
+   * 스크롤에서도 맞게 동작합니다. 서버 렌더에는 없는 API 라 효과 안에서만 씁니다.
+   */
+  const railTodoRef = useRef<HTMLDivElement>(null);
+  const [todoAway, setTodoAway] = useState(false);
+  useEffect(() => {
+    const el = railTodoRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const watch = new IntersectionObserver(([one]) => setTodoAway(!one.isIntersecting), {
+      threshold: 0.1,
+    });
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [bundle.steps.length]);
+  const todoRef = railTodoRef;
+
   const [devSide, setDevSide] = useState<Side | null>(null);
   const side: Side = devSide ?? (bundle.steps.length > 0 ? "work" : "casefile");
   const [copied, setCopied] = useState(false);
@@ -543,7 +561,12 @@ function CaseScreen({
       >
         {/* ── 왼쪽 레일 — 위에서부터 워크스페이스 · 할 일 · 사건 파일.
             좁은 폭에서는 맨 아래로 갑니다 — 챗이 먼저입니다 */}
-        <div className="order-3 flex min-w-0 flex-col gap-3 border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:ml-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)]">
+        {/* 넓은 폭에서 레일은 **자체 스크롤 기둥**입니다 (2026-09-04 결정) —
+            페이지와 한 몸이면 레일 아래(할 일·사건 파일)를 보려고 챗 스크롤
+            위치를 잃습니다. sticky + 내부 스크롤이면 챗은 그대로 두고 레일만
+            넘겨봅니다. `self-start` 가 없으면 그리드가 열 높이만큼 늘여
+            sticky 가 설 자리가 없습니다 */}
+        <div className="order-3 flex min-w-0 flex-col gap-3 border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:ml-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)] md:sticky md:top-[clamp(14px,2vh,22px)] md:max-h-[calc(100svh-clamp(28px,4vh,44px))] md:self-start md:overflow-y-auto md:overscroll-contain">
           {/* ── 워크스페이스 — 지금 할 단계가 있을 때만, **위에서 토스트처럼
               열립니다.** 높이(0fr→1fr)가 실제로 늘어나 아래 할 일이 부드럽게
               밀려 내려가는 것까지가 모션입니다 (globals.css `.ws-toast`) ── */}
@@ -579,8 +602,10 @@ function CaseScreen({
             </div>
           )}
 
-          {/* ── 할 일 — 워크스페이스가 없으면 이 자리가 레일의 맨 위입니다 ── */}
+          {/* ── 할 일 — 워크스페이스가 없으면 이 자리가 레일의 맨 위입니다.
+              래퍼는 이정표 칩의 관측 대상입니다 — 시야에서 벗어나면 칩이 뜹니다 ── */}
           {bundle.steps.length > 0 && (
+            <div ref={todoRef} className="scroll-mt-3">
             <TodoRail
               steps={bundle.steps}
               deadlines={bundle.deadlines}
@@ -596,6 +621,7 @@ function CaseScreen({
               }
               busy={uploads.busy}
             />
+            </div>
           )}
 
           {/* ── 사건 파일 — 문진이 도는 동안 채워지는 것이 여기 보입니다.
@@ -604,6 +630,25 @@ function CaseScreen({
             <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">사건 파일</div>
             <CaseFileCard slots={bundle.slots} asking={bundle.question?.slot_key ?? null} />
           </div>
+
+          {/* ── 이정표 칩 — 할 일이 시야 밖일 때만, 숨기는 게 아니라 알립니다
+              (2026-09-04 결정: 할 일을 접는 대신). 누르면 그리로 스크롤 ── */}
+          {bundle.steps.length > 0 && todoAway && (
+            <button
+              type="button"
+              onClick={() =>
+                todoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+              className="sticky bottom-0 z-10 -mx-1 flex min-h-[var(--size-touch)] items-center justify-center gap-2 rounded-[12px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.21_0.02_262/97%)] px-3 text-[12.5px] font-[600] text-deadline-urgent shadow-[0_-8px_20px_-8px_oklch(0_0_0/60%)] backdrop-blur"
+            >
+              할 일 {bundle.steps.filter((one) => isOpen(one as WorkStep)).length}
+              <span className="min-w-0 truncate font-[500] text-ink-2">
+                {(currentStep(bundle.steps as unknown as readonly WorkStep[]) as FullStep | null)
+                  ?.title ?? ""}
+              </span>
+              <span aria-hidden>↓</span>
+            </button>
+          )}
         </div>
 
         {/* ── 본문 ───────────────────────────────────────── */}

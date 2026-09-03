@@ -94,8 +94,8 @@ export default function ChatView({
 
   return (
     <div className="mx-auto flex w-full max-w-[700px] flex-1 flex-col">
-      {/* 챗 스트림 */}
-      <div className="flex flex-1 flex-col gap-3.5">
+      {/* 챗 스트림 — 컴포저 자리는 아래 래퍼의 `mt-auto` 가 정합니다 */}
+      <div className="flex flex-col gap-3.5">
         {dev ? (
           <DemoStream atWork={atWork} />
         ) : (
@@ -207,8 +207,13 @@ export default function ChatView({
         {!sending && <QuestionBlock ask={ask} onAnswered={onPickChoice} i={lines.length} />}
       </div>
 
-      {/* 컴포저 — 포커스 링은 여기에만 */}
-      <div className="mt-5 flex items-center gap-2 rounded-[14px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-[14px] shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
+      {/* 컴포저 — **대화 길이와 무관하게 항상 같은 자리(바닥)** 입니다
+          (2026-09-04 사용자 확정 — 「짧을 때도 길 때와 같은 위치로」).
+          `mt-auto` 가 짧은 대화에서 바닥까지 밀고, 대화가 화면을 넘으면
+          sticky 가 그 자리를 지킵니다 — 두 경우 모두 위치가 같습니다.
+          뒤로 지나가는 말풍선은 바닥색 그라데이션이 받칩니다. 포커스 링은 여기에만 */}
+      <div className="sticky bottom-0 z-10 mt-auto pt-4 pb-2 [background:linear-gradient(to_top,var(--ground)_62%,transparent)]">
+      <div className="flex items-center gap-2 rounded-[14px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-[14px] shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
         <input
           aria-label="진술 입력"
           value={draft}
@@ -241,6 +246,7 @@ export default function ChatView({
         >
           <span aria-hidden>↑</span>
         </button>
+      </div>
       </div>
     </div>
   );
