@@ -597,6 +597,33 @@ export function planOrgLoad(
         for (const [key, value] of Object.entries(contact)) {
           if (value === null) where('CONTACT', `\`contact.${key}\` 가 \`null\` 입니다 — 칸을 빼세요 (§11.1 ①)`)
         }
+        // **`submit` 은 화면까지 그대로 갑니다** → 08-14-api.md §3.6 `channels[].submit`.
+        // 서버가 정렬·가공 없이 복사하므로(ADR-042 ②) 모양은 여기서 잡아야 합니다.
+        // `how` 가 둘 밖이면 화면이 아이콘도 문구도 못 고릅니다(§11.1 ④)
+        if (contact.submit !== undefined) {
+          if (!Array.isArray(contact.submit)) {
+            where('CONTACT', '`contact.submit` 이 배열이 아닙니다 (§11.1 ④)')
+          } else {
+            contact.submit.forEach((one, index) => {
+              const path = (one ?? {}) as Record<string, unknown>
+              const at = `contact.submit[${index}]`
+              if (typeof one !== 'object' || one === null) {
+                where('CONTACT', `\`${at}\` 이 객체가 아닙니다`)
+                return
+              }
+              if (path.how !== 'branch' && path.how !== 'app') {
+                where('CONTACT', `\`${at}.how\` 는 branch·app 둘뿐입니다 — ${String(path.how)}`)
+              }
+              if (!isText(path.text)) where('CONTACT', `\`${at}.text\` 가 없습니다`)
+              if (path.url !== undefined && (!isText(path.url) || !path.url.startsWith('http'))) {
+                where('CONTACT', `\`${at}.url\` 이 주소가 아닙니다 — 없으면 칸을 빼세요`)
+              }
+            })
+          }
+        }
+        if (contact.caution !== undefined && !isText(contact.caution)) {
+          where('CONTACT', '`contact.caution` 이 문자열이 아닙니다')
+        }
       }
 
       if (problems.length > before) continue

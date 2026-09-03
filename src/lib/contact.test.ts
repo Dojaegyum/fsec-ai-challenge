@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { resolveContact, withContacts } from './contact'
+import { cautionOf, resolveContact, submitPathsOf, withContacts } from './contact'
 
 const CONTACT = {
   report_tel: '1588-9999',
@@ -83,5 +83,84 @@ describe('단계 본문에 푼 값을 얹는다', () => {
 
   it('`steps` 가 없는 본문은 그대로 지나간다', () => {
     expect(withContacts({ actor: 'victim' }, CONTACT)).toEqual({ actor: 'victim' })
+  })
+})
+
+describe('신청서를 내는 길을 통째로 옮긴다 — §3.6 `channels[].submit` · ADR-042', () => {
+  const BOTH = {
+    report_tel: '1588-9999',
+    submit: [
+      { how: 'app', text: '앱 → 고객센터 → 피해구제 신청', url: 'https://app.example/relief' },
+      { how: 'branch', text: '가까운 영업점에 서면 제출' },
+    ],
+    caution: '앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다',
+  }
+
+  it('**순서를 그대로 둔다** — 앱이 앞이면 앱이 앞', () => {
+    // 「앱이 먼저」를 코드에 박으면 KB·NH 사용자가 앱을 뒤지다 3영업일을 씁니다.
+    // 반대로 「영업점이 먼저」를 박으면 인터넷은행에는 갈 곳이 없습니다 (ADR-042 ②)
+    expect(submitPathsOf(BOTH).map((one) => one.how)).toEqual(['app', 'branch'])
+  })
+
+  it('`url` 은 있을 때만 칸이 생긴다 — 없으면 링크 없이 글자만', () => {
+    const [app, branch] = submitPathsOf(BOTH)
+    expect(app).toEqual({
+      how: 'app',
+      text: '앱 → 고객센터 → 피해구제 신청',
+      url: 'https://app.example/relief',
+    })
+    expect(branch).toEqual({ how: 'branch', text: '가까운 영업점에 서면 제출' })
+    expect(branch).not.toHaveProperty('url')
+  })
+
+  it('기관이 없으면 **빈 배열** — `null` 이 아니다', () => {
+    // 화면은 빈 배열이면 카드를 아예 안 그립니다(ADR-042 ③). `null` 을 주면
+    // 「칸이 없다」와 「길이 없다」를 화면이 따로 다뤄야 합니다
+    expect(submitPathsOf(null)).toEqual([])
+  })
+
+  it('확인 못 한 기관은 칸이 없고, 그때도 빈 배열이다 (§11.1 ①)', () => {
+    expect(submitPathsOf({ report_tel: '1577-8000' })).toEqual([])
+  })
+
+  it('배열이 아니면 빈 배열 — 문자열이던 옛 `submit_place` 모양을 안 받는다', () => {
+    expect(submitPathsOf({ submit: '가까운 영업점에 서면 제출' })).toEqual([])
+  })
+
+  it('모양이 안 맞는 줄은 버린다 — 적재가 이미 막는 것이라 여기서는 타입만 좁힌다', () => {
+    const got = submitPathsOf({
+      submit: [
+        { how: 'fax', text: '팩스로' },
+        { how: 'branch' },
+        { how: 'branch', text: '  ' },
+        null,
+        { how: 'app', text: '앱에서', url: '' },
+      ],
+    })
+    // `url: ''` 은 「없음」입니다 — 빈 링크를 그리면 눌러도 아무 데도 안 갑니다
+    expect(got).toEqual([{ how: 'app', text: '앱에서' }])
+  })
+
+  it('**원본을 안 고친다** — 새 배열을 만든다', () => {
+    const got = submitPathsOf(BOTH)
+    expect(got).not.toBe(BOTH.submit)
+    expect(got[0]).not.toBe(BOTH.submit[0])
+  })
+})
+
+describe('그 기관에서 헷갈리기 쉬운 것 — `caution`', () => {
+  it('있으면 그대로', () => {
+    expect(cautionOf({ caution: '앱의 「사고신고」는 피해구제 신청이 아닙니다' })).toBe(
+      '앱의 「사고신고」는 피해구제 신청이 아닙니다',
+    )
+  })
+
+  it('없으면 `null` — 확인 못 한 칸은 아예 없다 (§11.1 ①)', () => {
+    expect(cautionOf({ report_tel: '1588-9999' })).toBeNull()
+    expect(cautionOf(null)).toBeNull()
+  })
+
+  it('빈 문자열은 없는 것으로 본다', () => {
+    expect(cautionOf({ caution: '   ' })).toBeNull()
   })
 })

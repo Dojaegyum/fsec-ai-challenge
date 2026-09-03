@@ -692,3 +692,57 @@ describe('⚠️ 유형 파일도 함께 실린다', () => {
     }
   })
 })
+
+describe('기관 사전의 제출 경로는 모양이 맞아야 실린다 — §11.1 ④ · 08-14-api.md §3.6', () => {
+  /**
+   * `submit` 은 서버가 정렬·가공 없이 §3.6 `channels[].submit` 으로 **그대로 복사**합니다.
+   * 그래서 모양은 적재에서 잡아야 합니다 — 여기서 새면 화면이 `how` 로 아이콘도
+   * 문구도 못 고릅니다.
+   */
+  const org = (contact: Record<string, unknown>) => ({
+    org_id: 'kb-bank',
+    channel_id: 'CH-bank',
+    name: 'KB국민은행',
+    aliases: ['국민'],
+    contact,
+    source_url: 'https://portal.kfb.or.kr/voice/vphishing_report.php',
+    verified_at: '2026-08-25',
+  })
+  const load = (contact: Record<string, unknown>) =>
+    planOrgLoad([{ name: 'org.json', orgs: [org(contact)] }], { kbVersion: OPTS.kbVersion })
+  const orgRules = (contact: Record<string, unknown>) => load(contact).problems.map((p) => p.rule)
+
+  it('앱과 영업점이 함께 있어도 통과한다 — 순서는 KB 가 정한다 (ADR-042 ②)', () => {
+    const plan = load({
+      submit: [
+        { how: 'app', text: '앱 → 고객센터 → 피해구제 신청', url: 'https://example.bank/app' },
+        { how: 'branch', text: '가까운 영업점에 서면 제출' },
+      ],
+      caution: '앱의 「사고신고」는 피해구제 신청이 아닙니다',
+    })
+    expect(plan.problems).toEqual([])
+    expect(plan.rows[0]!.contact.submit).toHaveLength(2)
+  })
+
+  it('`how` 가 branch·app 밖이면 거부한다', () => {
+    expect(orgRules({ submit: [{ how: 'fax', text: '팩스로 제출' }] })).toContain('CONTACT')
+  })
+
+  it('`text` 가 없으면 거부한다 — 화면에 보일 한 줄이 없다', () => {
+    expect(orgRules({ submit: [{ how: 'branch' }] })).toContain('CONTACT')
+  })
+
+  it('`url` 이 주소가 아니면 거부한다 — 없으면 칸을 빼야 한다', () => {
+    expect(orgRules({ submit: [{ how: 'branch', text: '영업점', url: 'TODO(근거 필요)' }] })).toContain(
+      'CONTACT',
+    )
+  })
+
+  it('배열이 아니면 거부한다 — 옛 `submit_place` 문자열 모양', () => {
+    expect(orgRules({ submit: '가까운 영업점에 서면 제출' })).toContain('CONTACT')
+  })
+
+  it('`caution` 은 문자열이어야 한다', () => {
+    expect(orgRules({ caution: ['둘', '셋'] })).toContain('CONTACT')
+  })
+})

@@ -25,6 +25,8 @@
 
 import 'server-only'
 
+import type { SubmitPath } from '@/lib/contact'
+
 import type { PlanChannel, PlanSnapshot, StoredStep } from './regenerate-plan'
 
 /** 계약의 `steps[]` 한 칸 → §3.1 · §3.6 (같은 모양입니다) */
@@ -66,6 +68,13 @@ export interface ApiPlanChannel {
   /** 원 단위. 모르면 `null` */
   readonly amount: number | null
   readonly confidence: number | null
+  /**
+   * 신청서를 내는 길 — `org.contact.submit` **순서 그대로** → ADR-042.
+   * 기관 미특정이거나 확인된 길이 없으면 **빈 배열**(칸을 빼지 않습니다)
+   */
+  readonly submit: readonly SubmitPath[]
+  /** 그 기관에서 헷갈리기 쉬운 것 — `org.contact.caution`. 없으면 `null` */
+  readonly caution: string | null
 }
 
 /** 계약의 `plan` */
@@ -126,6 +135,10 @@ export function toApiStep(step: StoredStep): ApiPlanStep {
  *
  * **`amount`·`confidence` 는 숫자로 나갑니다.** 드라이버가 `NUMERIC` 을
  * 문자열로 주는 것을 읽는 자리에서 이미 바꿔 둡니다 → `lib/db-plan.ts`.
+ *
+ * **`submit` 은 복사만 합니다.** 정렬하지 않고, 비어도 빼지 않습니다 —
+ * 순서는 KB 가 정하고(ADR-042 ②), 빈 배열은 「확인된 길이 없다」는 사실입니다.
+ * §3.10 합본은 이 모양을 그대로 품으므로 여기 한 곳이면 두 경로가 같이 갑니다.
  */
 export function toApiChannel(channel: PlanChannel): ApiPlanChannel {
   return {
@@ -134,6 +147,8 @@ export function toApiChannel(channel: PlanChannel): ApiPlanChannel {
     org_name: channel.orgName,
     amount: channel.amount,
     confidence: channel.confidence,
+    submit: channel.submit.map((one) => ({ ...one })),
+    caution: channel.caution,
   }
 }
 
