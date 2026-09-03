@@ -326,7 +326,7 @@ export function EvidenceSlots({
                   </span>
                   {/* **합성이라는 사실을 화면이 말합니다** → ADR-043 */}
                   {one.mock ? (
-                    <span className="shrink-0 rounded-full bg-[oklch(1_0_0/8%)] px-2 py-0.5 text-[11.5px] text-ink-3">
+                    <span className="shrink-0 rounded-full bg-[oklch(1_0_0/8%)] px-2 py-0.5 text-[12.5px] text-ink-3">
                       Mock
                     </span>
                   ) : null}

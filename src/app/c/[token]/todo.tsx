@@ -92,7 +92,7 @@ export default function TodoRail({
 
       {/* ── 지금 카드 — 이 레일의 첫 줄이 「지금 뭘 해야 하나」의 답입니다 ── */}
       <div className="rounded-[13px] border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/7%)] p-[12px_14px] shadow-[0_1px_0_oklch(1_0_0/7%)_inset,0_10px_24px_-12px_oklch(0_0_0/65%)]">
-        <p className="text-[12px] font-[620] tracking-[0.08em] text-deadline-urgent">
+        <p className="text-[12.5px] font-[620] tracking-[0.08em] text-deadline-urgent">
           <span aria-hidden className="mr-1">◷</span>
           {now ? "지금 하실 일" : "지금 하실 일 없음"}
         </p>
@@ -155,12 +155,12 @@ export default function TodoRail({
                   >
                     {s.title}
                   </span>
-                  <span className={`text-[11.5px] ${mark.cls}`}>{mark.tag}</span>
+                  <span className={`text-[12.5px] ${mark.cls}`}>{mark.tag}</span>
                 </span>
                 {dl && ddayLabel(dl) && (
                   <span
                     data-numeric
-                    className="shrink-0 text-[12px] font-[640] text-deadline-urgent"
+                    className="shrink-0 text-[12.5px] font-[640] text-deadline-urgent"
                   >
                     {ddayLabel(dl)}
                   </span>
@@ -202,7 +202,7 @@ export default function TodoRail({
         </button>
       )}
 
-      <p className="text-[11.5px] leading-[1.6] text-ink-4">
+      <p className="text-[12.5px] leading-[1.6] text-ink-4">
         기한은 서버가 계산한 값입니다. 완료는 체크가 아니라 부산물(◆)이 판정합니다.
       </p>
     </section>

@@ -483,7 +483,7 @@ function CaseScreen({
                   {/* 올린 자료 수는 **브라우저가 들고 있는 목록**입니다 —
                       못 올린 것도 세어야 사용자가 자기가 고른 것을 다 봅니다 */}
                   {id === "evidence" && uploads.files.length > 0 && (
-                    <span data-numeric className="ml-1.5 text-[12px] text-ink-4">
+                    <span data-numeric className="ml-1.5 text-[12.5px] text-ink-4">
                       {uploads.files.length}
                     </span>
                   )}
