@@ -452,7 +452,8 @@ function CaseScreen({
               priority
               className="h-[23px] w-auto invert"
             />
-            <span className="text-[18px] font-[660] tracking-[-0.02em] text-ink-1">
+            {/* 좁은 폭에선 심벌이 정체성을 맡습니다 — 이름은 보조기기에 남깁니다 (감사 D7) */}
+            <span className="sr-only text-[18px] font-[660] tracking-[-0.02em] text-ink-1 sm:not-sr-only">
               Fin<span className="text-pii">Ally</span>
             </span>
           </div>
@@ -460,7 +461,8 @@ function CaseScreen({
           <div className="flex flex-wrap items-center gap-2">
             <span
               data-numeric
-              className="inline-flex items-center gap-2 rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3"
+              /* 정보성 칩이라 좁은 폭 우선순위 최하 — 토큰은 주소창에 이미 보입니다 */
+              className="hidden items-center gap-2 rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3 md:inline-flex"
             >
               <span aria-hidden className="size-[5px] rounded-full bg-pii" />
               사건 {token.slice(0, 5)}…
@@ -499,16 +501,20 @@ function CaseScreen({
                 (불변 규칙 7). 없으면 배지가 통째로 안 뜹니다 */}
             {headerDue && (
               <span className="inline-flex max-w-[260px] items-center gap-2 rounded-full border border-[oklch(0.77_0.117_70.9/45%)] bg-[oklch(0.77_0.117_70.9/10%)] px-3 py-[5px] text-[13px] font-[620] text-deadline-urgent">
-                <span className="min-w-0 truncate font-[560] text-ink-2">{headerDue.title}</span>
+                <span className="hidden min-w-0 truncate font-[560] text-ink-2 sm:block">{headerDue.title}</span>
                 <span data-numeric>{headerDue.dday}</span>
               </span>
             )}
             <button
               type="button"
               onClick={copyUrl}
+              data-hit
+              aria-label="가족에게 링크 보내기"
               className="inline-flex min-h-[var(--size-touch)] items-center rounded-full border border-hairline bg-chip px-3 text-[13px] text-ink-3 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)] hover:text-ink-1"
             >
-              {copied ? "복사됨 ✓" : "가족에게 링크 보내기"}
+              {/* 기능은 같고 라벨만 좁은 폭에서 짧아집니다 — 아이콘 어휘를 새로 만들지 않습니다 */}
+              <span className="md:hidden">{copied ? "✓" : "공유"}</span>
+              <span className="hidden md:inline">{copied ? "복사됨 ✓" : "가족에게 링크 보내기"}</span>
             </button>
           </div>
         </div>
