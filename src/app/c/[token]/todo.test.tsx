@@ -83,6 +83,44 @@ describe("상태 어휘 — §S-07 그대로", () => {
   it("`done_verified` 는 「증빙됨」", () => {
     expect(textOf(draw())).toContain("증빙됨");
   });
+
+  /**
+   * 「언제든」 판정은 보드(plan.tsx)와 같아야 합니다 — **모든 종류의 기한**을
+   * 봅니다. 본 기한(primary)만 보면 추가 기간(grace)만 붙은 단계가 「언제든」이
+   * 되는데, 추가 기간 시계가 도는 단계에 「언제든」은 틀린 안내입니다
+   * (2026-09-03 검증 발견 — 판정이 두 벌로 갈라졌던 것).
+   */
+  it("추가 기간(grace)만 붙은 단계는 「언제든」이 아니다", () => {
+    // m3 의 primary 를 지워 m3 에는 grace 만 남기고, **다른 단계는 전부
+    // 끝난 것으로** — 남는 상태 태그가 m3 것 하나뿐이어야 단언이 그 행을 봅니다
+    // (기한 없는 not_started 단계는 정당하게 「언제든」을 답니다)
+    const graceOnly = deadlines.filter((d) => d.kind !== "primary");
+    const only3 = steps.map((s) =>
+      s.step_id === "m3"
+        ? { ...s, state: "not_started" as const }
+        : { ...s, state: "done_verified" as const },
+    );
+    const text = textOf(draw({ steps: only3, deadlines: graceOnly }));
+    expect(text).not.toContain("언제든");
+    expect(text).toContain("미시작");
+  });
+
+  /**
+   * now 인데 그릴 D-day 가 없으면(기한 없는 단계가 검증 실패로 in_progress)
+   * 「지금 차례」 — 비워 두면 이 행만 읽히는 상태 글자가 없어집니다
+   * (2026-09-03 검증 발견).
+   */
+  it("진행 중 + 기한 없음이면 「지금 차례」가 읽힌다", () => {
+    // m1(기한 없는 단계)을 in_progress 로 — 픽스처 기한은 전부 m3 소속입니다
+    const running = steps.map((s) =>
+      s.step_id === "m1"
+        ? { ...s, state: "in_progress" as const }
+        : s.state === "in_progress"
+          ? { ...s, state: "not_started" as const }
+          : s,
+    );
+    expect(textOf(draw({ steps: running }))).toContain("지금 차례");
+  });
 });
 
 describe("채팅 상황을 따라간다", () => {
