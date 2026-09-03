@@ -149,7 +149,7 @@
 ## 배치 — 본문이 챗일 때의 오른쪽 열
 
 (T0 안전 절차는 이 그림 **왼쪽 바깥**, 셸의 고정 레일에 있습니다 →
-[화면 설계](08-14-screens.md) 「셸은 세 열입니다」 · [ADR-036](../../decisions/036-t0-rail.md))
+[화면 설계](08-14-screens.md) 「셸은 두 열입니다」 · [ADR-036](../../decisions/036-t0-rail.md))
 
 **패널은 챗과 같은 화면에 있습니다** ([ADR-033](../../decisions/033-ws-panel-placement.md)).
 별도 주소(`/c/{token}/step/{id}`)는 없앴습니다.

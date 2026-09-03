@@ -29,14 +29,15 @@ import DocGuide from "./doc";
  * 시안: assets/artifacts/handoff/08-19-s06-chat/ · 08-19-s07-board-motion/ · 08-19-s08-evidence/
  *
  *   focus: 'chat' | 'plan' | 'evidence' | 'doc'   본문
- *   side:  'casefile' | 'work'             오른쪽 350px
+ *   side:  'casefile' | 'work'             왼쪽 레일에 워크스페이스가 서는가
  *
  * ⚠️ **순차가 아닙니다.** 「다음 단계로 넘긴다」는 코드를 쓰지 마세요 —
  * 며칠 뒤 재진입하면 `case-opener` 가 곧장 `focus: "plan"` 으로 엽니다.
  * 두 축을 한 값으로 합치지 마세요(그 순간 다시 순차가 됩니다).
  *
  * 전환은 **바뀐 축**을 따릅니다
- *  · `side` 만 바뀜 → 오른쪽 열이 밖에서 들어옴 (`.side-in`)
+ *  · `side` 만 바뀜 → 워크스페이스가 레일 위에서 토스트처럼 열리고
+ *    할 일이 밀려 내려옵니다 (`.ws-toast` · 2026-09-03 사용자 확정)
  *  · `focus` 가 바뀜 → 본문 교차: 페이드 + 소프트 줌 (`.view-enter` / `.view-leave`) —
  *    빈 화면을 만들지 않습니다. **챗도 같습니다** — 흡수(챗이 슬롯으로 빨려드는
  *    1.5s WAAPI · `absorb.ts`)는 2026-09-03 사용자 합의로 이것으로 대체하고 지웠습니다
@@ -501,46 +502,89 @@ function CaseScreen({
         </div>
       </header>
 
-      {/* 셸은 **세 열**입니다 — 할 일 레일 · 본문 · 오른쪽 열 (ADR-036 · ADR-063).
-          T0 안전 절차는 열이 아니라 **본문 위 오버레이 알약**입니다(2026-09-03
-          자리 정정 → safety.tsx 머리말). 단계가 서기 전에는 왼쪽 열을 통째로
-          접습니다 — 문진 중에 빈 레일이 서 있으면 자리만 먹습니다 */}
-      <div
-        className={`mx-auto grid w-full max-w-shell flex-1 gap-0 ${
-          bundle.steps.length > 0
-            ? "md:grid-cols-[320px_minmax(0,1fr)_350px]"
-            : "md:grid-cols-[minmax(0,1fr)_350px]"
-        }`}
-      >
-        {bundle.steps.length > 0 && (
-          <div
-            className={`flex min-w-0 flex-col gap-3 px-[clamp(16px,3vw,32px)] pt-[clamp(18px,3vh,28px)] md:my-[clamp(14px,2vh,22px)] md:ml-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:bg-stage md:p-4 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)] md:order-none ${
-              atWork ? "order-3" : "order-1"
-            }`}
-          >
-            <div className="md:sticky md:top-[clamp(18px,3vh,28px)]">
-              <TodoRail
-                steps={bundle.steps}
-                deadlines={bundle.deadlines}
-                activeStepId={activeStep?.step_id ?? null}
-                /* side 는 파생이라 옮길 것이 없습니다 — 단계가 있는 한 오른쪽은 WS 입니다 */
-                onPickStep={(id) => setPicked(id)}
-                /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
-                onOpenDoc={() => setFocus("doc")}
-                /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
-                onPickFile={
-                  dataToken
-                    ? (file) => void uploads.add(file).then(() => setFocus("evidence"))
-                    : undefined
-                }
-                busy={uploads.busy}
-              />
+      {/* 셸은 **두 열**입니다 — 왼쪽 레일(워크스페이스·할 일·사건 파일) · 본문(챗).
+          2026-09-03 사용자 확정: **좌상단 WS · 좌하단 TODO · 오른쪽 챗**.
+          T0 안전 절차는 열이 아니라 **본문 위 오버레이 알약**입니다 (safety.tsx).
+          레일은 문진 중에도 서 있습니다 — 사건 파일이 그 자리에서 채워지는 것이
+          보여야 화면 구조가 처음부터 보입니다(문진 중 왼쪽이 통째로 비어
+          「TODO·WS 를 볼 수 없다」는 지적이 같은 날 세 번 나왔습니다) */}
+      <div className="mx-auto grid w-full max-w-shell flex-1 gap-0 md:grid-cols-[350px_minmax(0,1fr)]">
+        {/* ── 왼쪽 레일 — 위에서부터 (본문이 챗이 아닐 때) 미니 챗 · 워크스페이스 ·
+            할 일 · 사건 파일. 좁은 폭에서는 본문 아래로 갑니다 — 챗이 먼저입니다 */}
+        <div className="order-2 flex min-w-0 flex-col gap-3 border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:ml-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)]">
+          {/* 미니 챗 — 본문이 자료함·기재 안내여도 대화는 계속 보여야 합니다 */}
+          {!chatIsMain && (
+            <div className="flex max-h-[300px] min-h-[180px] flex-col border-b border-hairline pb-4">
+              {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
+                  봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
+              <MiniChat chat={chat} token={dataToken} />
             </div>
+          )}
+
+          {/* ── 워크스페이스 — 지금 할 단계가 있을 때만, **위에서 토스트처럼
+              열립니다.** 높이(0fr→1fr)가 실제로 늘어나 아래 할 일이 부드럽게
+              밀려 내려가는 것까지가 모션입니다 (globals.css `.ws-toast`) ── */}
+          {atWork && activeStep && (
+            <div className="ws-toast grid">
+              <div className="min-h-0 overflow-hidden">
+                <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">워크스페이스</div>
+                {/* **서버가 준 단계를 그립니다** — 어느 패널인지는 `body.action` 이
+                    정합니다(ADR-024). 전에는 시안 값이 하드코딩돼 있어 사용자가
+                    무엇을 해도 부산물이 안 만들어졌습니다 */}
+                <Workspace
+                  step={activeStep}
+                  // **판정을 돌려줍니다** — 낸 것이 확인돼야 입력칸이 비워집니다.
+                  // 삼켜 버리면 못 낸 접수번호가 낸 것처럼 사라집니다 (§3.1)
+                  onSubmit={(stepId, one) => artifact.submit(stepId, one)}
+                  busy={artifact.sendingStepId !== null || uploads.busy}
+                  // **그 단계의 판정만** 그립니다 — 앞 단계의 「끝났습니다」가
+                  // 다음 단계에 붙어 있으면 안 한 일이 한 것처럼 보입니다
+                  verdict={
+                    artifact.verdictStepId === activeStep?.step_id ? artifact.verdict : null
+                  }
+                  fail={artifact.fail}
+                  onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
+                />
+                {chatIsMain && (
+                  <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
+                    챗이 다른 단계를 가리키면 이 패널이 바뀝니다. 언급이 없으면{" "}
+                    <b className="font-[620] text-ink-2">그대로 둡니다.</b> 적던 접수번호가
+                    사라지지 않습니다.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── 할 일 — 워크스페이스가 없으면 이 자리가 레일의 맨 위입니다 ── */}
+          {bundle.steps.length > 0 && (
+            <TodoRail
+              steps={bundle.steps}
+              deadlines={bundle.deadlines}
+              activeStepId={activeStep?.step_id ?? null}
+              onPickStep={(id) => setPicked(id)}
+              /* 「무엇을 적는지 보기」의 도착지 — 제출처를 가진 유일한 화면 (ADR-042) */
+              onOpenDoc={() => setFocus("doc")}
+              /* 통지·우편을 올리면 그 결과를 볼 수 있어야 합니다 — 자료함으로 넘깁니다 */
+              onPickFile={
+                dataToken
+                  ? (file) => void uploads.add(file).then(() => setFocus("evidence"))
+                  : undefined
+              }
+              busy={uploads.busy}
+            />
+          )}
+
+          {/* ── 사건 파일 — 문진이 도는 동안 채워지는 것이 여기 보입니다.
+              플랜이 선 뒤에도 문진은 이어지므로(T1·T2 슬롯) 내리지 않습니다 ── */}
+          <div className={bundle.steps.length > 0 ? "border-t border-hairline pt-3" : ""}>
+            <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">사건 파일</div>
+            <CaseFileCard slots={bundle.slots} asking={bundle.question?.slot_key ?? null} />
           </div>
-        )}
+        </div>
 
         {/* ── 본문 ───────────────────────────────────────── */}
-        <section className="order-2 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none">
+        <section className="order-1 flex min-w-0 flex-col px-[clamp(16px,3vw,32px)] py-[clamp(18px,3vh,28px)] md:order-none">
           {/* T0 는 본문 위에 뜹니다 — 어느 국면이든 같은 자리 (ADR-063 · 2026-09-03).
               전환 무대 밖입니다 — 어차피 양쪽에 다 있어서 교차시키면 같은 픽셀이
               반투명으로 겹쳐 한 박자 어른거립니다 */}
@@ -665,62 +709,6 @@ function CaseScreen({
           </div>
         </section>
 
-        {/* ── 오른쪽 열 — 자리는 하나, 내용이 바뀝니다 ──────
-            본문이 챗이면 사건 파일 ↔ 워크스페이스,
-            본문이 챗이 아니면 워크스페이스 **위** + 미니 챗 **아래** */}
-        <aside
-          className={`flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:mr-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)] ${
-            atWork ? "order-1 border-t-0 border-b" : "order-3"
-          } ${atWork ? "side-in" : ""}`}
-        >
-          {atWork ? (
-            <>
-              {/* 미니 챗은 **맨 위**입니다 (2026-09-03 결정). 본문이 자료함·기재
-                  안내로 가 있어도 대화는 계속 눈에 보이는 곳에 있어야 하는데,
-                  아래쪽에 두면 워크스페이스 길이만큼 내려가 접혔습니다. 우상단은
-                  헤더의 「대화」 탭과도 가까워 돌아가는 길이 한눈에 잡힙니다 */}
-              {!chatIsMain && (
-                <div className="mb-4 flex max-h-[300px] min-h-[180px] flex-col border-b border-hairline pb-4">
-                  {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
-                      봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
-                  <MiniChat chat={chat} token={dataToken} />
-                </div>
-              )}
-              <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">워크스페이스</div>
-              {/* **서버가 준 단계를 그립니다** — 어느 패널인지는 `body.action` 이
-                  정합니다(ADR-024). 전에는 시안 값이 하드코딩돼 있어 사용자가
-                  무엇을 해도 부산물이 안 만들어졌습니다 */}
-              <Workspace
-                step={activeStep}
-                // **판정을 돌려줍니다** — 낸 것이 확인돼야 입력칸이 비워집니다.
-                // 삼켜 버리면 못 낸 접수번호가 낸 것처럼 사라집니다 (§3.1)
-                onSubmit={(stepId, one) => artifact.submit(stepId, one)}
-                busy={artifact.sendingStepId !== null || uploads.busy}
-                // **그 단계의 판정만** 그립니다 — 앞 단계의 「끝났습니다」가
-                // 다음 단계에 붙어 있으면 안 한 일이 한 것처럼 보입니다
-                verdict={
-                  artifact.verdictStepId === activeStep?.step_id ? artifact.verdict : null
-                }
-                fail={artifact.fail}
-                onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
-              />
-              {chatIsMain && (
-                <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
-                  챗이 다른 단계를 가리키면 이 패널이 바뀝니다. 언급이 없으면{" "}
-                  <b className="font-[620] text-ink-2">그대로 둡니다.</b> 적던 접수번호가
-                  사라지지 않습니다.
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">
-                사건 파일
-              </div>
-              <CaseFileCard slots={bundle.slots} asking={bundle.question?.slot_key ?? null} />
-            </>
-          )}
-        </aside>
       </div>
 
       {/* 개발용 축 스위치 — 제품이 아닙니다. 서버 시그널이 붙으면 통째로 지웁니다.

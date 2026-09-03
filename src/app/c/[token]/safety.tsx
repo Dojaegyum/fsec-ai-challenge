@@ -6,7 +6,7 @@ import { useState } from "react";
  * T0 안전 절차 — 본문(챗) 위에 떠 있는 **오버레이 알약**.
  *
  * 계약: spec/backend/08-14-slot-tiering.md 「T0 · 없어도 시작」 ·
- *       spec/frontend/08-14-screens.md 「셸은 세 열입니다」 · ADR-036 · ADR-063
+ *       spec/frontend/08-14-screens.md 「셸은 두 열입니다」 · ADR-036 · ADR-063
  *
  * **2026-09-03 자리 정정** — ADR-063 구현이 처음에 이걸 왼쪽 열에 앉혔는데,
  * 결정의 뜻은 **챗 위에 겹쳐 접어 두는 것**이었습니다(사용자 확인). 왼쪽 열은
