@@ -629,6 +629,9 @@ CREATE TABLE message (
   insufficient   BOOLEAN       NOT NULL DEFAULT FALSE,
                                           -- 모델이 근거 없음을 선언했는가.
                                           -- true 면 슬롯 질문으로 넘어갔다 → §9.3
+  referenced_steps JSONB       NULL,      -- 답이 가리킨 단계의 step_id 배열. §3.9 응답 그대로.
+                                          -- 비서 줄에만. NULL 은 [] 로 내린다 → §9.4
+  referenced_deadlines JSONB   NULL,      -- 답이 가리킨 기한의 deadline_id 배열. 위와 같다
   prompt_masked  TEXT          NULL,      -- 이 턴에 실제로 보낸 프롬프트 전문.
                                           -- 토큰화 상태. 관리자 조회용 → §9.2
   reasoning_masked TEXT        NULL,      -- 모델이 낸 판단 근거. 토큰화 상태.
@@ -652,6 +655,11 @@ CREATE INDEX idx_message_case ON message (case_id, created_at);
 **`citations`에 저장하는 것은 「이 답변이 무엇을 보고 쓰였는가」입니다** → §9.3.
 
 **`insufficient` 가 `true` 인 턴은 답변 대신 슬롯 질문이 나간 턴입니다.** 관리자 조회에서 「왜 이 질문이 나갔는가」를 설명하는 값이라 응답과 함께 남깁니다.
+
+> **`referenced_steps`·`referenced_deadlines` 는 2026-09-03에 더했습니다**
+> ([0009](../../src/migrations/0009_message_referenced.sql) · [ADR-065](../../decisions/065-history-referenced-ids.md)).
+> 라이브 턴(§3.9)에서는 답이 가리킨 단계로 작업 패널이 열리는데 이력(§3.12)에는 그 값이
+> 없어 **새로고침 뒤에 챗↔단계 연결이 사라졌습니다.** 내릴 값이 저장되지 않아서였습니다 → §9.4.
 
 ### 9.1 프롬프트에 넣은 KB 항목은 식별자만 저장합니다
 
@@ -787,6 +795,32 @@ insufficient: true  →  content_masked 에 안내 한 줄
 **에러가 아니라 정상 응답(200)입니다.** `CLAUDE.md` 불변 규칙 5가 "모름은 실패가 아니다"이고, 충격 상태의 사용자에게 "안내를 만들지 못했습니다"를 띄우면 **무엇을 더 알려줘야 하는지 모른 채 막힙니다.**
 
 **이 값을 저장하는 이유는 관리자 조회 때문입니다.** 「왜 답변 대신 질문이 나갔는가」를 설명하는 유일한 값입니다. 없으면 `citations`가 빈 턴을 보고 검증 실패인지 근거 부족인지 구분할 수 없습니다.
+
+### 9.4 `referenced_steps` · `referenced_deadlines` — 답이 가리킨 것
+
+> 2026-09-03 [ADR-065](../../decisions/065-history-referenced-ids.md) 로 신설 (GitHub #41).
+
+**§3.9 응답을 만들 때 확정된 `step_id`·`deadline_id` 배열을 그대로 남깁니다.** 새 계산이 없습니다 —
+`citations` 를 §3.9 와 같은 모양으로 이력(§3.12)에 되돌려주는 것과 같은 결입니다.
+
+```jsonc
+// referenced_steps            // referenced_deadlines
+["01J8XKRD…"]                  ["01J8XKR8…", "01J8XKR9…"]
+```
+
+| | |
+| --- | --- |
+| 누가 채우나 | 서버. 모델이 인용한 `case-N` 중 단계·기한을 가리키는 것을 발급 기록으로 되짚어 고릅니다 (`flows/chat-turn.ts` 의 `stepsCited`·`deadlinesCited`) |
+| 어느 줄에 | **비서 줄에만.** 사용자 줄은 `NULL` |
+| 없으면 | `NULL` 로 두고, **읽는 쪽이 빈 배열로 내립니다.** 이 칼럼이 생기기 전 행도 같습니다 — §3.12 는 칸을 빼지 않습니다 |
+
+**`citations` 에서 되짚을 수 없어서 따로 둡니다.** `case-` 의 번호는 그 턴 프롬프트가 발급한 일련번호라
+다음 턴에는 다른 것을 가리킵니다(§9.3 「`ref` 번호는 그 턴 안에서만 유효합니다」). 저장된 `citations` 로는
+어느 단계였는지 복원할 수 없습니다.
+
+**외래키를 걸지 않고, 되읽을 때 재검증하지도 않습니다.** 플랜이 다시 생성되면(§6.1) 그 단계는 `skipped` 가
+되거나 새 플랜에 없을 수 있습니다. 이력은 「그때 무엇을 가리켰나」이지 「지금 무엇이 유효한가」가 아니라,
+서버는 저장된 값 그대로 내리고 **모르는 id 는 화면이 무시합니다.** 서버가 걸러 내면 이력이 사실과 달라집니다.
 
 ---
 

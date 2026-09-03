@@ -133,6 +133,12 @@ export async function chatTurn(
     }),
   )
 
+  // 답이 가리킨 단계·기한 — 라우트가 §3.9 로 내보내고 **같은 값을 이력에도
+  // 남깁니다**(§3.12 · ADR-065). 여기서 한 번 세서 둘에 씁니다. 따로 세면
+  // 라이브에서 본 것과 새로고침 뒤 본 것이 갈립니다
+  const referencedSteps = stepsCited(outcome)
+  const referencedDeadlines = deadlinesCited(outcome)
+
   await container.messages.write({
     messageId,
     caseId: input.caseId,
@@ -153,14 +159,18 @@ export async function chatTurn(
     citations: [...body.citations],
     kbContextRefs: [...outcome.kbContextRefs],
     insufficient: outcome.reply.insufficient,
+    // 새로고침 뒤에도 답이 어느 단계를 가리켰는지 남아야 합니다 → §9.4.
+    // `citations` 에서는 되짚을 수 없습니다 — `case-N` 은 이 턴에서만 유효한 번호입니다
+    referencedSteps,
+    referencedDeadlines,
     // 사용자가 실제로 무엇을 말했는지도 남깁니다 — 다음 턴의 맥락입니다
     utteranceMasked: outcome.utteranceMasked,
   })
 
   return {
     body: body as unknown as Record<string, unknown>,
-    referencedSteps: stepsCited(outcome),
-    referencedDeadlines: deadlinesCited(outcome),
+    referencedSteps,
+    referencedDeadlines,
   }
 }
 

@@ -1030,6 +1030,8 @@ describe('턴 번호를 표가 센다 — 22번째 턴부터 죽던 자리 (§9 
       citations: [],
       kbContextRefs: [],
       insufficient: false,
+      referencedSteps: [],
+      referencedDeadlines: [],
       utteranceMasked: '발화',
     })
 
@@ -1209,5 +1211,89 @@ describe('프롬프트의 슬롯 라벨은 사람 말이다', () => {
     }
     expect(labels).toContain('기관명')
     expect(labels).toContain('지급정지 요청 시각')
+  })
+})
+
+describe('답이 가리킨 단계·기한을 이력에도 남긴다 — §3.12 · 09 §9.4 · ADR-065 (GitHub #41)', () => {
+  /**
+   * §3.9 는 `referenced_steps` 를 내보내는데 이력(§3.12)에는 그 칸이 없어서,
+   * 화면이 `referencedSteps: []` 를 하드코딩했고 **새로고침 뒤에는 같은 대화인데
+   * 챗↔단계 연결이 사라졌습니다.** 내릴 값이 저장되지 않아서였습니다.
+   *
+   * `citations` 에서 되짚을 수 없습니다 — `case-N` 은 이 턴에서만 유효한 번호입니다.
+   */
+  const POINTING = turnOf({
+    reply: {
+      insufficient: false,
+      citations: [
+        { ref: 'kb-1', why: '다음 단계를 안내하는 데 썼습니다' },
+        { ref: 'case-1', why: '지급정지 단계를 가리키는 데 썼습니다' },
+        { ref: 'case-2', why: '8월 20일을 문장에 옮기는 데 썼습니다' },
+      ],
+      reply: '다음은 피해구제 신청서 제출입니다. 8월 20일까지입니다.',
+    },
+    issued: [
+      {
+        ref: 'kb-1',
+        label: '피해구제 신청서 제출',
+        kbEntryId: 'relief-application',
+        kbVersion: KB_VERSION,
+      },
+      { ref: 'case-1', label: '지급정지를 요청합니다', stepId: '01JFREEZE' },
+      { ref: 'case-2', label: '피해구제 신청 기한', deadlineId: '01JDUE' },
+    ],
+  })
+
+  it('라우트가 내보내는 것과 **같은 값**이 저장된다', async () => {
+    const one = chatHarness({ turn: POINTING })
+    const got = await chatTurn({ caseId: CASE_ID, content: '이제 뭘 하죠' }, one.container)
+
+    expect(got.referencedSteps).toEqual(['01JFREEZE'])
+    expect(got.referencedDeadlines).toEqual(['01JDUE'])
+    // 한 번 세서 둘에 씁니다 — 따로 세면 라이브와 새로고침 뒤가 갈립니다
+    expect(one.written[0]?.referencedSteps).toEqual(got.referencedSteps)
+    expect(one.written[0]?.referencedDeadlines).toEqual(got.referencedDeadlines)
+  })
+
+  it('가리킨 것이 없으면 **빈 배열**을 남긴다 — `undefined` 가 아니다', async () => {
+    const one = chatHarness()
+    await runTurn(one)
+
+    expect(one.written[0]?.referencedSteps).toEqual([])
+    expect(one.written[0]?.referencedDeadlines).toEqual([])
+  })
+
+  it('저장소가 두 배열을 **비서 줄에만** 싣는다 — §9.4', async () => {
+    const seen: { text: string; params: readonly unknown[] }[] = []
+    const fake = Object.assign(
+      (strings: TemplateStringsArray, ...params: unknown[]) => {
+        seen.push({ text: strings.join('?'), params })
+        return Promise.resolve([])
+      },
+      { json: (value: unknown) => value },
+    )
+
+    await createMessageStore(fake as unknown as Sql, () => '01JUSERROW0000000000000000').write({
+      messageId: '01JASSIST00000000000000000',
+      caseId: CASE_ID,
+      role: 'assistant',
+      contentMasked: '답',
+      promptMasked: '프롬프트',
+      reasoningMasked: null,
+      citations: [],
+      kbContextRefs: [],
+      insufficient: false,
+      referencedSteps: ['01JFREEZE'],
+      referencedDeadlines: ['01JDUE'],
+      utteranceMasked: '발화',
+    })
+
+    expect(seen).toHaveLength(1)
+    expect(seen[0]!.text).toContain('referenced_steps')
+    expect(seen[0]!.text).toContain('referenced_deadlines')
+    // 각 배열이 **한 번만** 실립니다 — 사용자 줄은 NULL 이라 값이 안 갑니다
+    const arrays = seen[0]!.params.filter((param): param is string[] => Array.isArray(param))
+    expect(arrays.filter((one) => one.includes('01JFREEZE'))).toHaveLength(1)
+    expect(arrays.filter((one) => one.includes('01JDUE'))).toHaveLength(1)
   })
 })

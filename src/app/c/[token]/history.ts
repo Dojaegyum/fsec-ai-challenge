@@ -280,6 +280,8 @@ interface HistoryRow {
   readonly role: string;
   readonly content: string;
   readonly citations?: readonly { ref: string; label: string }[];
+  /** 답이 가리킨 단계 — §3.9 와 같은 모양. 비서 줄에만, 없으면 빈 배열 (ADR-065) */
+  readonly referenced_steps?: readonly string[];
   readonly created_at: string;
 }
 
@@ -347,7 +349,10 @@ export async function fetchHistory(
             reply: restore(row.content, open, { site: "chat-answer" }),
             question: null,
             sourceNote: sourceNote(row.citations ?? []),
-            referencedSteps: [],
+            // 서버가 §3.9 때 확정한 값을 그대로 돌려줍니다(§3.12 · ADR-065).
+            // 그 사이 플랜이 다시 생성돼 **지금 플랜에 없는 id** 가 섞일 수 있고,
+            // 그건 `pickStep` 이 무시합니다 — 여기서 걸러 내지 않습니다
+            referencedSteps: Array.isArray(row.referenced_steps) ? row.referenced_steps : [],
           },
     );
 

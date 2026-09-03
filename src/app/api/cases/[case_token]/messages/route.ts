@@ -62,6 +62,10 @@ const MAX_TURNS = 60
  *
  * **`prompt_masked`·`reasoning_masked` 를 내리지 마세요** — 프롬프트와 판단
  * 근거는 사용자 응답에 넣지 않습니다 (ADR-022 · §5.4).
+ *
+ * **`referenced_steps`·`referenced_deadlines` 는 내립니다** — §3.9 가 낸 것을
+ * 저장했다가 그대로 돌려주는 것이라 새 계산이 없습니다(ADR-065). 이 칸이 없어
+ * 새로고침 뒤에 챗↔단계 연결이 사라지고 있었습니다(GitHub #41).
  */
 /**
  * **10초에 안 끝납니다.** 모델을 45초까지 기다리는데(`lib/llm.ts`), Vercel 의
@@ -90,8 +94,20 @@ export async function GET(
           role: one.role,
           content: one.contentMasked,
           // 근거는 비서 줄에만 붙습니다. 사용자 줄에는 빈 배열이 들어 있어
-          // 그대로 내리면 화면이 「근거 없음」과 구별하지 못합니다
-          ...(one.role === 'user' ? {} : { citations: one.citations }),
+          // 그대로 내리면 화면이 「근거 없음」과 구별하지 못합니다.
+          //
+          // 답이 가리킨 단계·기한도 같은 자리입니다 — 라이브 턴(§3.9)과 같은
+          // 모양이라야 새로고침 뒤에도 챗↔단계 연결이 남습니다(ADR-065).
+          // **없으면 빈 배열이지 칸을 빼는 것이 아닙니다.** 그 사이 플랜이 다시
+          // 생성돼 지금 플랜에 없는 id 가 섞여도 여기서 거르지 않습니다 —
+          // 이력은 「그때 무엇을 가리켰나」이고, 모르는 id 는 화면이 무시합니다
+          ...(one.role === 'user'
+            ? {}
+            : {
+                citations: one.citations,
+                referenced_steps: one.referencedSteps,
+                referenced_deadlines: one.referencedDeadlines,
+              }),
           ...(one.insufficient ? { insufficient: true } : {}),
           created_at: one.createdAt,
         })),
