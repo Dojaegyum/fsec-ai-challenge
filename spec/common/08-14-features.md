@@ -51,7 +51,7 @@
 | **F-06 실행 보드** | `date-checker` | **`plan-viewer` · `deadline-viewer` · `work-handler`** |
 | F-06b 완수 검증 | `completion-checker` · `reminder-sender` | `work-handler` · `file-sender` |
 | F-07 대응 비서 챗 | `chat-receiver` · `chat-publisher` · `citation-checker` | `chat-handler` |
-| F-08 서류 기재 안내 | `doc-builder` | **`doc-filler`** (값 복원은 브라우저에서만) |
+| F-08 서류 기재 안내 | `doc-builder` | **셸 화면 `doc.tsx`** — 복원은 `pii-restorer`, 브라우저에서만 ([ADR-064](../../decisions/064-doc-filler-retired.md)) |
 | F-11 KB 운영 | `kb-collector` · `kb-reviewer` | — |
 
 **F-06이 브라우저에서 셋으로 갈린 것이 가장 큰 변화입니다.** 「실행 보드」 한 덩어리였던 것이

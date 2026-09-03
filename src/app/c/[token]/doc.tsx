@@ -38,7 +38,8 @@ import { amountShape, whenShape } from "./shape";
  *    ⚠️ **비어 있으면 이 카드를 아예 그리지 않습니다.** 확인 못 한 것과 「앱으로 안 된다」는
  *    다릅니다 — 배열에 없는 것이 「모른다」입니다 (ADR-042 ③)
  *  · restored → PII 로컬 복원 성공 여부. 실패는 **에러가 아닙니다**(다른 기기)
- *  · 층 C: doc-filler · key-handler
+ *  · 층 C 소속: **셸 소유 화면**입니다 (ADR-064 — doc-filler 폐기). 복원은
+ *    pii-restorer · key-handler 를 부릅니다. 서버가 만든 완성 문서를 받지 않습니다
  */
 
 type FieldState = "confirmed" | "unread" | "unknown" | "staff";

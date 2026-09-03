@@ -333,7 +333,7 @@ ADR 은 필요 없습니다 — 은퇴는 결정을 뒤집는 것이 아니라 �
   - 새 모듈이 필요하면 **정본에 먼저 추가**하고 폴더를 만듭니다. 지어 쓰면 CI가 막습니다.
   - 정본에 있는데 코드가 아직 없는 것은 정상입니다(구현 전).
   - **서버 코드만이 아닙니다.** 브라우저에서 도는 도메인 모듈(층 C)도 여기 들어갑니다
-    — `pii-masker`·`work-handler`·`doc-filler` 등 (→ [ADR-023](../decisions/023-frontend-module-names.md)).
+    — `pii-masker`·`work-handler` 등 (→ [ADR-023](../decisions/023-frontend-module-names.md)).
   - `src/modules/` **밖은 자유**입니다 — 공용 유틸·UI 컴포넌트·라우트는 모듈이 아닙니다.
     **가르는 기준은 「절대 하지 않는 것」이 붙어 있는가**입니다. 금지가 걸린 자리는 모듈이고,
     버튼·카드처럼 어디에나 쓰이는 조각은 `src/components/`입니다.

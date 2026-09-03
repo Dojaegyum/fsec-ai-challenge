@@ -56,7 +56,7 @@ python .claude/skills/module-inventory/scripts/inventory.py --find slot
 
 **절반 가까이가 브라우저 모듈입니다** — 정본의 **층 C** 열하나(`pii-masker` `key-handler` `case-opener`
 `poll-checker` `file-sender` `transcript-viewer` `plan-viewer` `deadline-viewer` `chat-handler`
-`work-handler` `doc-filler`)와, 층 2에 있는 `pii-restorer`까지 열둘입니다
+`work-handler`)와, 층 2에 있는 `pii-restorer`까지 열하나입니다 (doc-filler 는 폐기 — ADR-064)
 → [ADR-023](../../decisions/023-frontend-module-names.md).
 
 `pii-restorer`는 **브라우저에서만** 도는 모듈입니다. 서버에는 복호화 키가 없어 복원 자체가 불가능합니다
