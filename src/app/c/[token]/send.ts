@@ -55,6 +55,7 @@ import {
   sealAll,
 } from "@/modules/key-handler";
 import type { KeyStore } from "@/modules/key-handler";
+import { assertNoLeak } from "@/modules/pii-masker";
 import type { PiiMapping } from "@/modules/pii-masker";
 import type { RestorableMapping } from "@/modules/pii-restorer";
 
@@ -182,6 +183,26 @@ async function screenAndSeal(input: {
       );
       if (!kept.ok) return { ok: false, fail: kept.fail };
     }
+  }
+
+  // ②' **마지막 방어선** — 가린 결과에 원문이 남아 있으면 여기서 멈춥니다.
+  //    상류(maskText)가 패턴을 놓쳐도 이 검사가 있으면 네트워크에 안 탑니다
+  //    (불변 규칙 2). ⚠️ 2026-09-04 까지 이 함수는 **선언만 있고 호출이
+  //    없었습니다** — 「나가기 직전에 부르세요」라는 제 머리말을 아무도 안
+  //    지키고 있었습니다. 실패 문구에 원문을 싣지 않습니다
+  try {
+    assertNoLeak(out.content, out.mappings);
+  } catch {
+    return {
+      ok: false,
+      fail: {
+        poll: false,
+        reason: "error",
+        retryable: true,
+        message:
+          "적으신 내용 일부를 안전하게 가리지 못했습니다. 문장을 조금 바꿔 다시 보내 주세요.",
+      },
+    };
   }
 
   return { ok: true, content: out.content, mappings: out.mappings, vaultRead };
