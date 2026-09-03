@@ -149,3 +149,73 @@ describe('첫 로드에도 플랜 생성 시각이 실린다 — §3.10 이 품�
     expect(plan.generated_at).toBeNull()
   })
 })
+
+describe('제출처가 §3.10 합본까지 실린다 — `plan.channels[].submit` (GitHub #40)', () => {
+  /**
+   * 이슈가 요구한 자리가 정확히 여기입니다. 기재 안내 화면은 이 응답 하나로
+   * 뜨고(§3.10 「첫 로드의 유일한 입구」), §3.6 은 따로 안 부릅니다 — 그래서
+   * §3.6 에만 실리고 여기서 빠지면 **카드는 여전히 안 그려집니다.**
+   */
+  async function channelsOf(orgId: string | null) {
+    const base = wiredContainer([stepAt('report-112', 1, '2026-08-27T15:30:00.000+09:00')])
+    holder.container = {
+      ...base,
+      ports: {
+        ...base.ports,
+        casePlan: {
+          ...planStoreOf([stepAt('report-112', 1, '2026-08-27T15:30:00.000+09:00')]),
+          async readChannels() {
+            return [
+              { channelId: 'CH-bank', orgId, orgNameRaw: '국민', amount: 3_000_000, confidence: 0.9 },
+            ]
+          },
+        },
+      },
+      orgs: {
+        async read(id: string) {
+          return id === 'kb-bank'
+            ? {
+                orgId: 'kb-bank',
+                channelId: 'CH-bank',
+                name: 'KB국민은행',
+                contact: {
+                  report_tel: '1588-9999',
+                  submit: [{ how: 'branch', text: '가까운 영업점에 서면 제출' }],
+                  caution: '앱의 「사고신고」는 피해구제 신청이 아닙니다',
+                },
+                sourceUrl: 'https://portal.kfb.or.kr/voice/vphishing_report.php',
+                verifiedAt: '2026-08-25',
+              }
+            : null
+        },
+        async list() {
+          return []
+        },
+      },
+    }
+
+    const res = await GET(new Request(`http://x/api/cases/${TOKEN}`), {
+      params: Promise.resolve({ case_token: TOKEN }),
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      plan: { channels: { org_id: string | null; org_name: string; submit: unknown; caution: unknown }[] }
+    }
+    return body.plan.channels
+  }
+
+  it('§3.6 과 **같은 값**이 합본에 실린다 — 구조를 다시 정의하지 않는다', async () => {
+    const [one] = await channelsOf('kb-bank')
+    expect(one).toMatchObject({
+      org_id: 'kb-bank',
+      org_name: 'KB국민은행',
+      submit: [{ how: 'branch', text: '가까운 영업점에 서면 제출' }],
+      caution: '앱의 「사고신고」는 피해구제 신청이 아닙니다',
+    })
+  })
+
+  it('기관 미특정이면 빈 배열·`null` — 칸은 그대로 있다', async () => {
+    const [one] = await channelsOf(null)
+    expect(one).toMatchObject({ org_id: null, submit: [], caution: null })
+  })
+})

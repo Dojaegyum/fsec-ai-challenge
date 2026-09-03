@@ -2,7 +2,7 @@
  * `contact_ref` 를 실제 번호로 바꾸는 규칙 — **KB 는 가리키기만 합니다.**
  *
  * 정본: spec/backend/08-16-data-model.md §11.1 · §11.4.1 · §11.4.3 · §11.4.4 ·
- *       spec/common/08-14-api.md §3.6 (`body.contact`)
+ *       spec/common/08-14-api.md §3.6 (`body.contact` · `channels[].submit`)
  * 근거: ADR-024(단계의 action 과 url) · ADR-042(내는 길은 배열)
  *
  * ## 왜 본문에 번호를 안 쓰나
@@ -24,8 +24,9 @@ const PREFIX = 'org.contact.'
  * 가리키는 값 하나를 푼다. 못 풀면 `null`.
  *
  * **문자열만 돌려줍니다.** `submit` 은 배열이라 여기서 안 풉니다 — 그것은
- * 기재 안내 화면이 `org.contact.submit` 을 통째로 받아 순서대로 그립니다
- * (ADR-042). 이 자리는 §3.6 의 `body.contact` 한 칸을 채우는 것입니다.
+ * 아래 `submitPathsOf` 가 §3.6 `channels[].submit` 으로 통째로 옮기고, 기재
+ * 안내 화면이 순서대로 그립니다(ADR-042). 이 자리는 §3.6 의 `body.contact`
+ * 한 칸을 채우는 것입니다.
  */
 export function resolveContact(
   ref: unknown,
@@ -73,4 +74,71 @@ export function withContacts(
         : { ...step, contact: value }
     }),
   }
+}
+
+/**
+ * 신청서를 내는 길 하나 → §11.1 ④ · ADR-042.
+ *
+ * 계약 §3.6 `channels[].submit[]` 이 **이 모양 그대로**입니다. 화면의
+ * `SubmitPath`(`app/c/[token]/doc.tsx`)와도 같습니다 — 세 곳이 한 모양이라야
+ * KB 가 한 줄을 더했을 때 코드를 안 고칩니다.
+ */
+export interface SubmitPath {
+  /** `"branch"` 또는 `"app"` 둘뿐 — 화면이 아이콘·문구를 이걸로 고릅니다 */
+  readonly how: 'branch' | 'app'
+  /** 사용자에게 보이는 한 줄. 기관이 쓰는 말 그대로 */
+  readonly text: string
+  /** 그 경로로 가는 공식 주소. 없으면 링크 없이 글자만 */
+  readonly url?: string
+}
+
+const SUBMIT_HOW: ReadonlySet<string> = new Set(['branch', 'app'])
+
+/**
+ * `org.contact.submit` 을 계약의 배열로 옮긴다 → §3.6 `channels[].submit`.
+ *
+ * **순서를 그대로 둡니다. 정렬·가공하지 않습니다** — 배열 순서가 곧 권장
+ * 순서이고 그것은 KB 소관입니다(ADR-042 ②). 「앱이 먼저」를 여기 박으면
+ * KB·NH 사용자가 앱을 뒤지다 3영업일을 씁니다.
+ *
+ * **기관이 없거나 확인된 길이 없으면 빈 배열입니다** — `null` 이 아닙니다.
+ * 화면은 빈 배열이면 제출처 카드를 아예 안 그립니다(ADR-042 ③ · §11.1 ①).
+ * 「모른다」와 「없다」를 여기서 뭉개지 않습니다.
+ *
+ * 모양이 안 맞는 줄은 버립니다. **정책이 아니라 타입을 좁히는 것입니다** —
+ * 적재(`planOrgLoad`)가 이미 그 모양을 거부하므로 실제로는 그대로 복사입니다.
+ */
+export function submitPathsOf(
+  contact: Readonly<Record<string, unknown>> | null,
+): readonly SubmitPath[] {
+  const raw = contact?.submit
+  if (!Array.isArray(raw)) return []
+
+  const out: SubmitPath[] = []
+  for (const one of raw) {
+    if (typeof one !== 'object' || one === null) continue
+    const { how, text, url } = one as Record<string, unknown>
+    if (typeof how !== 'string' || !SUBMIT_HOW.has(how)) continue
+    if (typeof text !== 'string' || text.trim().length === 0) continue
+    out.push({
+      how: how as SubmitPath['how'],
+      text,
+      // 없으면 칸을 아예 안 둡니다 — `url: undefined` 가 JSON 으로 나가면
+      // 사라지긴 하지만, 시험이 `toEqual` 로 볼 때 모양이 달라집니다
+      ...(typeof url === 'string' && url.length > 0 ? { url } : {}),
+    })
+  }
+  return out
+}
+
+/**
+ * `org.contact.caution` — 그 기관에서 헷갈리기 쉬운 것 → §11.1.
+ *
+ * 국민은행 앱의 「사고신고」는 보안매체 분실 신고이지 피해구제 신청이 아닙니다.
+ * 제출처 카드 밑에 이 한 줄이 없으면 사용자가 앱에서 엉뚱한 것을 누릅니다.
+ * **없으면 `null`** — 확인 못 한 칸은 아예 없습니다(§11.1 ①).
+ */
+export function cautionOf(contact: Readonly<Record<string, unknown>> | null): string | null {
+  const value = contact?.caution
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
 }
