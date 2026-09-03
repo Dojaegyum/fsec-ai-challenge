@@ -74,10 +74,10 @@
 
 | 무엇 | 근거 | 성격 |
 | --- | --- | --- |
-| ① **ADR-034 「모든 자리 전체 복원」을 코드가 안 따름** | pii-boundary :131-138 은 ADR-034. 코드는 구규칙 — `pii-restorer/policy.ts:33-47` chat-answer 부분 복원·plan-text 없음, `chat-handler/turn.ts:57,67`, ARCHITECTURE:183,395. module-boundaries :38,42 도 구규칙 | **제품 약속.** spec 이 앞서고 코드가 뒤처진 유일한 자리 |
+| ~~① **ADR-034 「모든 자리 전체 복원」을 코드가 안 따름**~~ | ~~pii-boundary :131-138 은 ADR-034. 코드는 구규칙~~ → **2026-09-03 닫힘** (PR #45). `scopeOf` 가 일곱 자리 전부 `full`, `partial` 은 타입에서 제거, chat-context §8.1 도 개정 | ~~**제품 약속.** spec 이 앞서고 코드가 뒤처진 유일한 자리~~ |
 | ② **WS-read·WS-wait 에 부산물 입력이 무조건 붙음** | workspace-panels :46·:178·:45 ↔ `workspace.tsx:271-309` ArtifactSlot 을 모든 패널에 삽입(`panels.tsx:298,314`). `workspace.test.tsx:88-92` 가 「늘 있다」로 고정 | 계약 위반을 테스트가 보호 |
 | ③ **`frozen_account` 트랙이 어느 spec 에도 없음** | 0001:27-28 CHECK · `start/open.ts:27` · `start/page.tsx:58` 선택 가능 ↔ `src/kb/frozen-account.json` 없음 → 선택해도 `common.json` 지급정지 안내 | 계약 공백 — channel-matrix :57-63 만 언급 |
-| ④ **층 1 후반·층 4 트리거가 통째로 미조립인데 문서 넷이 현재형** | NER(`container.ts:375-378`) · `case-reader`·`slot-extractor`·`kb-collector`·`kb-reviewer`·`doc-builder` import 0 · 크론 라우트·`vercel.json` crons 없음 · Mailer·ReminderSource unconfigured · `casePurger` 호출자 0 — features·pii-boundary·module-boundaries·module-names | 문서에 「구현 전」 표시가 없어 생긴 것 → ⑩ 상태 열로 |
+| ④ **층 1 후반·층 4 트리거가 통째로 미조립인데 문서 넷이 현재형** | NER(`container.ts`) · `case-reader`·`slot-extractor`·`kb-collector`·`kb-reviewer`·`doc-builder`·`doc-filler` import 0 — features·pii-boundary·module-boundaries·module-names. <br>~~크론 라우트·`vercel.json` crons 없음~~ → **둘 다 섰습니다**(리마인더 2026-09-01 · 파기 2026-09-03). ~~`casePurger` 호출자 0~~ → `/api/cron/purge`. ~~ReminderSource unconfigured~~ → `db-reminder.ts`. **Mailer 는 여전히 미설정**(발송 수단 미정 → ADR-021) | 문서에 「구현 전」 표시가 없어 생긴 것 → ⑩ 상태 열로 |
 | ⑤ **같은 값을 세 문서가 다르게 적음 — 정본 지정 필요** | 재시도 횟수(chat-context 1 · errors 2 · `receive.ts:43` 2) · WS 유형 수(8 · 7 · 코드 7) · 장식 애니메이션(accessibility 「7초 이상」 · tokens 1.6/2.6s) · 다크 전용(tokens 「확정」 · css 「미정」) · `--horizon`(tokens ADR-048 「의미」 · css:164 「장식 전용」) · `referenced_*`(system-prompt 「뺐다」 · chat-context §5 · api §3.9) | 어느 쪽이 이기는지 정해야 닫힘 |
 
 ## 진행 방법

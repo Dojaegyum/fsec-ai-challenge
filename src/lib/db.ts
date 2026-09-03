@@ -37,7 +37,10 @@ import type {
   OpenedCase,
 } from '@/modules/case-intake'
 import type { KbQuery, KbRow, KbStore } from '@/modules/kb-finder'
-import type { VaultStore } from '@/modules/case-purger'
+import type {
+  CaseStore as PurgeCaseStore,
+  VaultStore,
+} from '@/modules/case-purger'
 
 export type Sql = ReturnType<typeof postgres>
 
@@ -1686,6 +1689,64 @@ export function createMaskedTexts(sql: Sql): MaskedTexts {
       const out: string[] = []
       for (const row of rows) if (row.text) out.push(row.text)
       return out
+    },
+  }
+}
+
+/**
+ * 파기하는 쪽이 보는 사건 표 → `case-purger` 의 `CaseStore`.
+ *
+ * ⚠️ **2026-09-03 까지 이 자리가 미설정 대역이었습니다.** `case-purger` 모듈도
+ * 컨테이너 조립도 다 서 있는데 이 셋만 없어서, **파기를 부르면 그 자리에서
+ * `NotConfiguredError` 가 났습니다.** 그래서 부르는 라우트도 없었고, 결과적으로
+ * **「마지막 활동일부터 180일 뒤 파기」라는 약속을 코드가 한 번도 지킨 적이
+ * 없습니다** (§14 · ADR-016).
+ *
+ * **위 `createCaseStore` 와 다릅니다.** 그쪽은 사건 하나를 읽고 쓰는 자리이고,
+ * 여기는 **여러 사건을 지우는** 자리입니다. 인터페이스를 나눈 것은 `case-purger`
+ * 인데(모듈이 자기가 쓸 만큼만 선언합니다 → ADR-028), 나눠 둔 덕분에 이 포트에는
+ * **쓰기가 없습니다** — 파기 모듈이 사건을 만들거나 고칠 수 없습니다.
+ */
+export function createPurgeCaseStore(sql: Sql): PurgeCaseStore {
+  return {
+    /**
+     * 파기일이 **지난** 사건. `purge_after` 는 「이 날짜 이후 파기 대상」이라
+     * (0001 마이그레이션의 칸 주석) 같은 날은 아직 아닙니다 — `<` 입니다.
+     *
+     * **오래된 것부터 집습니다.** 한 번에 처리할 수를 제한하므로(`limit`),
+     * 순서가 없으면 밀린 사건이 영영 뒤로 밀릴 수 있습니다.
+     */
+    async findDue(asOf, limit) {
+      const rows = await sql<{ case_id: string; purge_after: unknown }[]>`
+        SELECT case_id, purge_after FROM "case"
+        WHERE purge_after < ${asOf}::date
+        ORDER BY purge_after ASC, case_id ASC
+        LIMIT ${limit}
+      `
+      return rows.map((one) => ({
+        caseId: one.case_id,
+        // ⚠️ `String(값).slice(0, 10)` 으로 하지 마세요 — 드라이버가 `DATE` 를
+        // JS `Date` 로 줍니다. 위 `dateOnly` 가 그 함정을 이미 겪은 자리입니다
+        purgeAfter: dateOnly(one.purge_after),
+      }))
+    },
+
+    /**
+     * 사건 행 삭제. **딸린 것은 외래키가 연쇄로 지웁니다** → §1.
+     *
+     * `audit_log` 만 남습니다 — 그 표에는 외래키가 없습니다. 사건이 파기돼도
+     * 「지웠다」는 기록은 남아야 하기 때문입니다.
+     */
+    async delete(caseId) {
+      await sql`DELETE FROM "case" WHERE case_id = ${caseId}`
+    },
+
+    /** 지웠다고 믿지 않고 다시 봅니다 → ADR-016 */
+    async remains(caseId) {
+      const rows = await sql<{ one: number }[]>`
+        SELECT 1 AS one FROM "case" WHERE case_id = ${caseId} LIMIT 1
+      `
+      return rows.length > 0
     },
   }
 }
