@@ -9,6 +9,7 @@ import { HorizonGlow } from "@/components/HorizonGlow";
 import { currentStep, isOpen, pickStep, Workspace } from "@/modules/work-handler";
 import type { FullStep, PlanStep as WorkStep } from "@/modules/work-handler";
 import type { Focus, Side } from "./state";
+import { slotFace } from "./shape";
 import ChatView, { MiniChat } from "./chat";
 import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
@@ -196,7 +197,9 @@ export function CaseFileCard({
                       hasToken(slot.value) ? "text-pii" : "text-ink-1"
                     }`}
                   >
-                    {slot.value}
+                    {/* 값은 서버 것 그대로, **얼굴만** 다듬습니다 — 기재 안내와
+                        같은 성형기(shape.ts)라 두 화면이 같은 모양을 보입니다 (D1) */}
+                    {slotFace(key, slot.value)}
                   </span>
                 ) : (
                   <span className="text-[13px] text-ink-3">
