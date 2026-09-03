@@ -344,12 +344,14 @@ function CaseScreen({
   const submitFile = async (stepId: string, file: File) => {
     const evidenceId = await uploads.add(file);
     if (!evidenceId) return;
-    await artifact.submit(stepId, { kind: "receipt_doc", evidenceId });
-    // **자료함으로 넘깁니다** — 할 일 레일의 올리기와 같은 규칙. 전사 폴링이
-    // 자료함 화면 안에서만 돌아서(`useEvidence` → evidence.tsx), 안 넘기면
-    // 이 파일은 사용자가 탭을 직접 누를 때까지 「처리중」에 머뭅니다 (감사 F3).
-    // 워크스페이스는 왼쪽 레일이라 판정은 계속 보입니다
-    setFocus("evidence");
+    const verdict = await artifact.submit(stepId, { kind: "receipt_doc", evidenceId });
+    // **성공했을 때만 자료함으로 넘깁니다** — 할 일 레일의 올리기와 같은 규칙.
+    // 전사 폴링이 자료함 화면 안에서만 돌아서(`useEvidence` → evidence.tsx),
+    // 안 넘기면 이 파일은 사용자가 탭을 직접 누를 때까지 「처리중」에 머뭅니다
+    // (감사 F3). 실패(null)면 그대로 둡니다 — 실패 안내는 워크스페이스 패널에
+    // 그려지는데, 화면을 옮겨 버리면 좁은 폭에서 그 안내가 화면 밖으로 밀려
+    // 부산물이 기록된 것처럼 읽힙니다 (2026-09-03 검증 지적)
+    if (verdict) setFocus("evidence");
   };
 
   const [focus, setFocus] = useState<Focus>(wanted ? devFocus : openedFocus);
@@ -509,10 +511,13 @@ function CaseScreen({
               type="button"
               onClick={copyUrl}
               data-hit
-              aria-label="가족에게 링크 보내기"
               className="inline-flex min-h-[var(--size-touch)] items-center rounded-full border border-hairline bg-chip px-3 text-[13px] text-ink-3 transition-colors duration-200 hover:border-[oklch(1_0_0/25%)] hover:text-ink-1"
             >
-              {/* 기능은 같고 라벨만 좁은 폭에서 짧아집니다 — 아이콘 어휘를 새로 만들지 않습니다 */}
+              {/* 기능은 같고 라벨만 좁은 폭에서 짧아집니다 — 아이콘 어휘를 새로 만들지 않습니다.
+                  ⚠️ aria-label 을 두지 않습니다 — 고정 이름이 보이는 글자를 덮으면
+                  「복사됨 ✓」 상태 변화가 보조기기에서 안 읽히고(회귀), 좁은 폭
+                  라벨 「공유」가 접근성 이름에 없어 음성 제어와도 어긋납니다
+                  (2026-09-03 검증 지적). 이름은 보이는 글자 그대로입니다 */}
               <span className="md:hidden">{copied ? "✓" : "공유"}</span>
               <span className="hidden md:inline">{copied ? "복사됨 ✓" : "가족에게 링크 보내기"}</span>
             </button>
