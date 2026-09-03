@@ -94,9 +94,7 @@ export default function ChatView({
 
   return (
     <div className="mx-auto flex w-full max-w-[700px] flex-1 flex-col">
-      {/* 챗 스트림 — `flex-1` 을 주지 않습니다. 주면 컴포저가 바닥으로 밀려
-          짧은 대화에서 마지막 말풍선과 입력창 사이에 죽은 공백이 생깁니다
-          (2026-09-04 결정 — 컴포저는 내용을 따라옵니다) */}
+      {/* 챗 스트림 — 컴포저 자리는 아래 래퍼의 `mt-auto` 가 정합니다 */}
       <div className="flex flex-col gap-3.5">
         {dev ? (
           <DemoStream atWork={atWork} />
@@ -209,12 +207,12 @@ export default function ChatView({
         {!sending && <QuestionBlock ask={ask} onAnswered={onPickChoice} i={lines.length} />}
       </div>
 
-      {/* 컴포저 — **내용을 따라 내려오다 바닥에서 붙습니다** (2026-09-04 결정).
-          문진 선택지는 말풍선 밑에 붙는데 자유 입력만 화면 맨 아래에 떨어져
-          입력 자리가 둘로 갈라져 있었습니다. 이제 마지막 메시지 바로 밑이
-          제자리이고, 대화가 길어지면 sticky 로 시야에 남습니다. 뒤로 지나가는
-          말풍선은 바닥색 그라데이션이 받칩니다. 포커스 링은 여기에만 */}
-      <div className="sticky bottom-0 z-10 pt-4 pb-2 [background:linear-gradient(to_top,var(--ground)_62%,transparent)]">
+      {/* 컴포저 — **대화 길이와 무관하게 항상 같은 자리(바닥)** 입니다
+          (2026-09-04 사용자 확정 — 「짧을 때도 길 때와 같은 위치로」).
+          `mt-auto` 가 짧은 대화에서 바닥까지 밀고, 대화가 화면을 넘으면
+          sticky 가 그 자리를 지킵니다 — 두 경우 모두 위치가 같습니다.
+          뒤로 지나가는 말풍선은 바닥색 그라데이션이 받칩니다. 포커스 링은 여기에만 */}
+      <div className="sticky bottom-0 z-10 mt-auto pt-4 pb-2 [background:linear-gradient(to_top,var(--ground)_62%,transparent)]">
       <div className="flex items-center gap-2 rounded-[14px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-[14px] shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
         <input
           aria-label="진술 입력"
