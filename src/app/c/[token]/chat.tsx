@@ -11,6 +11,9 @@ import {
 
 import type { ChatSend } from "./send";
 
+import { restore } from "@/modules/pii-restorer";
+import type { RestorableMapping } from "@/modules/pii-restorer";
+
 /**
  * `focus: "chat"` 일 때의 본문 — S-06.
  *
@@ -74,7 +77,7 @@ export default function ChatView({
   chat: ChatSend;
   onPickChoice: () => void;
 }) {
-  const { lines, sending, fail, send, loading, truncated, pastFailed, locked, ask } = chat;
+  const { lines, sending, fail, send, loading, truncated, pastFailed, locked, ask, restorable } = chat;
   const [draft, setDraft] = useState("");
   const dev = token === null;
   const question = ask.question;
@@ -204,7 +207,9 @@ export default function ChatView({
         {/* 질문은 스트림 맨 아래에 붙습니다 — 한 번에 하나 (§3.4 · §S-06).
             **`atWork` 로 가리지 않습니다** — 그 조건이 프로덕션에서 문진을 통째로
             지우고 있었습니다 (`QuestionBlock` 머리말) */}
-        {!sending && <QuestionBlock ask={ask} onAnswered={onPickChoice} i={lines.length} />}
+        {!sending && (
+          <QuestionBlock ask={ask} restorable={restorable} onAnswered={onPickChoice} i={lines.length} />
+        )}
       </div>
 
       {/* 컴포저 — **대화 길이와 무관하게 항상 같은 자리(바닥)** 입니다
@@ -314,17 +319,30 @@ function DemoStream({ atWork }: { atWork: boolean }) {
  */
 export function QuestionBlock({
   ask,
+  /**
+   * 볼트에서 열어 온 복원 목록 — **되묻기 문구의 토큰을 이 브라우저만 되살립니다** (ADR-069).
+   * 서버는 「받는 쪽 계좌: [계좌-2]」까지만 낼 수 있고, 그 번호가 무엇인지는 여기서만 압니다.
+   * 없으면(다른 기기 · 볼트 미개봉) 토큰 그대로 — 그때는 「아니에요」로 다시 적을 수 있습니다
+   */
+  restorable = [],
   /** 답한 뒤 셸이 할 일. 미니 챗에서는 옮길 곳이 없어 아무것도 안 합니다 */
   onAnswered,
   /** 계단 등장의 순번 */
   i,
 }: {
   ask: ChatSend["ask"];
+  restorable?: readonly RestorableMapping[];
   onAnswered: () => void;
   i: number;
 }) {
   const question = ask.question;
   if (!question) return null;
+
+  // 문구는 서버 것 그대로이고 **토큰 자리만** 되살립니다 — 챗 답변과 같은 규칙(`history.ts`)
+  const shown =
+    restorable.length > 0
+      ? restore(question.text, [...restorable], { site: "chat-answer" })
+      : question.text;
 
   const answer = (value: string) => void ask.answer(value).then(onAnswered);
   const skip = () => void ask.skip().then(onAnswered);
@@ -334,7 +352,7 @@ export function QuestionBlock({
       <>
         {/* 질문 문구도 서버가 준 것입니다 — 화면이 다시 적지 않습니다 (§3.4) */}
         <Bubble who="ai" i={i}>
-          바로 이어서 여쭐게요. <b className="font-[640] text-ink-1">{question.text}</b>
+          바로 이어서 여쭐게요. <b className="font-[640] text-ink-1">{shown}</b>
           <span className="mt-1.5 block text-[13px] text-ink-3">
             한 번에 하나만 여쭤봅니다
           </span>
@@ -539,7 +557,14 @@ export function MiniChat({
         {/* **문항도 여기 뜹니다** — 본문 챗과 **같은 것**을 그립니다.
             사건은 언제나 플랜으로 열리므로(`case-opener`) 이 자리가 실사건
             사용자가 문진을 보는 곳입니다 */}
-        {!sending && <QuestionBlock ask={chat.ask} onAnswered={() => undefined} i={recent.length} />}
+        {!sending && (
+          <QuestionBlock
+            ask={chat.ask}
+            restorable={chat.restorable}
+            onAnswered={() => undefined}
+            i={recent.length}
+          />
+        )}
 
         {/* **스스로 다시 보내지 않습니다** — 못 보낸 글은 입력칸에 남아 있습니다 (에러 §3.1) */}
         {fail && (

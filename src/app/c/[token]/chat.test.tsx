@@ -175,3 +175,36 @@ describe("미니 챗이 실제 대화를 그린다 — 목업이 아니다", () 
     expect(text).toContain("보내지 못했습니다.");
   });
 });
+
+/**
+ * 증거에서 뽑힌 상대 계좌의 되묻기 — 서버는 토큰까지만 내고, 번호는 이 브라우저가 되살립니다 (ADR-069).
+ * 토큰 글자만 보이면 사용자가 「맞아요」를 판단할 수 없습니다.
+ */
+describe("되묻기 문구의 토큰은 브라우저가 되살린다 — ADR-069", () => {
+  const confirmAccount: NextQuestion = {
+    slot_key: "counterpart_account",
+    text: "올린 자료에서 찾은 받는 쪽 계좌입니다: [계좌-2]. 맞나요?",
+    input: "buttons",
+    options: ["맞아요", "아니에요, 다시 적을게요", "모름·기억 안 남"],
+  };
+
+  it("복원 목록이 있으면 번호로 보인다", () => {
+    const html = renderToStaticMarkup(
+      <QuestionBlock
+        ask={askOf({ question: confirmAccount })}
+        restorable={[{ token: "[계좌-2]", original: "110-234-567890" }]}
+        onAnswered={() => {}}
+        i={0}
+      />,
+    );
+    expect(textOf(html)).toContain("110-234-567890");
+    expect(textOf(html)).not.toContain("[계좌-2]");
+  });
+
+  it("복원 목록이 없으면 토큰 그대로 — 지어내지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <QuestionBlock ask={askOf({ question: confirmAccount })} onAnswered={() => {}} i={0} />,
+    );
+    expect(textOf(html)).toContain("[계좌-2]");
+  });
+});
