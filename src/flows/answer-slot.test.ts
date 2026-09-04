@@ -538,3 +538,54 @@ describe('이름표 번호가 사건 안에서 안 겹친다', () => {
     expect(one.slotWrites[0].valueMasked).toBe('[계좌-1]')
   })
 })
+
+/**
+ * 되묻기 뒤 「맞아요」(`mask`) — **서버가 가린 값**으로 저장한다 → ADR-067 · §3.5.
+ *
+ * 2026-08-25 에 정해진 동작인데 경계 문서와 §3.5 가 열흘 동안 반대말(「브라우저가
+ * 가린다」)을 하고 있었습니다. 문서는 ADR-067 로 맞췼고, 코드 쪽은 여기서 못 박습니다 —
+ * 원문이 응답에도 저장에도 안 남고, 「맞아요」가 첫 답과 같은 이름표로 확정되는지.
+ */
+describe('되묻기 뒤 「맞아요」(mask) — 서버가 가린 값으로 확정한다 (ADR-067)', () => {
+  const ACCOUNT = '352-0912-3456-73'
+
+  it('첫 답은 저장을 미루고 되묻는다 — 원문은 응답에도 저장에도 없다', async () => {
+    const one = harness()
+
+    const got = await answerSlot(
+      { caseId: CASE_ID, slotKey: 'counterpart_account', action: 'answer', value: ACCOUNT },
+      one.container,
+    )
+
+    expect(got.state).toBe('pii_pending')
+    expect(got.value).toBeNull()
+    // 무엇을 찾았는지만 — 원문은 브라우저에 이미 있습니다
+    expect(got.piiConfirm?.found).toEqual([{ kind: '계좌', text: '[계좌-1]' }])
+    expect(one.slotWrites).toHaveLength(1)
+    expect(one.slotWrites[0]).toMatchObject({ state: 'pii_pending', valueMasked: '[계좌-1]' })
+    expect(JSON.stringify([got, one.slotWrites])).not.toContain(ACCOUNT)
+  })
+
+  it('「맞아요」는 같은 값을 다시 받아 **서버가 가린 값**으로 확정한다', async () => {
+    const one = harness()
+
+    const got = await answerSlot(
+      { caseId: CASE_ID, slotKey: 'counterpart_account', action: 'mask', value: ACCOUNT },
+      one.container,
+    )
+
+    expect(got.state).toBe('confirmed')
+    // 첫 답에서 붙인 것과 **같은 이름표**입니다 — 장부를 이어받으므로 번호가 새로 안 붙습니다
+    expect(got.value).toBe('[계좌-1]')
+    expect(got.piiConfirm).toBeNull()
+    expect(got.planRegenerated).toBe(true)
+    expect(one.slotWrites.at(-1)).toMatchObject({
+      slotKey: 'counterpart_account',
+      state: 'confirmed',
+      valueMasked: '[계좌-1]',
+      source: 'user',
+    })
+    // **원문은 어디에도 남지 않습니다** — 서버는 토큰만 저장하고 매핑을 만들지 않습니다(ADR-009 그대로)
+    expect(JSON.stringify([got, one.slotWrites, one.channelWrites])).not.toContain(ACCOUNT)
+  })
+})

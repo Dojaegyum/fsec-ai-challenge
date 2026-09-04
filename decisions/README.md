@@ -115,7 +115,7 @@
 | [037](037-doc-guidance-not-generation.md) | 서류를 만들어 주지 않는다 — 무엇을 어떻게 적는지 안내한다 | 부분 대체됨 → 064 |
 | [038](038-transcript-confirm.md) | 기계가 읽은 값을 사용자가 확인하는 자리를 둔다 — `confirm` · `WS-confirm` | 채택 |
 | [039](039-link-token.md) | 링크 토큰을 `case_id` 와 분리하고, 경로 이름을 `{case_token}` 으로 바꾼다 | 채택 |
-| [040](040-write-path-boundary.md) | 쓰기 경로도 경계를 지난다 — 다만 토큰화가 아니라 거부다 | 채택 |
+| [040](040-write-path-boundary.md) | 쓰기 경로도 경계를 지난다 — 다만 토큰화가 아니라 거부다 | 부분 대체됨(→067) |
 | [041](041-pii-confirm-with-user.md) | PII 판정을 기계가 혼자 하지 않는다 — 사용자가 보고 있는 자리에서는 물어본다 | 채택 |
 | [042](042-submit-paths.md) | 신청서를 내는 길은 하나가 아니다 — 앱과 영업점을 함께 내놓고, 순서는 KB가 정한다 | 채택 |
 | [043](043-gpu-hosting.md) | GPU 는 개발에선 빌리고, 운영에선 국내에서만 돈다 | 채택 |
@@ -142,6 +142,7 @@
 | [064](064-doc-filler-retired.md) | doc-filler 를 폐기한다 — 기재 안내 화면은 셸 소유, plan-viewer 는 어휘의 정본 | 채택 |
 | [065](065-history-referenced-ids.md) | 답이 가리킨 단계·기한을 이력에 남긴다 — 되짚지 않고 저장하며, 재검증은 화면 몫 | 채택 |
 | [066](066-track-fixed-new-case.md) | `track` 은 사건의 축이라 고치지 않는다 — 되짚기는 새 사건으로, 통장묶기 KB 는 쓴다 | 채택 |
+| [067](067-pii-confirm-server-masks.md) | 되묻기에 「맞아요」면 서버가 가린다 — 2차가 집은 것은 브라우저가 가릴 수 없다 | 채택 |
 
 ## 아직 안 쓴 것
 
