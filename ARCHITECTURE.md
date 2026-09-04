@@ -35,7 +35,7 @@ flowchart TB
     end
 
     subgraph SERVER["Vercel 서버리스"]
-        API["API 라우트 · 엔드포인트 10 + 관리자 2"]
+        API["API 라우트 · 사건 13 + 크론 2 (관리자 경로는 폐기 · ADR-068)"]
         BOUND["pii-tokenizer · 격리 경계"]
         CORE["동작 단위 네 층 · §4"]
         AUDIT["audit-logger"]
@@ -433,7 +433,7 @@ sequenceDiagram
 | `DATABASE_URL` | 관계형 DB 접속. **볼트도 여기입니다** — `case_vault` 스키마 | Y |
 | `BLOB_TOKEN` | 객체 저장소 접근 | Y |
 | `XAI_API_KEY` | Grok API 키 | Y |
-| `ADMIN_USERNAME` · `ADMIN_PASSWORD_HASH` | 관리자 1계정. **해시로만** | Y |
+| ~~`ADMIN_USERNAME` · `ADMIN_PASSWORD_HASH`~~ | ~~관리자 1계정~~ → **폐기** (2026-09-04 · [ADR-068](decisions/068-no-admin-screen.md)). 문지기는 남고 값은 비워 둡니다 | ~~Y~~ |
 | `CASE_PURGE_DAYS` | 사건 보관 기간. 기본 **180** (마지막 활동일 기준) | N |
 | `KB_FETCH_CRON` | 수집 주기. 기본 하루 1회 | N |
 
