@@ -228,7 +228,7 @@ export class RateLimitedError extends AppError {
 | --- | :---: | --- |
 | `PiiBoundaryError` 계열 | ✗ | PII 처리 실패를 다시 시도하지 않습니다 |
 | `PiiTokenizerUnavailableError` | ✓ | 서비스 장애는 일시적일 수 있습니다. 최대 2회 |
-| `KbCitationMissingError` | ✓ | **`ref` 검증 위반일 때만.** 최대 2회 → §4.2. `insufficient` 는 재시도하지 않습니다 |
+| `KbCitationMissingError` | ✓ | **`ref` 검증 위반일 때만.** **최대 1회**(호출 2회) → §4.2 · 아래 2026-09-04 주. `insufficient` 는 재시도하지 않습니다 |
 | `LlmError` | ✓ | 일시적 실패가 흔합니다. 최대 2회 |
 | `LlmBadRequestError` | ✗ | 같은 요청은 같은 결과 |
 | `CaseError` 계열 | ✗ | 입력 상태 문제라 재시도로 안 풀립니다 |
@@ -242,7 +242,16 @@ export class RateLimitedError extends AppError {
 
 **횟수만으로는 부족합니다. 전체 시간 상한을 함께 둡니다.**
 
-Vercel 서버리스 함수에는 실행 시간 제한이 있습니다. **챗 한 턴에서 LLM을 최대 3회 부르는데(원 1회 + 재시도 2회) 한 번이 3~8초라면, 대기 시간까지 더해 함수가 먼저 끊길 수 있습니다.** 끊기면 사용자는 아무 안내도 못 받고, 재시도한 사실조차 기록에 안 남습니다.
+Vercel 서버리스 함수에는 실행 시간 제한이 있습니다. **챗 한 턴에서 LLM을 최대 2회 부르는데(원 1회 + 인용 재시도 1회) 한 번이 11~25초라면, 대기 시간까지 더해 함수가 먼저 끊길 수 있습니다.** 끊기면 사용자는 아무 안내도 못 받고, 재시도한 사실조차 기록에 안 남습니다.
+
+> 2026-09-04 개정 — **인용 형식 위반 재시도는 1회입니다.** 전에는 「최대 2회(호출 3회)」로 적혀 있었고
+> `retry-checker` 의 표(`KB_CITATION_MISSING: [0, 0]`)도 그 값이지만, **실제로 도는 상한은
+> `chat-receiver` 의 `MAX_ATTEMPTS = 2`**(원 1회 + 재시도 1회 · `src/modules/chat-receiver/receive.ts`)
+> 입니다. 세 문서(이 문서 2회 · chat-context 1회 · 코드 1회)가 갈려 있던 자리를 코드 쪽으로 맞춥니다 —
+> 이유는 예산입니다. `grok-4.5` 한 호출이 **11~25초**(qa-readiness 「챗이 돕니다」)라 세 번 부르면
+> 예산 45초(`lib/llm.ts`)와 함수 상한 60초를 넘겨 503 이 납니다. 위 「3~8초」는 08-16 시점 추정이었습니다.
+> ⬜ `retry-checker` 의 `[0, 0]` 은 이 루프가 안 읽는 값이지만 표와 어긋난 채 남아 있습니다 —
+> `[0]` 으로 맞추는 것은 코드 PR 의 일입니다(→ [doc-gardening §4](../../docs/plans/08-26-doc-gardening.md)).
 
 | 예외 | 1차 대기 | 2차 대기 | 왜 |
 | --- | ---: | ---: | --- |

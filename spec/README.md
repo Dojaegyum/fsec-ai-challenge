@@ -51,7 +51,7 @@ spec/backend/08-14-channel-matrix.md
 | [08-14-api.md](common/08-14-api.md) | API 계약 — 엔드포인트 13개(관리자 2개는 미구현), 요청·응답, 계측 헤더. 라우트 12개가 머리말에서 이 문서를 정본으로 인용합니다 |
 | [08-17-service-concept.md](common/08-17-service-concept.md) | **서비스 골자** — 무엇이고 무엇이 아닌가, 누가 어디서 들어와 어떻게 돌아오는가. 기획서 §0을 대체 |
 | [08-20-automation-boundary.md](common/08-20-automation-boundary.md) | **자동화의 경계** — 어디까지 대신해 주고 어디서 멈추는가. 넘으면 인허가가 필요한 것들 |
-| [08-21-user-journeys.md](common/08-21-user-journeys.md) | **사용자 여정 — 경우별.** 갈림길 여덟과 여정 열둘. 골자의 세로축(시간)에 대한 **가로축(경우)**. `src/` 를 읽어 세웠습니다 |
+| [08-21-user-journeys.md](common/08-21-user-journeys.md) | **사용자 여정 — 경우별.** 갈림길 열과 여정 열둘(2026-09-04 재기준). 골자의 세로축(시간)에 대한 **가로축(경우)**. `src/` 를 읽어 세웠습니다 |
 
 ### `backend/` — 서버
 
@@ -92,7 +92,7 @@ spec/backend/08-14-channel-matrix.md
 | **자율배상은 "대상인지 진단"** — 1년 4개월간 41건·피해액의 0.1%·평균 116일 | [channel-matrix](backend/08-14-channel-matrix.md) | 반영됨 |
 | 포지셔닝 전환 — 112 이후를 맡는 사건 관리 | [service-concept](common/08-17-service-concept.md) | **반영됨** — 골자를 다시 세웠습니다. 진입은 상담 링크가 아니라 **검색·직접 접속**으로 확정 ([ADR-021](../decisions/021-reentry-and-identity.md)) |
 | 화면이 그 전환을 못 따라감 — `S-01`이 업로드 화면인 근거가 사라짐 | [screens](frontend/08-14-screens.md) 전반 | **반영됨** (2026-08-18) — `S-01`·`S-02` 폐기, 랜딩·`/start`·`/c/{token}` 흐름으로 재작성 |
-| 데이터: 한국어 공개 데이터 0건 → 합성 불가피 | [glossary](common/08-14-glossary.md) | **미반영** |
+| ~~데이터: 한국어 공개 데이터 0건 → 합성 불가피~~ | [glossary](common/08-14-glossary.md) | **정정됨** (2026-09-04) — 전제 자체가 틀렸습니다. [research/07](../docs/research/07-학습데이터-조사.md) 이 「공개 데이터 0건」을 반증했고, 합성하는 것은 **슬롯 정답과 국외 GPU 에 올리는 표본**뿐입니다([ADR-043](../decisions/043-gpu-hosting.md)). glossary 에 그렇게 반영 |
 | ~~보존 기간 충돌~~ | [pii-boundary](common/08-14-pii-boundary.md) [data-model](backend/08-16-data-model.md) | **해소됨** — [ADR-010](../decisions/010-case-store.md) 으로 통일, [ADR-016](../decisions/016-retention-and-datastore.md) 으로 **마지막 활동일부터 180일** 확정 (경로 10종 실측) |
 | ~~저장소 제품~~ — `Vercel Postgres` 는 폐지된 제품 (2024-12 → Neon, 서울 리전 없음) | [ADR-016](../decisions/016-retention-and-datastore.md) | **해소됨** — Supabase(서울)로 결정하고 `ARCHITECTURE.md`·`data-model`·`api` 반영 완료. 볼트도 같은 Postgres 로 확정 ([ADR-049](../decisions/049-vault-in-postgres.md)) |
 
