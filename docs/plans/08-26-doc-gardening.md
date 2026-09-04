@@ -30,7 +30,7 @@
 | ~~`referenced_steps`·`referenced_deadlines` 용도~~ | api-routes :356 · system-prompt :314 · chat-context §5 | **#43(2026-08-26) 으로 배선됨** — 모델이 인용한 것 중 단계·기한을 가리키는 것만 골라 실음(`chat-turn.ts:97,118`) | 남은 것은 system-prompt :314 TODO 와 :202 「지시문에서 뺐다」 표기 정리 → 3절 |
 | 순서 12 크론 둘 — `/api/cron/*` 라우트 · `vercel.json` crons | api-routes 순서 12 · module-names :76-80 | 라우트 없음, `gated-paths.ts:51` 만 막음 | qa-readiness Task 7 |
 | 순서 13 관리자 조회 | api-routes 순서 13 | 없음 | qa-readiness Task 7 |
-| 순서 14 `server-only` 표시 — 서버 모듈 26개 중 0 | api-routes 순서 14 · ADR-028 :96 | flows/lib 29파일에는 있음 | 코드 (한 PR) |
+| ~~순서 14 `server-only` 표시 — 서버 모듈 26개 중 0~~ | api-routes 순서 14 · ADR-028 :96 | **2026-09-04 닫힘** — 서버 모듈 21개(층 1~4 + 층 없음 둘)의 `index.ts` 에 표식. 브라우저 모듈 열하나는 대상이 아님. `tsx` 스크립트(`kb:load`·`migrate`·`probe:*`)는 `--conditions=react-server` 로 표식을 비웁니다 | ~~코드 (한 PR)~~ |
 | backend-handoff 잔여 — domain-model :140 「미결」절 표제, 목업 24시간 문구 | backend-handoff 삭제 조건 | 절 안 항목은 전부 「해소됨」 | domain-model 갱신 때 절 제목만 |
 | backend-baseline §2 남은 둘 — 층 4 Cron · NER | baseline (살아 있음) | `vercel.json` crons 없음 · `container.ts:375-378 ner: null` | 크론은 위와 같이, NER 은 pii-boundary :187 TODO 와 한 묶음 |
 

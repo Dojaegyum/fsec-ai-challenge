@@ -8,6 +8,8 @@
  * CLAUDE.md 불변 규칙 2 위반입니다 → spec/common/08-14-pii-boundary.md.
  */
 
+import 'server-only'
+
 export { createTranscriber, DEFAULT_LAYOUT } from './transcribe'
 export type {
   At,

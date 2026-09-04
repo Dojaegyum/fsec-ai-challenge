@@ -7,6 +7,8 @@
  * 충분한지 판정하는 것은 규칙(층 3) → spec/common/08-16-module-names.md.
  */
 
+import 'server-only'
+
 export { createSlotExtractor } from './extract'
 export { SLOT_VALUE_TYPE } from './types'
 export type {

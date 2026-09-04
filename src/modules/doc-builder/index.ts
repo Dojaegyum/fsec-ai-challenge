@@ -7,6 +7,8 @@
  * spec/common/08-14-pii-boundary.md 규칙 6 위반이기도 합니다.
  */
 
+import 'server-only'
+
 export { createDocBuilder } from './build'
 export type {
   BuildInput,

@@ -7,6 +7,8 @@
  * → spec/backend/08-14-kb-operations.md 원칙 4.
  */
 
+import 'server-only'
+
 export { createKbCollector } from './collect'
 export type {
   Clock,

@@ -1,8 +1,11 @@
 /**
  * 언어모델이 **우리 계약대로 답하는지** 재 본다 — DB 없이, 모델만.
  *
- *   npx tsx scripts/probe-llm.ts
- *   npx tsx scripts/probe-llm.ts --base http://127.0.0.1:11434/v1 --model qwen3:4b
+ *   npm run probe:llm
+ *   npm run probe:llm -- --base http://127.0.0.1:11434/v1 --model qwen3:4b
+ *
+ * `npm run` 을 지나야 합니다 — 모듈에 `server-only` 표식이 붙어 있어(ADR-028) 맨 `tsx` 로
+ * 부르면 첫 import 에서 던집니다. 스크립트가 `--conditions=react-server` 를 붙여 줍니다.
  *
  * ## 왜 필요한가
  *

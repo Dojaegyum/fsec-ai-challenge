@@ -7,6 +7,8 @@
  * → spec/common/08-16-module-names.md 층 1 · CLAUDE.md 불변 규칙 2.
  */
 
+import 'server-only'
+
 export { createPiiTokenizer } from './tokenize'
 /**
  * 번호 장부 → `ledger.ts`. **이름표는 평문이라 서버가 읽을 수 있습니다** —

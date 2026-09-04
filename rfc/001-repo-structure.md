@@ -2,7 +2,7 @@
 
 - 상태: **시행 중**
 - 제정: 2026-08-16
-- 최종 개정: 2026-08-26
+- 최종 개정: 2026-09-04
 - 근거: [ADR-003](../decisions/003-spec-layout.md) (spec 폴더) ·
   [ADR-004](../decisions/004-agenda-and-assets.md) (AGENDA 이전·assets 신설) ·
   [ADR-005](../decisions/005-filename-convention.md) (파일명 통일) ·
@@ -415,8 +415,10 @@ python -m unittest discover -s services/transcriber -t .
 > 생겼습니다.** 그때 이 스크립트가 문지기를 대신합니다 — **러너가 죽어도 검사
 > 자체는 우리 것**입니다. 다만 대신할 뿐이고, Actions 가 살아나면 그쪽이 문지기입니다.
 
-**게이트 밖에 하나가 더 있습니다** — `npm run test:db`. CI 에서 안 돌아서 게이트가
-아니고, 그래서 더 잊기 쉽습니다. 스키마나 `lib/db.ts` 를 건드렸으면 돌리세요 (→ 아래).
+**게이트 밖에 둘이 더 있습니다** — `npm run test:db` 와 `npm run smoke`. 앞엣것은 CI 에서
+안 돌아서 게이트가 아니고, 그래서 더 잊기 쉽습니다 — 스키마나 `lib/db.ts` 를 건드렸으면
+돌리세요. 뒤엣것은 **배포된 뒤에** 돕니다 — PR 을 막는 자리가 아니라 올라간 것이 실제로
+도는지를 보는 자리입니다 (→ 아래 둘 다).
 
 **막는 게 아니라 올리는 것도 하나 있습니다** — `deploy.yml`. `main` 에 `src/**` 가
 푸시되면 typecheck·test 를 다시 돌고 Vercel Production 에 올립니다. **머지가 곧 배포입니다.**
@@ -566,6 +568,31 @@ cd src && npm run test:db
   남의 행을 읽지도 고치지도 않습니다.
 - **스키마나 `lib/db.ts`를 고쳤으면 이것까지 돌리는 것이 한 작업입니다.**
 
+### 배포본 스모크 — 게이트 밖 둘째, **배포 뒤에** 돕니다
+
+```
+cd src && npm run smoke                       # 프로덕션
+SMOKE_BASE_URL=<주소> npm run smoke           # 다른 주소
+```
+
+> 2026-09-04 신설 → [qa-readiness](../docs/plans/08-23-qa-readiness.md) Task 8.
+
+위 게이트들은 전부 **올리기 전**을 봅니다. 올라간 것이 실제로 도는지는 아무도 안 봤습니다 —
+2026-08-26 에 배포본 KB 가 며칠 뒤처진 채 카드 피해자에게 환급법 기한을 내보내던 것도,
+아홉 유형을 손으로 걸어 보고서야 드러났습니다.
+
+- **`deploy` 워크플로가 성공하면 `smoke` 워크플로가 이어서 자동으로 돕니다**
+  (`.github/workflows/smoke.yml` · `workflow_run`). 빨간불이면 올라간 것이 안 도는 것입니다.
+- 랜딩 · 사건 생성 · 링크 재진입(브라우저로도) · 플랜 단계와 근거 · 404/400 · 볼트 왕복 —
+  **여섯**입니다 (`src/smoke/smoke.spec.ts`). 값의 내용은 안 봅니다 — 단계 제목은 KB
+  릴리스의 일이라 고정하면 릴리스마다 시험이 깨집니다.
+- **모델은 부르지 않습니다.** 그 실패는 배포가 아니라 모델 사정이라 섞으면 신호가 흐려집니다.
+  챗은 `assets/datasets/08-27-qa-walk/qa_chat.py` 로 따로 봅니다.
+- 파일 이름이 **`smoke/*.spec.ts`** 라 `npm test`(vitest)의 include 에 안 걸립니다.
+  실행기는 Playwright(`src/playwright.config.ts`)이고 **요청을 겹쳐 보내지 않습니다** —
+  몰아치면 뒤쪽이 503 으로 떨어지는데 그건 풀러 사정입니다.
+- **운영 DB 에 사건을 남깁니다** — 실행마다 몇 건. 파기일에 함께 지워집니다.
+
 ## 개정 이력
 
 **이 규약을 고칠 때마다 여기에 한 줄 적습니다.** 대부분의 개정은 이 줄과 커밋 메시지로 끝이고,
@@ -595,4 +622,5 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-24 | KB 적재기(`npm run kb:load`) 신설 — `src/kb/*.json` 을 `kb_entry` 로. 판정은 `lib/kb-load.ts` 에 두어 `npm test` 가 봅니다 | [RFC-002](002-kb-authoring.md) · [ADR-045](../decisions/045-kb-release-pin.md) |
 | 2026-08-25 | 배포 워크플로(`deploy`) 신설 — `main` 머지가 곧 배포. 손으로 올린 주소가 `main` 보다 뒤처져 있었습니다 | [ADR-053](../decisions/053-deploy-on-merge.md) |
 | 2026-08-26 | 「은퇴」 신설 — 역할이 끝난 `spec/`·`docs/` Markdown 은 옮기거나 지우지 않고 제자리에서 배너 + README 「은퇴」 절로. ADR 이 그 주소를 수십 곳 가리키고 있어 옮기면 고칠 수 없는 문서의 링크가 깨집니다. `docs/plans/` 의 「반영되면 지운다」 규정도 이걸로 대체. 첫 손질에서 6편 은퇴 · `doc-gardening` 스킬 신설 · 폴더 지도에 `assets/components/`·`src/migrations/` 보강 | 커밋 메시지 · [docs/plans/08-26-doc-gardening.md](../docs/plans/08-26-doc-gardening.md) |
+| 2026-09-04 | 배포본 스모크(`npm run smoke` · `smoke` 워크플로) 신설 — **게이트 밖 둘째.** 올리기 전을 보는 검사는 여덟인데 올라간 것이 도는지는 아무도 안 봤습니다. 같은 날 서버 모듈 21개 진입점에 `server-only` 표식을 달아 ADR-028 「다섯」을 코드로 — 그 대가로 `tsx` 스크립트는 `npm run`(`--conditions=react-server`)을 지나야 합니다 | 커밋 메시지 · [ADR-028](../decisions/028-runtime-and-module-shape.md) |
 | 2026-08-27 | 게이트 한 번에 도는 `gates.sh` 신설 — **CI 가 멈춘 날 만들었습니다.** 러너가 안 붙어 검사가 `queued` 로 남거나 0초에 `startup_failure` 로 떨어졌고 **검사 0개로 머지된 PR 이 생겼습니다.** 러너가 죽어도 검사 자체는 우리 것이라, 그것을 손에 들려 주는 자리입니다 | 커밋 메시지 |
