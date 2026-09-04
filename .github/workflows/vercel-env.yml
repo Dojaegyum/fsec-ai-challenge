@@ -1,6 +1,7 @@
 name: vercel-env
 
-# 배포 환경변수를 **손으로 `vercel env add` 하는 것과 같은 일**을 Actions 가 대신합니다.
+# 배포 환경변수를 **손으로 `vercel env add --force` 하는 것과 같은 일**을 Actions 가 대신합니다
+# (CLI 대신 Vercel REST API `upsert` — 아래 주석).
 # 사람이 로컬에 `vercel` CLI 와 토큰이 없을 때(Hobby 팀은 팀원이 `vercel env pull` 도 못 씀 —
 # deploy/README.md §1) 쓰는 길입니다. 토큰은 `deploy` 와 같은 `VERCEL_TOKEN` 시크릿입니다.
 #
@@ -79,22 +80,11 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      # `vercel env add` 는 `deploy` 와 달리 **연결된 프로젝트**를 요구합니다 — 환경변수
-      # `VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` 만으로는 "Could not retrieve Project Settings" 로
-      # 멈춥니다(2026-09-04 첫 실행). `vercel link` 가 만드는 파일을 같은 값으로 미리 씁니다.
-      - name: 프로젝트 연결 파일
-        run: |
-          mkdir -p .vercel
-          printf '{"orgId":"%s","projectId":"%s"}' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
-
-      # 값은 stdin 으로 넣습니다 — 인자로 넣으면 프로세스 목록에 남습니다.
-      # `printf '%s'` 라 끝에 줄바꿈이 안 붙습니다. `KB_VERSION` 에 줄바꿈이 붙으면 어느 릴리스와도
-      # 안 맞아 안내를 아예 안 만듭니다(ADR-045).
-      - name: 값이 있는 것만 덮어쓰기
+      # CLI(`vercel env add`)는 `deploy` 와 달리 「연결된 프로젝트」를 요구해 두 번 막혔습니다
+      # (2026-09-04 · "Could not retrieve Project Settings" — `.vercel/project.json` 을 써 줘도 같음).
+      # REST API 는 그 요구가 없고 `upsert=true` 가 곧 `--force` 입니다. 설치도 없어 7분이 30초가 됩니다.
+      # 값은 요청 본문에만 실리고, 응답은 상태 코드와 오류 코드만 봅니다.
+      - name: 값이 있는 것만 덮어쓰기 (Vercel REST API · upsert)
         env:
           IN_KB_VERSION: ${{ inputs.kb_version }}
           IN_APP_ORIGIN: ${{ inputs.app_origin }}
@@ -108,9 +98,20 @@ jobs:
         run: |
           set -u
           done_names=""
+          # 팀 프로젝트면 teamId 를 붙입니다. 개인 계정(`user_…`)이면 붙이지 않습니다
+          case "$VERCEL_ORG_ID" in team_*) team="?teamId=$VERCEL_ORG_ID&upsert=true" ;; *) team="?upsert=true" ;; esac
           put() {  # put NAME VALUE
             if [ -z "$2" ]; then return 0; fi
-            printf '%s' "$2" | npx --yes vercel@59 env add "$1" production --force --token "$VERCEL_TOKEN" >/dev/null
+            body=$(jq -cn --arg k "$1" --arg v "$2" '[{key:$k, value:$v, type:"encrypted", target:["production"]}]')
+            code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+              -X POST "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env$team" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" -H 'Content-Type: application/json' \
+              --data "$body")
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::$1 — HTTP $code $(jq -r '.error.code // .error.message // "?"' /tmp/resp.json 2>/dev/null)"
+              rm -f /tmp/resp.json; exit 1
+            fi
+            rm -f /tmp/resp.json
             echo "  ✓ $1"
             done_names="$done_names $1"
           }
