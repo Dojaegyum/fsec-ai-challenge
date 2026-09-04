@@ -48,6 +48,7 @@ export function normalizeAmount(raw: string): string | null {
  * 시각 → `YYYY-MM-DD` 또는 `YYYY-MM-DDTHH:MM:SS+09:00`.
  *
  *     2026.09.01 14:22:41   → 2026-09-01T14:22:41+09:00
+ *     2026.09.01 14:22.41   → 2026-09-01T14:22:41+09:00   (OCR 이 콜론을 점으로 읽는 일이 실제로 있었습니다 — 09-04 배포본)
  *     2026-09-01            → 2026-09-01
  *     2026년 9월 1일 14:22   → 2026-09-01T14:22:00+09:00
  *     9월 1일               → null   (해가 없으면 셈이 필요합니다)
@@ -58,7 +59,7 @@ export function normalizeAmount(raw: string): string | null {
  */
 export function normalizeDateTime(raw: string): string | null {
   const m =
-    /^\s*(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?(?:[\sT]+(\d{1,2})\s*[:시]\s*(\d{1,2})\s*분?(?:\s*[:]\s*(\d{1,2})\s*초?)?)?\s*\.?\s*$/.exec(
+    /^\s*(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?(?:[\sT]+(\d{1,2})\s*[:.시]\s*(\d{1,2})\s*분?(?:\s*[:.]\s*(\d{1,2})\s*초?)?)?\s*\.?\s*$/.exec(
       raw,
     )
   if (!m) return null
@@ -89,8 +90,11 @@ export function normalizeDateTime(raw: string): string | null {
  * 슬롯에 들어가면 서류에 남의 계좌가 적힙니다.
  */
 export function normalizeAccountToken(raw: string, text: string): string | null {
-  const token = raw.trim()
-  if (!/^\[계좌-\d+\]$/.test(token)) return null
+  // 모델이 「국민은행 [계좌-1]」처럼 앞뒤 말을 붙여 내는 일이 실제로 있었습니다(09-04 배포본).
+  // 토큰이 **하나**면 그것을 값으로 받고, 둘 이상이면 어느 쪽인지 모르는 것이라 버립니다
+  const tokens = raw.match(/\[계좌-\d+\]/g) ?? []
+  if (tokens.length !== 1) return null
+  const token = tokens[0]!
   return text.includes(token) ? token : null
 }
 
