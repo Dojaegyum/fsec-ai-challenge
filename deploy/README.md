@@ -62,7 +62,7 @@ Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으�
 | `KB_VERSION` | 안내를 아예 안 만듭니다 ([ADR-045](../decisions/045-kb-release-pin.md)) |
 
 **없어도 도는 것** — `TRANSCRIBER_URL`(비면 녹음이 글로 안 옮겨지고, **사건 진행은
-그대로 돕니다**) · `CASE_PURGE_DAYS`(기본 180) · `ADMIN_*`(관리자 화면이 아직 없습니다).
+그대로 돕니다**) · `CASE_PURGE_DAYS`(기본 180) · `ADMIN_*`(**만들지 않기로** — [ADR-068](../decisions/068-no-admin-screen.md). 비워 두세요).
 
 > ✅ **켜기 전 조건이던 배선은 붙었습니다** (2026-08-27). 토큰화 제외 목록이
 > 네 경로에 다 물렸고, 가장 나쁜 문장으로 다시 걸어 **경유 서비스 14곳이

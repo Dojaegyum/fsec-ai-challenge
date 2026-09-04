@@ -44,7 +44,10 @@
 
 import 'server-only'
 
-/** 관리자 조회 → 08-14-api.md §5.1 */
+/**
+ * 관리자 조회 → 08-14-api.md §5.1 — **화면은 만들지 않기로 했습니다**(ADR-068).
+ * 이 갈래는 그래도 남깁니다: 누군가 `app/api/admin/route.ts` 를 만들어도 인증 없이 열리지 않게.
+ */
 export const ADMIN_BASE = '/api/admin'
 
 /** 주기 실행 → ADR-025. 외부에서 호출되면 안 됩니다 */

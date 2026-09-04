@@ -61,12 +61,12 @@
 | 공휴일 API 키 — 지금은 `holidays-table.ts` 2024~2035 표 | api-routes :324 | 표로 자인 (`holidays.ts:8-12`) · deadline-rules :55 「하드코딩 금지」와 충돌 | qa-readiness 또는 deadline-rules 갱신 때 함께 |
 | ~~`case.email` 칼럼 — 입력칸만 있고 저장 칼럼 없음~~ | api-routes :325 · service-concept :43 | **2026-09-01 닫힘** — `case.notify_email`(마이그레이션 0008 · §3.13 `PUT …/contact`). Mailer 는 여전히 미설정(발송 수단 미정 → ADR-021) | ~~data-model §2 + 마이그레이션 (kth9245)~~ |
 | ~~발송 이력 저장~~ | api-routes :326 | **2026-09-01 닫힘** — `reminder_sent`(§8.4 · `db-reminder.ts` `createSentLog`) | ~~위와 한 묶음~~ |
-| `admin.message_viewed` 감사 이벤트 | api-routes :329 · api.md :1287 | `audit-logger/types.ts` 에 없음 | api.md §5 관리자 구현 때 |
-| 관리자 로그인 | api-routes :330 | `src/app/api/admin` 없음, 문지기만(`gated-paths.ts:48-62`) | api.md §5 |
+| ~~`admin.message_viewed` 감사 이벤트~~ | api-routes :329 · api.md :1287 | **폐기** — 관리자 화면을 만들지 않기로(2026-09-04 · ADR-068) | ~~api.md §5 관리자 구현 때~~ |
+| ~~관리자 로그인~~ | api-routes :330 | **폐기** — 같은 결정. 문지기(`gated-paths.ts`)만 남김 | ~~api.md §5~~ |
 | 메모리 카운터의 위치 | api-routes :332 ↔ api.md :172 순환 참조 | `rate-limit.ts:39` 메모리 | api.md TODO 절에서 한쪽으로 |
 | ~~`referenced_steps`·`referenced_deadlines` 용도~~ | api-routes :356 · system-prompt :314 · chat-context §5 | **#43(2026-08-26) 으로 배선됨** — 모델이 인용한 것 중 단계·기한을 가리키는 것만 골라 실음(`chat-turn.ts:97,118`) | 남은 것은 system-prompt :314 TODO 와 :202 「지시문에서 뺐다」 표기 정리 → 3절 |
 | ~~순서 12 크론 둘 — `/api/cron/*` 라우트 · `vercel.json` crons~~ | api-routes 순서 12 · module-names :76-80 | **닫힘** — 알림 `GET /api/cron/reminders`(09-01) · 파기 `GET /api/cron/purge`(09-03) · `src/vercel.json` crons 둘. KB 수집 크론만 없음(`kb-collector` 미조립) | ~~qa-readiness Task 7~~ |
-| 순서 13 관리자 조회 | api-routes 순서 13 | 없음 — QA 범위 밖으로 **뺐음**(2026-08-27) | qa-readiness Task 7 → 사람 판단 |
+| ~~순서 13 관리자 조회~~ | api-routes 순서 13 | **폐기**(2026-09-04 · ADR-068) — 08-27 에 QA 범위에서 뺀 뒤 만들지 않기로 | ~~qa-readiness Task 7 → 사람 판단~~ |
 | ~~순서 14 `server-only` 표시 — 서버 모듈 26개 중 0~~ | api-routes 순서 14 · ADR-028 :96 | **2026-09-04 닫힘** — 서버 모듈 21개(층 1~4 + 층 없음 둘)의 `index.ts` 에 표식. 브라우저 모듈 열하나는 대상이 아님. `tsx` 스크립트(`kb:load`·`migrate`·`probe:*`)는 `--conditions=react-server` 로 표식을 비웁니다 | ~~코드 (한 PR)~~ |
 | ~~backend-handoff 잔여 — domain-model :140 「미결」절 표제, 목업 24시간 문구~~ → 2026-09-04 닫힘(표제 「미결이었던 것 — 어떻게 결정됐나」 · 24시간 → 180일) | backend-handoff 삭제 조건 | 절 안 항목은 전부 「해소됨」 | domain-model 갱신 때 절 제목만 |
 | ~~backend-baseline §2 남은 둘 — 층 4 Cron · NER~~ | baseline (살아 있음) | **2026-09-04 갱신** — 크론은 섰고, NER 은 서버가 준비됐으나 `NER_URL` 을 일부러 안 켠 상태(deploy/README 「2차 탐지를 켜려면」). baseline §2·§5 를 그날 코드로 다시 셈 | ~~크론은 위와 같이, NER 은 pii-boundary :187 TODO 와 한 묶음~~ |
