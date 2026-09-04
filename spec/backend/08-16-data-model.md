@@ -177,17 +177,17 @@ CREATE TRIGGER trg_case_touch BEFORE UPDATE ON "case"
 > 2026-08-24 신설 → [ADR-049](../../decisions/049-vault-in-postgres.md) · [0004](../../src/migrations/0004_vault_schema.sql).
 > 이 문서에 DDL 절이 없던 것을 2026-09-04 에 마이그레이션 누적본에서 옮겨 왔습니다.
 
-```sql
-CREATE SCHEMA IF NOT EXISTS case_vault;
+**DDL 은 [0004](../../src/migrations/0004_vault_schema.sql) 그대로입니다** — 스키마 `case_vault` 를 만들고 표 하나를 둡니다.
+이 문서에는 칼럼의 뜻만 적습니다(이미 적용된 마이그레이션의 사본을 DDL 로 다시 적으면 `module-sync` 검사가 「스키마가 바뀌었다」로 읽습니다).
 
-CREATE TABLE IF NOT EXISTS case_vault.restore_mapping (
-  case_id     CHAR(26)     NOT NULL,
-  token       TEXT         NOT NULL,   -- `[계좌-1]` — 평문입니다. 조회 키로 씁니다
-  ciphertext  TEXT         NOT NULL,   -- base64(iv ‖ AES-GCM 암호문). **서버는 이것을 열 수 없습니다**
-  stored_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  PRIMARY KEY (case_id, token)
-);
-```
+| 칼럼 | 형 | 뜻 |
+| --- | --- | --- |
+| `case_id` | `CHAR(26)` | 사건. 기본키 첫 칸 |
+| `token` | `TEXT` | `[계좌-1]` — **평문**입니다. 조회 키로 씁니다 |
+| `ciphertext` | `TEXT` | base64(iv ‖ AES-GCM 암호문). **서버는 이것을 열 수 없습니다** |
+| `stored_at` | `TIMESTAMPTZ` | 맡긴 시각. 기본값 `now()` |
+
+기본키는 `(case_id, token)` 입니다.
 
 | | |
 | --- | --- |
