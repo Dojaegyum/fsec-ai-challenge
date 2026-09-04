@@ -63,10 +63,9 @@ const DEADLINE_PERIODS: ReadonlySet<string> = new Set([
 /**
  * 이 단계를 **누가 하나** — `plan_step.actor` 의 `CHECK` 와 같은 일곱.
  *
- * ⬜ **정본끼리 어긋나 있습니다.** §11.4 는 *"칼럼으로 이미 있는 것(제목·주체·
- * 근거·시행일)은 여기 넣지 않습니다"* 라고 적혀 있는데, **`kb_entry` 에 `actor`
- * 칼럼이 없고**(§11.1 · 마이그레이션 0001) `planner` 는 `body.actor` 를 읽습니다.
- * 돌아가는 코드에 맞춰 `body` 에서 봅니다 — 어느 쪽이 정본인지는 사람이 정합니다.
+ * ~~⬜ 정본끼리 어긋나 있습니다~~ → **2026-09-04 에 §11.4 를 코드 쪽으로 고쳤습니다.**
+ * 주체(`actor`)는 `kb_entry` 칼럼이 아니라 `body.actor` 에 있고(§11.1 · 마이그레이션 0001 에
+ * 칼럼 없음), `planner` 도 여기서 읽습니다. 이 목록이 §11.4 「필드 규칙」의 일곱과 같아야 합니다.
  *
  * **기본값을 두지 않습니다.** 두면 기관이 할 일이 사용자 할 일로 뜨고,
  * 화면은 그걸 「당신이 해야 할 것」으로 그립니다 (`planner/plan.ts` 의 같은 판단).
@@ -270,7 +269,7 @@ export function planLoad(
       // 2026-08-24 에 실제로 그랬습니다 (`planner` 가 던짐)
       const actor = (body as { actor?: unknown }).actor
       if (typeof actor !== 'string' || !ACTORS.has(actor)) {
-        where('ACTOR', `\`body.actor\` 가 없거나 여섯 밖입니다 — \`${String(actor)}\``)
+        where('ACTOR', `\`body.actor\` 가 없거나 일곱 밖입니다 — \`${String(actor)}\``)
       }
 
       // ── 어떤 패널을 여나 ─────────────────────────────────────────
@@ -287,7 +286,7 @@ export function planLoad(
       // 낼 자리가 사라지고, 완료 판정도 사슬도 멈춥니다
       const lead = (body as { action?: unknown }).action
       if (typeof lead !== 'string' || !ACTIONS.has(lead)) {
-        where('ACTION', `\`body.action\` 이 없거나 일곱 밖입니다 — \`${String(lead)}\``)
+        where('ACTION', `\`body.action\` 이 없거나 여덟 밖입니다 — \`${String(lead)}\``)
       }
 
       // ── 슬롯 이름 ───────────────────────────────────────────────

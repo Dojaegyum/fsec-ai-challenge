@@ -1,5 +1,5 @@
 /**
- * prompt-builder — 7블록을 순서대로 조립하고 비신뢰 블록에 격리 태그를 씌운다.
+ * prompt-builder — 여섯 블록을 순서대로 조립하고 비신뢰 블록에 격리 태그를 씌운다.
  *
  * 정본: spec/backend/08-17-system-prompt.md (지시문·블록 순서)
  *       spec/backend/08-16-chat-context.md §3 §4

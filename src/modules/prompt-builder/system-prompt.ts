@@ -5,7 +5,7 @@
  * 문구를 바꿀 때는 정본을 먼저 고칩니다.
  *
  * 금지 사항 여섯 개가 하나도 빠지지 않아야 합니다 →
- * spec/backend/08-16-chat-context.md §5.3. index.test.ts 가 그것을 대조합니다.
+ * spec/backend/08-16-chat-context.md §5.3. build.test.ts 가 그것을 대조합니다.
  */
 
 export const SYSTEM_PROMPT = `# 1. 목적

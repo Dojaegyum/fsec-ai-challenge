@@ -137,11 +137,20 @@ describe('대기 간격은 §2.1 표를 그대로 따른다', () => {
     ).toEqual({ retry: false, reason: 'attempts_exhausted' })
   })
 
-  it('KbCitationMissingError 만 대기가 0이다', () => {
+  it('KbCitationMissingError 는 대기가 0이고 **한 번만** 다시 부른다', () => {
     // 상대 서비스가 아픈 것이 아니라 모델이 형식을 틀린 것이라
-    // 기다린다고 나아지지 않는다 → §2.1
+    // 기다린다고 나아지지 않는다 → §2.1. 그리고 한 번입니다(2026-09-04 개정) —
+    // 실제 상한은 chat-receiver 의 MAX_ATTEMPTS = 2 이고, 한 호출이 11~25초라
+    // 세 번 부르면 함수 상한 60초를 넘깁니다. 2026-09-04 까지 이 표만 [0, 0] 이었습니다
     expect(delayFor(new KbCitationMissingError('지어낸 ref'), 1)).toBe(0)
-    expect(delayFor(new KbCitationMissingError('지어낸 ref'), 2)).toBe(0)
+    expect(
+      checker.decide({
+        error: new KbCitationMissingError('지어낸 ref'),
+        attempts: 2,
+        elapsedMs: 0,
+        lane: 'background',
+      }),
+    ).toEqual({ retry: false, reason: 'attempts_exhausted' })
   })
 })
 

@@ -20,7 +20,7 @@
  */
 export type PeriodKind = 'business_days' | 'calendar_days' | 'months'
 
-/** 기한 하나를 세는 규칙. 값의 정본은 경유 서비스 매트릭스입니다 */
+/** 기한 하나를 세는 규칙. 값의 정본은 KB 항목의 `body.deadline` 입니다(RFC-002 · data-model §11.4) */
 export interface PeriodRule {
   readonly kind: PeriodKind
   readonly amount: number

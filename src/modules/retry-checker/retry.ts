@@ -32,7 +32,10 @@ const DELAYS_MS: Readonly<Record<string, readonly number[]>> = {
   LLM_UNAVAILABLE: [500, 1500],
   PII_TOKENIZER_UNAVAILABLE: [1000, 3000],
   INGEST_FAILED: [2000],
-  KB_CITATION_MISSING: [0, 0],
+  // **한 번**입니다 — 정본 08-16-errors.md §2 (2026-09-04 개정). 실제 상한은
+  // chat-receiver 의 `MAX_ATTEMPTS = 2`(원 1회 + 재시도 1회)이고, 한 호출이 11~25초라
+  // 세 번 부르면 함수 상한 60초를 넘깁니다. 2026-09-04 까지 `[0, 0]` 이라 표와 어긋나 있었습니다
+  KB_CITATION_MISSING: [0],
 }
 
 /** 전체 예산. 정본 08-16-errors.md §2.1 「전체 예산」 */

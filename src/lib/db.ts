@@ -8,9 +8,11 @@
  *
  * ## ORM 을 안 쓰는 이유
  *
- * 스키마의 정본은 `src/migrations/*.sql` 입니다. ORM 을 들이면 같은 DDL 이
- * 두 곳에 생기고, 어긋났을 때 어느 쪽이 맞는지 알 수 없게 됩니다
- * → `docs/plans/08-20-api-routes.md` 「DB 드라이버」.
+ * 스키마의 정본은 `spec/backend/08-16-data-model.md` 의 DDL 이고, `src/migrations/*.sql`
+ * 은 그것을 실제 DB 에 적용하는 실행 사본입니다(ADR-019 — 둘은 같은 커밋에 옵니다).
+ * ORM 을 들이면 그 위에 DDL 이 한 벌 더 생기고, 어긋났을 때 어느 쪽이 맞는지 알 수
+ * 없게 됩니다 → `docs/plans/08-20-api-routes.md` 「DB 드라이버」.
+ * (2026-09-04 까지 이 주석이 「정본은 migrations」라고 적혀 있어 ADR-019 와 반대말을 했습니다.)
  *
  * ## 연결을 왜 이렇게 잡나
  *

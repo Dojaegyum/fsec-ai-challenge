@@ -173,7 +173,7 @@ describe('누가 하는 단계인가 — **없으면 사건 생성이 500 으로
     expect(rulesOf([good({}, { actor: undefined })])).toContain('ACTOR')
   })
 
-  it('일곱 밖이면 거부', () => {
+  it('일곱 밖이면 거부 — actor 는 일곱', () => {
     expect(rulesOf([good({}, { actor: 'user' })])).toContain('ACTOR')
   })
 
@@ -196,7 +196,7 @@ describe('어떤 패널을 여나 — `body.action` (§3.6 · ADR-024)', () => {
     expect(rulesOf([good({}, { action: undefined })])).toContain('ACTION')
   })
 
-  it('일곱 밖이면 거부한다', () => {
+  it('여덟 밖이면 거부한다 — action 은 여덟', () => {
     expect(rulesOf([good({}, { action: 'sign' })])).toContain('ACTION')
     expect(rulesOf([good({}, { action: 'submit' })])).toContain('ACTION')
   })

@@ -4,7 +4,7 @@
  * 정본: spec/backend/08-16-data-model.md §14
  *
  * ```
- * 1. 볼트 항목 삭제        (만료로 이미 없을 수 있음)
+ * 1. 볼트 항목 삭제        (매핑을 한 번도 안 맡긴 사건이면 없음 — 만료는 없습니다 · ADR-049)
  * 2. 객체 저장소 파일 삭제
  * 3. 관계형 DB 사건 행 삭제 (외래키 연쇄)
  * 4. audit_log 에 case.purged 기록  ← 감사 로그는 남긴다
@@ -88,7 +88,8 @@ async function purgeOne(
   const { caseId } = target
 
   const steps: { layer: Layer; run: () => Promise<void>; remains: () => Promise<boolean> }[] = [
-    // 1. 볼트. 만료로 이미 없을 수 있고, 없는 것은 실패가 아닙니다
+    // 1. 볼트. 매핑을 한 번도 안 맡긴 사건이면 비어 있고, 없는 것은 실패가 아닙니다.
+    //    Vercel KV 시절의 TTL 은 ADR-049 로 사라졌습니다 — 이 표를 비우는 길은 여기 하나입니다
     { layer: 'vault', run: () => vault.delete(caseId), remains: () => vault.remains(caseId) },
     // 2. 객체 저장소. 네이티브 만료가 없어 반드시 확인해야 합니다
     { layer: 'objects', run: () => objects.deleteAll(caseId), remains: () => objects.remains(caseId) },
