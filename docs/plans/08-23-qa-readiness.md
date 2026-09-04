@@ -1248,6 +1248,9 @@ flows/answer-slot.ts          「아니에요」를 눌렀을 때만 [raw] 를 �
 | ✅ | 기관 신고 전화 42 → **49/51** | [PR #52](https://github.com/Dojaegyum/fsec-ai-challenge/pull/52) |
 | ✅ | 문서 손질 둘째(2·3절 전부) · 코드 주석 정리 · 기준선 은퇴 | [PR #53](https://github.com/Dojaegyum/fsec-ai-challenge/pull/53) · [#54](https://github.com/Dojaegyum/fsec-ai-challenge/pull/54) · [doc-gardening](08-26-doc-gardening.md) 「둘째 손질」 |
 | ✅ | `npm run test:db` 65건 통과 — 09-03 의 「3건 실패」는 #46 이 고쳤습니다 | 이 세션 |
+| ✅ | **KB 릴리스 `2026.09.2`** — 통장묶기 둘을 포함해 32건 적재 · 배포본 `KB_VERSION` 갱신 · 배포본에서 `frozen_account` 사건이 두 단계를 냅니다 | 사용자 검수(2026-09-04) · `vercel-env` 워크플로([#56](https://github.com/Dojaegyum/fsec-ai-challenge/pull/56)·[#58](https://github.com/Dojaegyum/fsec-ai-challenge/pull/58)) |
+| ◐ | **메일 발송** — Brevo 키·발신자·`APP_ORIGIN` 을 배포 환경에 넣었고, 앱의 발송 코드로 로컬에서 보낸 시험 한 통은 도착. **배포본 크론의 첫 발송은 `failed: 1`** — Brevo 「Authorised IPs」 제한(이 세션의 IP 만 허용됨)에 Vercel 발신 IP 가 걸린 것으로 보입니다 | 제한을 끄고 크론을 다시 깨우면 확인됩니다(시험 사건 `AYK2…` 에 확정 기한 2026-09-04 가 서 있음) |
+| ⬜ | 2차 탐지 — 시연 때 RunPod(GPU) 에 올리기로. 팟을 띄우는 것은 시간당 과금이라 **시점을 정해서** | [`runpod-bench.md`](../../deploy/runpod-bench.md) · `vercel-env` 의 `ner_*` 입력 |
 | ⬜ | Task 9 ⑤ 화면 문구(발송 수단 미정) · ⑧ PDF `kind` · Vercel 팀 플랜 · 관리자 조회 | **사람 판단** — 각 칸에 비용을 적어 두었습니다 |
 | ⬜ | 배포 환경변수 점검 · `NER_URL` 켤지 | `vercel` 토큰이 이 자리에 없습니다 · GPU 판단 |
 

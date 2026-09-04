@@ -23,7 +23,7 @@ DB에 직접 INSERT 하지 마세요.
 | `ch-facetoface.json` | **순서가 뒤집히는 유형.** 표준 트리에 조건문을 붙이면 안내 순서가 틀어집니다 |
 | `ch-crypto.json` | **시행일로 답이 갈리는 유형.** 배포 없이 2026-10-01 에 바뀌는 것이 KB 설계의 증거입니다 |
 | `org.json` | 기관 **51곳**(2026-08-26) — 은행 16 · 카드 9 · 증권 8 · 소액결제 5 · 간편송금 4 · 가상자산 4 · 인터넷은행 3 · 상품권 2. `contact_ref` 가 가리킬 곳입니다 |
-| `frozen-account.json` | **2026-09-04 신설 — `track=frozen_account` 의 첫 파일.** 아홉 파일이 전부 `victim` 이라 첫 화면의 첫 선택지(「내 계좌가 갑자기 묶였어요」)가 **빈 플랜**을 열고 있었습니다 → [ADR-066](../../decisions/066-track-fixed-new-case.md). 이의제기 제출·결과 통보 둘. 근거는 [research/21](../../docs/research/21-통장묶기-이의제기.md). ⚠️ **아직 릴리스에 안 실렸습니다** — 검수 뒤 `kb:load` · `KB_VERSION` |
+| `frozen-account.json` | **2026-09-04 신설 — `track=frozen_account` 의 첫 파일.** 아홉 파일이 전부 `victim` 이라 첫 화면의 첫 선택지(「내 계좌가 갑자기 묶였어요」)가 **빈 플랜**을 열고 있었습니다 → [ADR-066](../../decisions/066-track-fixed-new-case.md). 이의제기 제출·결과 통보 둘. 근거는 [research/21](../../docs/research/21-통장묶기-이의제기.md). ✅ **`2026.09.2` 로 실렸습니다**(2026-09-04 · 사용자 검수 뒤 적재 · 배포본 `KB_VERSION` 갱신) |
 
 **2026-09-04 기준 아홉 유형 중 여덟이 파일을 가졌습니다**(`CH-securities` 만 없고 그게 맞습니다 — 아래) →
 [research/19](../../docs/research/19-남은유형-근거보강.md) · 카드는 [ADR-055](../../decisions/055-channel-card.md) ·

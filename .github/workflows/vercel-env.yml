@@ -63,7 +63,7 @@ permissions:
 jobs:
   set:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -139,10 +139,33 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # 환경변수는 빌드에 구워지므로 다시 올려야 합니다. `deploy` 는 그 순간 `main` 끝을 올립니다.
-      - name: deploy 다시 걸기
+      #
+      # ⚠️ **여기서 건 `deploy` 뒤에는 `smoke` 가 저절로 안 붙습니다.** GITHUB_TOKEN 이 만든 실행은
+      # 그 완료가 다른 워크플로의 `workflow_run` 을 깨우지 않습니다(GitHub 의 재귀 방지 규칙 —
+      # 2026-09-04 첫 실행에서 확인). 그래서 `deploy` 가 끝나기를 기다렸다가 `smoke` 도 직접 겁니다.
+      - name: deploy 다시 걸고, 끝나면 smoke 걸기
         if: ${{ inputs.redeploy }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          before=$(gh run list -R "$GITHUB_REPOSITORY" --workflow deploy --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || echo "")
           gh workflow run deploy --ref main -R "$GITHUB_REPOSITORY"
-          echo "- \`deploy\` 를 걸었습니다 — Actions 탭에서 그 실행과 뒤따르는 \`smoke\` 를 보세요" >> "$GITHUB_STEP_SUMMARY"
+          run=""
+          for i in $(seq 1 30); do
+            sleep 5
+            run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow deploy --limit 1 --json databaseId -q '.[0].databaseId')
+            [ -n "$run" ] && [ "$run" != "$before" ] && break
+            run=""
+          done
+          if [ -z "$run" ]; then
+            echo "::warning::deploy 실행을 못 찾았습니다 — Actions 탭에서 deploy 와 smoke 를 손으로 확인하세요"
+            exit 0
+          fi
+          echo "deploy 실행 $run 을 기다립니다"
+          if gh run watch "$run" -R "$GITHUB_REPOSITORY" --exit-status >/dev/null; then
+            gh workflow run smoke --ref main -R "$GITHUB_REPOSITORY"
+            echo "- \`deploy\`($run) 성공 → \`smoke\` 를 걸었습니다. Actions 탭에서 결과를 보세요" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::deploy($run) 가 실패했습니다 — 이전 배포가 그대로 남아 있고, 새 환경변수는 다음 배포부터입니다"
+            exit 1
+          fi
