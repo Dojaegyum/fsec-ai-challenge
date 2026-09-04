@@ -479,11 +479,11 @@ sequenceDiagram
 
 | 무엇 | 왜 걸려 있나 | 어디에 |
 | --- | --- | --- |
-| **볼트 제품** | 분리 원칙(다른 인스턴스)과 리전을 함께 만족해야 합니다. Vercel KV 유지 여부 | [ADR-016](decisions/016-retention-and-datastore.md) |
-| **Vercel Cron 실행 제약** | 플랜별 실행 빈도·타임아웃을 확인하지 않았습니다. 하루 1회가 되는지 | [ADR-025](decisions/025-scheduled-jobs.md) |
-| **메일 발송 수단** | 리마인더를 무엇으로 보내나. 주기·문구도 미정 | [ADR-021](decisions/021-reentry-and-identity.md) |
-| **`org.contact` 키 구조** | `call_center`·`app_path` 같은 이름. **연락처 값과 함께** 정해야 합니다 | [ADR-024](decisions/024-step-action-and-url.md) |
-| **문진 선택지의 정본** | 질문 문구와 선택지를 어디서 가져오나 | [핸드오프 ⑤](docs/plans/08-16-backend-handoff.md) |
+| ~~**볼트 제품**~~ | ~~분리 원칙(다른 인스턴스)과 리전을 함께 만족해야 합니다. Vercel KV 유지 여부~~ → **같은 Postgres 의 별도 스키마 `case_vault`** (2026-08-24). Upstash 에 서울 리전이 없고, 키가 DB 에 없어 분리가 막으려던 사고가 일어나지 않습니다 | [ADR-049](decisions/049-vault-in-postgres.md) · §8 |
+| **Vercel Cron 실행 제약** | 플랜별 실행 빈도·타임아웃을 확인하지 않았습니다. 크론 둘(알림·파기)은 `src/vercel.json` 에 하루 1회로 서서 돌고 있으나(2026-09-01·09-03) **플랜 상한을 문서로 확인한 적은 없습니다** | [ADR-025](decisions/025-scheduled-jobs.md) |
+| ~~**메일 발송 수단**~~ | ~~리마인더를 무엇으로 보내나~~ → **Brevo** (2026-09-01 · `src/lib/mailer.ts` · [api](spec/common/08-14-api.md) §1.2 `MAILER_API_KEY`). **배포 환경에 키가 없어 아직 안 나갑니다** — 크론은 돌고 발송만 `failed` 로 남습니다. 주기·문구는 여전히 미정 | [ADR-021](decisions/021-reentry-and-identity.md) 「남은 것」 |
+| ~~**`org.contact` 키 구조**~~ | ~~`call_center`·`app_path` 같은 이름~~ → **`report_tel` · `report_hours` · `submit[]` · `caution`** (2026-08-25 · 51곳 채움) | [data-model](spec/backend/08-16-data-model.md) §11.1 · [ADR-042](decisions/042-submit-paths.md) |
+| ~~**문진 선택지의 정본**~~ | ~~질문 문구와 선택지를 어디서 가져오나~~ → **코드 상수 `src/lib/questions.ts`** (A안 · 2026-08-20). 문구는 절차 지식이 아니라 KB 릴리스에 싣지 않고, `channel` 선택지는 채널 매트릭스 표 그대로입니다 | ~~[핸드오프 ⑤](docs/plans/08-16-backend-handoff.md)~~(은퇴) → [api](spec/common/08-14-api.md) §3.4 |
 
 **재진입은 복호화 키와 직결됩니다.** 브라우저를 바꾸면 키가 없어 서류를 못 만듭니다 →
 [ADR-009](decisions/009-restore-mapping-location.md). **2026-08-18 [ADR-027](decisions/027-session-key-storage.md)로 감수하기로 확정**했습니다 —
@@ -508,7 +508,9 @@ sequenceDiagram
   붙었고(경유 서비스 14/14 살아남음 ·
   [09 §7.2](docs/research/09-로컬모델-PII인식-실측.md)), 남은 것은 **빌린 GPU 가
   사라지면 슬롯 저장이 503** 이라는 점입니다 — **GPU 가 살아 있는 동안에만**
-  채우는 값입니다 → [운영 절차](deploy/runpod-bench.md)
+  채우는 값입니다 → [운영 절차](deploy/runpod-bench.md).
+  **2026-08-31 에 상시 서버(OCI · CPU)에도 올렸습니다** — GPU 없이 켤 수 있으나 처음 보는
+  글 하나에 10.7~12.3초라, 켤지는 사람 판단입니다 → [deploy/README 「2차 탐지를 켜려면」](deploy/README.md)
 - **GPU 를 어디에 두나** → 개발은 해외 대여, 운영은 국내 ([ADR-043](decisions/043-gpu-hosting.md)). **운영 벤더는 국내 단가 확인 후** ([research/13](docs/research/13-GPU-클라우드-단가.md) G-02)
 - Grok 모델명과 단가
 - 환경 분리 · 시드 데이터 · 애플리케이션 로그

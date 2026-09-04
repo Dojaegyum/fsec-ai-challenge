@@ -3,28 +3,28 @@
 **폴더 이름은 여기서 정하지 않습니다.** [모듈 명칭](../../spec/common/08-16-module-names.md)이 정본이고,
 이 폴더의 이름들은 거기서 온 것입니다 → [ADR-019](../../decisions/019-module-code-sync.md).
 
-대부분은 아직 **껍데기**(`.gitkeep`)입니다. 구현이 시작되면 각 폴더가 채워집니다.
+**서른둘 전부 코드가 있습니다** (2026-09-04 확인 — 폴더마다 `index.ts`·`types.ts`·`README.md`).
+~~대부분은 아직 껍데기(`.gitkeep`)입니다.~~ 마지막 껍데기였던 `doc-filler` 는 [ADR-064](../../decisions/064-doc-filler-retired.md) 로
+폴더째 폐기됐습니다 — 정본도 32 입니다.
 
-| 채워진 모듈 | |
-| --- | --- |
-| [`pii-masker/`](pii-masker/) | 나가기 전 계좌·주민번호·카드·전화를 가린다 (층 C) |
-| [`key-handler/`](key-handler/) | 세션키를 만들고 지키며, 매핑을 봉하고 연다 (층 C) |
-| [`pii-restorer/`](pii-restorer/) | 복원해도 되는지 심사하고 되돌린다 (층 C) |
-| [`work-handler/`](work-handler/) | 어느 작업 패널을 열지 정하고 그 패널을 맡는다 (층 C) |
-| [`case-intake/`](case-intake/) | 사건 생성, 파일 접수 자리 발급 (층 1) |
-| [`chat-receiver/`](chat-receiver/) | 층 2의 순서를 부르고 모델을 1회 호출 (층 2) |
-| [`kb-finder/`](kb-finder/) | KB 를 적용·참고 두 묶음으로 조회, 우선순위 병합 (층 2) |
-| [`citation-checker/`](citation-checker/) | 인용 셋 확인, 갈래 셋 판정 (층 2) |
-| [`prompt-builder/`](prompt-builder/) | 블록 조립·참조 번호 발급·격리 태그 (층 2) |
-| [`chat-publisher/`](chat-publisher/) | 갈래를 한 형태로, 판단 근거 분리, 잔여 PII 검사 (층 2) |
-| [`slot-checker/`](slot-checker/) | T1 충족 판정, 다음 질문 1문항 (층 3) |
-| [`planner/`](planner/) | KB 를 인용해 플랜 단계를 확정, 재생성 시 병합 (층 3) |
-| [`date-checker/`](date-checker/) | 법정 기한을 규칙으로 계산, 잔여일 추적 (층 3) |
-| [`completion-checker/`](completion-checker/) | 부산물로 완료 판정 L1·L2·L3 (층 3) |
-| [`reminder-sender/`](reminder-sender/) | 다가온 기한·미확인 단계를 이메일로 알릴지 판정 (층 4) |
-| [`case-purger/`](case-purger/) | `purge_after` 도달 시 세 층을 함께 지우고 확인 (층 4) |
-| [`retry-checker/`](retry-checker/) | 예외의 `retryable` 로 재시도 판단 (층 없음) |
-| [`audit-logger/`](audit-logger/) | 해시 사슬로 기록, 사후 조작 검출 (층 없음) |
+**층 경계가 코드에 있습니다** — 서버 모듈 21개의 `index.ts` 는 `import "server-only"` 로, 브라우저에서만 도는
+뷰어·핸들러 7개는 `import "client-only"` 로 시작합니다(ADR-028 「다섯」 · [RFC-001](../../rfc/001-repo-structure.md) 개정 이력 2026-09-04).
+어느 표식도 없는 넷(`pii-masker`·`key-handler`·`pii-restorer`·`work-handler`)은 판정 함수와 타입이 본체입니다.
+`tsx` 스크립트(`kb:load`·`migrate`·`probe:*`)는 `--conditions=react-server` 로 `server-only` 를 비웁니다.
+
+**코드가 있다고 조립됐다는 뜻은 아닙니다.** 아래 「조립」 열은 `src/modules/` 밖에서 가져다 쓰는 파일이 있는지입니다(시험 제외).
+
+| 층 | 모듈 | 조립 (2026-09-04) |
+| --- | --- | --- |
+| 1 · 증거가 들어올 때 | `case-intake` `transcriber` `pii-tokenizer` `case-reader` `slot-extractor` | `case-reader` 는 **아무 데서도 안 부릅니다**, `slot-extractor` 는 `lib/questions.ts` 가 타입만 씁니다 — 코드는 있고 배선이 없습니다 |
+| 2 · 사용자가 말할 때 | `chat-receiver` `kb-finder` `prompt-builder` `citation-checker` `chat-publisher` · `pii-restorer`(브라우저) | 전부 배선됨 |
+| 3 · 사건 상태가 바뀔 때 | `slot-checker` `planner` `date-checker` `completion-checker` `doc-builder` | `doc-builder` 는 **아무 데서도 안 부릅니다** — 기재 안내 화면(S-10)은 셸 `src/app/c/[token]/doc.tsx` 가 `GET …/doc-guide` 계약 없이 서 있습니다(ADR-064) |
+| 4 · 하루 1회 | `kb-collector` `kb-reviewer` `reminder-sender` `case-purger` | `kb-collector`·`kb-reviewer` 는 **아무 데서도 안 부릅니다**. 크론 둘은 `/api/cron/reminders`·`/api/cron/purge` 가 부릅니다 |
+| 층 없음 | `retry-checker` `audit-logger` | 배선됨 |
+| C · 브라우저 | `pii-masker` `key-handler` `case-opener` `poll-checker` `file-sender` `transcript-viewer` `plan-viewer` `deadline-viewer` `chat-handler` `work-handler` | 전부 셸(`src/app/`)이 가져다 씁니다 |
+
+「배선 없음」은 **구현 전이 아니라 조립 전**입니다 — 문서 넷이 이것을 현재형으로 적어 생긴 혼선은
+[문서 손질 백로그 4절 ④](../../docs/plans/08-26-doc-gardening.md) 에 있습니다. 무엇을 하는 모듈인지는 아래 인벤토리로 읽으세요.
 
 **폴더 하나의 파일 골격은 [RFC-001](../../rfc/001-repo-structure.md)이 정합니다.**
 

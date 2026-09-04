@@ -23,8 +23,9 @@
 
 「업로드 + **처리 상태**」는 `file-sender` 의 몫입니다
 ([경계 표](../../../spec/common/08-16-module-boundaries.md)). 이 모듈은
-「토큰화 전사 → 화면」만 맡습니다 — 자료 레일의 점(`DOT`)은 아직 `evidence.tsx` 에 있고
-[서버와 이야기하는 넷 계획](../../../docs/plans/08-22-layer-c-transport.md) Task 7 이 가져갑니다.
+「토큰화 전사 → 화면」만 맡습니다 — 자료 레일의 점(`DOT`)은 ~~아직 `evidence.tsx` 에 있고
+[서버와 이야기하는 넷 계획](../../../docs/plans/08-22-layer-c-transport.md) Task 7 이 가져갑니다~~
+→ `file-sender/rail.tsx` 로 갔습니다 (2026-09-04 확인 · 그 계획은 은퇴).
 
 ## 판단이 필요했던 자리
 

@@ -5,6 +5,20 @@
 
 용어와 코드 식별자는 [00-glossary.md](../common/08-14-glossary.md)를 따릅니다. 저장소 선택은 [ADR-010](../../decisions/010-case-store.md).
 
+> **2026-09-04 개정 — DDL 의 정본은 이 문서이고, 마이그레이션은 그것을 실행하는 사본입니다** ([ADR-019](../../decisions/019-module-code-sync.md)).
+>
+> | | 정본 | 무엇을 하나 |
+> | --- | --- | --- |
+> | **DDL** — 표·칸·`CHECK`·인덱스·제약 | **이 문서** | 바꾸면 **같은 커밋에** 새 마이그레이션 파일이 따라옵니다(`module-sync` 검사가 봅니다). `src/migrations/*.sql` 은 0001 부터 순서대로 적용한 누적본이라, 실제 DB 에 닿는 것은 그쪽입니다 |
+> | **산문** — 왜 이 칸인가 · 값의 뜻 · JSONB 안의 모양 · 조회·병합·파기 규칙 | **이 문서** | 코드가 `§` 로 인용하는 것이 이것입니다 |
+>
+> **정본이라는 것은 「먼저 고치는 곳」이라는 뜻입니다** — 실제로는 2026-08-26 감사에서 마이그레이션에만 있는 것
+> (`uk_deadline_identity`·볼트 표)과 이 문서에만 있는 것이 갈라져 있었고, 오늘 이 문서를 누적본에 맞춰 따라잡혔습니다
+> → [doc-gardening](../../docs/plans/08-26-doc-gardening.md) §2 ④. 갈라진 것을 발견하면 **정본을 먼저 고치고 마이그레이션을
+> 더하는** 순서를 지키되, 이미 적용된 DB 를 되돌리는 마이그레이션은 만들지 않습니다.
+> `0001_initial_schema.sql:3`·`src/migrations/README.md` 는 이 표와 같고, **`src/lib/db.ts:11` 의 「스키마의 정본은
+> `src/migrations/*.sql`」은 어긋난 주석**입니다 — 코드 쪽에서 고칠 자리입니다.
+
 ## SQL 방언 — PostgreSQL
 
 **아래 DDL은 PostgreSQL입니다.** 관계형 DB는 **Supabase Postgres**(`ap-northeast-2` 서울)입니다 →
@@ -78,6 +92,9 @@ erDiagram
 
 **실선이 외래키, 점선이 논리 참조입니다.** 외래키는 여덟뿐이고 전부 `case` 또는 `plan_step`을 향합니다 — 사건이 죽으면 딸린 것이 함께 죽습니다(`ON DELETE CASCADE`).
 
+**볼트 표(`case_vault.restore_mapping` · §2.1)는 그림에 없고 외래키도 없습니다.** 다른 스키마이고, 파기 순서(볼트 → 객체 → 사건 행 · §14)를
+데이터베이스가 아니라 `case-purger` 가 쥐기 때문입니다 — 외래키를 걸면 그 순서를 DB 가 강제하게 됩니다([0004](../../src/migrations/0004_vault_schema.sql)).
+
 `kb_entry`를 향하는 참조는 **논리 참조**입니다. 외래키를 걸지 않습니다. KB는 버전 릴리스로 교체되며([07-kb-operations.md](08-14-kb-operations.md)), 외래키가 있으면 릴리스가 막힙니다. 대신 `deadline.rule_snapshot`이 근거를 자체 보관하므로 참조가 끊겨도 값을 검증할 수 있습니다.
 
 **`audit_log.case_id`에도 외래키가 없습니다.** 사건이 파기돼도(§14) 감사 로그는 남아야 합니다 —
@@ -119,7 +136,7 @@ CREATE TRIGGER trg_case_touch BEFORE UPDATE ON "case"
 | 칼럼 | 규칙 |
 | --- | --- |
 | `link_token` | **`case_id` 에서 파생하지 않습니다.** 따로 뽑은 128비트 난수입니다 — 아래 |
-| `session_key_id` | **키 식별자만** 저장합니다. 키 자체나 키에서 파생된 값을 저장하지 않습니다. 세션키가 DB에 있으면 DB 유출 시 볼트가 함께 뚫려 저장소를 분리한 의미가 없어집니다 |
+| `session_key_id` | **키 식별자만** 저장합니다. 키 자체나 키에서 파생된 값을 저장하지 않습니다. 세션키가 DB에 있으면 DB 유출 시 볼트가 함께 뚫립니다. 볼트가 **같은 Postgres 안**에 있는 지금([ADR-049](../../decisions/049-vault-in-postgres.md) · §2.1)은 이 규칙이 격리의 전부입니다 — 키가 DB 에 없어서 DB 가 통째로 나가도 볼트가 안 열립니다 |
 | `purge_after` | 사건 생성 시점에 채우고, **활동이 있을 때마다 다시 밉니다**(마지막 활동일 + `CASE_PURGE_DAYS`). 파기 시점이 정해지지 않은 데이터가 생기는 것을 막습니다 |
 | `track` | 통장묶기는 절차가 완전히 다릅니다 → [03-channel-matrix.md](08-14-channel-matrix.md) 통장묶기 절 |
 | `notify_email` | **평문으로 저장되는 유일한 연락처입니다** → [ADR-021](../../decisions/021-reentry-and-identity.md) (2026-09-01 「남은 것 — 저장 위치와 수명」 이행). **검증하지 않습니다** — 오타면 알림이 안 갈 뿐, 사용자를 막지 않습니다. 형식 검사·확인 메일을 넣지 마세요(관문이 됩니다). 상한 254자는 형식이 아니라 칸의 크기입니다. 별도 수명이 없습니다 — **사건 행과 함께 파기됩니다**(§14). LLM 호출 페이로드에 넣지 않고([04](../common/08-14-pii-boundary.md) 규칙 2), **오류 `detail`·감사 로그·응답 본문에 값을 적지 않습니다**(§10.1) |
@@ -154,6 +171,32 @@ CREATE TRIGGER trg_case_touch BEFORE UPDATE ON "case"
 > **이 값 하나가 사건에 딸린 모든 것의 수명입니다** — 토큰화된 상태, 업로드 원본, 복원 매핑 암호문이 같은 날 함께 사라집니다. 수명이 서로 다른 층을 두면 어느 하나만 남는 상태가 생기고, 그게 무엇인지 아무도 추적하지 못합니다.
 >
 > `04-pii-boundary.md` 불변 규칙 3이 원래 **24시간**이었으나 2026-08-16 이 값으로 통일됐습니다.
+
+### 2.1 `case_vault.restore_mapping` — 복원 매핑 볼트
+
+> 2026-08-24 신설 → [ADR-049](../../decisions/049-vault-in-postgres.md) · [0004](../../src/migrations/0004_vault_schema.sql).
+> 이 문서에 DDL 절이 없던 것을 2026-09-04 에 마이그레이션 누적본에서 옮겨 왔습니다.
+
+```sql
+CREATE SCHEMA IF NOT EXISTS case_vault;
+
+CREATE TABLE IF NOT EXISTS case_vault.restore_mapping (
+  case_id     CHAR(26)     NOT NULL,
+  token       TEXT         NOT NULL,   -- `[계좌-1]` — 평문입니다. 조회 키로 씁니다
+  ciphertext  TEXT         NOT NULL,   -- base64(iv ‖ AES-GCM 암호문). **서버는 이것을 열 수 없습니다**
+  stored_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  PRIMARY KEY (case_id, token)
+);
+```
+
+| | |
+| --- | --- |
+| 어디에 | 사건 DB 와 **같은 Postgres 인스턴스**, 별도 스키마 `case_vault`. `public` 에 섞으면 「무엇이 볼트인가」가 이름에서 사라집니다 |
+| 이름 | **`vault` 가 아닙니다** — Supabase 가 `supabase_vault` 확장을 그 이름으로 깔아 두고 관리합니다 |
+| 칼럼 | **원문을 넣는 칼럼을 만들지 않습니다.** 암호문 하나뿐이고 복호화 키는 브라우저 IndexedDB 에만 있습니다([ADR-027](../../decisions/027-session-key-storage.md)) |
+| 덮어쓰기 | 같은 `(case_id, token)` 을 다시 보내면 덮어씁니다 → [08](../common/08-14-api.md) §3.11. AES-GCM 은 매번 다른 IV 를 쓰므로 같은 값이라도 암호문이 달라집니다 — 다르다고 해서 다른 값이 아닙니다 |
+| 외래키 | **걸지 않습니다.** 파기 순서를 `case-purger` 가 쥐고 `remains()` 로 검증합니다(§14). 기본키 첫 칸이 `case_id` 라 별도 인덱스도 없습니다 |
+| 만료 | **없습니다.** Vercel KV 시절의 TTL 은 이 결정으로 사라졌고, 이 표를 비우는 길은 §14 파기 하나입니다 |
 
 ---
 
@@ -203,7 +246,10 @@ CREATE TABLE case_channel (
   channel_id      VARCHAR(32)  NOT NULL,
                   -- CH-bank | CH-neobank | CH-securities | CH-easypay
                   -- CH-crypto | CH-facetoface | CH-giftcard | CH-carrier
-                  -- 목록 검증은 코드가 합니다. CHECK 로 굳히지 않는 이유는 §4 참조
+                  -- CH-card (ADR-055 로 나중에 더해진 아홉째)
+                  -- ⚠️ 이 주석은 사본입니다. 정본은 08-14-channel-matrix.md 이고
+                  --    목록 검증은 코드(slot-extractor)가 합니다.
+                  --    CHECK 로 굳히지 않는 이유는 §4 참조 — 유형은 늘어납니다
   org_id          VARCHAR(32)  NULL,       -- 기관 식별자. org 테이블 논리 참조. §4.1
   org_name_raw    VARCHAR(100) NULL,       -- 사용자·증거에 나온 표기 그대로.
                                            -- 토큰화 대상 아님 → ADR-011
@@ -227,7 +273,7 @@ CREATE INDEX idx_case_channel_case ON case_channel (case_id);
 
 ### 4.1 기관을 유형과 따로 두는 이유
 
-**절차는 유형(8종)으로 갈리지만, 실제 안내 내용은 기관으로 갈립니다.**
+**절차는 유형(9종 · [ADR-055](../../decisions/055-channel-card.md)로 여덟에서 아홉이 됐습니다)으로 갈리지만, 실제 안내 내용은 기관으로 갈립니다.**
 
 | 갈리는 것 | 단위 | 예 |
 | --- | --- | --- |
@@ -287,7 +333,7 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | `slot_key` | 티어 | 뜻 | `value_type` |
 | --- | --- | --- | --- |
 | `transferred` | T1 | 송금 여부 | `bool` |
-| `channel` | T1 | 송금 수단 (8유형) | `enum` |
+| `channel` | T1 | 송금 수단 (9유형 → [03-channel-matrix.md](08-14-channel-matrix.md)) | `enum` |
 | `org_name` | T2 | 기관명 | `string` |
 | `amount` | T2 | 금액 | `decimal` |
 | **`amount_hint`** | T2 | **금액 구간. `amount`를 「모름」으로 답했을 때만 묻습니다** | `string` |
@@ -303,6 +349,20 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | **`notice_started_at`** | T2 | **채권소멸공고가 시작된 날. 2개월 기한의 기산점** | `datetime` |
 
 **T0에는 슬롯이 없습니다.** 진입 자체로 충분합니다 → [02-slot-tiering.md](08-14-slot-tiering.md).
+
+**이 표가 코드의 표입니다** — `slot-checker/check.ts` 의 `VALUE_TYPES` 가 열다섯을 같은 값으로 갖고, 적재 검증(§11.4.5)과 저장이
+둘 다 그것을 봅니다. 티어는 `T1_KEYS` 둘이고 나머지가 T2 입니다. 다만 **T2 충족 판정은 `amount_hint`·`notice_started_at` 을 세지
+않습니다** — 앞은 `amount` 와 같은 사실의 다른 표현이라 둘 중 하나가 늘 비고, 뒤는 물어서 채우는 값이 아닙니다.
+
+**기산점 슬롯 셋은 누가 채우나** (2026-09-04 · `flows/anchor-from-artifact.ts` · [ADR-054](../../decisions/054-notice-anchor.md) · [ADR-066](../../decisions/066-track-fixed-new-case.md)):
+
+| 슬롯 | 채우는 길 | `source` |
+| --- | --- | --- |
+| `relief_applied_at` | `relief-apply` 단계의 부산물이 검증되면 그날 | `system` |
+| `objection_submitted_at` | `objection-file` 단계(통장묶기)의 부산물이 검증되면 그날 | `system` |
+| `notice_started_at` | **통지문에 적힌 공고일.** 「오늘」로 채우지 않습니다 — 화면이 묻는 자리는 아직 없습니다(⬜ ADR-054) | `user` |
+
+사용자가 문진에서 직접 댄 날짜(`source: user`)도 받되 기한은 **추정**으로 표시됩니다 → [기한 규칙](../common/08-16-deadline-rules.md).
 
 **정확한 값과 대략의 값을 한 슬롯에 겹쳐 담지 않습니다.** `uk_case_slot`이 사건 하나에
 이름당 한 행만 허용하는데, 정확한 값과 어림값은 `value_type`이 서로 다릅니다.
@@ -469,9 +529,15 @@ CREATE INDEX idx_artifact_case ON artifact (case_id);
 
 | `verify_level` | 방식 | `plan_step.state` 결과 |
 | --- | --- | --- |
-| `L1` | 접수번호 포맷 체크 + 접수증 OCR 대조 | `done_verified` |
-| `L2` | 캡처·서류 업로드 (`pii-tokenizer` 통과) | `done_verified` |
-| `L3` | 자기 신고 | **`unconfirmed`** |
+| `L1` | 접수번호(`receipt_no`)를 **받아 적었나** — 오타·빈칸 거르개(`looksLikeReceiptNumber`) + 형식 정본이 있는 기관만 대조. 정본이 없으면 `verify_detail.reason: format_unchecked` 로 **통과** → [ADR-057](../../decisions/057-receipt-number-l1.md) | `done_verified` |
+| `L2` | 캡처·서류 업로드 (`sms_capture` · `receipt_doc` · `pii-tokenizer` 통과). **업로드 자체가 증빙**입니다 | `done_verified` |
+| `L3` | 자기 신고 (`other`) — `verify_result: not_applicable` | **`unconfirmed`** |
+
+> **2026-09-04 정정.** 이전 판은 L1 을 「접수번호 **포맷 체크** + 접수증 **OCR 대조**」로 적었습니다.
+> 포맷 체크는 [ADR-057](../../decisions/057-receipt-number-l1.md)(2026-08-26)이 「받아 적었나」로 뜻을 바로잡았고 —
+> 공개된 형식 규격이 어느 기관에도 없어 `format_unknown` 이 **제대로 한 사람을 실패로 판정**하고 있었습니다 —
+> 접수증 OCR 대조는 **⬜ 구현 전**입니다. `completion-checker/verify.ts` 는 `receipt_doc` 을 L2(업로드 = 통과)로 보내고
+> OCR 을 부르지 않습니다. 기능이 생기면 L1 이 아니라 **L2 위에 얹는 덤**이 될 자리입니다.
 
 **`L3`만으로 `done_verified`가 되는 경로를 만들지 않습니다.** 이 기능의 존재 이유가 사라집니다 → [05-completion-hook.md](08-14-completion-hook.md) 구현 주의.
 
@@ -485,7 +551,13 @@ CREATE INDEX idx_artifact_case ON artifact (case_id);
 | --- | --- |
 | 112 사건접수번호 | 피해구제신청서의 필수 필드 |
 | 은행 접수 문자 캡처 | 진행 상태 근거 |
-| 접수증 | 환급 타임라인의 기산점 (`deadline.computed_from`) |
+| 피해구제 신청 접수번호·접수증 (`relief-apply`) | 환급 타임라인의 기산점 (`deadline.computed_from`) — 검증되면 `relief_applied_at` 슬롯을 `source: system` 으로 채웁니다(§5.1) |
+| 이의제기 접수증 (`objection-file` · 통장묶기) | `objection_submitted_at` 을 같은 방식으로 채웁니다 — 2026-09-04 `frozen-account.json`([ADR-066](../../decisions/066-track-fixed-new-case.md))과 함께 |
+| 채권소멸공고 통지문 | **부산물이 슬롯을 채우지 않습니다.** `notice_started_at` 은 업로드한 날이 아니라 **통지문에 적힌 공고일**이라 「오늘」로 채우면 2개월이 통째로 틀립니다 → [ADR-054](../../decisions/054-notice-anchor.md). 날짜를 묻는 자리는 ⬜ 배선 없음 |
+
+**어느 단계가 어느 기산점을 남기나는 `flows/anchor-from-artifact.ts` 의 `ANCHOR_BY_STEP` 표입니다** — 위 두 줄이 그 전부입니다.
+KB 항목에 칸을 두는 대신 코드에 둔 이유와 「기록 시각 = 행위 시각」 전제가 깨지는 경우는 그 파일 머리에 있습니다.
+검증을 **통과한** 부산물만 기산점이 됩니다 — L3 자기신고(`not_applicable`)는 「했다」의 근거가 아닙니다.
 
 ---
 
@@ -517,7 +589,21 @@ CREATE INDEX idx_deadline_due  ON deadline (status, due_at);
 
 CREATE TRIGGER trg_deadline_touch BEFORE UPDATE ON deadline
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- 같은 기한을 두 번 만들지 않는 열쇠 → 0005. void 는 빼고 셉니다
+CREATE UNIQUE INDEX uk_deadline_identity
+  ON deadline (case_id, COALESCE(plan_step_id, ''), kind)
+  WHERE status <> 'void';
 ```
+
+**`(case_id, plan_step_id, kind)` 이 기한 하나의 정체입니다** ([0005](../../src/migrations/0005_deadline_identity.sql) · 2026-08-25).
+기한은 플랜이 바뀔 때마다 다시 계산되는데(슬롯 답변·부산물 제출·재생성), 열쇠가 없으면 같은 단계의 같은 종류가 부를 때마다 한 줄씩
+늘어 화면이 「피해구제 서류 제출」을 다섯 번 보여줍니다. `db.ts` 의 기한 쓰기가 이 열쇠로 `ON CONFLICT … DO UPDATE` 를 걸어
+**식별자를 지킨 채 날짜만 옮깁니다** — 화면이 기한을 식별자로 잡고 있어서(§3.7) 번호가 바뀌면 같은 기한이 새 기한으로 보입니다.
+
+- **`COALESCE` 인 이유** — Postgres 의 `UNIQUE` 는 `NULL` 을 서로 다른 값으로 봅니다. 단계에 안 딸린 기한이 생기면 열쇠가 조용히 안 걸립니다.
+- **`void` 를 빼는 이유** — 근거가 사라져 내린 기한이 같은 자리의 새 기한을 막으면 안 됩니다. 기산 슬롯을 지웠다가 다시 채우는 것은 정상 흐름입니다.
+- **지우지 않고 `void` 로 둡니다** — 그 날짜를 한때 안내했다는 사실까지 사라지면 되짚을 수 없습니다. 읽기는 `void` 를 건너뜁니다.
 
 ### 8.0 기산점은 「피해구제를 신청한 날」입니다
 
@@ -546,24 +632,37 @@ CREATE TRIGGER trg_deadline_touch BEFORE UPDATE ON deadline
 
 ### 8.2 `rule_snapshot`
 
-```json
+```jsonc
 {
-  "kb_entry_id": "relief-application-deadline",
+  "kb_entry_id": "common-relief-documents",
   "kb_version": "2026.08.1",
   "rule": {
     "kind": "business_days",
     "amount": 3,
-    "from": "freeze_requested_at",
-    "grace": { "kind": "calendar_days", "amount": 14 }
+    "from": "relief_applied_at",                 // §8.0 — freeze_requested_at 이 아닙니다
+    "owner": "user",
+    "grace": { "kind": "calendar_days", "amount": 14, "condition": "…" },
+    "on_miss": "…"
   },
   "legal_basis": "통신사기피해환급법 시행령 제3조 제2항·제3항",
   "source_url": "https://www.law.go.kr/...",
   "effective_from": "2026-07-01",
-  "holidays_used": ["2026-08-17"]
+  "holidays_used": ["2026-08-17"],
+  "estimated": false                             // 기산점이 부산물·증거에서 왔는가 → 기한 규칙
 }
 ```
 
 **계산 시점의 KB 항목 전체를 저장합니다. 참조만 남기지 않습니다.**
+
+KB 항목 밖에서 계산기가 더하는 키는 이것뿐입니다(`flows/compute-deadlines.ts`) — 화면이 `rule_snapshot` 을 열어 읽는 값들입니다.
+
+| 키 | 언제 | 뜻 |
+| --- | --- | --- |
+| `holidays_used` | 늘 | 반영한 공휴일. 공휴일 데이터가 바뀌어도 과거 계산을 재현합니다 |
+| `estimated` | 늘 | 기산점이 `source: user` 슬롯이면 `true`. **확정 기한처럼 보이면 안 됩니다** → [기한 규칙](../common/08-16-deadline-rules.md) |
+| `starts_at` | `kind: info` 만 | 달력 앵커의 왼쪽 끝 → [ADR-048](../../decisions/048-horizon-carries-meaning.md) · [08](../common/08-14-api.md) §3.7 |
+| `grace_from` · `condition` | `kind: grace` 만 | 본 기한의 만기(유예의 실제 기산점 · §8.1)와 유예가 주어지는 조건 |
+| `on_miss` · `note` | KB 에 있으면 | 그대로 복사 |
 
 KB는 릴리스로 교체되므로([07-kb-operations.md](08-14-kb-operations.md)), 나중에 개정되면 이 기한이 왜 이 날짜인지 확인할 방법이 없어집니다. `holidays_used`는 공휴일 데이터가 바뀌어도 과거 계산을 재현하기 위한 것입니다.
 
@@ -935,23 +1034,24 @@ CREATE TABLE org (
 CREATE INDEX idx_org_channel ON org (channel_id);
 ```
 
-```json
-// org 한 행의 예
+```jsonc
+// org 한 행의 예 — src/kb/org.json 의 실제 행 (2026-09-04)
 {
   "org_id": "kb-bank",
   "channel_id": "CH-bank",
-  "name": "국민은행",
-  "aliases": ["국민", "KB국민은행", "KB국민"],
+  "name": "KB국민은행",
+  "aliases": ["국민은행", "국민", "KB", "KB국민", "국민銀"],
   "contact": {
     "report_tel": "1588-9999",
     "report_hours": "24시간",
     "submit": [
-      { "how": "branch", "text": "가까운 영업점에 서면 제출", "url": "TODO(근거 필요)" }
+      { "how": "branch", "text": "가까운 영업점에 피해구제 신청서를 서면으로 제출합니다" }
+      // `url` 이 없습니다 — 확인 못 한 것은 키를 넣지 않습니다(아래 ①)
     ],
-    "caution": "앱의 「고객센터 → 사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다"
+    "caution": "앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다"
   },
-  "source_url": "https://omoney.kbstar.com/...",
-  "verified_at": "2026-08-20"
+  "source_url": "https://portal.kfb.or.kr/voice/vphishing_report.php",
+  "verified_at": "2026-08-25"
 }
 ```
 
@@ -1008,9 +1108,10 @@ CREATE INDEX idx_org_channel ON org (channel_id);
 
 - **배열 순서가 곧 권장 순서입니다. 화면이 정렬하지 않습니다.** 「앱이 먼저」를 코드에
   박으면 KB·NH 사용자가 앱을 뒤지다 3영업일을 씁니다 — 그 둘은 공식 안내가 **영업점**입니다.
-- **확인 못 한 경로는 배열에 없습니다** (위 ①과 같은 규칙). 지금 데이터로는
-  **KB·NH 가 `branch` 하나, 나머지 다섯은 빈 배열**입니다.
-- **빈 배열이면 제출처 카드를 아예 그리지 않습니다.** 「모른다」를 「없다」로 그리지 마세요.
+- **확인 못 한 경로는 배열에 없습니다** (위 ①과 같은 규칙). ~~지금 데이터로는
+  KB·NH 가 `branch` 하나, 나머지 다섯은 빈 배열입니다.~~ → 2026-09-04 기준 51곳 중 `submit` 이 있는 곳은
+  **KB·NH 둘이고 각각 `branch` 하나**입니다. 나머지 49곳은 빈 배열이 아니라 **키 자체가 없습니다**(①).
+- **`submit` 이 없거나 비어 있으면 제출처 카드를 아예 그리지 않습니다.** 「모른다」를 「없다」로 그리지 마세요.
 - **`how: "branch"` 의 `url` 은 은행 공식 지점 찾기입니다.** 그 페이지가 이미 지도이고,
   영업시간·업무 취급 여부까지 압니다 — **우리 화면에 지도를 임베드하지 않습니다.**
   「가까운」을 우리가 정하려면 **사용자 위치**가 필요하고, 그건 지금 안 받는 개인정보입니다.
@@ -1030,7 +1131,7 @@ CREATE INDEX idx_org_channel ON org (channel_id);
 > 전화번호도 그 자리에서 다시 봅니다. 그러지 않으면 `verified_at` 이 **가장 낡은 값보다
 > 새것**이 되어 Staleness Guard 를 속입니다.
 
-**`contact`에 근거 없는 번호를 넣지 않습니다.** `03-channel-matrix.md`의 TODO가 "각 기관의 실제 연락처 — 기획서 목업의 번호는 예시입니다. KB 구축 시 출처와 함께 확인"이라고 정했습니다. 확인 전에는 `TODO(근거 필요)`로 둡니다.
+**`contact`에 근거 없는 번호를 넣지 않습니다.** `03-channel-matrix.md`의 TODO가 "각 기관의 실제 연락처 — 기획서 목업의 번호는 예시입니다. KB 구축 시 출처와 함께 확인"이라고 정했습니다. ~~확인 전에는 `TODO(근거 필요)`로 둡니다.~~ → 확인 전에는 **키를 넣지 않습니다**(위 ① · 2026-08-20). 값이 자리표시자면 「확인 못 함」이 「있음」으로 읽힙니다. 51곳의 번호는 2026-08-25 은행연합회 소비자포털에서 옮겼습니다 → [`src/kb/README.md`](../../src/kb/README.md).
 
 **`aliases`로 표기 흔들림을 흡수합니다.** 정규화 후 비교하되, 못 찾아도 실패시키지 않고 유형 기본으로 내려갑니다.
 
@@ -1074,7 +1175,7 @@ CREATE TABLE org_public (
 
 ⬜ **경찰서·지방검찰청 개별 이름은 아직 못 담습니다** — 전국 250곳을 열거할 수 없습니다.
 `isAllowed` 에 기관 접미사 규칙을 더하는 안은 **「덜 가리는」 방향**이라 사람 판단이
-먼저입니다 → U-35. 그동안 그것들이 가려져도 **절차는 안 틀어집니다**(8유형 분기의
+먼저입니다 → U-35. 그동안 그것들이 가려져도 **절차는 안 틀어집니다**(9유형 분기의
 입력은 경유 서비스입니다).
 
 ### 11.2 조회 우선순위 — 기관별이 유형 기본을 덮어씁니다
@@ -1092,6 +1193,11 @@ CREATE TABLE org_public (
 | **`kb_version`** | **`KB_VERSION` 환경변수** → [ADR-045](../../decisions/045-kb-release-pin.md) |
 
 **서버가 이미 아는 것만으로 조회가 완결됩니다.** 그래서 모델에게 조건을 물어볼 이유가 없습니다.
+
+**`track` 은 조회의 첫 축이고 값이 둘입니다** — `victim` · `frozen_account`(§2 `CHECK`). **사건을 만들 때 정해지고 그 뒤 바뀌지 않습니다**
+→ [ADR-066](../../decisions/066-track-fixed-new-case.md) (2026-09-04). 바꾸면 적용되는 절차의 집합이 통째로 바뀌는데 재생성은 `step_key` 병합(§6.1)이라
+옛 트랙의 단계가 그대로 남습니다 — 되짚기는 **새 사건**입니다. `frozen_account` 의 KB 는 같은 날 `src/kb/frozen-account.json` 으로 생겼습니다(릴리스 전).
+그 전에는 아홉 파일이 전부 `victim` 이라 **이 조회가 0건**이었고, 첫 화면의 첫 선택지가 빈 플랜을 열었습니다.
 
 **현재 릴리스는 배포 설정이 정합니다.**
 
@@ -1173,13 +1279,22 @@ report-112              | report-112          | NULL    |  3   |  ✓
 
 ### 11.4 `kb_entry.body` 구조
 
-**절차 한 단계의 실제 내용입니다.** 칼럼으로 이미 있는 것(제목·주체·근거·시행일)은 여기 넣지 않습니다.
+**절차 한 단계의 실제 내용입니다.** 칼럼으로 이미 있는 것(제목·근거·시행일)은 여기 넣지 않습니다.
+
+> **`actor` 는 예외입니다 — 본문에 적습니다** (2026-09-04 정리). `kb_entry` 에는 `actor` 칼럼이 없고(§11 DDL) `plan_step` 에만 있습니다.
+> 그래서 KB 원본은 `body.actor` 에 적고, 플랜 생성이 그 값을 `plan_step.actor` 칼럼으로 **복사**합니다(`planner/plan.ts` · 적재 검증은 `kb-load.ts`).
+> 이전 판의 「주체는 칼럼에 있으니 본문에 안 넣는다」는 `plan_step` 만 보고 쓴 문장이었습니다. 같은 이유로 **단계 하나의 작업 패널을 정하는
+> `action`** 도 본문 최상위에 있습니다 — `steps[].action`(줄마다의 행동)과 다른 값입니다 → [08](../common/08-14-api.md) §3.6 · [ADR-024](../../decisions/024-step-action-and-url.md).
 
 ```jsonc
 {
+  // ── 누가 · 무엇으로 ─────────────────────────────────
+  "actor": "victim",                           // 일곱 중 하나 → §6 CHECK. plan_step.actor 로 복사됨
+  "action": "visit",                           // 이 단계의 작업 패널 하나 → §11.4.6 · §3.6
+
   // ── 언제 이 단계가 활성화되나 ──────────────────────
-  "requires_slots": ["freeze_requested_at"],   // 이 슬롯들이 confirmed 여야 함
-  "after": ["bank-freeze-request"],            // 이 step_key 가 done_verified 여야 함
+  "requires_slots": ["relief_applied_at"],     // 이 슬롯들이 confirmed 여야 함 → §8.0
+  "after": ["relief-apply"],                   // 이 step_key 가 done_verified 여야 함
   "conditional": null,                         // 슈퍼셋 플랜의 조건 라벨
 
   // ── 무엇을 하나 ──────────────────────────────────
@@ -1220,6 +1335,8 @@ report-112              | report-112          | NULL    |  3   |  ✓
 
 | 필드 | 규칙 |
 | --- | --- |
+| `actor` | **§6 `CHECK` 의 일곱 중 하나. 비면 적재 거부** — 기본값을 두면 기관이 할 일이 사용자 할 일로 뜹니다 |
+| `action` | **§11.4.6 여덟 중 하나. 비면 적재 거부** — 없으면 화면이 그 단계의 패널을 못 엽니다 |
 | `requires_slots` | [§5.1](#51-슬롯-이름) 목록의 이름만. 없는 이름이면 **적재 거부** |
 | `after` | 존재하는 `step_key` 만. 순환 참조면 **적재 거부** |
 | `conditional` | 값이 있으면 슈퍼셋 플랜의 조건부 단계. `plan_step.conditional` 로 그대로 감 |
@@ -1241,8 +1358,8 @@ report-112              | report-112          | NULL    |  3   |  ✓
 { "text": "국민은행 1588-9999 로 전화합니다" }
 
 // 좋음 — 기관 정보를 가리킴
-{ "text": "송금하신 은행 고객센터에 전화해 지급정지를 요청합니다",
-  "contact_ref": "org.contact.call_center" }
+{ "text": "송금하신 은행 사고신고 창구에 전화해 지급정지를 요청합니다",
+  "contact_ref": "org.contact.report_tel" }     // 키 이름은 §11.1 — call_center 가 아닙니다
 ```
 
 **이유가 둘입니다.**
@@ -1376,6 +1493,8 @@ report-112              | report-112          | NULL    |  3   |  ✓
 
 | 검증 | 실패 조건 |
 | --- | --- |
+| **주체** | `body.actor` 가 비었거나 §6 `CHECK` 일곱 밖 |
+| **패널** | `body.action` 이 비었거나 [§11.4.6](#1146-stepsaction--사용자가-무슨-행동을-하나) 여덟 밖 |
 | 슬롯 이름 | `requires_slots`·`deadline.from` 이 [§5.1](#51-슬롯-이름) 목록에 없음 |
 | 선행 참조 | `after` 가 존재하지 않는 `step_key` 를 가리킴 |
 | 순환 참조 | `after` 가 서로를 가리킴 |
@@ -1445,7 +1564,8 @@ report-112              | report-112          | NULL    |  3   |  ✓
 **기관별 주소를 `url`에 쓰면 은행 수만큼 절차 항목을 복사하게 됩니다** — §11.4.1과 같은 이유입니다.
 
 `org.contact` 의 키는 [§11.1](#111-org--기관-마스터) 이 정합니다 — `report_tel`·`report_steps`·`report_hours`·`submit`·`caution` 다섯입니다.
-> [기관정보 조사](../../docs/research/04-기관정보.md)가 **연락처를 전부 비워 둔 상태**라 값과 함께 정합니다.
+> ~~[기관정보 조사](../../docs/research/04-기관정보.md)가 **연락처를 전부 비워 둔 상태**라 값과 함께 정합니다.~~
+> → 2026-08-25 에 51곳이 채워졌습니다(`src/kb/org.json` · [research/04](../../docs/research/04-기관정보.md) §1). 키 다섯은 `kb-load.ts` 의 `CONTACT_KEYS` 와 같습니다.
 
 ## 12. 수집 파이프라인 — `source_snapshot` · `source_change` · `source_registry`
 
@@ -1697,13 +1817,17 @@ page = 1
 ## 14. 파기
 
 ```
-1. 볼트 항목 삭제        (만료로 이미 없을 수 있음)
+1. 볼트 항목 삭제        (case_vault.restore_mapping · §2.1 — 여기서만 지워진다)
 2. 객체 저장소 파일 삭제
 3. 관계형 DB 사건 행 삭제 (외래키 연쇄)
 4. audit_log 에 case.purged 기록  ← 감사 로그는 남긴다
 ```
 
 `case.purge_after`가 지난 사건이 대상입니다.
+
+**볼트에 만료(TTL)는 없습니다** → [ADR-049](../../decisions/049-vault-in-postgres.md) 「잃는 것」. 이전 판의 「만료로 이미 없을 수 있음」은
+Vercel KV 시절 문장이고, 지금 복원 매핑을 비우는 길은 **이 절차 하나**입니다. 그 대신 같은 인스턴스라 「사건은 지웠는데 볼트가 남는」 상태가
+애초에 안 생기고, 배치가 멈춘 것을 알아채는 장치는 ADR-049 「남은 것」에 그대로 남아 있습니다.
 
 ~~⬜ TODO(보류): 파기 실행 방식~~ → **예약 실행으로 확정** ([ADR-025](../../decisions/025-scheduled-jobs.md)).
 Vercel Cron 이 `GET /api/cron/purge` 를 하루 1회 깨웁니다 → [08](../common/08-14-api.md) §6.4.
@@ -1733,34 +1857,38 @@ confidence=0.94, source='auto'
                       ^^^^^^^^^^ 기관명은 토큰화 대상 아님
 -- org_id 로 KB 를 찾고, org_name_raw 는 사용자가 쓴 표기 그대로 보존
 
--- case_slot (5행)
-slot_key             | tier | value_masked          | state
----------------------|------|-----------------------|----------
-transferred          | T1   | true                  | confirmed
-channel              | T1   | CH-bank               | confirmed
-org_name             | T2   | 국민은행               | confirmed
-amount               | T2   | 3000000               | confirmed
-counterpart_account  | T2   | [계좌-1]              | confirmed
-                            ^^^^^^^^ 토큰만 저장
+-- case_slot (6행)
+slot_key             | tier | value_masked          | state     | source
+---------------------|------|-----------------------|-----------|--------
+transferred          | T1   | true                  | confirmed | user
+channel              | T1   | CH-bank               | confirmed | user
+org_name             | T2   | 국민은행               | confirmed | user
+amount               | T2   | 3000000               | confirmed | auto
+counterpart_account  | T2   | [계좌-1]              | confirmed | auto
+relief_applied_at    | T2   | 2026-08-17            | confirmed | system
+                            ^^^^^^^^ 토큰만 저장                  ^^^^^^ 부산물(접수번호)이 채움 → §5.1
 
--- plan_step (3행)
+-- plan_step (4행) — step_key 는 KB 원본(src/kb/common.json)의 것
 seq | step_key                | state         | kb_version
 ----|-------------------------|---------------|------------
  1  | report-112              | done_verified | 2026.08.1
- 2  | bank-freeze-request     | done_verified | 2026.08.1
- 3  | relief-application      | in_progress   | 2026.08.1
+ 2  | freeze-request          | done_verified | 2026.08.1
+ 3  | relief-apply            | done_verified | 2026.08.1
+ 4  | relief-documents        | in_progress   | 2026.08.1
 
--- artifact (2행)
+-- artifact (3행)
 plan_step_id | kind       | value_masked | verify_level | verify_result
 -------------|------------|--------------|--------------|---------------
 step-1       | receipt_no | [접수번호-1] | L1           | passed
 step-2       | sms_capture| NULL         | L2           | passed
+step-3       | receipt_no | [접수번호-2] | L1           | passed   ← relief_applied_at 을 남김
 
--- deadline (2행) — 본 기한과 유예가 별도
-kind    | due_at                    | computed_from
---------|---------------------------|--------------------
-primary | 2026-08-20 23:59:59+09:00 | freeze_requested_at
-grace   | 2026-09-03 23:59:59+09:00 | freeze_requested_at
+-- deadline (2행) — 본 기한과 유예가 별도. 기산점은 relief_applied_at (§8.0)
+kind    | plan_step_id | due_at                    | computed_from
+--------|--------------|---------------------------|--------------------
+primary | step-4       | 2026-08-20 23:59:59+09:00 | relief_applied_at
+grace   | step-4       | 2026-09-03 23:59:59+09:00 | relief_applied_at
+                                                    ^^^ (case_id, plan_step_id, kind) 가 열쇠 → §8
 
 -- 볼트 (같은 Postgres · `case_vault` 스키마 → ADR-049)
 case_vault.restore_mapping (case_id, token) → ciphertext  -- AES-GCM. 서버는 키 없음

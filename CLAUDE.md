@@ -43,12 +43,12 @@
 | **자동화를 어디까지 하나** | [spec/common/08-20-automation-boundary.md](spec/common/08-20-automation-boundary.md) | **계약.** 넘으면 인허가가 필요한 선. 새 기능을 볼 때 여기서 대조 |
 | **STT·OCR 이 실제로 얼마나 새나** | [docs/research/09](docs/research/09-로컬모델-PII인식-실측.md)·[11](docs/research/11-로컬OCR-PII인식-실측.md) | **우리가 직접 잰 값.** `transcriber`·`pii-tokenizer` 를 만들기 전에. 사람이 보는 요약은 `assets/artifacts/research/08-21-pii-measurement.html` |
 | **전사를 무엇으로 어떻게 돌리나** | [ADR-052](decisions/052-stt-configuration.md) · 근거는 [14](docs/research/14-STT-전처리-실측.md)·[15](docs/research/15-STT-GPU-실측.md) | **계약.** 모델·배치·VAD 와 **토큰화 앞의 자리표기 되돌리기**. 사람이 보는 요약은 `assets/artifacts/research/08-25-stt-benchmark.html` |
-| **누가 어떤 길로 지나가나** | [spec/common/08-21-user-journeys.md](spec/common/08-21-user-journeys.md) | **계약.** 갈림길 여덟 · 여정 열둘. **`src/` 를 읽어 세운 것**이라 이 짝에서는 spec 이 정본이고 [아티팩트](assets/artifacts/plans/08-21-user-journeys.html)가 사본입니다 |
+| **누가 어떤 길로 지나가나** | [spec/common/08-21-user-journeys.md](spec/common/08-21-user-journeys.md) | **계약.** 갈림길 열 · 여정 열둘(2026-09-04 기준 `main` 으로 다시 셈). **`src/` 를 읽어 세운 것**이라 이 짝에서는 spec 이 정본이고 [아티팩트](assets/artifacts/plans/08-21-user-journeys.html)가 사본입니다 |
 | **제도·경쟁의 최신 사실** | `assets/artifacts/archived/candidates/최종후보군-보드.html` | 아카이브. **법적 경계는 위 문서로 올라왔습니다** — 나머지 제도·경쟁 사실은 아직 여기가 최신입니다(공고문 원문 확보 후 재조사한 최종본) |
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
 | 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. **세션이 바뀌면 [qa-readiness](docs/plans/08-23-qa-readiness.md) 부터.** 문서가 코드보다 뒤처진 자리는 [doc-gardening](docs/plans/08-26-doc-gardening.md). 끝난 계획은 지우지 않고 **은퇴** 절에 있습니다 |
 | 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
-| 코드 | `src/` | 도메인 모듈 33(`src/modules/`) · API 라우트 12 · 흐름(`src/flows/`) · 마이그레이션. 스캐폴딩 단계는 지났습니다 |
+| 코드 | `src/` | 도메인 모듈 32(`src/modules/` · 이름 33 중 `doc-filler` 는 [ADR-064](decisions/064-doc-filler-retired.md)로 폐기) · API 라우트 15(사건 13 + 크론 2) · 흐름(`src/flows/`) · 마이그레이션 0001~0009. 스캐폴딩 단계는 지났습니다 |
 | **매뉴얼을 어떻게 쓰나** | [RFC-002](rfc/002-kb-authoring.md) | KB 원본은 `src/kb/`. **DB는 사본이라 직접 INSERT 하지 않습니다** |
 | 로고·favicon·컴포넌트 원본 | `assets/brand/`, `assets/components/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
 

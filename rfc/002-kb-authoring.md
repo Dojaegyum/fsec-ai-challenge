@@ -2,7 +2,7 @@
 
 - 상태: **시행 중**
 - 제정: 2026-08-18
-- 최종 개정: 2026-09-01
+- 최종 개정: 2026-09-04
 - 근거: [ADR-012](../decisions/012-kb-collection.md) — 절차 지식을 버전드 KB로 분리하고 사람이 검수한다
 
 ## 무엇에 대한 규약인가
@@ -25,7 +25,7 @@
 | --- | --- |
 | **검수 대상이 diff여야 합니다** | 사람 검수는 생략 불가인데([07](../spec/backend/08-14-kb-operations.md)), DB 행을 눈으로 검수할 방법이 없습니다 |
 | **릴리스가 재현돼야 합니다** | 어느 버전에 무엇이 들어갔는지가 커밋에 남습니다 |
-| **DB가 날아가도 복원됩니다** | 손으로 쓴 8유형 × 수십 단계를 다시 쓰는 일은 없어야 합니다 |
+| **DB가 날아가도 복원됩니다** | 손으로 쓴 아홉 유형 × 수십 단계를 다시 쓰는 일은 없어야 합니다 |
 | **제도 변경이 코드 배포와 분리됩니다** | 파일만 고쳐 릴리스합니다 — 이게 [F-11](../spec/common/08-14-features.md)의 취지입니다 |
 
 ## 어디에 어떤 이름으로 두나
@@ -34,19 +34,23 @@
 src/kb/
   README.md              적재기 사용법 (검사기가 읽지 않는 자리 — src/ 는 스캔 대상 밖)
   common.json            track=victim · channel_id NULL — 전 유형 공통 (112 신고 등)
-  frozen-account.json    track=frozen_account — 통장묶기
+  frozen-account.json    track=frozen_account · channel_id NULL — 통장묶기 (2026-09-04 · ADR-066)
   ch-bank.json           CH-bank
   ch-neobank.json        CH-neobank
-  ch-securities.json     CH-securities
   ch-easypay.json        CH-easypay
   ch-crypto.json         CH-crypto
   ch-facetoface.json     CH-facetoface
   ch-giftcard.json       CH-giftcard
   ch-carrier.json        CH-carrier
-  org.json               기관 마스터 (§11.1)
+  ch-card.json           CH-card — 아홉째 유형 (ADR-055)
+  org.json               기관 마스터 (§11.1) → `org`
+  org-public.json        경유 서비스가 아닌 공공·수사기관 이름 → `org_public` (마이그레이션 0007 · research/05 U-35)
 ```
 
 - **파일명은 `CH-xxx`를 소문자로 옮긴 것**입니다. `CH-bank` → `ch-bank.json`.
+- **`CH-securities` 는 파일이 없습니다 — 의도입니다.** 절차가 표준과 같고 창구만 다른데, 창구는 `org.json` 이
+  갖습니다. 유형에 파일이 없는 것은 「공통이 그대로 맞다」는 판단이고, 그 판단은 `src/kb/README.md` 에 적어 둡니다 —
+  적어 두지 않으면 다음 사람이 「빠졌다」로 읽습니다 (2026-09-04 실재와 대조).
 - **`src/` 안이라 `MM-dd-{slug}` 규약이 적용되지 않습니다** — 코드 폴더입니다 ([RFC-001](001-repo-structure.md) 「파일명 규약」).
 - **파일 하나 = 조회 우선순위([§11.2](../spec/backend/08-16-data-model.md#112-조회-우선순위--기관별이-유형-기본을-덮어씁니다))의 한 칸**입니다.
   「이 유형에 무엇이 있나」를 파일 하나로 봅니다.
@@ -57,6 +61,7 @@ src/kb/
 ```jsonc
 // src/kb/ch-bank.json
 {
+  "_note": "사람이 보는 메모 — 적재기가 읽지 않는다 (아래 「적재기가 읽는 것과 무시하는 것」)",
   "channel_id": "CH-bank",     // 이 파일의 모든 항목에 적용. 항목마다 반복하지 않는다
   "track": "victim",
   "entries": [ /* 항목들 */ ]
@@ -76,6 +81,22 @@ src/kb/
 | `legal_basis` · `source_url` | |
 | `effective_from` · `effective_until` | |
 | `verified_at` — **사람이 근거를 눈으로 본 날** | |
+
+### 적재기가 읽는 것과 무시하는 것
+
+적재는 `npm run kb:load -- --version <버전>` 입니다 — `src/scripts/load-kb.ts` 가 파일과 DB 를 만지고,
+**판정은 `src/lib/kb-load.ts`** 가 합니다(그래야 `npm test` 가 봅니다). 사용법은 `src/kb/README.md`.
+파일에는 스키마 밖의 것도 적을 수 있고, 적재기는 아래 규칙으로 읽습니다.
+
+| 규칙 | 무엇 |
+| --- | --- |
+| **`_` 로 시작하는 칸은 사람이 보는 메모입니다** | 파일 머리의 `_note`, 항목의 `_todo`, `body` 안의 `_*` — **적재기가 무시하고 DB 로 옮기지 않습니다**(`kb-load.ts` 의 `strip`). 근거를 아직 못 본 자리, 다음 사람에게 남기는 말을 여기 적습니다. 검증 대상도 아닙니다 |
+| **`body.actor` — 이 단계를 누가 하나** | `victim`·`police`·`bank`·`prosecutor`·`carrier`·`issuer`·`agency` 일곱 중 하나. **비면 적재 거부** — 기본값을 두면 기관이 할 일이 「당신이 해야 할 것」으로 그려집니다. ⚠️ §11.4 는 「주체는 칼럼」이라 적었지만 `kb_entry` 에 `actor` 칼럼이 없어(§11.1) `planner` 가 `body.actor` 를 읽습니다 — **돌아가는 코드가 이 규칙이고**, 정본 사이의 모순은 data-model 쪽에서 정리합니다 |
+| **`body.action` — 그 단계에서 사용자가 하는 일 하나** | 아래 여덟 중 하나. 화면이 어느 작업 패널을 열지 **이것으로만** 정합니다(API §3.6 · ADR-024) — `actor`·`channel`·`required_artifact` 로 추론하지 않습니다. **비면 적재 거부** — 없으면 그 단계는 워크스페이스에 아무것도 안 그립니다. `steps[].action` 의 첫 줄로 대신할 수 없습니다 — 서류 제출은 `download` 로 시작해 `visit` 로 끝나고, 핵심은 제출입니다 |
+| **`body.steps[].action` — 줄마다의 행동** | `call`·`visit`·`write`·`upload`·`download`·`confirm`·`wait`·`read` 여덟([§11.4.6](../spec/backend/08-16-data-model.md#1146-stepsaction--사용자가-무슨-행동을-하나)). `channel` 은 `call`·`visit` 에서만 값을 가집니다(§11.4.5 「행동·채널 어긋남」) |
+| **`deadline.owner` 가 `deadline.kind` 를 정합니다** | `user`·`bank`·`agency`. `user` 만 사용자 기한(`primary`·`grace`)이고 나머지는 안내용 `info` 입니다([§11.4.2](../spec/backend/08-16-data-model.md#1142-기한의-주인을-명시합니다)). 없으면 통장묶기 5영업일이 사용자 기한으로 나갑니다 |
+
+**검증에 하나라도 걸리면 파일 전체를 거부합니다.** 절반만 실으면 절반이 최신이고 절반이 옛것입니다.
 
 ## 한 항목의 크기 — 어디서 자르나
 
@@ -186,3 +207,4 @@ DDL이 바뀌면 마이그레이션이 함께 옵니다 ([ADR-019](../decisions/
 | 2026-08-18 | 제정 — KB 원본을 `src/kb/`에 JSON으로 두고, 유형 하나를 파일 하나로 가름 | |
 | 2026-08-18 | 수집 파이프라인과의 경계를 명시 — 파이프라인은 `kb_entry`를 직접 쓰지 않는다 | [ADR-012](../decisions/012-kb-collection.md) |
 | 2026-09-01 | 자기점검에 한 줄 — 레일 `step_key`에 얹은 `action: read`는 S-07이 「해당 없음」으로 그린다 | [ADR-058](../decisions/058-crypto-not-applicable-overrides.md) |
+| 2026-09-04 | 파일 지도를 실재에 맞춤 — `ch-card`·`org-public` 추가, `ch-securities` 는 의도적 부재로 표기, `frozen-account` 신설 반영. 「적재기가 읽는 것과 무시하는 것」 신설 — `_` 메모 칸, `body.actor`·`body.action`·`steps[].action`·`deadline.owner` 허용값. `kb-load.ts` 가 이 규약을 근거로 인용하는데 본문이 없었습니다 | [ADR-055](../decisions/055-channel-card.md) · [ADR-066](../decisions/066-track-fixed-new-case.md) · [문서 손질 백로그](../docs/plans/08-26-doc-gardening.md) |

@@ -5,7 +5,6 @@
 | 문서 | 내용 |
 | --- | --- |
 | [08-23-qa-readiness.md](08-23-qa-readiness.md) | **QA 까지 남은 일** — 태스크 8개와 순서. 막혀서 범위 밖인 것 셋. **세션이 바뀌면 여기부터.** |
-| [08-18-backend-baseline.md](08-18-backend-baseline.md) | 백엔드 착수 기준선 — 무엇이 서 있고 무엇이 막혀 있나. §2 다섯 중 둘(층 4 Cron · NER)이 아직 남아 살아 있습니다 |
 | [08-26-doc-gardening.md](08-26-doc-gardening.md) | **문서 손질 백로그** — 코드보다 뒤처진 spec 의 갱신 순서, 은퇴 문서에서 꺼낸 미결, 문서로는 안 닫히는 코드 문제. 손질 절차는 `.claude/skills/doc-gardening/` |
 
 ## 은퇴 — 역할이 끝난 계획
@@ -21,6 +20,7 @@
 | [08-22-layer-c-viewers.md](08-22-layer-c-viewers.md) | 태스크 9개 전부 끝남(2026-08-23) |
 | [08-22-layer-c-transport.md](08-22-layer-c-transport.md) | 태스크 10개 전부 끝남(2026-08-23) |
 | [08-24-oracle-account-handoff.md](08-24-oracle-account-handoff.md) | 목적(무료 ARM 자리 확보) 달성. 재구축은 `deploy/oci-provision.py` |
+| [08-18-backend-baseline.md](08-18-backend-baseline.md) | 착수 단계 ①~⑥ 에 전부 코드가 생기고 §2 「막힌 것」 다섯 중 셋이 닫힘(2026-09-04 감사 — §5 여덟 점검 결과는 그 문서에 날짜와 함께). 남은 둘은 [ARCHITECTURE §10](../../ARCHITECTURE.md)·ADR-021·ADR-025 「남은 것」 |
 
 ## 여기가 아닌 것
 

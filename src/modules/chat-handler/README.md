@@ -46,21 +46,23 @@
 | **`why` 를 보여줄까** | **안 보여줍니다** | 판단 근거는 사용자 응답에 넣지 않습니다 (ADR-022 · API §5.4) |
 | **`options` 를 걸러낼까** | **안 거릅니다** | 「모름」이 없으면 그건 서버 위반이고, 화면이 채우면 가려집니다 |
 | **어느 것이 「모름」인가** | ⬜ **문구로 알아봅니다** | §3.4 의 `options` 가 문자열 배열이라 담을 칸이 없습니다. 못 알아봐도 선택지는 안 사라지고 **색만 같아집니다** |
-| **`input` 이 `buttons` 가 아닐 때** | `null` — 안 그립니다 | `text`·`date`·`amount` 입력은 아직 화면이 없습니다 |
+| **`input` 이 `buttons` 가 아닐 때** | `QuestionButtons` 는 `null` — 대신 **`QuestionField`** 가 그립니다 | ~~`text`·`date`·`amount` 입력은 아직 화면이 없습니다~~ → 셋 다 `QuestionField` 하나가 맡습니다(`stream.tsx` 의 `FIELD_KIND` — `amount` 는 `inputMode="numeric"` + `data-numeric`). 2026-09-04 확인 |
 
 ## 아직 아닌 것
 
-- ⬜ **`AnswerBubble` 이 화면에 안 붙었습니다.** S-06 의 말풍선은 지금 **목업 문구**라
+- ~~⬜ **`AnswerBubble` 이 화면에 안 붙었습니다.** S-06 의 말풍선은 지금 **목업 문구**라
   `Turn` 이 없습니다 — 화면의 `Bubble`(꼬리 반경·계단 등장)이 그 자리를 지키고 있고,
-  진짜 응답이 오는 날 갈아 끼웁니다.
-- ⬜ **`text`·`date`·`amount` 입력.** §3.4 가 넷을 정했는데 버튼만 그립니다.
+  진짜 응답이 오는 날 갈아 끼웁니다.~~ → **붙었습니다** — `src/app/c/[token]/chat.tsx` 가
+  `AnswerBubble`·`QuestionButtons`·`QuestionField`·`PiiConfirmCard` 를 이 모듈에서 가져오고,
+  `send.ts` 가 `outgoing`·`toTurn` 으로 진짜 응답을 `Turn` 으로 옮깁니다 (2026-09-04 확인).
+- ~~⬜ **`text`·`date`·`amount` 입력.** §3.4 가 넷을 정했는데 버튼만 그립니다.~~ → `QuestionField` 가 셋을 그립니다.
 
 ## 파일
 
 | | |
 | --- | --- |
-| `turn.ts` | `outgoing` · `toTurn` · `sourceNote` |
-| `stream.tsx` | `AnswerBubble` · `QuestionButtons` (렌더만) |
-| `types.ts` | `ChatResponse` · `Turn` · `NextQuestion` · `OutgoingMessage` |
+| `turn.ts` | `outgoing` · `toTurn` · `sourceNote` · `isDontKnow` |
+| `stream.tsx` | `AnswerBubble` · `QuestionButtons` · `QuestionField` · `PiiConfirmCard` (렌더만) |
+| `types.ts` | `ChatResponse` · `Turn` · `NextQuestion` · `OutgoingMessage` · `Citation` · `PiiConfirm` · `SlotAnswerResponse` |
 | `turn.test.ts` | 판정 12건 |
 | `stream.test.tsx` | 렌더의 **금지 규칙** 6건 — 「모름」 안 지우기 · 같은 크기·같은 자리 · 인용 번호·판단 근거 안 쓰기 |
