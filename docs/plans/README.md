@@ -5,6 +5,7 @@
 | 문서 | 내용 |
 | --- | --- |
 | [08-23-qa-readiness.md](08-23-qa-readiness.md) | **QA 까지 남은 일** — 태스크 8개와 순서. 막혀서 범위 밖인 것 셋. **세션이 바뀌면 여기부터.** |
+| [09-04-submission-handoff.md](09-04-submission-handoff.md) | **접수까지 — 제출 핸드오프** — 접수 3종(기획서·기능명세서·URL)과 심사 대비 체크리스트. **미완 항목은 커밋마다 훅이 되짚습니다** |
 | [08-26-doc-gardening.md](08-26-doc-gardening.md) | **문서 손질 백로그** — 코드보다 뒤처진 spec 의 갱신 순서, 은퇴 문서에서 꺼낸 미결, 문서로는 안 닫히는 코드 문제. 손질 절차는 `.claude/skills/doc-gardening/` |
 
 ## 은퇴 — 역할이 끝난 계획
