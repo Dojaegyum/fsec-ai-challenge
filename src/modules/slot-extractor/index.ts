@@ -13,9 +13,9 @@ export { createSlotExtractor } from './extract'
 export { SLOT_VALUE_TYPE } from './types'
 export type {
   /**
-   * 8유형의 값 정의입니다. **밖에서도 이 이름을 씁니다** — 문진 선택지를 값으로
-   * 되돌리는 곳(lib/questions.ts)이 같은 유니온을 봐야 8유형이 두 군데로 갈라지지
-   * 않습니다 → 03-channel-matrix.md.
+   * 9유형의 값 정의입니다(카드는 ADR-055 로 아홉째). **밖에서도 이 이름을 씁니다** — 문진
+   * 선택지를 값으로 되돌리는 곳(lib/questions.ts)이 같은 유니온을 봐야 유형이 두 군데로
+   * 갈라지지 않습니다 → 03-channel-matrix.md.
    */
   ChannelId,
   ExtractInput,

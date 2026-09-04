@@ -26,7 +26,8 @@ export interface PurgeTarget {
 /**
  * 이 모듈이 밖에 요구하는 것 — 복원 매핑 암호문이 있는 볼트.
  *
- * **만료로 이미 없을 수 있습니다** → §14. 없는 것은 실패가 아닙니다.
+ * **비어 있을 수 있습니다**(매핑을 안 맡긴 사건) → §14. 없는 것은 실패가 아닙니다.
+ * 만료(TTL)는 없습니다 — ADR-049 로 같은 Postgres 에 왔고, 지우는 길은 파기 하나입니다.
  */
 export interface VaultStore {
   delete(caseId: string): Promise<void>

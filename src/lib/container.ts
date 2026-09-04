@@ -166,7 +166,8 @@ export interface Ports {
   /** 공휴일 — 한국천문연구원 특일 정보 */
   readonly holidays: HolidayCalendar
   /**
-   * 2차 개인정보 탐지 모델. ⬜ 미선정 → ARCHITECTURE §10.
+   * 2차 개인정보 탐지 모델 — `gemma3:4b`(research/09 R-1 · ARCHITECTURE §10). 서버는
+   * 2026-08-31 에 준비됐고 운영은 `NER_URL` 을 **일부러** 비워 둡니다(deploy/README 「2차 탐지를 켜려면」).
    *
    * **없어도 경계는 섭니다** — 1차 정규식이 계좌·주민번호·카드·전화를 잡습니다.
    * 그래서 부르면 터지는 대역으로 두지 않고 `null` 입니다. 붙기 전에는 이름이
@@ -177,7 +178,7 @@ export interface Ports {
    */
   readonly ner: NerModel | null
   /**
-   * 녹음을 글로 옮기는 도구. ⬜ 제품 미선정.
+   * 녹음을 글로 옮기는 도구 — `services/transcriber` 의 faster-whisper `large-v3`(ADR-052).
    *
    * **없어도 되는 자리로 두지 않았습니다.** 비면 음성 증거가 아무것도 안 됩니다 —
    * 그래서 부르면 즉시 터지는 대역을 끼웁니다.
@@ -186,7 +187,7 @@ export interface Ports {
    * 무엇을 끼우느냐가 **원문이 조직 밖으로 나가는지를 가릅니다** → ADR-043.
    */
   readonly stt: SttEngine
-  /** 이미지에서 글자를 읽는 도구. ⬜ 제품 미선정. `stt` 와 같은 경계에 있습니다 */
+  /** 이미지에서 글자를 읽는 도구 — 같은 서비스의 EasyOCR(research/11·16). `stt` 와 같은 경계에 있습니다 */
   readonly ocr: OcrEngine
   /**
    * 언어모델 — **챗이 쓰는 모양**입니다.
