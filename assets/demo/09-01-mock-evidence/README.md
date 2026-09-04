@@ -9,6 +9,7 @@
 | 왜 합성이어야 하나 | [ADR-043](../../../decisions/043-gpu-hosting.md) 「합성 데이터만 올립니다」 |
 | 실제 공개 음성을 왜 안 쓰나 | [research/07](../../../docs/research/07-학습데이터-조사.md) D-02·D-03 |
 | 화면이 이걸 어떻게 쓰나 | [`src/app/start/mock.ts`](../../../src/app/start/mock.ts) |
+| **화면에서 어떻게 부르나** | 시작 화면의 「Mock 파일로 실행」 칩. 배포본은 `NEXT_PUBLIC_DEMO_MOCK=1`(대회 기간 · 2026-09-04 켬)이거나 주소에 `?demo` 를 붙였을 때 보입니다 → [deploy/README](../../../deploy/README.md) 「시연 칩」 |
 
 ## 무엇이 들어 있나
 

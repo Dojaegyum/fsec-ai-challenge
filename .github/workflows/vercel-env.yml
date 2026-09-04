@@ -14,6 +14,7 @@ name: vercel-env
 # 두고(`MAILER_API_KEY` · `NER_TOKEN`) 켜기 스위치만 입력으로 받습니다. 요약에도 이름만 적습니다.
 #
 # 끝나면 `deploy` 를 다시 겁니다 — **환경변수는 다시 빌드해야 반영됩니다**(ADR-053).
+# `demo_mock`(`NEXT_PUBLIC_DEMO_MOCK`)은 브라우저 번들에 구워지는 값이라 특히 그렇습니다 — deploy/README.md 「시연 칩」.
 #
 # 근거: deploy/README.md 「1. 환경변수」·「3. 매뉴얼」·「2차 탐지를 켜려면」 · ADR-045 · ADR-053 · ADR-059
 on:
@@ -47,6 +48,10 @@ on:
         description: "NER_TOKEN 을 저장소 시크릿 NER_TOKEN 에서 넣는다"
         type: boolean
         default: false
+      demo_mock:
+        description: "NEXT_PUBLIC_DEMO_MOCK — 시작 화면 「Mock 파일로 실행」 칩. 1 보임(대회 기간) · 0 숨김 · 비우면 안 건드림. 빌드에 구워지는 값이라 redeploy 와 함께"
+        required: false
+        default: ""
       redeploy:
         description: "끝나면 deploy 워크플로를 건다"
         type: boolean
@@ -91,6 +96,7 @@ jobs:
           IN_MAILER_FROM: ${{ inputs.mailer_from }}
           IN_NER_URL: ${{ inputs.ner_url }}
           IN_NER_TIMEOUT_MS: ${{ inputs.ner_timeout_ms }}
+          IN_DEMO_MOCK: ${{ inputs.demo_mock }}
           SET_MAILER_KEY: ${{ inputs.set_mailer_key }}
           SET_NER_TOKEN: ${{ inputs.set_ner_token }}
           SECRET_MAILER_API_KEY: ${{ secrets.MAILER_API_KEY }}
@@ -120,6 +126,7 @@ jobs:
           put MAILER_FROM    "$IN_MAILER_FROM"
           put NER_URL        "$IN_NER_URL"
           put NER_TIMEOUT_MS "$IN_NER_TIMEOUT_MS"
+          put NEXT_PUBLIC_DEMO_MOCK "$IN_DEMO_MOCK"
           if [ "$SET_MAILER_KEY" = "true" ]; then
             if [ -z "$SECRET_MAILER_API_KEY" ]; then echo "::error::저장소 시크릿 MAILER_API_KEY 가 없습니다"; exit 1; fi
             put MAILER_API_KEY "$SECRET_MAILER_API_KEY"
