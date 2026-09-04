@@ -181,7 +181,7 @@ vercel deploy --prod                         # ⚠️ 환경변수는 다시 빌
 | --- | --- |
 | **매뉴얼 릴리스** | **`2026.09.2`** — 절차 32건(통장묶기 `frozen-account.json` 둘 포함 · [ADR-066](../decisions/066-track-fixed-new-case.md)) · 기관 51곳(신고 전화 49곳) · 공공기관 5곳. 2026-09-04 에 `vercel-env` 워크플로로 `KB_VERSION` 을 올렸습니다 |
 | 코드 | `main` (배포는 머지가 곧 배포 → ADR-053) |
-| **메일 발송** | **값은 들어갔고, 첫 발송은 막혔습니다** (2026-09-04) — Brevo. `MAILER_API_KEY`(저장소 시크릿에서) · `MAILER_FROM` · `APP_ORIGIN` 을 같은 워크플로로 넣었고, 로컬에서 앱의 발송 코드로 보낸 시험 한 통은 도착했습니다. 그런데 배포본 크론(`GET /api/cron/reminders`)이 확정 기한이 오늘인 사건에 보내려다 `failed: 1` 이었습니다 — Brevo 계정의 **「Authorised IPs」 제한**이 켜져 있어 Vercel 함수의(고정이 아닌) 발신 IP 가 거절된 것으로 보입니다. **그 제한을 끄면** 다음 크론이 다시 집습니다(보낸 적이 없어 중복 방지에 안 걸림) |
+| **메일 발송** | **켜졌고, 배포본에서 실제로 나갔습니다** (2026-09-04) — Brevo. `MAILER_API_KEY`(저장소 시크릿에서) · `MAILER_FROM` · `APP_ORIGIN` 을 `vercel-env` 로 넣었습니다. 첫 시도는 `failed: 1` 이었는데 Brevo 「Authorised IPs」 제한이 Vercel 발신 IP(`3.34.130.187` · AWS)를 막은 것이었고, **API keys 쪽 차단을 끈 뒤 크론이 `sent: 1`** 로 확정 기한 알림을 보냈습니다. ⚠️ 그 제한을 다시 켜면 발송이 조용히 `failed` 로 돌아갑니다 |
 | `NER_URL` | **비어 있습니다.** 서버 쪽은 2026-08-31 에 준비됐고, **켜는 것은 사람 결정**입니다 → 아래. 시연 때는 RunPod(GPU) 에 올리기로(2026-09-04) — 켜는 값 셋은 `vercel-env` 워크플로의 `ner_url`·`ner_timeout_ms`·`set_ner_token` |
 
 ### 2차 탐지(이름 가리기)를 켜려면 — 2026-08-31
