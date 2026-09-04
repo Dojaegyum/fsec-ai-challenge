@@ -56,8 +56,9 @@ main    단계 5~6개 · 기관 51곳 · 유형 파일 일곱
 아무도 안 올렸습니다.** 「머지가 곧 배포」([ADR-053](../../decisions/053-deploy-on-merge.md))는
 코드에만 해당하고 **KB 릴리스는 따라오지 않습니다.**
 
-- [ ] **KB 를 새로 적재하면 배포 환경 `KB_VERSION` 도 올리는 것까지가 한 작업**입니다.
-      `deploy/README.md` 에 그 칸을 넣어야 합니다
+- [x] **KB 를 새로 적재하면 배포 환경 `KB_VERSION` 도 올리는 것까지가 한 작업**입니다.
+      `deploy/README.md` 에 그 칸을 넣어야 합니다 → ✅ 들어 있습니다 — §3 「⛔ 배포 환경의
+      값까지 올려야 한 작업이 끝납니다」(`--force` 덮어쓰기까지). 2026-09-04 확인
 - [x] 2026-08-26 `2026.08.18` 로 올렸습니다 (현재 `main` 그대로 적재)
 
 ### ⚠️ 환경변수는 `rm` → `add` 가 아니라 **덮어쓰기**
@@ -313,7 +314,8 @@ python -m unittest discover -s services/transcriber -t .    # services-check
 >       `anchorFromArtifact` 가 이미 확정된 슬롯은 안 덮습니다.
 >       사용자 진술이라 `estimated=True` 로 나갑니다
 >
-> ⬜ `npm run seed:deadline` 은 이제 지워도 됩니다 — 위 조건이 충족됐습니다.
+> ~~⬜ `npm run seed:deadline` 은 이제 지워도 됩니다 — 위 조건이 충족됐습니다.~~
+> → ✅ **2026-09-04 지웠습니다** (`scripts/seed-deadline.ts` · `package.json`).
 
 ---
 
@@ -500,9 +502,15 @@ crypto
 
 라우트와 배선이 서고 나서 답니다. 그 전에는 띄울 것이 없습니다.
 
-- [ ] Playwright 3~5개: 랜딩이 뜬다 · 사건이 만들어진다 · 링크로 재진입된다 ·
-      플랜에 단계가 있다 · 잘못된 토큰이 404 다
-- [ ] `code-check` 와 **별도 워크플로**로 둔다 — 배포 주소가 필요해 PR 마다 돌릴 수 없습니다
+- [x] Playwright 3~5개: 랜딩이 뜬다 · 사건이 만들어진다 · 링크로 재진입된다 ·
+      플랜에 단계가 있다 · 잘못된 토큰이 404 다 → ✅ **2026-09-04 여섯** —
+      `src/smoke/smoke.spec.ts` · `npm run smoke`. 다섯에 Task 9 ⑥ ⓐ 의 볼트 왕복을
+      더했고, 재진입은 API 와 **브라우저** 둘 다로 봅니다(서버가 준 첫 단계 제목이
+      화면에 그려지는지). 값의 내용은 안 봅니다 — 단계 제목은 KB 릴리스의 일입니다
+- [x] `code-check` 와 **별도 워크플로**로 둔다 — 배포 주소가 필요해 PR 마다 돌릴 수 없습니다
+      → ✅ `.github/workflows/smoke.yml`. **`deploy` 가 성공하면 이어서 자동으로 돕니다**
+      (`workflow_run`), 다른 주소는 Run workflow 의 `base_url` 로. 게이트가 아니라
+      **배포 뒤 확인**입니다 → [RFC-001 「배포본 스모크」](../../rfc/001-repo-structure.md)
 
 > 지금 CI 는 `typecheck → test → build` 이고, **렌더의 금지 규칙까지는 잡습니다**
 > (모듈마다 `{렌더}.test.tsx`). 못 잡는 것은 **실제 왕복**뿐입니다.
@@ -676,7 +684,8 @@ ADR-049 에서 스키마 이름을 `vault` → `case_vault` 로 바꿀 때 겹�
 - [x] **ⓑ 검사기를 세웠습니다** — `.github/scripts/schema-names.py` ·
       `schema-names` 워크플로. 마이그레이션이 만든 표·칸을 읽어 두고
       `src/**/*.ts` 의 ``sql`…` `` 을 훑어 대조합니다 → [RFC-001](../../rfc/001-repo-structure.md#표칸-이름--adr-019--adr-049)
-- [ ] ⓐ Task 8 스모크에 볼트 왕복 한 줄을 넣는다
+- [x] ⓐ Task 8 스모크에 볼트 왕복 한 줄을 넣는다 → ✅ 2026-09-04 `smoke.spec.ts`
+      「볼트 왕복」 — `POST` 가 `stored: 2`, `GET` 이 같은 암호문과 `issued` 를 돌려주는지
 - [x] **ⓒ 통합시험을 세웠습니다** — `src/lib/db.dbtest.ts` **27건** ·
       `npm run test:db`. **CI 에서 안 돕니다**(아래 「왜 게이트가 아닌가」) →
       [RFC-001](../../rfc/001-repo-structure.md#db-통합시험--유일하게-ci-밖에-있습니다)
@@ -857,7 +866,7 @@ xAI 모델 넷을 같은 도구로 재 보니 **`grok-4.5` 만 3/3** 입니다. 
 
 - [x] 다른 제공자로 돌 수 있게 했습니다 — `LLM_BASE_URL`·`LLM_MODEL`·`LLM_API_KEY`.
       셋 다 비면 xAI 로 돌아갑니다.
-- [x] **모델을 재는 도구가 생겼습니다** — `npx tsx scripts/probe-llm.ts --model <이름>`.
+- [x] **모델을 재는 도구가 생겼습니다** — `npm run probe:llm -- --model <이름>`.
       DB·서버 없이 모델만 갈라 봅니다(실제 `prompt-builder`·`citation-checker` 로 채점).
       **모델을 바꾸면 여기서 먼저 재세요** — 형식을 못 지키는 모델은 200 을 받고도
       인용 검증에서 502 가 됩니다.

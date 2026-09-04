@@ -8,6 +8,8 @@
  * → spec/common/08-16-module-names.md.
  */
 
+import 'server-only'
+
 export { createCaseReader } from './read'
 export type {
   Analysis,

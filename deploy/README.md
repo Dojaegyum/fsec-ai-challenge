@@ -306,6 +306,19 @@ curl -s -X POST "$B/api/cases" -H 'content-type: application/json' -d '{"track":
 돌려받은 `link_token` 으로 `GET $B/api/cases/{t}` · `/plan` · `/deadlines` 가
 200 이면 표와 환경변수가 붙은 것입니다.
 
+**같은 바퀴를 도구가 돕니다** — 2026-09-04 신설.
+
+```
+cd src && npm run smoke                       # 프로덕션
+SMOKE_BASE_URL=<주소> npm run smoke           # 다른 주소
+```
+
+랜딩 · 사건 생성 · 링크 재진입(브라우저로도) · 플랜 단계와 근거 · 404/400 · 볼트 왕복을
+봅니다(`src/smoke/smoke.spec.ts`). **`deploy` 가 성공하면 `smoke` 워크플로가 이어서
+자동으로 돕니다** — Actions 탭에서 빨간불이면 올라간 것이 안 도는 것입니다.
+모델은 부르지 않으니 챗은 여전히 아래처럼 따로 봅니다. 처음 한 번은
+`npx playwright install chromium` 이 필요합니다.
+
 **챗은 따로 봅니다** — `POST $B/api/cases/{t}/messages` 의 서버 로그를 보세요.
 
 | 로그 | 뜻 |
@@ -321,6 +334,6 @@ curl -s -X POST "$B/api/cases" -H 'content-type: application/json' -d '{"track":
 
 | 무엇 | 왜 |
 | --- | --- |
-| **크론 둘** (파기 · KB 수집) | 라우트가 아직 없습니다. 만들면 `src/vercel.json` 에 `crons` 를 더합니다 → [ADR-025](../decisions/025-scheduled-jobs.md) |
+| ~~**크론 둘** (파기 · KB 수집)~~ → **파기·알림 크론은 섰습니다** (`/api/cron/purge` 2026-09-03 · `/api/cron/reminders` 2026-09-01 · `src/vercel.json` `crons`). **KB 수집 크론만 아직 없습니다** — `kb-collector` 가 미조립입니다 → [ADR-025](../decisions/025-scheduled-jobs.md) |
 | **Preview 환경 분리** | 미정 → [ARCHITECTURE §10](../ARCHITECTURE.md#10-아직-안-정해진-것). 지금은 Production 하나만 씁니다 |
-| **스모크 시험** | 배포 주소가 있어야 돌아갑니다 → `docs/plans/08-23-qa-readiness.md` Task 8 |
+| ~~**스모크 시험**~~ → **섰습니다** (2026-09-04) — `npm run smoke` · `.github/workflows/smoke.yml`. 위 「4. 올린 뒤」 |

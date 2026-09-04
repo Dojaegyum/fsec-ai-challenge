@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# 배포본 스모크(playwright) 산출물 — src/playwright.config.ts
+/smoke/report
+/smoke/results

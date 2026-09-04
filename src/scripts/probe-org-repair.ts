@@ -1,8 +1,8 @@
 /**
  * 전사문 기관명 교정(ADR-056)이 **실제로 도는지** 재 본다 — 실측 전사문으로.
  *
- *   npx tsx scripts/probe-org-repair.ts
- *   npx tsx scripts/probe-org-repair.ts --model gemini-3.6-flash --limit 5
+ *   npm run probe:org
+ *   npm run probe:org -- --model gemini-3.6-flash --limit 5
  *
  * ## 왜 필요한가
  *

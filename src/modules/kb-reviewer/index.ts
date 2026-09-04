@@ -9,6 +9,8 @@
  * **이 모듈이 `kb_entry` 에 쓰지 않습니다** → rfc/002-kb-authoring.md.
  */
 
+import 'server-only'
+
 export { createKbReviewer } from './review'
 export type {
   ChangeGroup,

@@ -1,0 +1,70 @@
+name: smoke
+
+# 배포가 끝난 뒤 **실제 주소에서 한 바퀴** 걷습니다.
+# 사람이 손으로 돌리는 명령과 같습니다:
+#   cd src && npm run smoke                       # 프로덕션
+#   SMOKE_BASE_URL=<주소> npm run smoke           # 다른 주소
+#
+# **게이트가 아닙니다** — 배포 주소가 있어야 돌아서 PR 마다 못 돕니다. 그래서
+# `code-check` 와 별도 워크플로이고, `deploy` 가 성공한 뒤에만 이어 돕니다.
+# 빨간불이면 **올라간 것이 안 도는 것**이라 이전 배포로 되돌리거나 원인을 봅니다.
+#
+# 무엇을 보나: 랜딩 · 사건 생성 · 링크 재진입 · 플랜 단계와 근거 · 404/400 · 볼트 왕복.
+# 모델은 부르지 않습니다 — 그 실패는 배포가 아니라 모델 사정입니다 (src/smoke/smoke.spec.ts).
+#
+# 근거: docs/plans/08-23-qa-readiness.md Task 8 · ADR-053 · RFC-001 「배포본 스모크」
+#
+# ⚠️ 시험이 운영 DB 에 사건을 남깁니다 — 실행마다 몇 건. 파기일(180일)에 함께 지워집니다.
+on:
+  workflow_run:
+    workflows: [deploy]
+    types: [completed]
+  # 환경변수만 바꿨거나 다른 주소를 걸어 볼 때 — Actions 탭 → smoke → Run workflow
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 걸어 볼 주소. 비우면 프로덕션
+        required: false
+        default: https://fin-ally-khaki.vercel.app
+
+jobs:
+  walk:
+    # 배포가 실패했으면 걸 것이 없습니다 — 이전 배포가 그대로 남아 있습니다 (deploy.yml)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      # 배포가 올린 것은 **그 순간 main 의 끝**입니다 (deploy.yml) — 시험도 main 것을 씁니다
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+
+      - name: 한 바퀴
+        env:
+          SMOKE_BASE_URL: ${{ github.event.inputs.base_url || 'https://fin-ally-khaki.vercel.app' }}
+        run: |
+          echo "걷는 주소: $SMOKE_BASE_URL"
+          npm run smoke
+
+      - name: 보고서
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: src/smoke/report
+          retention-days: 7
