@@ -11,10 +11,10 @@
  * 2026-08-27 에 사슬 전체를 걸어 보고 드러났습니다. 단계는 순서대로 열리는데
  * **`GET …/deadlines` 가 언제나 빈 배열**이었습니다.
  *
- * KB 전체에서 기산점으로 쓰이는 슬롯은 **둘뿐**입니다.
+ * KB 전체에서 기산점으로 쓰이는 슬롯은 **둘뿐**이었습니다(2026-08-27).
  *
  *     relief_applied_at   -> 3영업일 (신청서류 제출)
- *     notice_started_at   -> 2개월  (채권소멸공고)
+ *     notice_started_at   -> 2개월  (채권소멸공고 · 통장묶기 이의제기 창도 같은 기산점)
  *
  * 그런데 **둘 다 아무도 안 채웠습니다.** `compute-deadlines.ts` 가
  * *「기산점이 없으면 기한도 없습니다」* 로 올바르게 동작한 결과,
@@ -65,6 +65,10 @@ import { tierOf, valueTypeOf } from '@/modules/slot-checker'
  */
 const ANCHOR_BY_STEP: Readonly<Record<string, string>> = {
   'relief-apply': 'relief_applied_at',
+  // 통장묶기 — 이의제기 접수증이 검증되면 그날이 제출 시각입니다 (frozen-account.json ·
+  // ADR-066). 5영업일 결과 통보는 이 슬롯을 기산점으로 삼게 되어 있는데(§5.1 ·
+  // research/01 §2.4), 그 기한 자체는 금감원 원문·시행일이 확인될 때까지 KB 본문에만 있습니다
+  'objection-file': 'objection_submitted_at',
 }
 
 /**
