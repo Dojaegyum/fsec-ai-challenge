@@ -597,16 +597,26 @@ export function ConsentClauses({
 
 export default function Start() {
   /**
-   * 시연 전용 게이트 — `?demo` 가 붙었을 때만 「Mock 파일로 실행」 칩을 그립니다.
+   * 시연 전용 게이트 — 「Mock 파일로 실행」 칩을 그리는 조건은 셋 중 하나입니다.
+   *
+   *   1. dev 빌드 — 늘 보입니다.
+   *   2. 빌드 때 `NEXT_PUBLIC_DEMO_MOCK=1` — **대회 기간의 배포본**이 여기입니다
+   *      (deploy/README.md 「시연 칩」). `NEXT_PUBLIC_*` 은 빌드에 구워지므로 값을
+   *      바꾸면 다시 배포해야 합니다(ADR-053). 대회가 끝나면 `0` 으로 내립니다.
+   *   3. 주소에 `?demo` — 스위치가 꺼진 배포본에서도 시연자는 열 수 있습니다.
+   *
    * ⚠️ 2026-09-03 까지 조건 없이 항상 그려져 **실사용자(피해자) 화면에 시연용
-   * 개발 용어가 노출**됐습니다 (감사 D5). dev 빌드에서는 늘 보입니다 —
-   * 시연 때는 주소에 `?demo` 를 붙이세요.
+   * 개발 용어가 노출**됐습니다 (감사 D5) — 그래서 `?demo` 뒤로 숨겼는데, 배포본에서
+   * 칩이 사라진 것으로 보여 2026-09-04 에 스위치 ②를 더했습니다. **숨기는 것이
+   * 기본**인 것은 그대로이고, 스위치를 켠 배포본만 예외입니다.
    *
    * `useSearchParams` 가 아니라 마운트 뒤 location 입니다 — 이 페이지는 정적
    * 프리렌더라 그 훅이 Suspense 경계를 요구하고(빌드가 실제로 깨졌습니다),
    * 시연 칩 하나 때문에 페이지를 동적으로 만들 이유가 없습니다.
    */
-  const [demo, setDemo] = useState(process.env.NODE_ENV !== "production");
+  const [demo, setDemo] = useState(
+    process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MOCK === "1",
+  );
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("demo")) setDemo(true);
   }, []);

@@ -63,6 +63,14 @@ test('랜딩이 뜬다 — 행동은 「지금 시작하기」 하나 (S-04)', a
   await expect(page.getByRole('link', { name: '지금 시작하기' })).toBeVisible()
 })
 
+test('시작 화면의 시연 칩은 `?demo` 로 열린다 — 합성 자료 셋을 한 번에 담는 자리 (S-05)', async ({ page }) => {
+  // 스위치(`NEXT_PUBLIC_DEMO_MOCK`)가 꺼진 배포본에서도 이 길은 남아 있어야 합니다.
+  // 마운트 뒤 location 을 읽어 그리므로 toBeVisible 의 기다림에 맡깁니다
+  const res = await page.goto('/start?demo')
+  expect(res?.status()).toBe(200)
+  await expect(page.getByRole('button', { name: 'Mock 파일로 실행' })).toBeVisible()
+})
+
 test('사건이 만들어진다 — T0 가 함께 온다 (§3.1 · ADR-046)', async ({ request }) => {
   const opened = await openCase(request)
   // 슬롯이 하나도 없어도 T0 공통 안전 절차가 붙습니다 → 08-14-slot-tiering.md 「진입 자체로 충분」
