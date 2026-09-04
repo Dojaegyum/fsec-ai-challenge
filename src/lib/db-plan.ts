@@ -252,13 +252,17 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
     },
 
     async readSlots(caseId) {
-      const rows = await sql<{ slot_key: SlotKey; tier: SlotTier; state: SlotState }[]>`
-        SELECT slot_key, tier, state FROM case_slot WHERE case_id = ${caseId}
+      const rows = await sql<
+        { slot_key: SlotKey; tier: SlotTier; state: SlotState; value_masked: string | null }[]
+      >`
+        SELECT slot_key, tier, state, value_masked FROM case_slot WHERE case_id = ${caseId}
       `
       return rows.map((one) => ({
         slotKey: one.slot_key,
         tier: one.tier,
         state: one.state,
+        // 되묻기에 보여줄 값 — 토큰화된 것이라 여기서 나가도 경계를 안 넘습니다(ADR-069)
+        valueMasked: one.value_masked,
       })) satisfies readonly StoredSlot[]
     },
 

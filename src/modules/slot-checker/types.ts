@@ -58,6 +58,11 @@ export interface SlotSnapshot {
   readonly slotKey: SlotKey
   readonly tier: SlotTier
   readonly state: SlotState
+  /**
+   * 토큰화된 값. **`extracted` 를 되물을 때만 봅니다** — 「이 값이 맞나요」에 그 값을
+   * 보여줘야 하기 때문입니다(ADR-069). 없으면 되묻지 않고 채워진 것으로만 셉니다
+   */
+  readonly valueMasked?: string | null
 }
 
 /**
@@ -91,6 +96,16 @@ export type QuestionForm = Omit<NextQuestion, 'slotKey'>
 export interface QuestionSource {
   /** 그 슬롯을 물을 문구. 물을 수 없는 슬롯이면 undefined */
   formFor(slotKey: SlotKey): QuestionForm | undefined
+  /**
+   * 증거에서 뽑힌 값을 되물을 문구 — 「이 값이 맞나요」(ADR-069).
+   *
+   * `value` 는 토큰화된 값 그대로입니다(`32000000` · `2026-09-01T14:22:41+09:00` · `[계좌-1]`).
+   * 사람이 읽을 모양으로 바꾸는 것은 문구 쪽 몫입니다. 선택지는 반드시 `CONFIRM_YES` 와
+   * `CONFIRM_NO` 를 앞에 두어야 합니다 — 답 처리(`flows/answer-slot.ts`)가 그 글자로 가릅니다.
+   *
+   * 없으면(구현하지 않은 문구 소스) 되묻지 않고 채워진 것으로만 셉니다.
+   */
+  confirmFor?(slotKey: SlotKey, value: string): QuestionForm | undefined
 }
 
 export interface SlotCheckInput {

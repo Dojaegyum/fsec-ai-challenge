@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { QuestionSource, SlotKey, SlotSnapshot } from './types'
-import { createSlotChecker } from './check'
+import { CONFIRM_NO, CONFIRM_YES, createSlotChecker } from './check'
 
 /** 문진 대상 다섯에만 문구를 주는 최소 구현 */
 const questions: QuestionSource = {
@@ -356,5 +356,92 @@ describe('못 알아본 기관을 되묻는다 — §11.4.4 ①', () => {
     })
 
     expect(nextQuestion?.slotKey).toBe('transferred')
+  })
+})
+
+/**
+ * 증거에서 뽑힌 값은 **한 번의 탭으로 확인**받는다 — ADR-069.
+ *
+ * `extracted` 는 「묻는 것은 『이 값이 맞나요』」인데 2026-09-04 까지 그 되묻기는 `org_name`
+ * 하나뿐이었습니다. 금액·시각·상대 계좌가 모델이 뽑은 채로 서류와 기한에 들어갔습니다.
+ */
+describe('증거에서 뽑힌 값을 되묻는다 — ADR-069', () => {
+  const withConfirm: QuestionSource = {
+    formFor: questions.formFor,
+    confirmFor(slotKey, value) {
+      return {
+        input: 'buttons',
+        text: `${slotKey} 가 ${value} 맞나요?`,
+        options: [CONFIRM_YES, CONFIRM_NO],
+      }
+    },
+  }
+  const t1Done: readonly SlotSnapshot[] = [
+    { slotKey: 'transferred', tier: 'T1', state: 'confirmed' },
+    { slotKey: 'channel', tier: 'T1', state: 'confirmed' },
+    { slotKey: 'org_name', tier: 'T2', state: 'confirmed' },
+  ]
+
+  it('뽑힌 금액은 문진 자리에서 버튼으로 되묻는다 — 「모름」도 붙는다', () => {
+    const { nextQuestion } = createSlotChecker({ questions: withConfirm }).check({
+      slots: [...t1Done, { slotKey: 'amount', tier: 'T2', state: 'extracted', valueMasked: '32000000' }],
+    })
+    expect(nextQuestion?.slotKey).toBe('amount')
+    expect(nextQuestion?.input).toBe('buttons')
+    expect(nextQuestion?.text).toContain('32000000')
+    expect(nextQuestion?.options?.slice(0, 2)).toEqual([CONFIRM_YES, CONFIRM_NO])
+    expect(nextQuestion?.options).toContain('모름·기억 안 남')
+  })
+
+  it('T1 이 비어 있으면 T1 이 먼저다 — 되묻기가 새치기하지 않는다', () => {
+    const { nextQuestion } = createSlotChecker({ questions: withConfirm }).check({
+      slots: [{ slotKey: 'amount', tier: 'T2', state: 'extracted', valueMasked: '32000000' }],
+    })
+    expect(nextQuestion?.slotKey).toBe('transferred')
+  })
+
+  it('문진 순서에 없는 상대 계좌도 뽑혔으면 확인은 받는다', () => {
+    const { nextQuestion } = createSlotChecker({ questions: withConfirm }).check({
+      slots: [
+        ...t1Done,
+        { slotKey: 'amount', tier: 'T2', state: 'confirmed' },
+        { slotKey: 'occurred_at', tier: 'T2', state: 'unknown' },
+        { slotKey: 'elapsed_hint', tier: 'T2', state: 'unknown' },
+        { slotKey: 'contact_method', tier: 'T2', state: 'unknown' },
+        { slotKey: 'freeze_requested_at', tier: 'T2', state: 'unknown' },
+        { slotKey: 'relief_applied_at', tier: 'T2', state: 'unknown' },
+        { slotKey: 'counterpart_account', tier: 'T2', state: 'extracted', valueMasked: '[계좌-1]' },
+      ],
+    })
+    expect(nextQuestion?.slotKey).toBe('counterpart_account')
+    expect(nextQuestion?.text).toContain('[계좌-1]')
+  })
+
+  it('문구 소스가 되묻기 문구를 못 주면 되묻지 않고 채워진 것으로 센다 — 막지 않는다', () => {
+    const { nextQuestion, t2 } = createSlotChecker({ questions }).check({
+      slots: [...t1Done, { slotKey: 'amount', tier: 'T2', state: 'extracted', valueMasked: '32000000' }],
+    })
+    expect(nextQuestion?.slotKey).not.toBe('amount')
+    expect(t2).not.toBe('unsatisfied')
+  })
+
+  it('값이 없는 extracted 는 되묻지 않는다', () => {
+    const { nextQuestion } = createSlotChecker({ questions: withConfirm }).check({
+      slots: [...t1Done, { slotKey: 'amount', tier: 'T2', state: 'extracted' }],
+    })
+    expect(nextQuestion?.slotKey).not.toBe('amount')
+  })
+
+  it('org_name 은 기존 길 그대로 — 사전 선택지로', () => {
+    const { nextQuestion } = createSlotChecker({ questions: withConfirm }).check({
+      slots: [
+        { slotKey: 'transferred', tier: 'T1', state: 'confirmed' },
+        { slotKey: 'channel', tier: 'T1', state: 'confirmed' },
+        { slotKey: 'org_name', tier: 'T2', state: 'extracted', valueMasked: '국민은행' },
+      ],
+      orgCandidates: ['국민은행', '신한은행'],
+    })
+    expect(nextQuestion?.slotKey).toBe('org_name')
+    expect(nextQuestion?.options).toContain('국민은행')
   })
 })

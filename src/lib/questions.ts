@@ -35,6 +35,7 @@
 
 import 'server-only'
 
+import { CONFIRM_NO, CONFIRM_YES } from '@/modules/slot-checker'
 import type { QuestionForm, QuestionSource, SlotKey } from '@/modules/slot-checker'
 import type { ChannelId } from '@/modules/slot-extractor'
 
@@ -178,7 +179,48 @@ const FORMS: Partial<Record<SlotKey, QuestionForm>> = {
 export function createQuestionSource(): QuestionSource {
   return {
     formFor: (slotKey) => FORMS[slotKey],
+    confirmFor: (slotKey, value) => confirmForm(slotKey, value),
   }
+}
+
+/**
+ * 증거에서 뽑힌 값의 되묻기 문구 — 「이 값이 맞나요」(ADR-069).
+ *
+ * 값은 슬롯에 든 모양 그대로 옵니다. 사람이 읽을 모양으로 바꾸는 것이 여기 몫입니다 —
+ * `32000000` 은 「32,000,000원」, `2026-09-01T14:22:41+09:00` 은 「2026-09-01 14:22」.
+ * 계좌 토큰(`[계좌-1]`)은 **그대로** 둡니다 — 원문은 브라우저만 알고, 화면이 토큰 자리를
+ * 되살립니다(`pii-restorer`). 여기서 번호를 쓸 수 있는 방법이 없고, 있어서도 안 됩니다.
+ *
+ * 선택지의 앞 둘은 **글자가 곧 계약**입니다 — `flows/answer-slot.ts` 가 그 글자로 가릅니다.
+ */
+const CONFIRM_LABEL: Readonly<Partial<Record<SlotKey, string>>> = {
+  amount: '보낸 금액',
+  occurred_at: '보낸 시각',
+  counterpart_account: '받는 쪽 계좌',
+  impersonated_org: '상대가 사칭한 곳',
+  contact_method: '상대가 연락해 온 방법',
+}
+
+function confirmForm(slotKey: SlotKey, value: string): QuestionForm | undefined {
+  const label = CONFIRM_LABEL[slotKey]
+  if (!label) return undefined
+  return {
+    text: `올린 자료에서 찾은 ${label}입니다: ${shownValue(slotKey, value)}. 맞나요?`,
+    input: 'buttons',
+    options: [CONFIRM_YES, CONFIRM_NO],
+  }
+}
+
+/** 슬롯 값 → 사람이 읽는 모양. 못 읽으면 값 그대로 — 감추지 않습니다 */
+export function shownValue(slotKey: SlotKey, value: string): string {
+  if (slotKey === 'amount' && /^\d+$/.test(value)) {
+    return `${Number(value).toLocaleString('ko-KR')}원`
+  }
+  if (slotKey === 'occurred_at') {
+    const m = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/.exec(value)
+    if (m) return m[2] ? `${m[1]} ${m[2]}` : m[1]!
+  }
+  return value
 }
 
 /**

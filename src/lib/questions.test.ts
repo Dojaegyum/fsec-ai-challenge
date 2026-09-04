@@ -208,3 +208,28 @@ describe('slot-checker 와 함께', () => {
     expect(result.t1).toBe('satisfied')
   })
 })
+
+describe('되묻기 문구 — 값을 사람이 읽는 모양으로 (ADR-069)', () => {
+  it('금액은 쉼표와 원', () => {
+    const form = source.confirmFor?.('amount', '32000000')
+    expect(form?.input).toBe('buttons')
+    expect(form?.text).toContain('32,000,000원')
+    expect(form?.options?.[0]).toBe('맞아요')
+  })
+
+  it('시각은 날짜와 시·분까지', () => {
+    expect(source.confirmFor?.('occurred_at', '2026-09-01T14:22:41+09:00')?.text).toContain(
+      '2026-09-01 14:22',
+    )
+    expect(source.confirmFor?.('occurred_at', '2026-09-01')?.text).toContain('2026-09-01')
+  })
+
+  it('계좌 토큰은 그대로 — 원문은 브라우저만 안다', () => {
+    expect(source.confirmFor?.('counterpart_account', '[계좌-1]')?.text).toContain('[계좌-1]')
+  })
+
+  it('되묻지 않는 슬롯은 문구가 없다', () => {
+    expect(source.confirmFor?.('org_name', '국민은행')).toBeUndefined()
+    expect(source.confirmFor?.('transferred', 'true')).toBeUndefined()
+  })
+})

@@ -31,7 +31,7 @@ import { channelForOption } from '@/lib/questions'
 import { matchOrg } from '@/lib/org-match'
 
 import { readIssuedLedger } from '@/modules/pii-tokenizer'
-import { tierOf, valueTypeOf } from '@/modules/slot-checker'
+import { CONFIRMABLE_KEYS, CONFIRM_NO, CONFIRM_YES, tierOf, valueTypeOf } from '@/modules/slot-checker'
 
 import { readCasePlan, regeneratePlan } from './regenerate-plan'
 
@@ -95,6 +95,63 @@ export async function answerSlot(
   const raw = input.value
   if (typeof raw !== 'string' || raw.trim().length === 0) {
     throw new BadRequestError('value 가 없습니다', { param: 'value' })
+  }
+
+  // ── 증거에서 뽑힌 값의 되묻기 답 — 「맞아요」·「아니에요」 (ADR-069) ────────
+  //
+  // 슬롯 체커가 `extracted` 값을 버튼으로 되물었고(`CONFIRMABLE_KEYS`), 그 답이 왔습니다.
+  // **토큰화보다 앞에 있어야 합니다** — 아래 일반 경로로 흘리면 「맞아요」라는 글자가
+  // 금액 슬롯의 값이 됩니다. 버튼 밖의 글(사용자가 직접 적은 값)은 그대로 아래로 흘러
+  // 뽑힌 값을 갈아끼웁니다 — 고치는 길을 막지 않습니다
+  if (input.action === 'answer' && (CONFIRMABLE_KEYS as readonly string[]).includes(input.slotKey)) {
+    const held = (await container.slots.read(input.caseId)).find(
+      (one) => one.slotKey === input.slotKey,
+    )
+    if (held && held.state === 'extracted' && held.valueMasked !== null) {
+      const answer = raw.trim()
+      if (answer === CONFIRM_YES) {
+        // 값은 그대로, 상태만 닫습니다. `source` 는 `auto` 로 둡니다 — 기한 계산이
+        // 「증거에서 온 날짜」를 확정으로 보는 근거가 이 칸입니다(`compute-deadlines.ts`)
+        await container.slotWrite.write({
+          caseId: input.caseId,
+          slotKey: input.slotKey,
+          tier,
+          valueType,
+          state: 'confirmed',
+          valueMasked: held.valueMasked,
+          source: 'auto',
+          sourceRef: held.sourceRef ?? null,
+          confidence: held.confidence ?? null,
+        })
+        return {
+          slotKey: input.slotKey,
+          state: 'confirmed',
+          value: held.valueMasked,
+          piiConfirm: null,
+          planRegenerated: true,
+        }
+      }
+      if (answer === CONFIRM_NO) {
+        // 비웁니다. 그러면 슬롯 체커가 **그 문항을 원래 형식으로** 다시 냅니다 —
+        // 뽑힌 값을 두고 다시 물으면 같은 되묻기가 되풀이됩니다
+        await container.slotWrite.write({
+          caseId: input.caseId,
+          slotKey: input.slotKey,
+          tier,
+          valueType,
+          state: 'empty',
+          valueMasked: null,
+          source: 'user',
+        })
+        return {
+          slotKey: input.slotKey,
+          state: 'empty',
+          value: null,
+          piiConfirm: null,
+          planRegenerated: false,
+        }
+      }
+    }
   }
 
   // ── 경계 ───────────────────────────────────────────────────────────

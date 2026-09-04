@@ -121,6 +121,26 @@ const ASK_ORDER: readonly AskStep[] = [
  */
 const UNKNOWN_OPTION = '모름·기억 안 남'
 
+/**
+ * 증거에서 뽑힌 값을 **한 번의 탭으로 확인**받는 슬롯 → ADR-069.
+ *
+ * `extracted` 는 「LLM 이 뽑았고 확인 전 — 묻는 것은 『이 값이 맞나요』」(types.ts)인데,
+ * 2026-09-04 까지 그 되묻기는 `org_name` 하나뿐이었고 나머지는 확인 없이 채워진 것으로
+ * 셌습니다. 아래 다섯은 서류에 적히거나(금액·계좌) 기한의 기산점이 되는(시각) 값이라
+ * 모델이 뽑은 채로 두지 않습니다. `org_name` 은 사전 선택지로 되묻는 기존 길이 있어 여기 없습니다.
+ */
+export const CONFIRMABLE_KEYS: readonly SlotKey[] = [
+  'amount',
+  'occurred_at',
+  'counterpart_account',
+  'impersonated_org',
+  'contact_method',
+]
+
+/** 되묻기의 두 선택지. **글자가 곧 계약입니다** — `flows/answer-slot.ts` 가 이 글자로 가릅니다 */
+export const CONFIRM_YES = '맞아요'
+export const CONFIRM_NO = '아니에요, 다시 적을게요'
+
 export function createSlotChecker(deps: {
   questions: QuestionSource
 }): SlotChecker {
@@ -132,6 +152,8 @@ export function createSlotChecker(deps: {
 
       // 목록에 없는 슬롯은 empty 로 본다. 사건을 막 만든 직후가 그 상태다
       const stateOf = (key: SlotKey): SlotState => known.get(key) ?? 'empty'
+      const values = new Map(input.slots.map((one) => [one.slotKey, one.valueMasked ?? null]))
+      const valueOf = (key: SlotKey): string | null => values.get(key) ?? null
 
       const t1 = tierStatus(T1_KEYS, stateOf)
       const t2 = tierStatus(T2_KEYS, stateOf)
@@ -139,7 +161,7 @@ export function createSlotChecker(deps: {
       return {
         t1,
         t2,
-        nextQuestion: pickQuestion(stateOf, questions, input.orgCandidates ?? []),
+        nextQuestion: pickQuestion(stateOf, valueOf, questions, input.orgCandidates ?? []),
         // 「모름」으로 확정된 경우도 여기 포함된다.
         // 낫게 안내하지 못할 바에 넓게 안내한다 → 08-14-slot-tiering.md
         needsSupersetPlan: t1 !== 'satisfied',
@@ -180,9 +202,19 @@ function tierStatus(
  */
 function pickQuestion(
   stateOf: (key: SlotKey) => SlotState,
+  valueOf: (key: SlotKey) => string | null,
   questions: QuestionSource,
   orgCandidates: readonly string[],
 ): NextQuestion | null {
+  // 증거에서 뽑힌 값의 되묻기 — 「이 값이 맞나요」(ADR-069). 문구 소스가 그 문구를
+  // 못 주면(구현 전) 되묻지 않고 채워진 것으로만 센다 — 사용자를 막지 않는다
+  const confirmOf = (slotKey: SlotKey): NextQuestion | null => {
+    if (stateOf(slotKey) !== 'extracted' || !CONFIRMABLE_KEYS.includes(slotKey)) return null
+    const value = valueOf(slotKey)
+    if (value === null || !questions.confirmFor) return null
+    const form = questions.confirmFor(slotKey, value)
+    return form ? withUnknownOption({ slotKey, ...form }) : null
+  }
   // **확정되지 않은 기관은 다시 묻는다** → 08-16-data-model.md §11.4.4 ①
   // *"못 찾으면 되묻는 편이 안전합니다"*.
   //
@@ -216,6 +248,10 @@ function pickQuestion(
   }
 
   for (const { slotKey, askWhen } of ASK_ORDER) {
+    // 증거에서 뽑힌 값은 **그 자리에서** 되묻는다 — 문진 순서 그대로, 한 번의 탭으로
+    const confirm = confirmOf(slotKey)
+    if (confirm) return confirm
+
     // 질문 대상은 empty 뿐이다. 추출됐거나 「모름」으로 답한 것은 다시 묻지 않는다
     if (stateOf(slotKey) !== 'empty') continue
 
@@ -227,6 +263,12 @@ function pickQuestion(
     if (!form) continue
 
     return withUnknownOption({ slotKey, ...form })
+  }
+
+  // 문진 순서에 없는 슬롯(상대 계좌 등)은 물어서 채우는 값이 아니지만, **뽑혔으면 확인은 받는다**
+  for (const slotKey of CONFIRMABLE_KEYS) {
+    const confirm = confirmOf(slotKey)
+    if (confirm) return confirm
   }
 
   return null
