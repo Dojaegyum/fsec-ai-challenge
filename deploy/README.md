@@ -42,6 +42,16 @@ Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으�
 (공개 저장소라 넣으면 안 됩니다 → [ADR-059](../decisions/059-public-repo-secrets-out.md)).
 로컬 값은 소유자에게 직접 받습니다. Hobby 팀이라 팀원은 `vercel env pull` 을 못 씁니다.
 
+**값을 넣는 길은 둘입니다** (2026-09-04).
+
+| 길 | 언제 | 어떻게 |
+| --- | --- | --- |
+| 로컬 `vercel` CLI | 소유자 기기 | 아래 §3 의 `printf … \| vercel env add NAME production --force` |
+| **`vercel-env` 워크플로** | 로컬에 CLI·토큰이 없을 때(팀원 · 에이전트 세션) | Actions 탭 → `vercel-env` → Run workflow. 넣을 값만 채웁니다. **빈 입력은 안 건드리고, 있는 것만 `--force` 로 덮어씁니다.** 열쇠(`MAILER_API_KEY`·`NER_TOKEN`)는 입력이 아니라 **저장소 시크릿**에서 읽습니다 — 입력은 실행 화면에 남기 때문입니다. 끝나면 `deploy` 를 다시 겁니다 |
+
+둘 다 같은 `--force` 덮어쓰기입니다(§3 「`rm` 하고 `add` 하지 마세요」). 워크플로는 `deploy` 와 같은
+`VERCEL_TOKEN` 시크릿을 씁니다.
+
 **반드시 있어야 하는 것**
 
 | 이름 | 없으면 |
@@ -155,6 +165,9 @@ vercel env ls production                     # 지금 무엇이 박혀 있나
 printf '2026.08.17' | vercel env add KB_VERSION production --force
 vercel deploy --prod                         # ⚠️ 환경변수는 다시 빌드해야 반영됩니다
 ```
+
+로컬에 CLI 가 없으면 **`vercel-env` 워크플로**의 `kb_version` 입력 하나로 같은 일이 됩니다(§1). 어느 쪽이든
+**적재(`kb:load`) → `KB_VERSION` → 재배포 → 배포본에서 그 유형을 한 번 걸어 보기**까지가 한 작업입니다.
 
 ⚠️ **`rm` 하고 `add` 하지 마세요.** 그 사이 몇 분 동안 값이 없어 **운영이 멈춥니다**
 — `pinnedKbVersion` 이 `unconfigured` 가 되어 `POST /api/cases` 가 응답하지 않습니다.

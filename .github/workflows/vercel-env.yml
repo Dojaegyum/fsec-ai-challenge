@@ -1,0 +1,139 @@
+name: vercel-env
+
+# 배포 환경변수를 **손으로 `vercel env add` 하는 것과 같은 일**을 Actions 가 대신합니다.
+# 사람이 로컬에 `vercel` CLI 와 토큰이 없을 때(Hobby 팀은 팀원이 `vercel env pull` 도 못 씀 —
+# deploy/README.md §1) 쓰는 길입니다. 토큰은 `deploy` 와 같은 `VERCEL_TOKEN` 시크릿입니다.
+#
+#   Actions 탭 → vercel-env → Run workflow → 넣을 값만 채우고 나머지는 비워 둡니다.
+#
+# **빈 입력은 건드리지 않습니다.** 값이 있는 것만 `--force` 로 **덮어씁니다** — `rm` 뒤 `add` 가
+# 아닙니다. 그 사이 값이 비면 운영이 멈춥니다(2026-08-26 `KB_VERSION` 장애 · deploy/README.md §3).
+#
+# **비밀값은 입력으로 받지 않습니다.** 입력은 실행 화면에 그대로 남습니다. 열쇠는 저장소 시크릿에
+# 두고(`MAILER_API_KEY` · `NER_TOKEN`) 켜기 스위치만 입력으로 받습니다. 요약에도 이름만 적습니다.
+#
+# 끝나면 `deploy` 를 다시 겁니다 — **환경변수는 다시 빌드해야 반영됩니다**(ADR-053).
+#
+# 근거: deploy/README.md 「1. 환경변수」·「3. 매뉴얼」·「2차 탐지를 켜려면」 · ADR-045 · ADR-053 · ADR-059
+on:
+  workflow_dispatch:
+    inputs:
+      kb_version:
+        description: "KB_VERSION — 적재해 둔 KB 릴리스(예: 2026.09.2). 비우면 안 건드림"
+        required: false
+        default: ""
+      app_origin:
+        description: "APP_ORIGIN — 메일 안 링크의 앞부분(예: https://fin-ally-khaki.vercel.app)"
+        required: false
+        default: ""
+      mailer_from:
+        description: "MAILER_FROM — Brevo 에서 인증된 발신 주소"
+        required: false
+        default: ""
+      set_mailer_key:
+        description: "MAILER_API_KEY 를 저장소 시크릿 MAILER_API_KEY 에서 넣는다"
+        type: boolean
+        default: false
+      ner_url:
+        description: "NER_URL — 2차 탐지 서버 주소. 비우면 안 건드림"
+        required: false
+        default: ""
+      ner_timeout_ms:
+        description: "NER_TIMEOUT_MS — CPU 서버면 25000 (deploy/README)"
+        required: false
+        default: ""
+      set_ner_token:
+        description: "NER_TOKEN 을 저장소 시크릿 NER_TOKEN 에서 넣는다"
+        type: boolean
+        default: false
+      redeploy:
+        description: "끝나면 deploy 워크플로를 건다"
+        type: boolean
+        default: true
+
+concurrency:
+  group: vercel-env
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: 시크릿이 있는지
+        run: |
+          missing=""
+          [ -n "$VERCEL_TOKEN" ]      || missing="$missing VERCEL_TOKEN"
+          [ -n "$VERCEL_ORG_ID" ]     || missing="$missing VERCEL_ORG_ID"
+          [ -n "$VERCEL_PROJECT_ID" ] || missing="$missing VERCEL_PROJECT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::시크릿이 없습니다:$missing — deploy/README.md 「올리는 방법」"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # 값은 stdin 으로 넣습니다 — 인자로 넣으면 프로세스 목록에 남습니다.
+      # `printf '%s'` 라 끝에 줄바꿈이 안 붙습니다. `KB_VERSION` 에 줄바꿈이 붙으면 어느 릴리스와도
+      # 안 맞아 안내를 아예 안 만듭니다(ADR-045).
+      - name: 값이 있는 것만 덮어쓰기
+        env:
+          IN_KB_VERSION: ${{ inputs.kb_version }}
+          IN_APP_ORIGIN: ${{ inputs.app_origin }}
+          IN_MAILER_FROM: ${{ inputs.mailer_from }}
+          IN_NER_URL: ${{ inputs.ner_url }}
+          IN_NER_TIMEOUT_MS: ${{ inputs.ner_timeout_ms }}
+          SET_MAILER_KEY: ${{ inputs.set_mailer_key }}
+          SET_NER_TOKEN: ${{ inputs.set_ner_token }}
+          SECRET_MAILER_API_KEY: ${{ secrets.MAILER_API_KEY }}
+          SECRET_NER_TOKEN: ${{ secrets.NER_TOKEN }}
+        run: |
+          set -u
+          done_names=""
+          put() {  # put NAME VALUE
+            if [ -z "$2" ]; then return 0; fi
+            printf '%s' "$2" | npx --yes vercel@59 env add "$1" production --force --token "$VERCEL_TOKEN" >/dev/null
+            echo "  ✓ $1"
+            done_names="$done_names $1"
+          }
+          put KB_VERSION     "$IN_KB_VERSION"
+          put APP_ORIGIN     "$IN_APP_ORIGIN"
+          put MAILER_FROM    "$IN_MAILER_FROM"
+          put NER_URL        "$IN_NER_URL"
+          put NER_TIMEOUT_MS "$IN_NER_TIMEOUT_MS"
+          if [ "$SET_MAILER_KEY" = "true" ]; then
+            if [ -z "$SECRET_MAILER_API_KEY" ]; then echo "::error::저장소 시크릿 MAILER_API_KEY 가 없습니다"; exit 1; fi
+            put MAILER_API_KEY "$SECRET_MAILER_API_KEY"
+          fi
+          if [ "$SET_NER_TOKEN" = "true" ]; then
+            if [ -z "$SECRET_NER_TOKEN" ]; then echo "::error::저장소 시크릿 NER_TOKEN 이 없습니다"; exit 1; fi
+            put NER_TOKEN "$SECRET_NER_TOKEN"
+          fi
+          if [ -z "$done_names" ]; then
+            echo "::warning::넣을 값이 하나도 없었습니다 — 입력을 전부 비운 채 돌렸습니다"
+          fi
+          {
+            echo "### 배포 환경변수 갱신"
+            echo
+            echo "- 덮어쓴 이름:${done_names:- (없음)}"
+            echo "- 값은 여기 적지 않습니다. 반영은 다음 배포부터입니다"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # 환경변수는 빌드에 구워지므로 다시 올려야 합니다. `deploy` 는 그 순간 `main` 끝을 올립니다.
+      - name: deploy 다시 걸기
+        if: ${{ inputs.redeploy }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run deploy --ref main -R "$GITHUB_REPOSITORY"
+          echo "- \`deploy\` 를 걸었습니다 — Actions 탭에서 그 실행과 뒤따르는 \`smoke\` 를 보세요" >> "$GITHUB_STEP_SUMMARY"
