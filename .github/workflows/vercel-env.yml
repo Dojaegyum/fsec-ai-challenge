@@ -83,6 +83,14 @@ jobs:
         with:
           node-version: "22"
 
+      # `vercel env add` 는 `deploy` 와 달리 **연결된 프로젝트**를 요구합니다 — 환경변수
+      # `VERCEL_ORG_ID`·`VERCEL_PROJECT_ID` 만으로는 "Could not retrieve Project Settings" 로
+      # 멈춥니다(2026-09-04 첫 실행). `vercel link` 가 만드는 파일을 같은 값으로 미리 씁니다.
+      - name: 프로젝트 연결 파일
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
       # 값은 stdin 으로 넣습니다 — 인자로 넣으면 프로세스 목록에 남습니다.
       # `printf '%s'` 라 끝에 줄바꿈이 안 붙습니다. `KB_VERSION` 에 줄바꿈이 붙으면 어느 릴리스와도
       # 안 맞아 안내를 아예 안 만듭니다(ADR-045).
