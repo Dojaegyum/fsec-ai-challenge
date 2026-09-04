@@ -182,7 +182,7 @@ vercel deploy --prod                         # ⚠️ 환경변수는 다시 빌
 | **매뉴얼 릴리스** | **`2026.09.2`** — 절차 32건(통장묶기 `frozen-account.json` 둘 포함 · [ADR-066](../decisions/066-track-fixed-new-case.md)) · 기관 51곳(신고 전화 49곳) · 공공기관 5곳. 2026-09-04 에 `vercel-env` 워크플로로 `KB_VERSION` 을 올렸습니다 |
 | 코드 | `main` (배포는 머지가 곧 배포 → ADR-053) |
 | **메일 발송** | **켜졌고, 배포본에서 실제로 나갔습니다** (2026-09-04) — Brevo. `MAILER_API_KEY`(저장소 시크릿에서) · `MAILER_FROM` · `APP_ORIGIN` 을 `vercel-env` 로 넣었습니다. 첫 시도는 `failed: 1` 이었는데 Brevo 「Authorised IPs」 제한이 Vercel 발신 IP(`3.34.130.187` · AWS)를 막은 것이었고, **API keys 쪽 차단을 끈 뒤 크론이 `sent: 1`** 로 확정 기한 알림을 보냈습니다. ⚠️ 그 제한을 다시 켜면 발송이 조용히 `failed` 로 돌아갑니다 |
-| `NER_URL` | **비어 있습니다.** 서버 쪽은 2026-08-31 에 준비됐고, **켜는 것은 사람 결정**입니다 → 아래. 시연 때는 RunPod(GPU) 에 올리기로(2026-09-04) — 켜는 값 셋은 `vercel-env` 워크플로의 `ner_url`·`ner_timeout_ms`·`set_ner_token` |
+| `NER_URL` | **비어 있습니다.** 서버 쪽은 2026-08-31 에 준비됐고, **켜는 것은 사람 결정**입니다 → 아래. 시연 때는 RunPod(GPU) 에 올리기로(2026-09-04) — 켜는 값 셋은 `vercel-env` 워크플로의 `ner_url`·`ner_timeout_ms`·`set_ner_token`. 그날의 순서는 [`runpod-bench.md` 「시연 당일 순서」](runpod-bench.md) |
 | **시연 칩** | **켜져 있습니다** — `NEXT_PUBLIC_DEMO_MOCK=1` (2026-09-04). 시작 화면에 「Mock 파일로 실행」이 주소 없이 보입니다 → 아래 「시연 칩」 |
 
 ### 2차 탐지(이름 가리기)를 켜려면 — 2026-08-31
@@ -195,7 +195,9 @@ POST /ner  "김도현 수사관이라는 사람이…"  →  200  [{"label":"PER
                                                  「국민은행」은 사람으로 안 잡힘
 ```
 
-**남은 것은 Vercel 환경변수 셋뿐입니다.**
+**남은 것은 Vercel 환경변수 셋뿐입니다.** Actions → `vercel-env` 로 넣습니다 —
+`ner_url` · `set_ner_token` ✓ · `ner_timeout_ms`(CPU 서버면 `25000`) · `redeploy` ✓.
+CLI 로 하면 아래와 같은 일입니다.
 
 ```bash
 printf '<TRANSCRIBER_URL 과 같은 주소>' | vercel env add NER_URL production --force
@@ -204,13 +206,17 @@ printf '25000'                          | vercel env add NER_TIMEOUT_MS producti
 vercel deploy --prod                    # 환경변수는 다시 빌드해야 반영됩니다
 ```
 
+**시연 때는 RunPod(GPU) 한 팟에 STT·OCR 과 함께 올립니다** — 그날의 명령 여섯 개는
+[`runpod-bench.md` 「시연 당일 순서」](runpod-bench.md)에. 그때는 `ner_timeout_ms` 를 비웁니다(GPU 기준 12초).
+
 ⛔ **`NER_TIMEOUT_MS` 를 빼지 마세요.** 기본값 12초는 GPU 기준이고, 지금 서버는
 CPU 라 **한 발화에 10.7~12.3초**입니다 ([09 §7.3](../docs/research/09-로컬모델-PII인식-실측.md)).
 그냥 켜면 절반쯤이 503 이고, 그건 **사건 진행이 멈춘다**는 뜻입니다.
 
 ⚠️ **켜면 그 서버가 살아 있어야 합니다.** STT·OCR 과 다릅니다 — 그쪽은 파일만
 안 되고 절차는 나가는데, 이쪽은 **경계**라 못 가리면 챗·슬롯·부산물 쓰기가 전부
-멈춥니다. 되돌리려면 `vercel env rm NER_URL production` 후 다시 배포하면 됩니다.
+멈춥니다. 되돌리려면 `vercel-env` 의 `clear_ner` ✓ + `redeploy` ✓ (CLI 로는 `vercel env rm NER_URL production` 후 다시 배포).
+**서버를 지우기 전에** 하세요.
 
 **한 발화가 10초 더 걸리는 것이 시연에서 감당되는지가 판단할 점입니다.**
 GPU(RunPod)에 올리면 0.28초입니다 → [ADR-043](../decisions/043-gpu-hosting.md) ·

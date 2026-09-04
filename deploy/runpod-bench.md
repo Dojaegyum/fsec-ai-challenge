@@ -111,6 +111,32 @@ curl -s localhost:8917/health         # "ready": true
 같은 이유로 `nohup … &` 만으로는 ssh 가 끊길 때 함께 죽는 경우가 있습니다 —
 `setsid nohup … < /dev/null &` 로 떼어 두세요.
 
+## 시연 당일 순서 — 스크립트로 (2026-09-04)
+
+위 손 순서를 [`runpod-pod.py`](runpod-pod.py)(밖에서)와 [`runpod-provision.sh`](runpod-provision.sh)(팟 안에서)로
+옮겼습니다. STT·OCR·이름 찾기 셋이 **한 팟**에 오릅니다 — 앱의 `TRANSCRIBER_URL` 과 `NER_URL` 이
+같은 주소가 됩니다. ⚠️ 이 스크립트는 2026-09-04 에 **팟을 띄우지 않고** 만든 것입니다(`list` 만
+실제로 걸어 봤습니다). 첫 실제 실행에서 어긋나는 자리가 나오면 여기 적으세요.
+
+시간당 **$0.74**(SECURE 4090)가 **① 부터** 갑니다. 리허설까지 두 시간이면 $1.5 쯤입니다.
+
+| | 명령 | 무엇을 · 얼마나 |
+| --- | --- | --- |
+| ① | `python deploy/runpod-pod.py up` | 팟 생성. id 는 `deploy/.runpod-pod.json`(추적 안 함)에 |
+| ② | `python deploy/runpod-pod.py status` | 2~3분 뒤. **CUDA ≥ 12.8 · 22/tcp** 두 함정을 판정합니다 — 경고가 나오면 `down` 뒤 ① |
+| ③ | `python deploy/runpod-pod.py provision` | 꾸러미를 올리고 팟 안에서 Ollama · `gemma3:4b` · ffmpeg · pip · uvicorn(`FINALLY_WARMUP=1` · large-v3 · VAD — ADR-052). 10분쯤 |
+| ④ | `python deploy/runpod-pod.py health` | 바깥 주소 `/health` 가 `"ready": true` 가 될 때까지 기다립니다 |
+| ⑤ | Actions → `vercel-env` | `transcriber_url` = `ner_url` = `https://<팟ID>-8917.proxy.runpod.net` · `set_ner_token` ✓ · `ner_timeout_ms` 는 **비움**(GPU 기준 12초가 기본) · `redeploy` ✓ — 끝나면 `deploy` 와 `smoke` 가 돕니다 |
+| ⑥ | 시연 뒤 | Actions → `vercel-env`: `clear_ner` ✓ · `transcriber_url` = 상시 서버(`https://141-148-13-6.sslip.io`) · `redeploy` ✓. **그 다음** `python deploy/runpod-pod.py down` |
+
+**⑥ 의 순서가 중요합니다.** 팟을 먼저 지우면 배포본이 죽은 주소를 부르고, 2차 탐지는 경계라
+**사건 진행이 멈춥니다**(deploy/README.md 「2차 탐지를 켜려면」). ⑤·⑥ 의 `redeploy` 는 각각
+5분쯤이라 시연 **30분 전**에 ① 을 시작하면 됩니다.
+
+세 토큰은 같은 값입니다 — 앱의 `TRANSCRIBER_TOKEN`, 저장소 시크릿 `NER_TOKEN`, 팟의
+`FINALLY_TOKEN`. `provision` 이 `src/.env.local` 의 `TRANSCRIBER_TOKEN` 을 stdin 으로 올립니다
+(명령줄에 안 실립니다). `down` 은 terminate 라 **볼륨도 함께 사라집니다** — 남길 것은 없습니다.
+
 ## 무엇을 올려도 되나
 
 **합성 데이터만.** 실제 피해자의 음성·이미지는 올리지 않습니다 —

@@ -9,6 +9,8 @@ name: vercel-env
 #
 # **빈 입력은 건드리지 않습니다.** 값이 있는 것만 `--force` 로 **덮어씁니다** — `rm` 뒤 `add` 가
 # 아닙니다. 그 사이 값이 비면 운영이 멈춥니다(2026-08-26 `KB_VERSION` 장애 · deploy/README.md §3).
+# 유일한 「지우기」는 `clear_ner` — 시연 팟을 terminate 하기 **전에** 2차 탐지를 끄는 스위치입니다
+# (deploy/runpod-bench.md 「시연 당일 순서」 ⑥). 그쪽은 비어 있는 것이 정상인 값이라 지워도 안 멈춥니다.
 #
 # **비밀값은 입력으로 받지 않습니다.** 입력은 실행 화면에 그대로 남습니다. 열쇠는 저장소 시크릿에
 # 두고(`MAILER_API_KEY` · `NER_TOKEN`) 켜기 스위치만 입력으로 받습니다. 요약에도 이름만 적습니다.
@@ -36,6 +38,10 @@ on:
         description: "MAILER_API_KEY 를 저장소 시크릿 MAILER_API_KEY 에서 넣는다"
         type: boolean
         default: false
+      transcriber_url:
+        description: "TRANSCRIBER_URL — 전사·판독 서버 주소. 시연 팟이면 ner_url 과 같은 값, 끝나면 상시 서버로 되돌림 (runpod-bench.md 「시연 당일 순서」)"
+        required: false
+        default: ""
       ner_url:
         description: "NER_URL — 2차 탐지 서버 주소. 비우면 안 건드림"
         required: false
@@ -46,6 +52,10 @@ on:
         default: ""
       set_ner_token:
         description: "NER_TOKEN 을 저장소 시크릿 NER_TOKEN 에서 넣는다"
+        type: boolean
+        default: false
+      clear_ner:
+        description: "2차 탐지를 끈다 — NER_URL·NER_TIMEOUT_MS 를 지운다 (시연 팟을 terminate 하기 전에). NER_TOKEN 은 남긴다"
         type: boolean
         default: false
       demo_mock:
@@ -94,18 +104,20 @@ jobs:
           IN_KB_VERSION: ${{ inputs.kb_version }}
           IN_APP_ORIGIN: ${{ inputs.app_origin }}
           IN_MAILER_FROM: ${{ inputs.mailer_from }}
+          IN_TRANSCRIBER_URL: ${{ inputs.transcriber_url }}
           IN_NER_URL: ${{ inputs.ner_url }}
           IN_NER_TIMEOUT_MS: ${{ inputs.ner_timeout_ms }}
           IN_DEMO_MOCK: ${{ inputs.demo_mock }}
           SET_MAILER_KEY: ${{ inputs.set_mailer_key }}
           SET_NER_TOKEN: ${{ inputs.set_ner_token }}
+          CLEAR_NER: ${{ inputs.clear_ner }}
           SECRET_MAILER_API_KEY: ${{ secrets.MAILER_API_KEY }}
           SECRET_NER_TOKEN: ${{ secrets.NER_TOKEN }}
         run: |
           set -u
           done_names=""
           # 팀 프로젝트면 teamId 를 붙입니다. 개인 계정(`user_…`)이면 붙이지 않습니다
-          case "$VERCEL_ORG_ID" in team_*) team="?teamId=$VERCEL_ORG_ID&upsert=true" ;; *) team="?upsert=true" ;; esac
+          case "$VERCEL_ORG_ID" in team_*) team="?teamId=$VERCEL_ORG_ID&upsert=true"; teamq="?teamId=$VERCEL_ORG_ID" ;; *) team="?upsert=true"; teamq="" ;; esac
           put() {  # put NAME VALUE
             if [ -z "$2" ]; then return 0; fi
             body=$(jq -cn --arg k "$1" --arg v "$2" '[{key:$k, value:$v, type:"encrypted", target:["production"]}]')
@@ -124,6 +136,7 @@ jobs:
           put KB_VERSION     "$IN_KB_VERSION"
           put APP_ORIGIN     "$IN_APP_ORIGIN"
           put MAILER_FROM    "$IN_MAILER_FROM"
+          put TRANSCRIBER_URL "$IN_TRANSCRIBER_URL"
           put NER_URL        "$IN_NER_URL"
           put NER_TIMEOUT_MS "$IN_NER_TIMEOUT_MS"
           put NEXT_PUBLIC_DEMO_MOCK "$IN_DEMO_MOCK"
@@ -135,13 +148,29 @@ jobs:
             if [ -z "$SECRET_NER_TOKEN" ]; then echo "::error::저장소 시크릿 NER_TOKEN 이 없습니다"; exit 1; fi
             put NER_TOKEN "$SECRET_NER_TOKEN"
           fi
+          # 끄기 — 이름으로 id 를 찾아 지웁니다. 지운 뒤 다시 빌드해야 배포본이 그 주소를 안 부릅니다.
+          # NER_TOKEN 은 남깁니다 — 비밀값이라 다시 넣는 쪽이 더 번거롭고, URL 이 없으면 안 쓰입니다
+          if [ "$CLEAR_NER" = "true" ]; then
+            if [ -n "$IN_NER_URL" ]; then echo "::error::clear_ner 와 ner_url 을 함께 줬습니다 — 하나만"; exit 1; fi
+            list=$(curl -sS "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env$teamq" -H "Authorization: Bearer $VERCEL_TOKEN")
+            for name in NER_URL NER_TIMEOUT_MS; do
+              for id in $(echo "$list" | jq -r --arg n "$name" '.envs[] | select(.key==$n) | .id'); do
+                code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+                  "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id$teamq" \
+                  -H "Authorization: Bearer $VERCEL_TOKEN")
+                if [ "$code" != "200" ]; then echo "::error::$name 삭제 — HTTP $code"; exit 1; fi
+                echo "  ✗ $name 지움"
+                done_names="$done_names -$name"
+              done
+            done
+          fi
           if [ -z "$done_names" ]; then
             echo "::warning::넣을 값이 하나도 없었습니다 — 입력을 전부 비운 채 돌렸습니다"
           fi
           {
             echo "### 배포 환경변수 갱신"
             echo
-            echo "- 덮어쓴 이름:${done_names:- (없음)}"
+            echo "- 덮어쓴 이름(앞에 - 는 지운 것):${done_names:- (없음)}"
             echo "- 값은 여기 적지 않습니다. 반영은 다음 배포부터입니다"
           } >> "$GITHUB_STEP_SUMMARY"
 

@@ -39,3 +39,6 @@ assets/datasets/08-26-org-dict/.dart-corp.zip
 
 # 시연용 합성 자료의 중간 산출물 — `make_mock.py` 가 다시 만듭니다
 assets/demo/*/raw/
+
+# 시연 팟의 id — deploy/runpod-pod.py 가 씁니다. 팟은 지워지면 끝이라 추적할 값이 아닙니다
+deploy/.runpod-pod.json
