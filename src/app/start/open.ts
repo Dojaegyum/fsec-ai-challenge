@@ -46,8 +46,9 @@ export type OpenResult =
  * 정한 「모름 → 보수적 슈퍼셋」입니다(slot-tiering) — 112·1332·추가 송금 금지는
  * 어느 갈래여도 틀리지 않습니다.
  *
- * **그래도 위험은 남습니다** — 통장묶기는 절차가 완전히 다르고, `track` 을
- * 나중에 고치는 경로가 없습니다 → ADR-060 「남은 것」 · QA 계획 Task 9 ④.
+ * **고른 뒤에는 바꾸지 않습니다** (ADR-066). 통장묶기는 절차가 완전히 달라 같은
+ * 사건 안에서 트랙을 갈아끼우면 옛 단계가 남습니다(재생성은 step_key 병합) —
+ * 명의인이었다면 새 사건으로 다시 엽니다. `frozen_account` 의 KB 는 2026-09-04 에 생겼습니다.
  */
 export function trackOf(pick: number): Track {
   return pick === 1 ? "frozen_account" : "victim";

@@ -441,12 +441,69 @@ describe('⚠️ 유형 파일도 함께 실린다', () => {
       read('ch-easypay.json'),
       read('ch-carrier.json'),
       read('ch-giftcard.json'),
+      read('ch-bank.json'),
+      read('ch-neobank.json'),
+      read('frozen-account.json'),
     ] as KbFile[],
     OPTS,
   )
 
   it('폴더 전부가 검증을 통과한다', () => {
     expect(plan.problems).toEqual([])
+  })
+
+  /**
+   * **첫 화면의 첫 선택지가 빈 플랜을 열고 있었습니다** → ADR-066 · ADR-060 「남은 것」 ③.
+   *
+   * `track` 은 KB 조회축이라(§11.2) 그 값의 행이 0건이면 `planner.build` 가
+   * 빈 `applied` 에 침묵하고 사용자는 빈 화면을 봅니다. 아홉 파일이 전부
+   * `victim` 이던 2026-09-03 까지의 상태입니다.
+   */
+  describe('통장묶기 트랙이 빈 플랜을 열지 않는다', () => {
+    const mine = plan.rows.filter((r) => r.track === 'frozen_account')
+
+    it('frozen_account 행이 있다', () => {
+      expect(mine.map((r) => r.step_key)).toEqual(['objection-file', 'objection-result'])
+    })
+
+    it('결과 통보는 사용자 할 일로 그려지지 않는다', () => {
+      // 통보는 금융회사가 합니다(법 제7조제2항). victim 으로 두면 화면이
+      // 「당신이 해야 할 것」으로 그립니다
+      expect(mine.find((r) => r.step_key === 'objection-result')?.body.actor).toBe('bank')
+    })
+
+    it('이의제기 창은 사용자 기한이고 기산점은 공고일이다 — 법 제7조제1항', () => {
+      const file = mine.find((r) => r.step_key === 'objection-file')
+      const deadline = file?.body.deadline as Record<string, unknown> | null
+      expect(deadline?.owner).toBe('user')
+      expect(deadline?.kind).toBe('months')
+      expect(deadline?.amount).toBe(2)
+      // 시작은 지급정지일이지만 **끝은 공고일 + 2개월**입니다 — 기산점이 공고일이어야 종기가 맞습니다
+      expect(deadline?.from).toBe('notice_started_at')
+    })
+
+    it('5영업일을 기한으로 싣지 않는다 — 보도로만 확인된 값이라 본문에만 둔다', () => {
+      // 금감원 원문과 시행일이 확인되면 owner: bank 의 info 로 올립니다 → research/05 U-12
+      expect(mine.find((r) => r.step_key === 'objection-result')?.body.deadline).toBeNull()
+    })
+
+    it('접수 확인은 올리면 완료가 되는 종류다 — `other` 면 다음 단계가 영영 안 열린다', () => {
+      // `other` 는 L3 라 unconfirmed 로 남습니다(completion-checker). 그러면
+      // `after: ['objection-file']` 인 결과 통보가 안 열리고 기산점도 안 섭니다
+      const artifact = mine.find((r) => r.step_key === 'objection-file')?.body.required_artifact as
+        | { kind: string }
+        | null
+      expect(artifact?.kind).toBe('receipt_doc')
+    })
+
+    it('「풀린다」고 말하지 않는다 — 불변 규칙 8', () => {
+      const said = mine
+        .flatMap((r) => [r.title, r.body.summary, r.body.caveat])
+        .filter((one): one is string => typeof one === 'string')
+      for (const line of said) {
+        expect(line).not.toMatch(/풀립니다|해제됩니다|풀어\s*드립니다/)
+      }
+    })
   })
 
   /**

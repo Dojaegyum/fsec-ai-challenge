@@ -61,6 +61,21 @@ describe('부산물이 기산점을 남긴다', () => {
     expect(arg.valueMasked).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
+  it('objection-file 이 끝나면 objection_submitted_at 을 채운다 — 통장묶기 (ADR-066)', async () => {
+    const { container, write } = containerWith([])
+
+    const filled = await anchorFromArtifact({
+      caseId: '01J8XKRB',
+      stepKey: 'objection-file',
+      container,
+    })
+
+    expect(filled).toBe('objection_submitted_at')
+    const [arg] = write.mock.calls[0] as unknown as [Record<string, unknown>]
+    expect(arg.slotKey).toBe('objection_submitted_at')
+    expect(arg.source).toBe('system')
+  })
+
   it('기산점을 안 남기는 단계는 아무것도 안 쓴다', async () => {
     for (const stepKey of ['report-112', 'freeze-request', 'relief-documents', 'crypto-status']) {
       const { container, write } = containerWith([])
