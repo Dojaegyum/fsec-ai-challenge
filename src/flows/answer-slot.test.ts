@@ -589,3 +589,91 @@ describe('되묻기 뒤 「맞아요」(mask) — 서버가 가린 값으로 확
     expect(JSON.stringify([got, one.slotWrites, one.channelWrites])).not.toContain(ACCOUNT)
   })
 })
+
+/**
+ * 증거에서 뽑힌 값의 되묻기 답 — ADR-069.
+ *
+ * 「맞아요」는 값을 그대로 두고 상태만 닫고, 「아니에요」는 비워서 원래 문항이 다시 나오게 한다.
+ * **토큰화보다 앞에서** 가려야 한다 — 아니면 「맞아요」가 금액이 된다.
+ */
+describe('뽑힌 값의 되묻기 답 — ADR-069', () => {
+  function extractedHarness(slotKey: SlotKey, valueMasked: string) {
+    const one = harness({ slots: TRANSFERRED })
+    ;(one.container as unknown as Record<string, unknown>).slots = {
+      read: async () => [
+        {
+          slotKey,
+          tier: 'T2',
+          state: 'extracted',
+          valueMasked,
+          valueType: 'decimal',
+          source: 'auto',
+          confidence: 0.9,
+          sourceRef: EVIDENCE_REF,
+        },
+      ],
+    }
+    return one
+  }
+  const EVIDENCE_REF = '01J8XKQZ3M7N2P4R6T8V0W2Y4B'
+
+  it('「맞아요」 — 값은 그대로, confirmed 로, 출처는 auto 그대로', async () => {
+    const one = extractedHarness('amount', '32000000')
+
+    const got = await answerSlot(
+      { caseId: CASE_ID, slotKey: 'amount', action: 'answer', value: '맞아요' },
+      one.container,
+    )
+
+    expect(got.state).toBe('confirmed')
+    expect(got.value).toBe('32000000')
+    expect(got.planRegenerated).toBe(true)
+    expect(one.slotWrites).toEqual([
+      expect.objectContaining({
+        slotKey: 'amount',
+        state: 'confirmed',
+        valueMasked: '32000000',
+        source: 'auto',
+        sourceRef: EVIDENCE_REF,
+      }),
+    ])
+  })
+
+  it('「아니에요」 — 비운다. 그러면 원래 문항이 다시 나온다', async () => {
+    const one = extractedHarness('amount', '32000000')
+
+    const got = await answerSlot(
+      { caseId: CASE_ID, slotKey: 'amount', action: 'answer', value: '아니에요, 다시 적을게요' },
+      one.container,
+    )
+
+    expect(got.state).toBe('empty')
+    expect(got.value).toBeNull()
+    expect(one.slotWrites).toEqual([
+      expect.objectContaining({ slotKey: 'amount', state: 'empty', valueMasked: null }),
+    ])
+  })
+
+  it('버튼 밖의 글은 일반 답이다 — 뽑힌 값을 갈아끼운다', async () => {
+    const one = extractedHarness('amount', '32000000')
+
+    const got = await answerSlot(
+      { caseId: CASE_ID, slotKey: 'amount', action: 'answer', value: '30000000' },
+      one.container,
+    )
+
+    expect(got.state).toBe('confirmed')
+    expect(got.value).toBe('30000000')
+  })
+
+  it('extracted 가 아닌 슬롯에 「맞아요」가 오면 그냥 글이다', async () => {
+    const one = harness({ slots: TRANSFERRED })
+
+    const got = await answerSlot(
+      { caseId: CASE_ID, slotKey: 'amount', action: 'answer', value: '맞아요' },
+      one.container,
+    )
+
+    expect(got.value).toBe('맞아요')
+  })
+})

@@ -412,3 +412,135 @@ describe('글로 올린 자료도 읽는다', () => {
     expect(got.status).toBe('failed')
   })
 })
+
+/**
+ * 증거에서 금액·시각·상대 계좌를 뽑는다 — ADR-069.
+ *
+ * `slot-extractor` 는 2026-09-04 까지 어느 흐름도 부르지 않았습니다. 이체 내역 캡처를 올려도
+ * 「얼마를 보내셨나요」를 그대로 물었습니다.
+ */
+describe('증거에서 값을 뽑아 확인 전으로 둔다 — ADR-069', () => {
+  const RECEIPT = [
+    lineOf('이체가 완료되었습니다'),
+    lineOf('받는 계좌 국민은행 110-234-567890'),
+    lineOf('보낸 계좌 국민은행 604702-01-338291'),
+    lineOf('거래일시 2026.09.01 14:22:41'),
+    lineOf('32,000,000원'),
+  ]
+
+  function extractHarness(base: {
+    readonly already?: readonly { slotKey: string; state: string; valueMasked: string | null }[]
+    readonly reply: (maskedText: string) => unknown
+  }) {
+    const wrote: { slotKey: string; state: string; valueMasked: string | null; source: string }[] = []
+    const one = harness({ lines: RECEIPT })
+    const container = one.container as unknown as Record<string, unknown>
+    ;(container.ports as Record<string, unknown>).llm = {
+      completeText: async (prompt: { system: string; user: string }) => {
+        // 기관 교정(`repairOrgs`)은 사전이 비어 모델을 안 부릅니다 — 여기 오는 것은 추출뿐
+        if (!prompt.system.includes('사실만 뽑아내는')) return { text: '' }
+        return { text: JSON.stringify(base.reply(prompt.user)) }
+      },
+    }
+    container.slots = { read: async () => base.already ?? [] }
+    container.slotWrite = {
+      write: async (input: (typeof wrote)[number]) => {
+        wrote.push(input)
+      },
+    }
+    return { container: one.container, wrote }
+  }
+
+  const collect = (container: Container) =>
+    collectReading(
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'image', objectKey: KEY, stored: null },
+      container,
+    )
+
+  it('모델이 본 것은 토큰뿐이고, 뽑힌 셋이 extracted 로 적힌다', async () => {
+    let seen = ''
+    const one = extractHarness({
+      reply: (user) => {
+        seen = user
+        return {
+          slots: [
+            { slot_key: 'amount', value: '32,000,000원', confidence: 0.95 },
+            { slot_key: 'occurred_at', value: '2026.09.01 14:22:41', confidence: 0.9 },
+            { slot_key: 'counterpart_account', value: '[계좌-1]', confidence: 0.9 },
+          ],
+        }
+      },
+    })
+
+    await collect(one.container)
+
+    expect(seen).not.toContain('110-234-567890')
+    expect(seen).toContain('[계좌-1]')
+    expect(seen).toContain('자료 종류')
+    expect(one.wrote).toEqual([
+      expect.objectContaining({ slotKey: 'amount', state: 'extracted', valueMasked: '32000000', source: 'auto' }),
+      expect.objectContaining({ slotKey: 'occurred_at', state: 'extracted', valueMasked: '2026-09-01T14:22:41+09:00' }),
+      expect.objectContaining({ slotKey: 'counterpart_account', state: 'extracted', valueMasked: '[계좌-1]' }),
+    ])
+  })
+
+  it('확신이 낮거나 · 모양이 안 맞거나 · 전사문에 없는 토큰이면 버린다', async () => {
+    const one = extractHarness({
+      reply: () => ({
+        slots: [
+          { slot_key: 'amount', value: '32,000,000원', confidence: 0.4 },
+          { slot_key: 'occurred_at', value: '어제 오후', confidence: 0.9 },
+          { slot_key: 'counterpart_account', value: '[계좌-9]', confidence: 0.9 },
+        ],
+      }),
+    })
+
+    await collect(one.container)
+
+    expect(one.wrote).toEqual([])
+  })
+
+  it('org_name 과 T1 은 여기서 안 받는다 — 기관은 사전 대조, 분기는 사람의 답', async () => {
+    const one = extractHarness({
+      reply: () => ({
+        slots: [
+          { slot_key: 'org_name', value: '국민은행', confidence: 0.99 },
+          { slot_key: 'transferred', value: 'true', confidence: 0.99 },
+          { slot_key: 'channel', value: 'CH-bank', confidence: 0.99 },
+        ],
+      }),
+    })
+
+    await collect(one.container)
+
+    expect(one.wrote).toEqual([])
+  })
+
+  it('사용자가 확정한 값은 덮지 않고, 「모름」은 채운다', async () => {
+    const one = extractHarness({
+      already: [
+        { slotKey: 'amount', state: 'confirmed', valueMasked: '30000000' },
+        { slotKey: 'occurred_at', state: 'unknown', valueMasked: null },
+      ],
+      reply: () => ({
+        slots: [
+          { slot_key: 'amount', value: '32,000,000원', confidence: 0.95 },
+          { slot_key: 'occurred_at', value: '2026.09.01', confidence: 0.9 },
+        ],
+      }),
+    })
+
+    await collect(one.container)
+
+    expect(one.wrote.map((w) => w.slotKey)).toEqual(['occurred_at'])
+  })
+
+  it('모델이 헛소리를 해도 전사 결과는 남는다', async () => {
+    const one = extractHarness({ reply: () => 'not json at all' })
+
+    const got = await collect(one.container)
+
+    expect(got.status).toBe('done')
+    expect(one.wrote).toEqual([])
+  })
+})

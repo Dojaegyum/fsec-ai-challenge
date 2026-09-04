@@ -62,6 +62,11 @@ export interface StoredSlot {
   readonly slotKey: SlotKey
   readonly tier: SlotTier
   readonly state: SlotState
+  /**
+   * 토큰화된 값. 슬롯 체커가 `extracted` 를 되물을 때 보여줄 값입니다(ADR-069).
+   * 플랜을 만드는 데는 상태만 필요해 오래 없던 칸이라 선택입니다
+   */
+  readonly valueMasked?: string | null
 }
 
 /**

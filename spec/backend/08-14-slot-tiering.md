@@ -19,10 +19,12 @@
 > - **T0 는 KB 항목이 아닙니다.** `src/kb/` 에 1332·추가 송금 금지·비행기모드 항목은 없고, 넷은
 >   브라우저의 상수입니다 — `src/app/c/[token]/safety.tsx` 의 `T0`(「KB 가 아니라 상수인 유일한 절차」).
 >   사건을 만들 때 §3.1 응답이 함께 실어 보냅니다([ADR-046](../../decisions/046-case-and-plan-together.md)).
-> - **「증거에서 자동 추출 우선」은 구현 전입니다.** `src/modules/slot-extractor/` 는 있지만 어느 흐름도
->   부르지 않습니다(`src/lib/questions.ts` 가 타입만 가져옵니다). `flows/read-evidence.ts` 의 `repairOrgs` 가
->   전사문의 **기관명 하나**만 사전 대조로 `extracted` 에 두고([ADR-056](../../decisions/056-transcript-org-normalization.md)),
->   금액·시각·연락수단은 전부 문진으로 옵니다.
+> - ~~**「증거에서 자동 추출 우선」은 구현 전입니다.**~~ → **배선됐습니다** (2026-09-04 ·
+>   [ADR-069](../../decisions/069-evidence-slot-extraction.md)). `flows/read-evidence.ts` 가 토큰화 뒤에
+>   기관명 사전 대조([ADR-056](../../decisions/056-transcript-org-normalization.md))에 이어 `slot-extractor` 를 불러
+>   **금액 · 시각 · 상대 계좌 · 사칭 기관 · 연락 수단** 다섯을 `extracted` 로 둡니다. 뽑힌 값은 문진 자리에서
+>   **한 번의 탭**(「맞아요」)으로 확인받고, 「아니에요」면 그 문항이 원래 형식으로 나옵니다. 값은 절대 표기만
+>   받습니다(`lib/extracted-value.ts` — 「어제」는 사람에게 묻습니다). T1 둘은 여전히 사람의 답으로만 옵니다.
 > - **슈퍼셋의 조건 라벨이 KB 에 하나도 없습니다.** `planner/plan.ts` 의 `supersetSteps` 는 `body.conditional`
 >   이 있는 단계만 넣게 되어 있는데, KB 32 항목이 전부 `"conditional": null` 이라 슈퍼셋 플랜에 다른 유형의
 >   조건부 단계가 하나도 붙지 않습니다. 라벨은 KB 가 씁니다 — 코드가 유형 이름으로 지어내면 절차 지식을
@@ -32,7 +34,7 @@
 
 ```
 인입(파일/텍스트/문진)
-  → 슬롯 자동 추출 (전사·OCR에서 LLM 추출)      ⬜ 구현 전 — 지금은 기관명 사전 대조만 (위 「구현 상태」)
+  → 슬롯 자동 추출 (전사·OCR에서 LLM 추출)      뽑힌 값은 `extracted` → 문진 자리에서 「맞아요」 한 탭 (ADR-069)
   → 슬롯 체커: T1 충족?
        ├ 미충족 → 우선순위 최상 슬롯 1개만 버튼 질문 ("모름" 포함)
        │            ├ 응답 → 다시 추출
@@ -81,8 +83,10 @@ T0 공통 안전 절차는 인입 즉시, 슬롯과 무관하게 실행 보드�
 
 ## TODO
 
-- ⬜ TODO(미정): 슬롯별 자동 추출 신뢰도 임계값 — 얼마나 확신해야 "질문 생략"인지. `slot-extractor` 는 확신도를
-  그대로 실어 보내고 거르지 않습니다(`src/modules/slot-extractor/README.md`) — 배선 전이라 아직 아무 값도 거르지 않습니다.
+- ~~TODO(미정): 슬롯별 자동 추출 신뢰도 임계값 — 얼마나 확신해야 "질문 생략"인지.~~ → **0.7** 로 정했습니다
+  ([ADR-069](../../decisions/069-evidence-slot-extraction.md) ③ · `flows/read-evidence.ts` 의 `CONFIDENCE_MIN`).
+  「질문 생략」이 아니라 「한 탭 확인」이라 임계값이 하는 일은 모델이 스스로 자신 없다고 한 것을 안 되묻는 것뿐입니다.
+  `slot-extractor` 자체는 여전히 거르지 않고 확신도를 그대로 실어 보냅니다 — 거르는 곳은 부르는 쪽 하나입니다.
 - ~~TODO(미정): 슬롯 스키마의 정확한 필드 정의(타입·필수 여부) — 구현 착수 시~~ → **[09 §5.1](08-16-data-model.md)** 에
   이름·티어·`value_type` 이 있고, 코드는 `slot-checker/check.ts` 의 `VALUE_TYPES`·`tierOf` 가 같은 표를 듭니다.
   「필수」는 슬롯의 속성이 아닙니다 — 어느 슬롯도 플랜 생성을 막지 않고(위 설계 원칙), 단계를 여는 조건은

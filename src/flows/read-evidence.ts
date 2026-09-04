@@ -33,7 +33,11 @@ import {
   verifyOrgRepair,
 } from '@/lib/org-repair'
 
+import { normalizeExtracted } from '@/lib/extracted-value'
+
 import type { EvidenceKind, IngestStatus } from '@/modules/case-intake'
+import { CONFIRMABLE_KEYS } from '@/modules/slot-checker'
+import { createSlotExtractor } from '@/modules/slot-extractor'
 import { readIssuedLedger } from '@/modules/pii-tokenizer'
 import type { TokenMapping } from '@/modules/pii-tokenizer'
 import type { CollectResult, IngestPhase, Line, Shortfall } from '@/modules/transcriber'
@@ -210,6 +214,15 @@ export async function collectReading(
   // 밖으로 내보내도 [불변 규칙 2](../../CLAUDE.md)를 안 깨뜨립니다.
   // 기관명은 토큰화 제외 목록이라 평문 그대로 남아 있어 모델이 볼 수 있습니다.
   await repairOrgs(input.caseId, masked.lines, container)
+
+  // **금액·시각·상대 계좌도 여기서 뽑습니다** → ADR-069. 같은 자리인 이유도 같습니다 —
+  // 토큰화 뒤라 모델이 보는 것은 토큰뿐이고, 뽑힌 값은 `extracted` 로 두어 슬롯 체커가
+  // 한 번의 탭으로 확인받습니다. 문진이 그 문항을 통째로 묻지 않게 되는 자리입니다
+  await extractSlots(
+    { caseId: input.caseId, evidenceId: input.evidenceId, kind: input.kind },
+    masked.lines,
+    container,
+  )
 
   // **한 번만 토큰화합니다.** 저장해 두면 다음 폴링은 위에서 바로 돌아갑니다.
   // 챗도 이 값을 맥락으로 씁니다 → `flows/chat-turn.ts`
@@ -487,4 +500,94 @@ async function repairOrgs(
     // 여기서 던지면 **전사 결과를 통째로 잃습니다.** 아래 finish 가 못 돌고,
     // 다음 폴링에서 전사 서비스가 이미 작업을 버렸으면 다시 읽지도 못합니다
   }
+}
+
+/**
+ * 증거에서 뽑을 수 있는 값을 뽑아 `extracted` 로 둔다 → ADR-069.
+ *
+ * `slot-extractor`(F-05a)는 2026-09-04 까지 어느 흐름도 부르지 않았습니다 — 모듈은 있는데
+ * 배선이 없어, 이체 내역 캡처를 올려도 「얼마를 보내셨나요」를 그대로 물었습니다.
+ *
+ * ## 무엇을 받고 무엇을 버리나
+ *
+ * | | |
+ * | --- | --- |
+ * | 받는 이름 | `CONFIRMABLE_KEYS` 다섯 — 금액·시각·상대 계좌·사칭 기관·연락 수단 |
+ * | `org_name` | 안 받습니다. `repairOrgs` 가 사전 대조로 따로 둡니다(ADR-056) — 사전 밖 이름이 들어오면 안 됩니다 |
+ * | `transferred`·`channel` | 안 받습니다. T1 은 분기를 정하는 값이라 사람의 답으로만 — `channel` 은 `case_channel` 을 함께 적어야 해서 슬롯만 채우면 오히려 갈래가 빗나갑니다 |
+ * | 확신도 | `CONFIDENCE_MIN` 미만은 버립니다 — 08-14-slot-tiering.md 의 「임계값 미정」을 여기서 정했습니다 |
+ * | 모양 | `lib/extracted-value.ts` 가 못 다듬으면 버립니다 — 「어제」·「삼천만 원쯤」은 사람에게 묻습니다 |
+ * | 이미 확정된 슬롯 | 덮지 않습니다 — `repairOrgs` 와 같은 그물. `unknown`(모름)은 채웁니다 |
+ *
+ * ## 실패해도 진행한다
+ *
+ * 모델이 안 뜨거나 헛소리를 해도 **뽑기만 건너뜁니다.** 전사 결과는 그대로 저장되고,
+ * 그 슬롯은 문진이 묻습니다 — *"자동 추출 실패는 정상 경로입니다"*.
+ */
+const CONFIDENCE_MIN = 0.7
+
+const KIND_LABEL: Readonly<Record<EvidenceKind, string>> = {
+  audio: '통화 녹음을 글로 옮긴 것',
+  image: '화면 캡처에서 읽어 낸 글자 (문자 · 이체 내역 등)',
+  text: '대화 내보내기 글',
+}
+
+async function extractSlots(
+  input: { readonly caseId: string; readonly evidenceId: string; readonly kind: EvidenceKind },
+  lines: readonly { readonly text: string }[],
+  container: Container,
+): Promise<void> {
+  try {
+    const texts = lines.map((one) => one.text).filter((one) => one.trim().length > 0)
+    if (texts.length === 0) return
+    const text = texts.join('\n')
+
+    const already = await container.slots.read(input.caseId)
+    const confirmed = new Set(
+      already.filter((one) => one.state === 'confirmed').map((one) => one.slotKey),
+    )
+
+    const extractor = createSlotExtractor({
+      llm: { complete: (prompt) => container.ports.llm.completeText(prompt) },
+    })
+    const result = await extractor.extract({
+      // 자료 종류를 한 줄 앞세웁니다 — 「받는 계좌」가 상대 계좌라는 것은 이체 내역 캡처일 때의 뜻입니다
+      maskedText: `자료 종류: ${KIND_LABEL[input.kind]}\n${text}`,
+      evidenceId: input.evidenceId,
+      known: [...confirmed].filter(isConfirmable),
+    })
+
+    for (const one of result.slots) {
+      if (!isConfirmable(one.slotKey)) continue
+      if (one.confidence < CONFIDENCE_MIN) continue
+      if (confirmed.has(one.slotKey)) continue
+      const value = normalizeExtracted(one.slotKey, one.valueMasked, text)
+      if (value === null) continue
+
+      await container.slotWrite.write({
+        caseId: input.caseId,
+        slotKey: one.slotKey,
+        tier: 'T2',
+        valueType: one.valueType,
+        // **확인 전입니다.** 슬롯 체커가 「이 값이 맞나요」로 되묻고, 「맞아요」면 `confirmed`
+        state: 'extracted',
+        valueMasked: value,
+        source: 'auto',
+        sourceRef: input.evidenceId,
+        confidence: one.confidence,
+      })
+    }
+  } catch {
+    // 여기서 던지면 **전사 결과를 통째로 잃습니다** — `repairOrgs` 와 같은 이유로 삼킵니다
+  }
+}
+
+/**
+ * 되묻는 다섯 — `slot-checker` 와 `slot-extractor` 의 `SlotKey` 가 서로 다른 별칭이라
+ * (체커에는 `notice_started_at` 이 더 있습니다) 둘 다에 들어가는 글자 합집합으로 좁힙니다
+ */
+type ConfirmableKey = 'amount' | 'occurred_at' | 'counterpart_account' | 'impersonated_org' | 'contact_method'
+
+function isConfirmable(key: string): key is ConfirmableKey {
+  return (CONFIRMABLE_KEYS as readonly string[]).includes(key)
 }

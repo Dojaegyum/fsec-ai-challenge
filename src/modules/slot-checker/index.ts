@@ -6,7 +6,15 @@
 
 import 'server-only'
 
-export { createSlotChecker, isSlotKey, tierOf, valueTypeOf } from './check'
+export {
+  CONFIRMABLE_KEYS,
+  CONFIRM_NO,
+  CONFIRM_YES,
+  createSlotChecker,
+  isSlotKey,
+  tierOf,
+  valueTypeOf,
+} from './check'
 export type {
   NextQuestion,
   QuestionForm,
