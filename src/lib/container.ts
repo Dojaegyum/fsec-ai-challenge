@@ -24,12 +24,16 @@
  * → [config-report.ts](./config-report.ts).
  */
 
+import { createHash } from 'node:crypto'
+
 import 'server-only'
 
 import { asAuditSink, asKbSource, asRetryJudge } from './adapters'
 import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
 import { linkTokenSource, newUlid, ulidSource } from './ids'
+import { createChangeStore, createRegistryStore, createSnapshotStore } from './db-kb-collect'
+import { createLawFetcher } from './law-fetcher'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
 import { createNerModel } from './ner'
@@ -117,6 +121,8 @@ import type { KbStore } from '@/modules/kb-finder'
 import { createPlanner } from '@/modules/planner'
 import { createPromptBuilder } from '@/modules/prompt-builder'
 import { createReminderSender } from '@/modules/reminder-sender'
+import { createKbCollector } from '@/modules/kb-collector'
+import { createKbReviewer } from '@/modules/kb-reviewer'
 import type { Mailer, ReminderSource, SentLog } from '@/modules/reminder-sender'
 import { createRetryChecker } from '@/modules/retry-checker'
 import { createSlotChecker } from '@/modules/slot-checker'
@@ -356,6 +362,25 @@ function contactWriter(env: Env): ContactWriter {
   return createContactWriter(sql)
 }
 
+/** 수집 파이프라인 표 셋 → db-kb-collect.ts · ADR-072 */
+function snapshotStore(env: Env): ReturnType<typeof createSnapshotStore> {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('SnapshotStore', ['DATABASE_URL'])
+  return createSnapshotStore(sql)
+}
+
+function registryStore(env: Env): ReturnType<typeof createRegistryStore> {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('RegistryStore', ['DATABASE_URL'])
+  return createRegistryStore(sql)
+}
+
+function changeStore(env: Env): ReturnType<typeof createChangeStore> {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('ChangeStore', ['DATABASE_URL'])
+  return createChangeStore(sql)
+}
+
 function slotWriter(env: Env): SlotWriter {
   const sql = createSql(env)
   if (!sql) return unconfigured('SlotWriter', ['DATABASE_URL'])
@@ -567,6 +592,12 @@ export interface Container {
   readonly auditLogger: ReturnType<typeof createAuditLogger>
   readonly casePurger: ReturnType<typeof createCasePurger>
   readonly reminderSender: ReturnType<typeof createReminderSender>
+  /**
+   * 법령 수집 · 검수 큐 → ADR-072. 층 4. `kb_entry` 를 건드리지 않습니다 — 원문 보존과 `pending`
+   * 쌓기까지이고, 사람의 판단은 `npm run kb:review` 가 적습니다(RFC-002)
+   */
+  readonly kbCollector: ReturnType<typeof createKbCollector>
+  readonly kbReviewer: ReturnType<typeof createKbReviewer>
 }
 
 /**
@@ -682,6 +713,17 @@ export function createContainer(
       audit: asAuditSink(auditLogger),
       clock,
     }),
+
+    // 법령 원문을 조문 단위로 받아 바뀐 것을 검수 큐에 쌓습니다 — 매뉴얼에는 쓰지 않습니다(ADR-072)
+    kbCollector: createKbCollector({
+      fetcher: createLawFetcher({ oc: env.values.LAW_API_OC ?? null }),
+      snapshots: snapshotStore(env),
+      registry: registryStore(env),
+      ids: ulidSource,
+      clock,
+      hasher: { hash: (text) => createHash('sha256').update(text).digest('hex') },
+    }),
+    kbReviewer: createKbReviewer({ store: changeStore(env), clock }),
 
     reminderSender: createReminderSender({
       source: ports.reminderSource,

@@ -277,3 +277,50 @@ describe('KB 가 깨져 있어도 사건 전체를 멈추지 않는다', () => {
     expect(rows.every((one) => one.planStepId === '01J8STEP0000000000000000AA')).toBe(true)
   })
 })
+
+/**
+ * 파생 기산점 — ADR-073. 「채권이 소멸된 날부터 14일」의 기산점은 슬롯도 부산물도 아니라
+ * 공고일 + 2개월(법 제9조제1항)이고, 규칙이 셉니다.
+ */
+describe('파생 기산점 `debt_extinct_at` — ADR-073', () => {
+  const REFUND_DEADLINE = {
+    kind: 'calendar_days',
+    amount: 14,
+    from: 'debt_extinct_at',
+    owner: 'agency',
+  }
+  const refund = () =>
+    step({
+      planStepId: '01J8STEP0000000000000000RD',
+      stepKey: 'refund-decision',
+      seq: 51,
+      actor: 'agency',
+      body: { deadline: REFUND_DEADLINE },
+      kbEntryId: 'common-refund-decision',
+      requiredArtifact: { kind: 'receipt_doc', label: '피해환급금 결정 통지문' },
+    })
+
+  it('공고일 + 2개월 + 14일 — 달 셈은 date-checker 하나로', () => {
+    const rows = plan(
+      [refund()],
+      [slot({ slotKey: 'notice_started_at', source: 'auto', valueMasked: '2026-09-03' })],
+    )
+    expect(rows).toHaveLength(1)
+    // 2026-09-03 + 2개월 = 2026-11-03 (채권 소멸일) · + 14일 = 2026-11-17
+    expect(rows[0]!.dueAt.startsWith('2026-11-17')).toBe(true)
+    expect(rows[0]!.computedFrom).toBe('debt_extinct_at')
+    expect(rows[0]!.kind).toBe('info')
+  })
+
+  it('공고일이 추정이면 파생 기한도 추정이다', () => {
+    const rows = plan(
+      [refund()],
+      [slot({ slotKey: 'notice_started_at', source: 'user', valueMasked: '2026-09-03' })],
+    )
+    expect(rows[0]!.ruleSnapshot.estimated).toBe(true)
+  })
+
+  it('공고일이 없으면 파생 기한도 없다 — 지어내지 않는다', () => {
+    expect(plan([refund()], [])).toEqual([])
+  })
+})

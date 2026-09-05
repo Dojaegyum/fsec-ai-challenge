@@ -88,9 +88,10 @@ pii-restorer               감사 로그(토큰화 기준)
 
 **`kb_entry` 에 쓰는 길은 `npm run kb:load` 하나입니다** — 층 4 둘도, 어느 모듈도 직접 쓰지 않습니다 → [RFC-002](../../rfc/002-kb-authoring.md).
 
-> **구현 상태 (2026-08-26)** — 코드는 있으나 아직 어디서도 부르지 않는 모듈: `case-reader` · `doc-builder` ·
+> **구현 상태 (2026-08-26)** — 코드는 있으나 아직 어디서도 부르지 않는 모듈: `case-reader` · `doc-builder`.
 > `slot-extractor` 는 2026-09-04 에 `flows/read-evidence.ts` 가 부릅니다([ADR-069](../../decisions/069-evidence-slot-extraction.md)).
-> `kb-collector` · `kb-reviewer`. 만들어졌지만 깨우는 크론·메일이 없는 것: `reminder-sender` · `case-purger`.
+> `kb-collector`·`kb-reviewer` 는 2026-09-06 에 `GET /api/cron/kb-collect` 와 `npm run kb:review` 가 부릅니다([ADR-072](../../decisions/072-law-collection-wired.md)).
+> `reminder-sender`·`case-purger` 는 크론 둘이 깨웁니다(§6.4).
 > 위 표는 **계약**이고 이 줄은 **현황**입니다 — 배선되면 이 줄만 고칩니다 → [doc-gardening](../../docs/plans/08-26-doc-gardening.md).
 
 ## 외부

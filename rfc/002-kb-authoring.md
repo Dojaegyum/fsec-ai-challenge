@@ -163,7 +163,7 @@ src/kb/
 파이프라인은 세 구간이고, 파일은 마지막 구간에 있습니다.
 
 ```
-1. 수집   source_snapshot   자동 · 하루 1회      ← ADR-012 가 정한 것
+1. 수집   source_snapshot   (2026-09-06 배선 · ADR-072)   자동 · 하루 1회      ← ADR-012 가 정한 것
 2. 검수   source_change     사람 — 무엇이 바뀌었나
 3. 반영   src/kb/*.json     사람 — 승인된 변경을 파일에 옮긴다   ← 여기가 이 규약
    릴리스 kb_entry          적재기 — kb_version 을 찍는다

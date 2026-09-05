@@ -95,6 +95,8 @@ const PHONE_IN_TEXT = /\d{2,4}-\d{3,4}-\d{4}|\b\d{4}-\d{4}\b/
 
 /** `deadline.from` 은 슬롯 이름 또는 `artifact:{kind}` → §11.4 필드 규칙 */
 const ARTIFACT_FROM = /^artifact:[a-z_]+$/
+/** 규칙으로만 나오는 기산점 → §11.4.2 · ADR-073. 코드의 표는 `flows/compute-deadlines.ts` 의 `DERIVED` */
+const DERIVED_FROM: readonly string[] = ['debt_extinct_at']
 
 export interface KbStep {
   readonly text?: unknown
@@ -455,8 +457,8 @@ function checkDeadline(
   const from = one.from
   if (typeof from !== 'string' || from.length === 0) {
     where('DEADLINE', at + '.from 이 없습니다')
-  } else if (!isSlotKey(from) && !ARTIFACT_FROM.test(from)) {
-    where('DEADLINE', at + '.from 이 목록 밖 이름입니다 — ' + from + ' (§5.1)')
+  } else if (!isSlotKey(from) && !ARTIFACT_FROM.test(from) && !DERIVED_FROM.includes(from)) {
+    where('DEADLINE', at + '.from 이 목록 밖 이름입니다 — ' + from + ' (§5.1 · §11.4.2)')
   }
 
   checkDeadline(one.grace, at + '.grace', where, true)

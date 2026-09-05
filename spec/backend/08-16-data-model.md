@@ -1348,7 +1348,7 @@ report-112              | report-112          | NULL    |  3   |  ✓
 | `steps[].channel` | `app` · `phone` · `visit` · `web` 중에서만. **`action`이 `call`·`visit`이 아니면 빈 배열** |
 | `steps[].contact_ref` | **번호를 직접 쓰지 않습니다.** §11.4.1 |
 | `steps[].url` | **기관과 무관한 고정 주소만.** 기관별 주소는 `contact_ref` — §11.4.7 |
-| `deadline.from` | [§5.1](#51-슬롯-이름) 슬롯 이름 또는 `artifact:{kind}` |
+| `deadline.from` | [§5.1](#51-슬롯-이름) 슬롯 이름 또는 `artifact:{kind}`, 또는 **파생 기산점** `debt_extinct_at`(= `notice_started_at` + 2개월 · 법 제9조제1항의 채권 소멸일 — 규칙이 셉니다 → [ADR-073](../../decisions/073-refund-stage-and-derived-anchor.md) · `flows/compute-deadlines.ts` `DERIVED`) |
 | `deadline.owner` | **`user` / `bank` / `agency`.** §11.4.2 |
 | `required_artifact` | [05-completion-hook.md](08-14-completion-hook.md) 의 증거 연쇄 |
 | `caveat` | 기대치를 낮춰야 할 때. 자율배상이 대표 사례 |
@@ -1572,6 +1572,9 @@ report-112              | report-112          | NULL    |  3   |  ✓
 > → 2026-08-25 에 51곳이 채워졌습니다(`src/kb/org.json` · [research/04](../../docs/research/04-기관정보.md) §1). 키 다섯은 `kb-load.ts` 의 `CONTACT_KEYS` 와 같습니다.
 
 ## 12. 수집 파이프라인 — `source_snapshot` · `source_change` · `source_registry`
+
+> **현황 (2026-09-06)** — 표 셋은 마이그레이션 0010 으로 섰고, `GET /api/cron/kb-collect`(하루 1회)가 국가법령정보 API 에서
+> 법(011359)·시행령(011448)을 조문 단위로 받아 쌓습니다. 검수는 `npm run kb:review` → [ADR-072](../../decisions/072-law-collection-wired.md).
 
 절차 지식이 바뀌는 것을 감지하는 부분입니다. 설계 근거는 [ADR-012](../../decisions/012-kb-collection.md).
 

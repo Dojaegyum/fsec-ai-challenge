@@ -78,9 +78,9 @@ const RAIL: readonly { readonly label: string; readonly keys: readonly string[] 
   { label: "지급정지", keys: ["freeze-request"] },
   { label: "피해구제", keys: ["relief-apply", "relief-documents"] },
   { label: "공고 2개월", keys: ["debt-extinction-notice"] },
-  // 기관이 하는 일이라 KB 에 단계가 없습니다 — 걸 `step_key` 가 없어
-  // **앞 칸들에서 따라옵니다** (`railTones`)
-  { label: "환급", keys: [] },
+  // 2026-09-06 부터 단계가 있습니다(ADR-073) — 금융감독원의 결정(14일)과 금융회사의 지급.
+  // 둘 다 공고 통지문이 올라온 뒤에야 활성이라, 그 전에는 여전히 앞 칸을 따라옵니다
+  { label: "환급", keys: ["refund-decision", "refund-payment"] },
 ];
 
 /**
@@ -146,7 +146,8 @@ function railTone(steps: readonly PlanStep[], keys: readonly string[]): StepTone
  *
  * ## 걸 단계가 없는 칸은 앞 칸에서 따라옵니다
  *
- * 「환급」은 기관이 하는 일이라 KB 에 단계가 없습니다. 혼자 보면 늘 「미시작」인데,
+ * 「환급」의 단계(결정·지급 · ADR-073)는 공고 통지문이 올라온 뒤에야 플랜에 붙습니다.
+ * 그 전에는 걸 단계가 플랜에 없어 혼자 보면 늘 「미시작」인데,
  * **앞 국면이 전부 「해당 없음」인 사건에서 그것은 거짓입니다** — 가상자산 사건에서
  * 지급정지·피해구제·공고가 다 「해당 없음」인데 환급만 「미시작」이면, 사용자는
  * **기다리면 환급이 온다**로 읽습니다. 「받을 수 있다고 말하지 않는다」
@@ -157,13 +158,17 @@ function railTone(steps: readonly PlanStep[], keys: readonly string[]): StepTone
  */
 function railTones(steps: readonly PlanStep[]): StepTone[] {
   const tones = RAIL.map(({ keys }) => railTone(steps, keys));
-  const anchored = RAIL.map(({ keys }, i) => (keys.length > 0 ? tones[i] : null));
-  const live = anchored.filter((one) => one !== null);
+  // 「걸렸다」는 이름표가 아니라 **플랜에 실제로 그 단계가 있다**는 뜻입니다 — 이름만 있고
+  // 단계가 아직 안 붙은 칸(공고 전의 「환급」)은 걸리지 않은 칸입니다
+  const hooked = RAIL.map(({ keys }) =>
+    steps.some((one) => keys.includes(one.body.step_key ?? "")),
+  );
+  const live = tones.filter((_, i) => hooked[i]);
 
   // 걸린 칸이 전부 「해당 없음」일 때만 따라갑니다. 하나도 없으면(단계가 아직
   // 안 붙은 새 사건) 판단하지 않습니다
   const allNa = live.length > 0 && live.every((one) => one === "na");
-  return tones.map((tone, i) => (RAIL[i].keys.length === 0 && allNa ? "na" : tone));
+  return tones.map((tone, i) => (!hooked[i] && allNa ? "na" : tone));
 }
 
 /** 부모 교차(`.view-enter` 0.32s)가 끝난 뒤에 자식 계단이 시작합니다 —

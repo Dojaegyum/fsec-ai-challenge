@@ -82,7 +82,8 @@ export interface WatchedSource {
 /**
  * 이 모듈이 밖에 요구하는 것 — 소스에서 가져오는 자리.
  *
- * ⬜ **구현이 아직 없습니다.** 국가법령정보 API 는 `OC` 키 승인 대기 중이고
+ * 구현은 `src/lib/law-fetcher.ts` 입니다(2026-09-06 · ADR-072 — `OC` 는 `LAW_API_OC`). 아래는 만들 때의 메모입니다 —
+ * ~~구현이 아직 없습니다. 국가법령정보 API 는 `OC` 키 승인 대기 중이고~~
  * (`docs/research/05-미확인-목록.md` `U-17`), 입법예고 API 는 응답 형식 미확인,
  * 게시판은 목록 페이지를 읽어야 합니다 → 07-kb-operations.md 「소스 주소」.
  *

@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "test:db": "vitest run --config vitest.db.config.mts",
     "kb:load": "tsx --conditions=react-server scripts/load-kb.ts",
+    "kb:collect": "tsx --conditions=react-server scripts/kb-collect.ts",
+    "kb:review": "tsx --conditions=react-server scripts/kb-review.ts",
     "migrate": "tsx --conditions=react-server scripts/migrate.ts",
     "probe:llm": "tsx --conditions=react-server scripts/probe-llm.ts",
     "probe:org": "tsx --conditions=react-server scripts/probe-org-repair.ts",

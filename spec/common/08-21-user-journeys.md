@@ -63,7 +63,7 @@
 | 3 | **본문 기재 안내 (S-10)** | 칸마다 값 복사 → 은행에 제출 | 서식 칸과 값을 짝지음. **서류를 만들지 않음** | ~~UI만~~ → **붙음.** `doc.tsx` — 값은 볼트에서 되받은 매핑으로 이 기기에서 펼침(`page.tsx:721` `chat.restorable`) |
 | 3 | 본문 증거함 (S-08) | 접수증 올리기 | 전사·마스킹 · 부산물 판정 | ~~UI만~~ → **붙음.** `upload.ts` → 객체 저장소로 직접 → `…/complete` → `useEvidence` 폴링(`load.ts:454-524`). 전사가 만든 대응표 `pii_mappings` 는 그 응답에서 브라우저가 봉해 볼트로(`load.ts:494` · [ADR-062](../../decisions/062-transcript-mapping-handover.md)) |
 | 4 | ~~본문 플랜~~ → 왼쪽 할 일 레일 | **할 일이 없음** | 「공고 2개월」 카드 · 통지 해독 · 명의도용 점검 | **절반.** 레일에 공고 대기 줄은 있으나(`todo.tsx:198-203`) ~~⬜ `notice_started_at` 을 채우는 길이 없어 그 기한이 안 생깁니다~~ → **길이 생겼습니다** (2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md)) — 통지문 사진을 올리면 자료 추출이 공고일을 뽑아 확인 탭으로 내고(`victim`·`frozen_account` 둘 다), 명의인 갈래는 문진에서 날짜로도 묻습니다. 옛 근거: (`anchor-from-artifact.ts:61-64` · 문진 목록 `slot-checker/check.ts:77-113` 에도 없음 · 기산점 없으면 줄 자체 없음 `compute-deadlines.ts:157-159` → [ADR-054](../../decisions/054-notice-anchor.md) 미이행). 명의도용 점검은 KB `identity-check`(`common.json:370`). 통지 해독은 코드 0 |
-| 5 | ~~본문 플랜~~ | 결과 확인 | 결정 → 환급 또는 장기화 | **없음** — 레일의 「환급」 칸은 단계가 비어 있음(`plan.tsx:83`) |
+| 5 | ~~본문 플랜~~ | 결과 확인 | 결정 → 환급 또는 장기화 | ~~없음~~ → **붙음**(2026-09-06 · [ADR-073](../../decisions/073-refund-stage-and-derived-anchor.md)) — 결정 14일(`refund-decision` · 기산점은 공고일+2개월을 규칙이 파생) · 지급(`refund-payment`) · 절차 정지(`procedure-stopped`). 공고 통지문 뒤에 활성. **KB 릴리스 뒤부터 배포본에** |
 | — | — | 닫거나, 그냥 안 옴 | 마지막 활동일 **+180일** 파기 | ~~`case-purger` 있음~~ → **`GET /api/cron/purge` 가 매일 부릅니다**(`vercel.json` · 2026-09-03 부터). 그 전까지는 부르는 곳이 없었습니다(`cron/purge/route.ts:8-15`) |
 
 **국면 1의 성공은 우리 화면에 머무는 것이 아니라 112·1332 로 나가는 것입니다.**
