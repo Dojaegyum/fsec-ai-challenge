@@ -94,6 +94,8 @@ describe('이름으로 고른다', () => {
   it('표 안 이름은 그 다듬기로', () => {
     expect(normalizeExtracted('amount', '3,200만원', '')).toBe('32000000')
     expect(normalizeExtracted('occurred_at', '2026.09.01', '')).toBe('2026-09-01')
+    // 통지문의 공고일도 날짜 규칙 그대로 (ADR-071)
+    expect(normalizeExtracted('notice_started_at', '2026년 9월 3일', '')).toBe('2026-09-03')
   })
 })
 

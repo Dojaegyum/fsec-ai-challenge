@@ -10,6 +10,7 @@ export {
   CONFIRMABLE_KEYS,
   CONFIRM_NO,
   CONFIRM_YES,
+  FROZEN_T2_KEYS,
   createSlotChecker,
   isSlotKey,
   tierOf,
@@ -28,4 +29,5 @@ export type {
   SlotTier,
   SlotValueType,
   TierStatus,
+  Track,
 } from './types'

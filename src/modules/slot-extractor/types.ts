@@ -32,6 +32,8 @@ export type SlotKey =
   | 'relief_applied_at'
   | 'report_filed_at'
   | 'objection_submitted_at'
+  /** 채권소멸절차 공고일 — 금융회사 통지문에 적힌 날. 2개월 기한의 기산점 → ADR-054 · ADR-071 */
+  | 'notice_started_at'
   /** 피해자 본인 계좌의 토큰 — 이체 내역의 「보낸 계좌」 → ADR-070 */
   | 'victim_account'
   /** 피해자 본인 이름의 토큰 — 2차 탐지가 만든 `[이름-N]` 이 있을 때만 → ADR-070 */
@@ -61,6 +63,7 @@ export const SLOT_VALUE_TYPE: Readonly<Record<SlotKey, SlotValueType>> = {
   relief_applied_at: 'datetime',
   report_filed_at: 'datetime',
   objection_submitted_at: 'datetime',
+  notice_started_at: 'datetime',
   victim_account: 'string',
   victim_name: 'string',
 }

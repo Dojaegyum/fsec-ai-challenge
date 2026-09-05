@@ -20,6 +20,7 @@ import type {
   SlotTier,
   SlotValueType,
   TierStatus,
+  Track,
 } from './types'
 
 /** 08-16-data-model.md §5.1 의 T1 */
@@ -46,6 +47,16 @@ export const T2_KEYS: readonly SlotKey[] = [
   'report_filed_at',
   'objection_submitted_at',
 ]
+
+/**
+ * 통장묶기 명의인(`frozen_account`)의 문진 → ADR-071.
+ *
+ * 이 사람은 돈을 보낸 적이 없습니다 — T1 의 「송금 여부·송금 수단」이 성립하지 않아 **T1 이 없고**,
+ * 절차가 필요로 하는 것은 둘뿐입니다: 어느 금융회사가 계좌를 묶었나(`org_name`), 그 회사가 보낸
+ * 통지문에 적힌 공고일(`notice_started_at` — 이의제기 2개월의 기산점 · ADR-054). 공고일은 통지문
+ * 사진을 올리면 자료에서 뽑혀 확인 탭으로 오고, 안 올렸으면 여기서 날짜로 묻습니다.
+ */
+export const FROZEN_T2_KEYS: readonly SlotKey[] = ['org_name', 'notice_started_at']
 
 /**
  * 물어보는 순서. **플랜을 가장 크게 바꾸는 슬롯부터**입니다 → 최소 질문 원칙.
@@ -115,6 +126,9 @@ const ASK_ORDER: readonly AskStep[] = [
   },
 ]
 
+/** 통장묶기 명의인의 물음 순서 → ADR-071. 둘뿐이고 조건이 없습니다 */
+const ASK_ORDER_FROZEN: readonly AskStep[] = [{ slotKey: 'org_name' }, { slotKey: 'notice_started_at' }]
+
 /**
  * 버튼 질문에 반드시 들어가는 선택지 → 08-14-api.md §3.4.
  * **없으면 스펙 위반입니다.**
@@ -138,6 +152,8 @@ export const CONFIRMABLE_KEYS: readonly SlotKey[] = [
   // 서류에만 가는 둘 — 묻지 않고 자료에서만 뽑히며, 뽑혔으면 확인은 받습니다 → ADR-070
   'victim_account',
   'victim_name',
+  // 통지문 사진에서 뽑히는 공고일 — 2개월 기한의 기산점이라 반드시 확인받습니다 → ADR-054 · ADR-071
+  'notice_started_at',
 ]
 
 /** 되묻기의 두 선택지. **글자가 곧 계약입니다** — `flows/answer-slot.ts` 가 이 글자로 가릅니다 */
@@ -158,13 +174,17 @@ export function createSlotChecker(deps: {
       const values = new Map(input.slots.map((one) => [one.slotKey, one.valueMasked ?? null]))
       const valueOf = (key: SlotKey): string | null => values.get(key) ?? null
 
-      const t1 = tierStatus(T1_KEYS, stateOf)
-      const t2 = tierStatus(T2_KEYS, stateOf)
+      // 갈래마다 묻는 것이 다릅니다 → ADR-071. 통장묶기 명의인에게 T1 은 없습니다(빈 목록은 곧 충족)
+      const track: Track = input.track ?? 'victim'
+      const t1Keys = track === 'frozen_account' ? [] : T1_KEYS
+      const t2Keys = track === 'frozen_account' ? FROZEN_T2_KEYS : T2_KEYS
+      const t1 = tierStatus(t1Keys, stateOf)
+      const t2 = tierStatus(t2Keys, stateOf)
 
       return {
         t1,
         t2,
-        nextQuestion: pickQuestion(stateOf, valueOf, questions, input.orgCandidates ?? []),
+        nextQuestion: pickQuestion(stateOf, valueOf, questions, input.orgCandidates ?? [], track),
         // 「모름」으로 확정된 경우도 여기 포함된다.
         // 낫게 안내하지 못할 바에 넓게 안내한다 → 08-14-slot-tiering.md
         needsSupersetPlan: t1 !== 'satisfied',
@@ -208,7 +228,10 @@ function pickQuestion(
   valueOf: (key: SlotKey) => string | null,
   questions: QuestionSource,
   orgCandidates: readonly string[],
+  track: Track = 'victim',
 ): NextQuestion | null {
+  const order = track === 'frozen_account' ? ASK_ORDER_FROZEN : ASK_ORDER
+  const t1Keys = track === 'frozen_account' ? [] : T1_KEYS
   // 증거에서 뽑힌 값의 되묻기 — 「이 값이 맞나요」(ADR-069). 문구 소스가 그 문구를
   // 못 주면(구현 전) 되묻지 않고 채워진 것으로만 센다 — 사용자를 막지 않는다
   const confirmOf = (slotKey: SlotKey): NextQuestion | null => {
@@ -239,7 +262,7 @@ function pickQuestion(
   // 비어 있으면 그쪽을 먼저 묻습니다 — 기관은 유형 안에서만 뜻을 갖습니다.
   // 실제로는 유형을 알아야 후보를 좁히므로 이 경우가 잘 안 생기지만, 순서를
   // 코드로 못박아 둡니다
-  const t1Pending = T1_KEYS.some((key) => stateOf(key) === 'empty')
+  const t1Pending = t1Keys.some((key) => stateOf(key) === 'empty')
 
   if (!t1Pending && stateOf('org_name') === 'extracted' && orgCandidates.length > 0) {
     return withUnknownOption({
@@ -250,7 +273,7 @@ function pickQuestion(
     })
   }
 
-  for (const { slotKey, askWhen } of ASK_ORDER) {
+  for (const { slotKey, askWhen } of order) {
     // 증거에서 뽑힌 값은 **그 자리에서** 되묻는다 — 문진 순서 그대로, 한 번의 탭으로
     const confirm = confirmOf(slotKey)
     if (confirm) return confirm
@@ -261,7 +284,7 @@ function pickQuestion(
     // 다른 슬롯의 상태에 걸린 질문은 그 조건이 설 때만 묻는다
     if (askWhen && !askWhen(stateOf)) continue
 
-    const form = questions.formFor(slotKey)
+    const form = questions.formFor(slotKey, track)
     // 문구를 주지 않는 슬롯은 물을 수 없다. 조용히 다음으로 넘어간다
     if (!form) continue
 

@@ -233,3 +233,18 @@ describe('되묻기 문구 — 값을 사람이 읽는 모양으로 (ADR-069)', 
     expect(source.confirmFor?.('transferred', 'true')).toBeUndefined()
   })
 })
+
+describe('갈래별 문구 — ADR-071', () => {
+  it('통장묶기 명의인에게는 「계좌를 묶은 금융회사」로 묻는다', () => {
+    expect(source.formFor('org_name', 'frozen_account')?.text).toContain('계좌를 묶은')
+    expect(source.formFor('org_name')?.text).toContain('어느 기관')
+  })
+  it('공고일 문항은 날짜 입력이다', () => {
+    const form = source.formFor('notice_started_at')
+    expect(form?.input).toBe('date')
+    expect(form?.text).toContain('공고일')
+  })
+  it('뽑힌 공고일의 되묻기 문구', () => {
+    expect(source.confirmFor?.('notice_started_at', '2026-09-03')?.text).toContain('2026-09-03')
+  })
+})

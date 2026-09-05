@@ -103,9 +103,18 @@ export type QuestionForm = Omit<NextQuestion, 'slotKey'>
  * 정해지지 않았습니다 → docs/plans/08-16-backend-handoff.md ⑤.
  * 그래서 이 모듈은 문구를 갖지 않고 받아 씁니다 — 정해지면 구현만 바뀝니다.
  */
+/**
+ * 사건의 갈래 — 다른 모듈(`case-intake`·`kb-finder`)과 같은 두 값을 여기서 다시 선언합니다.
+ * 모듈끼리 import 하지 않는 것이 층 규칙입니다(ADR-028).
+ */
+export type Track = 'victim' | 'frozen_account'
+
 export interface QuestionSource {
-  /** 그 슬롯을 물을 문구. 물을 수 없는 슬롯이면 undefined */
-  formFor(slotKey: SlotKey): QuestionForm | undefined
+  /**
+   * 그 슬롯을 물을 문구. 물을 수 없는 슬롯이면 undefined.
+   * `track` 이 오면 그 갈래의 말로 — 통장묶기 명의인에게 「어느 기관이었나요」는 어색합니다(ADR-071)
+   */
+  formFor(slotKey: SlotKey, track?: Track): QuestionForm | undefined
   /**
    * 증거에서 뽑힌 값을 되물을 문구 — 「이 값이 맞나요」(ADR-069).
    *
@@ -120,6 +129,11 @@ export interface QuestionSource {
 
 export interface SlotCheckInput {
   readonly slots: readonly SlotSnapshot[]
+  /**
+   * 사건의 갈래. 없으면 `victim`. **`frozen_account`(통장묶기 명의인)는 묻는 것이 다릅니다** —
+   * 돈을 보낸 적이 없는 사람에게 「돈이 나갔나요」를 묻지 않습니다 → ADR-071
+   */
+  readonly track?: Track
   /**
    * 이 사건 유형의 기관 이름들 — **못 알아본 기관을 되물을 선택지**입니다.
    *

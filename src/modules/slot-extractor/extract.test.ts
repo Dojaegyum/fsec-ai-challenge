@@ -439,7 +439,7 @@ describe('지시문에 절차 지식을 담지 않는다', () => {
 })
 
 describe('슬롯 이름이 판정 모듈과 어긋나지 않는다', () => {
-  it('두 모듈이 같은 열여섯 개를 본다', async () => {
+  it('두 모듈이 같은 열일곱 개를 본다', async () => {
     // 이름 목록이 두 곳에 있습니다 — 층 1(뽑기)과 층 3(판정)이 서로를
     // import 하면 층 경계가 흐려져 각자 선언했습니다.
     // 대신 어긋나면 여기서 걸립니다. 어긋난 채로 두면 뽑은 슬롯을
@@ -448,13 +448,13 @@ describe('슬롯 이름이 판정 모듈과 어긋나지 않는다', () => {
     const checker = await import('@/modules/slot-checker')
 
     // slot-checker 의 SlotKey 는 타입이라 값 목록이 없습니다.
-    // 09-data-model.md §5.1 의 열여섯 개를 여기서 다시 못 박습니다 (notice_started_at 은 판정 쪽에만)
+    // 09-data-model.md §5.1 의 열일곱 개를 여기서 다시 못 박습니다
     const CANON = [
       'transferred', 'channel', 'org_name', 'amount', 'amount_hint',
       'occurred_at', 'elapsed_hint', 'contact_method', 'counterpart_account',
       'impersonated_org', 'freeze_requested_at', 'relief_applied_at',
       'report_filed_at', 'objection_submitted_at',
-      'victim_account', 'victim_name',
+      'notice_started_at', 'victim_account', 'victim_name',
     ]
 
     expect(Object.keys(mine).sort()).toEqual([...CANON].sort())
