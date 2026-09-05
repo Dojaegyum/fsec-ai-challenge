@@ -93,8 +93,8 @@ T0 공통 안전 절차는 인입 즉시, 슬롯과 무관하게 실행 보드�
   이름·티어·`value_type` 이 있고, 코드는 `slot-checker/check.ts` 의 `VALUE_TYPES`·`tierOf` 가 같은 표를 듭니다.
   「필수」는 슬롯의 속성이 아닙니다 — 어느 슬롯도 플랜 생성을 막지 않고(위 설계 원칙), 단계를 여는 조건은
   KB 항목의 `requires_slots` 입니다(예: `relief-documents` 가 `relief_applied_at` 을 요구 — `planner/plan.ts` `isActive`).
-- ⬜ **TODO(미정): 트랙별 슬롯** (2026-09-04). 위 3티어는 전부 `victim` 트랙의 것입니다 — T1 의 「송금 여부·송금 수단」은
-  돈을 보낸 사람의 물음인데, `frozen_account`(통장묶기 명의인) 사건에도 지금 그 문진이 그대로 나갑니다. KB 두 항목
-  (`src/kb/frozen-account.json`)은 `requires_slots: []` 라 답하지 않아도 절차는 뜹니다. 이 트랙에 무엇을 묻고 무엇을
-  묻지 않을지는 이 문서가 정할 일이고, 정해지기 전에는 슬롯을 지어 넣지 않습니다 →
-  [ADR-066 「결과」](../../decisions/066-track-fixed-new-case.md).
+- ~~TODO(미정): 트랙별 슬롯~~ → **정했습니다** (2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md)).
+  `frozen_account`(통장묶기 명의인)는 돈을 보낸 적이 없는 사람이라 **T1 이 없고**(빈 목록 = 충족 · 슈퍼셋 없음),
+  T2 는 둘뿐입니다 — 계좌를 묶은 금융회사(`org_name`) · 통지문에 적힌 공고일(`notice_started_at`, 이의제기 2개월의
+  기산점 · ADR-054). 공고일은 통지문 사진을 올리면 자료에서 뽑혀 확인 탭으로 오고, 안 올렸으면 날짜로 묻습니다.
+  `slot-checker` 의 `FROZEN_T2_KEYS` · `ASK_ORDER_FROZEN` 이 코드의 표이고, 문구는 `lib/questions.ts` 가 갈래를 받아 냅니다.

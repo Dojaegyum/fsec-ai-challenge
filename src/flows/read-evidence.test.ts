@@ -571,4 +571,18 @@ describe('증거에서 값을 뽑아 확인 전으로 둔다 — ADR-069', () =>
 
     expect(one.wrote).toEqual([])
   })
+
+  it('통지문의 공고일이 뽑히면 확인 전으로 둔다 — 2개월 기한의 기산점 (ADR-071)', async () => {
+    const one = extractHarness({
+      reply: () => ({
+        slots: [{ slot_key: 'notice_started_at', value: '2026년 9월 3일', confidence: 0.9 }],
+      }),
+    })
+
+    await collect(one.container)
+
+    expect(one.wrote).toEqual([
+      expect.objectContaining({ slotKey: 'notice_started_at', state: 'extracted', valueMasked: '2026-09-03', source: 'auto' }),
+    ])
+  })
 })

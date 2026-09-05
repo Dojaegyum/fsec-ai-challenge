@@ -362,7 +362,7 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | --- | --- | --- |
 | `relief_applied_at` | `relief-apply` 단계의 부산물이 검증되면 그날 | `system` |
 | `objection_submitted_at` | `objection-file` 단계(통장묶기)의 부산물이 검증되면 그날 | `system` |
-| `notice_started_at` | **통지문에 적힌 공고일.** 「오늘」로 채우지 않습니다 — 화면이 묻는 자리는 아직 없습니다(⬜ ADR-054) | `user` |
+| `notice_started_at` | **통지문에 적힌 공고일.** 「오늘」로 채우지 않습니다(ADR-054). 통지문 사진을 올리면 자료 추출이 뽑아 확인 탭으로(`auto`) · 통장묶기 명의인 갈래는 문진에서 날짜로도 묻습니다(`user`) → [ADR-071](../../decisions/071-track-questions-and-notice-date.md) | `auto` · `user` |
 | `victim_account` | 이체 내역 캡처의 「보낸 계좌」 토큰. 문진에서 「맞아요」로 확정(ADR-069 의 되묻기) | `auto` |
 | `victim_name` | 전사문의 이름 토큰 — 2차 탐지가 켜졌을 때만. 원문 이름은 받지 않습니다 | `auto` |
 

@@ -132,6 +132,7 @@ export function normalizeExtracted(slotKey: string, raw: string, text: string): 
     case 'amount':
       return normalizeAmount(raw)
     case 'occurred_at':
+    case 'notice_started_at':
       return normalizeDateTime(raw)
     case 'counterpart_account':
     case 'victim_account':

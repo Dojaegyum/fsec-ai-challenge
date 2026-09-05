@@ -62,7 +62,7 @@
 | 3 | ~~본문 플랜 (S-07)~~ → **왼쪽 할 일 레일** | 「지금 하실 일은 하나」 | 기한 계산 · D-day | ~~UI만~~ → **붙음.** 기한은 서버 `flows/compute-deadlines.ts` 가 KB 규칙·기산점으로 만들고, 레일은 값을 그릴 뿐(`todo.tsx:113-118`). **S-07 본문 화면은 `?view=plan` 개발 경로에만 남았습니다**([ADR-063](../../decisions/063-chat-centered-layout.md) · `page.tsx:133-134`) |
 | 3 | **본문 기재 안내 (S-10)** | 칸마다 값 복사 → 은행에 제출 | 서식 칸과 값을 짝지음. **서류를 만들지 않음** | ~~UI만~~ → **붙음.** `doc.tsx` — 값은 볼트에서 되받은 매핑으로 이 기기에서 펼침(`page.tsx:721` `chat.restorable`) |
 | 3 | 본문 증거함 (S-08) | 접수증 올리기 | 전사·마스킹 · 부산물 판정 | ~~UI만~~ → **붙음.** `upload.ts` → 객체 저장소로 직접 → `…/complete` → `useEvidence` 폴링(`load.ts:454-524`). 전사가 만든 대응표 `pii_mappings` 는 그 응답에서 브라우저가 봉해 볼트로(`load.ts:494` · [ADR-062](../../decisions/062-transcript-mapping-handover.md)) |
-| 4 | ~~본문 플랜~~ → 왼쪽 할 일 레일 | **할 일이 없음** | 「공고 2개월」 카드 · 통지 해독 · 명의도용 점검 | **절반.** 레일에 공고 대기 줄은 있으나(`todo.tsx:198-203`) ⬜ **`notice_started_at` 을 채우는 길이 없어 그 기한이 안 생깁니다**(`anchor-from-artifact.ts:61-64` · 문진 목록 `slot-checker/check.ts:77-113` 에도 없음 · 기산점 없으면 줄 자체 없음 `compute-deadlines.ts:157-159` → [ADR-054](../../decisions/054-notice-anchor.md) 미이행). 명의도용 점검은 KB `identity-check`(`common.json:370`). 통지 해독은 코드 0 |
+| 4 | ~~본문 플랜~~ → 왼쪽 할 일 레일 | **할 일이 없음** | 「공고 2개월」 카드 · 통지 해독 · 명의도용 점검 | **절반.** 레일에 공고 대기 줄은 있으나(`todo.tsx:198-203`) ~~⬜ `notice_started_at` 을 채우는 길이 없어 그 기한이 안 생깁니다~~ → **길이 생겼습니다** (2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md)) — 통지문 사진을 올리면 자료 추출이 공고일을 뽑아 확인 탭으로 내고(`victim`·`frozen_account` 둘 다), 명의인 갈래는 문진에서 날짜로도 묻습니다. 옛 근거: (`anchor-from-artifact.ts:61-64` · 문진 목록 `slot-checker/check.ts:77-113` 에도 없음 · 기산점 없으면 줄 자체 없음 `compute-deadlines.ts:157-159` → [ADR-054](../../decisions/054-notice-anchor.md) 미이행). 명의도용 점검은 KB `identity-check`(`common.json:370`). 통지 해독은 코드 0 |
 | 5 | ~~본문 플랜~~ | 결과 확인 | 결정 → 환급 또는 장기화 | **없음** — 레일의 「환급」 칸은 단계가 비어 있음(`plan.tsx:83`) |
 | — | — | 닫거나, 그냥 안 옴 | 마지막 활동일 **+180일** 파기 | ~~`case-purger` 있음~~ → **`GET /api/cron/purge` 가 매일 부릅니다**(`vercel.json` · 2026-09-03 부터). 그 전까지는 부르는 곳이 없었습니다(`cron/purge/route.ts:8-15`) |
 
@@ -176,8 +176,9 @@ KB 도 그 한 줄까지만 말하고 1332 확인을 권합니다(`ch-giftcard.j
 → **2026-09-04 KB 가 생겼습니다** — `src/kb/frozen-account.json` 두 항목(이의제기 제출 · 결과 통보),
 근거가 확인된 것만([ADR-066](../../decisions/066-track-fixed-new-case.md) ③ · [research/21](../../docs/research/21-통장묶기-이의제기.md)).
 그 전까지는 KB 아홉 파일이 전부 `track: victim` 이라 이 선택지가 **빈 플랜**을 열었습니다.
-⬜ **문진은 아직 `victim` 기준입니다** — 명의인에게도 「돈이 나갔나요」류 질문이 나갑니다
-(`frozen-account.json` `_note` · 두 항목 다 `requires_slots: []`) → [doc-gardening §2 ③](../../docs/plans/08-26-doc-gardening.md).
+~~⬜ 문진은 아직 `victim` 기준입니다~~ → **갈래별 문진** (2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md)):
+명의인에게는 「계좌를 묶은 금융회사는 어디인가요」와 「통지문에 적힌 공고일은 언제인가요」 둘만 나갑니다
+(`slot-checker` `ASK_ORDER_FROZEN`). 두 항목의 `requires_slots: []` 는 그대로 — 답하지 않아도 절차는 뜹니다.
 
 ## 여정 I — 가족이 링크로 들어옴 (`⑧`)
 

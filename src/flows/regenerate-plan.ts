@@ -385,6 +385,7 @@ export async function regeneratePlan(
   // 슬롯이 하나도 없어도 판정합니다 — T1 미충족이고, 그것이 정상입니다
   const check = slotChecker.check({
     slots,
+    track: found.track,
     orgCandidates: await orgOptions(channel?.channelId ?? null, version, container),
   })
 
@@ -581,6 +582,7 @@ export async function readCasePlan(
   // 있습니다 — 화면이 첫 문항을 여기서 받습니다
   const check = container.slotChecker.check({
     slots,
+    track: found.track,
     orgCandidates: await orgOptions(channel?.channelId ?? null, kbVersion, container),
   })
 
@@ -639,7 +641,8 @@ export async function openCaseWithPlan(
 
   // 새 사건이라 슬롯도 경유 서비스도 기존 단계도 없습니다.
   // **읽으러 가지 않습니다** — 아직 저장된 것이 없으므로 물어볼 곳이 없습니다
-  const check = slotChecker.check({ slots: [] })
+  // 첫 문항부터 갈래에 맞게 — 통장묶기 명의인에게 「돈이 나갔나요」를 내지 않습니다(ADR-071)
+  const check = slotChecker.check({ slots: [], track: input.track })
 
   const groups = await kbFinder.find({
     kbVersion: version,

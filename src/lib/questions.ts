@@ -169,6 +169,11 @@ const FORMS: Partial<Record<SlotKey, QuestionForm>> = {
     text: '피해구제 신청은 언제 하셨나요? 지급정지와 다른 절차입니다',
     input: 'date',
   },
+  // ── 통장묶기 명의인만 묻습니다 (ADR-071) — 이의제기 2개월의 기산점(ADR-054) ──
+  notice_started_at: {
+    text: '금융회사가 보낸 통지문에 적힌 공고일은 언제인가요? 통지문 사진을 올리시면 찾아 드립니다',
+    input: 'date',
+  },
 }
 
 /**
@@ -178,7 +183,13 @@ const FORMS: Partial<Record<SlotKey, QuestionForm>> = {
  */
 export function createQuestionSource(): QuestionSource {
   return {
-    formFor: (slotKey) => FORMS[slotKey],
+    formFor: (slotKey, track) => {
+      // 명의인에게 「어느 기관이었나요」는 어색합니다 — 돈이 지나간 곳이 아니라 계좌를 묶은 곳입니다(ADR-071)
+      if (track === 'frozen_account' && slotKey === 'org_name') {
+        return { text: '계좌를 묶은 금융회사는 어디인가요?', input: 'text' }
+      }
+      return FORMS[slotKey]
+    },
     confirmFor: (slotKey, value) => confirmForm(slotKey, value),
   }
 }
@@ -201,6 +212,7 @@ const CONFIRM_LABEL: Readonly<Partial<Record<SlotKey, string>>> = {
   contact_method: '상대가 연락해 온 방법',
   victim_account: '내 계좌(돈이 나간 계좌)',
   victim_name: '성명',
+  notice_started_at: '통지문에 적힌 공고일',
 }
 
 function confirmForm(slotKey: SlotKey, value: string): QuestionForm | undefined {
@@ -218,7 +230,7 @@ export function shownValue(slotKey: SlotKey, value: string): string {
   if (slotKey === 'amount' && /^\d+$/.test(value)) {
     return `${Number(value).toLocaleString('ko-KR')}원`
   }
-  if (slotKey === 'occurred_at') {
+  if (slotKey === 'occurred_at' || slotKey === 'notice_started_at') {
     const m = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/.exec(value)
     if (m) return m[2] ? `${m[1]} ${m[2]}` : m[1]!
   }

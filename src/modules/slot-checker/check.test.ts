@@ -445,3 +445,72 @@ describe('증거에서 뽑힌 값을 되묻는다 — ADR-069', () => {
     expect(nextQuestion?.options).toContain('국민은행')
   })
 })
+
+/**
+ * 통장묶기 명의인(`frozen_account`)의 문진 — ADR-071.
+ *
+ * 돈을 보낸 적이 없는 사람에게 「돈이 나갔나요」를 묻지 않습니다. 묻는 것은 둘 — 계좌를 묶은
+ * 금융회사, 통지문에 적힌 공고일. T1 은 없으니 슈퍼셋 플랜으로 떨어지지도 않습니다.
+ */
+describe('통장묶기 명의인의 문진 — ADR-071', () => {
+  const frozenQuestions: QuestionSource = {
+    formFor(slotKey, track) {
+      if (slotKey === 'notice_started_at') return { input: 'date', text: '통지문의 공고일은 언제인가요?' }
+      if (slotKey === 'org_name' && track === 'frozen_account')
+        return { input: 'text', text: '계좌를 묶은 금융회사는 어디인가요?' }
+      return questions.formFor(slotKey)
+    },
+    confirmFor(slotKey, value) {
+      return { input: 'buttons', text: `${slotKey} ${value} 맞나요?`, options: [CONFIRM_YES, CONFIRM_NO] }
+    },
+  }
+  const checker = createSlotChecker({ questions: frozenQuestions })
+
+  it('첫 문항이 「돈이 나갔나요」가 아니라 계좌를 묶은 금융회사다', () => {
+    const got = checker.check({ slots: [], track: 'frozen_account' })
+    expect(got.nextQuestion?.slotKey).toBe('org_name')
+    expect(got.nextQuestion?.text).toContain('계좌를 묶은')
+  })
+
+  it('T1 이 없으므로 처음부터 충족이고 슈퍼셋으로 안 떨어진다', () => {
+    const got = checker.check({ slots: [], track: 'frozen_account' })
+    expect(got.t1).toBe('satisfied')
+    expect(got.needsSupersetPlan).toBe(false)
+  })
+
+  it('금융회사 다음은 공고일이고, 그다음은 없다', () => {
+    const afterOrg = checker.check({
+      slots: [{ slotKey: 'org_name', tier: 'T2', state: 'confirmed' }],
+      track: 'frozen_account',
+    })
+    expect(afterOrg.nextQuestion?.slotKey).toBe('notice_started_at')
+    expect(afterOrg.nextQuestion?.input).toBe('date')
+
+    const done = checker.check({
+      slots: [
+        { slotKey: 'org_name', tier: 'T2', state: 'confirmed' },
+        { slotKey: 'notice_started_at', tier: 'T2', state: 'confirmed' },
+      ],
+      track: 'frozen_account',
+    })
+    expect(done.nextQuestion).toBeNull()
+    expect(done.t2).toBe('satisfied')
+  })
+
+  it('통지문 사진에서 뽑힌 공고일은 되묻는다 — 2개월 기한의 기산점이라', () => {
+    const got = checker.check({
+      slots: [
+        { slotKey: 'org_name', tier: 'T2', state: 'confirmed' },
+        { slotKey: 'notice_started_at', tier: 'T2', state: 'extracted', valueMasked: '2026-09-03' },
+      ],
+      track: 'frozen_account',
+    })
+    expect(got.nextQuestion?.slotKey).toBe('notice_started_at')
+    expect(got.nextQuestion?.options?.slice(0, 2)).toEqual([CONFIRM_YES, CONFIRM_NO])
+  })
+
+  it('피해자 갈래는 그대로 — 첫 문항은 「돈이 나갔나요」', () => {
+    expect(checker.check({ slots: [], track: 'victim' }).nextQuestion?.slotKey).toBe('transferred')
+    expect(checker.check({ slots: [] }).nextQuestion?.slotKey).toBe('transferred')
+  })
+})

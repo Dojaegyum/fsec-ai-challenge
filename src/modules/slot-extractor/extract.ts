@@ -118,6 +118,8 @@ const SLOT_HINT: Readonly<Partial<Record<SlotKey, string>>> = {
   relief_applied_at: '피해구제를 신청한 시각',
   report_filed_at: '신고를 접수한 시각',
   objection_submitted_at: '이의제기를 제출한 시각',
+  notice_started_at:
+    '채권소멸절차 개시 공고일 — 금융회사가 보낸 통지문(채권소멸절차 개시 통지·지급정지 통지)에 적힌 「공고일」. 이체 시각과 다르다',
   victim_account:
     '피해자 본인 계좌 — 돈이 나간 쪽. 이체 내역 캡처라면 「보낸 계좌」이지 「받는 계좌」가 아니다. 대괄호 토큰 그대로',
   victim_name:
