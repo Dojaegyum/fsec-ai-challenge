@@ -199,6 +199,8 @@ const CONFIRM_LABEL: Readonly<Partial<Record<SlotKey, string>>> = {
   counterpart_account: '받는 쪽 계좌',
   impersonated_org: '상대가 사칭한 곳',
   contact_method: '상대가 연락해 온 방법',
+  victim_account: '내 계좌(돈이 나간 계좌)',
+  victim_name: '성명',
 }
 
 function confirmForm(slotKey: SlotKey, value: string): QuestionForm | undefined {

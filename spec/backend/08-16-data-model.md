@@ -347,12 +347,14 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | `report_filed_at` | T2 | 신고 접수 시각 | `datetime` |
 | `objection_submitted_at` | T2 | 이의제기 제출 시각 (통장묶기) | `datetime` |
 | **`notice_started_at`** | T2 | **채권소멸공고가 시작된 날. 2개월 기한의 기산점** | `datetime` |
+| `victim_account` | T2 | **피해자 본인 계좌의 토큰**(돈이 나간 쪽). 묻지 않고 이체 내역 캡처의 「보낸 계좌」에서만 — 기재 안내의 「내 계좌」·「환급 계좌」 제안 칸 → [ADR-070](../../decisions/070-prefill-identity-from-evidence.md) | `string` |
+| `victim_name` | T2 | **피해자 본인 이름의 토큰**(`[이름-1]`). 2차 탐지가 켜졌을 때만 생깁니다 — 원문 이름은 서버에 두지 않습니다 → ADR-070 | `string` |
 
 **T0에는 슬롯이 없습니다.** 진입 자체로 충분합니다 → [02-slot-tiering.md](08-14-slot-tiering.md).
 
-**이 표가 코드의 표입니다** — `slot-checker/check.ts` 의 `VALUE_TYPES` 가 열다섯을 같은 값으로 갖고, 적재 검증(§11.4.5)과 저장이
-둘 다 그것을 봅니다. 티어는 `T1_KEYS` 둘이고 나머지가 T2 입니다. 다만 **T2 충족 판정은 `amount_hint`·`notice_started_at` 을 세지
-않습니다** — 앞은 `amount` 와 같은 사실의 다른 표현이라 둘 중 하나가 늘 비고, 뒤는 물어서 채우는 값이 아닙니다.
+**이 표가 코드의 표입니다** — `slot-checker/check.ts` 의 `VALUE_TYPES` 가 열일곱을 같은 값으로 갖고, 적재 검증(§11.4.5)과 저장이
+둘 다 그것을 봅니다. 티어는 `T1_KEYS` 둘이고 나머지가 T2 입니다. 다만 **T2 충족 판정은 `amount_hint`·`notice_started_at`·`victim_account`·`victim_name` 을 세지
+않습니다** — 첫째는 `amount` 와 같은 사실의 다른 표현이라 둘 중 하나가 늘 비고, 둘째는 물어서 채우는 값이 아니며, 뒤 둘은 서류 기재용이라 절차 선택과 무관합니다(ADR-070).
 
 **기산점 슬롯 셋은 누가 채우나** (2026-09-04 · `flows/anchor-from-artifact.ts` · [ADR-054](../../decisions/054-notice-anchor.md) · [ADR-066](../../decisions/066-track-fixed-new-case.md)):
 
@@ -361,6 +363,8 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 | `relief_applied_at` | `relief-apply` 단계의 부산물이 검증되면 그날 | `system` |
 | `objection_submitted_at` | `objection-file` 단계(통장묶기)의 부산물이 검증되면 그날 | `system` |
 | `notice_started_at` | **통지문에 적힌 공고일.** 「오늘」로 채우지 않습니다 — 화면이 묻는 자리는 아직 없습니다(⬜ ADR-054) | `user` |
+| `victim_account` | 이체 내역 캡처의 「보낸 계좌」 토큰. 문진에서 「맞아요」로 확정(ADR-069 의 되묻기) | `auto` |
+| `victim_name` | 전사문의 이름 토큰 — 2차 탐지가 켜졌을 때만. 원문 이름은 받지 않습니다 | `auto` |
 
 사용자가 문진에서 직접 댄 날짜(`source: user`)도 받되 기한은 **추정**으로 표시됩니다 → [기한 규칙](../common/08-16-deadline-rules.md).
 

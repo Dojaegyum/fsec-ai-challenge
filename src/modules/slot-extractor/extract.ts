@@ -118,6 +118,10 @@ const SLOT_HINT: Readonly<Partial<Record<SlotKey, string>>> = {
   relief_applied_at: '피해구제를 신청한 시각',
   report_filed_at: '신고를 접수한 시각',
   objection_submitted_at: '이의제기를 제출한 시각',
+  victim_account:
+    '피해자 본인 계좌 — 돈이 나간 쪽. 이체 내역 캡처라면 「보낸 계좌」이지 「받는 계좌」가 아니다. 대괄호 토큰 그대로',
+  victim_name:
+    '피해자 본인의 이름 — 대괄호 이름 토큰(예: [이름-1])이 있을 때만 그 토큰 그대로. 토큰이 없으면 이 이름을 내지 마라',
 }
 
 const ALL_KEYS = Object.keys(SLOT_HINT) as SlotKey[]

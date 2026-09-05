@@ -13,6 +13,7 @@ import {
   normalizeDateTime,
   normalizeExtracted,
   normalizeMention,
+  normalizeNameToken,
 } from './extracted-value'
 
 describe('금액 — 원 단위 정수만', () => {
@@ -93,5 +94,22 @@ describe('이름으로 고른다', () => {
   it('표 안 이름은 그 다듬기로', () => {
     expect(normalizeExtracted('amount', '3,200만원', '')).toBe('32000000')
     expect(normalizeExtracted('occurred_at', '2026.09.01', '')).toBe('2026-09-01')
+  })
+})
+
+describe('본인 이름 — 이름 토큰이 있을 때만 (ADR-070)', () => {
+  const text = '여보세요, [이름-1] 씨 되십니까?'
+  it('토큰이면 그대로', () => {
+    expect(normalizeNameToken('[이름-1]', text)).toBe('[이름-1]')
+    expect(normalizeExtracted('victim_name', '[이름-1] 씨', text)).toBe('[이름-1]')
+  })
+  it('원문 이름은 null — 2차 탐지가 꺼져 있으면 서버에 이름을 두지 않는다', () => {
+    expect(normalizeNameToken('김민수', '여보세요, 김민수 씨 되십니까?')).toBeNull()
+  })
+  it('전사문에 없는 토큰은 null', () => {
+    expect(normalizeNameToken('[이름-3]', text)).toBeNull()
+  })
+  it('본인 계좌도 계좌 토큰 규칙 그대로', () => {
+    expect(normalizeExtracted('victim_account', '국민은행 [계좌-2]', '보낸 계좌 국민은행 [계좌-2]')).toBe('[계좌-2]')
   })
 })

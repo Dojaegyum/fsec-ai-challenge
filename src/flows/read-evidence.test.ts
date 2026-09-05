@@ -543,4 +543,32 @@ describe('증거에서 값을 뽑아 확인 전으로 둔다 — ADR-069', () =>
     expect(got.status).toBe('done')
     expect(one.wrote).toEqual([])
   })
+
+  it('본인 계좌는 「보낸 계좌」 토큰으로 뽑힌다 — ADR-070', async () => {
+    const one = extractHarness({
+      reply: () => ({
+        slots: [
+          { slot_key: 'victim_account', value: '국민은행 [계좌-2]', confidence: 0.9 },
+          { slot_key: 'counterpart_account', value: '[계좌-1]', confidence: 0.9 },
+        ],
+      }),
+    })
+
+    await collect(one.container)
+
+    expect(one.wrote).toEqual([
+      expect.objectContaining({ slotKey: 'victim_account', state: 'extracted', valueMasked: '[계좌-2]' }),
+      expect.objectContaining({ slotKey: 'counterpart_account', valueMasked: '[계좌-1]' }),
+    ])
+  })
+
+  it('본인 이름은 원문이면 버린다 — 2차 탐지가 꺼져 있으면 서버에 이름을 두지 않는다', async () => {
+    const one = extractHarness({
+      reply: () => ({ slots: [{ slot_key: 'victim_name', value: '김민수', confidence: 0.99 }] }),
+    })
+
+    await collect(one.container)
+
+    expect(one.wrote).toEqual([])
+  })
 })

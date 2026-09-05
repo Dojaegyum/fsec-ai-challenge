@@ -135,6 +135,9 @@ export const CONFIRMABLE_KEYS: readonly SlotKey[] = [
   'counterpart_account',
   'impersonated_org',
   'contact_method',
+  // 서류에만 가는 둘 — 묻지 않고 자료에서만 뽑히며, 뽑혔으면 확인은 받습니다 → ADR-070
+  'victim_account',
+  'victim_name',
 ]
 
 /** 되묻기의 두 선택지. **글자가 곧 계약입니다** — `flows/answer-slot.ts` 가 이 글자로 가릅니다 */
@@ -346,6 +349,9 @@ const VALUE_TYPES: Readonly<Record<string, SlotValueType>> = {
   relief_applied_at: 'datetime',
   report_filed_at: 'datetime',
   objection_submitted_at: 'datetime',
+  // 서류 기재용 둘 — 자료에서만 옵니다. 토큰이라 `string` → ADR-070
+  victim_account: 'string',
+  victim_name: 'string',
   // 채권소멸공고 2개월의 기산점. **통지문에 적힌 공고일입니다** → ADR-054
   notice_started_at: 'datetime',
 }

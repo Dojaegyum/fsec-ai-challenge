@@ -112,6 +112,20 @@ export function normalizeMention(raw: string, text: string): string | null {
   return text.includes(value) ? value : null
 }
 
+/**
+ * 본인 이름 → 이 사건의 이름 토큰 그대로(`[이름-1]`).
+ *
+ * 이름 토큰은 2차 탐지(NER)가 켜졌을 때만 생깁니다. 꺼져 있으면 전사문에 이름이 **원문**으로
+ * 남아 있고, 모델은 「김민수」라고 낼 것입니다 — **그것은 받지 않습니다.** 원문 이름이 슬롯에
+ * 들어가면 서버에 개인정보가 남습니다(불변 규칙 2·3). 토큰 하나가 전사문에 있을 때만 받습니다 → ADR-070.
+ */
+export function normalizeNameToken(raw: string, text: string): string | null {
+  const tokens = raw.match(/\[이름-\d+\]/g) ?? []
+  if (tokens.length !== 1) return null
+  const token = tokens[0]!
+  return text.includes(token) ? token : null
+}
+
 /** 슬롯 이름에 맞는 다듬기 하나를 고른다. 표 밖 이름은 `null` — 슬롯에 안 들어갑니다 */
 export function normalizeExtracted(slotKey: string, raw: string, text: string): string | null {
   switch (slotKey) {
@@ -120,7 +134,10 @@ export function normalizeExtracted(slotKey: string, raw: string, text: string): 
     case 'occurred_at':
       return normalizeDateTime(raw)
     case 'counterpart_account':
+    case 'victim_account':
       return normalizeAccountToken(raw, text)
+    case 'victim_name':
+      return normalizeNameToken(raw, text)
     case 'impersonated_org':
     case 'contact_method':
       return normalizeMention(raw, text)

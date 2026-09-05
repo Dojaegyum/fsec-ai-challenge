@@ -550,6 +550,8 @@ const SLOT_LABEL: Readonly<Record<string, string>> = {
   report_filed_at: '신고 접수 시각',
   objection_submitted_at: '이의제기 제출 시각',
   notice_started_at: '채권소멸공고 시작일',
+  victim_account: '본인 계좌',
+  victim_name: '본인 이름',
 }
 
 export function deadlineState(
