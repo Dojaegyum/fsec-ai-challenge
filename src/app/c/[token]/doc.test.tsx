@@ -187,6 +187,57 @@ describe("시연 픽스처가 그려진다", () => {
 
     expect(text).toContain("110-2345-678901");
     expect(text).toContain("농협은행");
-    expect(text).toContain("옮겨 적음 0 / 3");
+    // 기관명은 셋에 갑니다 — 내 계좌의 금융회사 · 「귀하」 · 환급 계좌의 금융회사 제안(ADR-070). 여기에 상대 계좌 하나
+    expect(text).toContain("옮겨 적음 0 / 4");
+  });
+});
+
+/**
+ * 올린 자료에서 뽑힌 **본인** 정보는 신원 칸에 미리 들어간다 — ADR-070.
+ *
+ * 묻지는 않습니다. 이체 캡처의 「보낸 계좌」와 녹음의 이름 토큰이 있을 때만 채워지고,
+ * 되살리는 것은 이 기기의 매핑입니다.
+ */
+describe("자료에서 뽑힌 본인 정보는 신원 칸에 미리 들어간다 — ADR-070", () => {
+  const restorable = [
+    { token: "[계좌-2]", original: "604702-01-338291" },
+    { token: "[이름-1]", original: "김민수" },
+  ];
+
+  it("내 계좌·환급 계좌 제안·성명·명의인에 되살린 값이 뜬다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <DocGuide
+          caseToken="t"
+          slots={[slot("victim_account", "[계좌-2]"), slot("victim_name", "[이름-1]")]}
+          restorable={restorable}
+        />,
+      ),
+    );
+    expect(text).toContain("604702-01-338291");
+    expect(text).toContain("김민수");
+  });
+
+  it("확인 전(extracted)이어도 값은 보인다 — 「확인해 주세요」 상태", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <DocGuide
+          caseToken="t"
+          slots={[slot("victim_account", "[계좌-2]", "extracted")]}
+          restorable={restorable}
+        />,
+      ),
+    );
+    expect(text).toContain("604702-01-338291");
+  });
+
+  it("다른 기기(매핑 없음)에서는 토큰 그대로 — 번호를 지어내지 않는다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <DocGuide caseToken="t" slots={[slot("victim_account", "[계좌-2]")]} restorable={[]} />,
+      ),
+    );
+    expect(text).toContain("[계좌-2]");
+    expect(text).not.toContain("604702-01-338291");
   });
 });

@@ -512,7 +512,7 @@ async function repairOrgs(
  *
  * | | |
  * | --- | --- |
- * | 받는 이름 | `CONFIRMABLE_KEYS` 다섯 — 금액·시각·상대 계좌·사칭 기관·연락 수단 |
+ * | 받는 이름 | `CONFIRMABLE_KEYS` 일곱 — 금액·시각·상대 계좌·사칭 기관·연락 수단 · 본인 계좌·본인 이름(ADR-070 · 토큰일 때만) |
  * | `org_name` | 안 받습니다. `repairOrgs` 가 사전 대조로 따로 둡니다(ADR-056) — 사전 밖 이름이 들어오면 안 됩니다 |
  * | `transferred`·`channel` | 안 받습니다. T1 은 분기를 정하는 값이라 사람의 답으로만 — `channel` 은 `case_channel` 을 함께 적어야 해서 슬롯만 채우면 오히려 갈래가 빗나갑니다 |
  * | 확신도 | `CONFIDENCE_MIN` 미만은 버립니다 — 08-14-slot-tiering.md 의 「임계값 미정」을 여기서 정했습니다 |
@@ -586,7 +586,14 @@ async function extractSlots(
  * 되묻는 다섯 — `slot-checker` 와 `slot-extractor` 의 `SlotKey` 가 서로 다른 별칭이라
  * (체커에는 `notice_started_at` 이 더 있습니다) 둘 다에 들어가는 글자 합집합으로 좁힙니다
  */
-type ConfirmableKey = 'amount' | 'occurred_at' | 'counterpart_account' | 'impersonated_org' | 'contact_method'
+type ConfirmableKey =
+  | 'amount'
+  | 'occurred_at'
+  | 'counterpart_account'
+  | 'impersonated_org'
+  | 'contact_method'
+  | 'victim_account'
+  | 'victim_name'
 
 function isConfirmable(key: string): key is ConfirmableKey {
   return (CONFIRMABLE_KEYS as readonly string[]).includes(key)

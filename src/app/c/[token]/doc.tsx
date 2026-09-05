@@ -106,7 +106,11 @@ const FORM: readonly { id: string; name: string; fields: readonly FieldSpec[] }[
     fields: [
       // 신원 여섯은 **우리가 묻지 않는 것**입니다. 절차를 고르는 데 필요 없고,
       // 물으면 그만큼 볼트에 쌓입니다 → 04-pii-boundary.md
-      { id: "v-name", label: "성명", note: "직접 적으셔야 합니다" },
+      //
+      // **묻지는 않되, 올린 자료에 이미 있는 것은 채웁니다** (ADR-070) — 통화 녹음의
+      // 이름 토큰이 「성명」에. 생년월일·주소·연락처는 자료에서도 안 뽑습니다 — 가릴
+      // 규칙이 없어 원문이 서버에 남기 때문입니다
+      { id: "v-name", label: "성명", from: "victim_name", note: "직접 적으셔야 합니다" },
       {
         id: "v-birth",
         label: "생년월일",
@@ -137,8 +141,14 @@ const FORM: readonly { id: string; name: string; fields: readonly FieldSpec[] }[
         label: "예금종별",
         note: "직접 적으셔야 합니다 — 통장 표지에 있습니다",
       },
-      { id: "o-acct", label: "계좌번호", note: "직접 적으셔야 합니다" },
-      { id: "o-holder", label: "명의인", note: "직접 적으셔야 합니다 — 본인 이름" },
+      // 이체 내역 캡처의 「보낸 계좌」가 여기 옵니다 (ADR-070)
+      { id: "o-acct", label: "계좌번호", from: "victim_account", note: "직접 적으셔야 합니다" },
+      {
+        id: "o-holder",
+        label: "명의인",
+        from: "victim_name",
+        note: "직접 적으셔야 합니다 — 본인 이름",
+      },
       { id: "o-when", label: "송금·이체일시", from: "occurred_at", note: "직접 적으셔야 합니다" },
       { id: "o-amount", label: "금액", from: "amount", note: "직접 적으셔야 합니다" },
     ],
@@ -163,11 +173,22 @@ const FORM: readonly { id: string; name: string; fields: readonly FieldSpec[] }[
     id: "refund",
     name: "피해환급금 입금계좌",
     fields: [
-      // **여기는 원래 우리가 알 수 없는 구획입니다.** 환급받을 계좌를 물은 적이 없고,
-      // 물어서도 안 됩니다 — 절차를 고르는 데 필요 없습니다
-      { id: "r-bank", label: "금융회사", note: "환급받을 본인 계좌를 적으세요" },
-      { id: "r-acct", label: "계좌번호", note: "직접 적으셔야 합니다" },
-      { id: "r-holder", label: "명의인", note: "본인 이름" },
+      // **환급받을 계좌를 물은 적이 없고, 물어서도 안 됩니다** — 절차를 고르는 데 필요 없습니다.
+      // 대신 **돈이 나간 계좌를 제안**합니다 (ADR-070) — 대부분 같은 계좌로 돌려받습니다.
+      // 다른 계좌로 받으려면 직접 적습니다. 채운 것이 아니라 제안이라는 것이 note 에 있습니다
+      {
+        id: "r-bank",
+        label: "금융회사",
+        from: "org_name",
+        note: "환급받을 본인 계좌를 적으세요 — 보낸 계좌로 받으신다면 그 은행입니다",
+      },
+      {
+        id: "r-acct",
+        label: "계좌번호",
+        from: "victim_account",
+        note: "직접 적으셔야 합니다 — 보낸 계좌로 받으신다면 이 번호입니다",
+      },
+      { id: "r-holder", label: "명의인", from: "victim_name", note: "본인 이름" },
     ],
   },
   {
