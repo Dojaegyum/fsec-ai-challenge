@@ -171,3 +171,10 @@ const { results, stale } = await createKbCollector({
 
 ⬜ **`SourceFetcher` 구현이 없습니다.** 이 모듈은 「어떻게 가져오나」를 모릅니다 —
 법령 API 키·RSS 주소·HTML 파서는 조립 자리에서 붙습니다(ADR-028).
+
+## 누가 부르나 (2026-09-06)
+
+`GET /api/cron/kb-collect`(하루 1회 · `vercel.json`)와 `npm run kb:collect` 가 `container.kbCollector` 를 부릅니다 →
+[ADR-072](../../../decisions/072-law-collection-wired.md). 수집원은 `src/lib/law-fetcher.ts`(국가법령정보 API · `law:{법령ID}` · 조문 단위),
+저장소는 `src/lib/db-kb-collect.ts`(마이그레이션 0010). 감시 소스는 법(011359)·시행령(011448) 둘입니다.
+첫 수집은 모든 조문이 「최초 수집」으로 큐에 오릅니다 — 자동 승인하지 않습니다.

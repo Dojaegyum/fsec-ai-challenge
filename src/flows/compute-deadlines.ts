@@ -153,7 +153,7 @@ export function planDeadlines(input: {
     const period = periodOf(rule.kind, rule.amount)
     if (!period) continue
 
-    const anchor = anchorOf(rule.from, slots, step.artifacts)
+    const anchor = resolveAnchor(rule.from, slots, step.artifacts, dates)
     // **기산점이 없으면 날짜가 없습니다.** 지어내지 않습니다
     if (!anchor) continue
 
@@ -249,6 +249,35 @@ function periodOf(
  *
  * 못 찾으면 `null` 이고, 그러면 **그 기한은 안 만들어집니다.**
  */
+/**
+ * 파생 기산점 → ADR-073. 법이 「채권이 소멸된 날부터」처럼 **다른 기한이 찬 날**을 기산점으로
+ * 쓸 때가 있습니다. 그 날은 슬롯도 부산물도 아니라 규칙으로만 나옵니다 —
+ *
+ *     debt_extinct_at = notice_started_at + 2개월   (법 제9조제1항 · 채권 소멸일)
+ *
+ * 같은 `date-checker` 로 셉니다 — 달 셈이 두 곳에 있으면 어긋납니다. 밑동이 추정이면 파생도 추정입니다.
+ * 정본은 09-data-model.md §11.4.2 의 `deadline.from` 목록이고, `kb-load.ts` 가 같은 이름을 받습니다.
+ */
+const DERIVED: Readonly<
+  Record<string, { readonly base: string; readonly rule: { kind: PeriodKind; amount: number } }>
+> = {
+  debt_extinct_at: { base: 'notice_started_at', rule: { kind: 'months', amount: 2 } },
+}
+
+function resolveAnchor(
+  from: unknown,
+  slots: readonly AnchorSlot[],
+  artifacts: readonly AnchorArtifact[],
+  dates: DateChecker,
+): { readonly source: string; readonly date: string; readonly confirmed: boolean } | null {
+  const derived = typeof from === 'string' ? DERIVED[from] : undefined
+  if (!derived) return anchorOf(from, slots, artifacts)
+  const base = anchorOf(derived.base, slots, artifacts)
+  if (!base) return null
+  const at = dates.compute({ anchor: base, rule: derived.rule, kind: 'info' })
+  return { source: from as string, date: at.dueDate, confirmed: base.confirmed }
+}
+
 function anchorOf(
   from: unknown,
   slots: readonly AnchorSlot[],

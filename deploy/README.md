@@ -62,7 +62,7 @@ Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으�
 | `KB_VERSION` | 안내를 아예 안 만듭니다 ([ADR-045](../decisions/045-kb-release-pin.md)) |
 
 **없어도 도는 것** — `TRANSCRIBER_URL`(비면 녹음이 글로 안 옮겨지고, **사건 진행은
-그대로 돕니다**) · `CASE_PURGE_DAYS`(기본 180) · `ADMIN_*`(**만들지 않기로** — [ADR-068](../decisions/068-no-admin-screen.md). 비워 두세요) · `NEXT_PUBLIC_DEMO_MOCK`(시작 화면의 시연 칩 — 아래 「시연 칩」. **대회 기간에는 `1`**).
+그대로 돕니다**) · `CASE_PURGE_DAYS`(기본 180) · `ADMIN_*`(**만들지 않기로** — [ADR-068](../decisions/068-no-admin-screen.md). 비워 두세요) · `NEXT_PUBLIC_DEMO_MOCK`(시작 화면의 시연 칩 — 아래 「시연 칩」. **대회 기간에는 `1`**) · `LAW_API_OC`(법령 수집 크론의 국가법령정보 API 사용자 ID — 비면 수집만 「오류」로 남습니다 · ADR-072).
 
 > ✅ **켜기 전 조건이던 배선은 붙었습니다** (2026-08-27). 토큰화 제외 목록이
 > 네 경로에 다 물렸고, 가장 나쁜 문장으로 다시 걸어 **경유 서비스 14곳이
@@ -183,6 +183,7 @@ vercel deploy --prod                         # ⚠️ 환경변수는 다시 빌
 | 코드 | `main` (배포는 머지가 곧 배포 → ADR-053) |
 | **메일 발송** | **켜졌고, 배포본에서 실제로 나갔습니다** (2026-09-04) — Brevo. `MAILER_API_KEY`(저장소 시크릿에서) · `MAILER_FROM` · `APP_ORIGIN` 을 `vercel-env` 로 넣었습니다. 첫 시도는 `failed: 1` 이었는데 Brevo 「Authorised IPs」 제한이 Vercel 발신 IP(`3.34.130.187` · AWS)를 막은 것이었고, **API keys 쪽 차단을 끈 뒤 크론이 `sent: 1`** 로 확정 기한 알림을 보냈습니다. ⚠️ 그 제한을 다시 켜면 발송이 조용히 `failed` 로 돌아갑니다 |
 | `NER_URL` | **비어 있습니다.** 서버 쪽은 2026-08-31 에 준비됐고, **켜는 것은 사람 결정**입니다 → 아래. 시연 때는 RunPod(GPU) 에 올리기로(2026-09-04) — 켜는 값 셋은 `vercel-env` 워크플로의 `ner_url`·`ner_timeout_ms`·`set_ner_token`. 그날의 순서는 [`runpod-bench.md` 「시연 당일 순서」](runpod-bench.md) |
+| **법령 수집** | 표 셋(마이그레이션 0010)은 공유 DB 에 섰고 첫 수집(법 31조문·시행령 27조문)은 2026-09-06 에 로컬에서 돌렸습니다. 배포본 크론 `/api/cron/kb-collect`(KST 04:00)이 돌려면 `vercel-env` 의 `law_api_oc` 로 `LAW_API_OC` 를 넣어야 합니다 — 검수는 `npm run kb:review` |
 | **시연 칩** | **켜져 있습니다** — `NEXT_PUBLIC_DEMO_MOCK=1` (2026-09-04). 시작 화면에 「Mock 파일로 실행」이 주소 없이 보입니다 → 아래 「시연 칩」 |
 
 ### 2차 탐지(이름 가리기)를 켜려면 — 2026-08-31

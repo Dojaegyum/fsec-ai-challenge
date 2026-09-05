@@ -41,6 +41,9 @@ export const ENV_KEYS = [
   'APP_ORIGIN',
   'CASE_PURGE_DAYS',
   'KB_FETCH_CRON',
+  // 국가법령정보 Open API 의 사용자 ID(OC) → lib/law-fetcher.ts · ADR-072. 비면 수집 크론이
+  // 「없다」로 남기고 지나갑니다 — 앱은 영향이 없습니다
+  'LAW_API_OC',
   'TRANSCRIBER_URL',
   'TRANSCRIBER_TOKEN',
   // 2차 개인정보 탐지(NER) → ner.ts · ARCHITECTURE §10. **비면 1차 정규식만 돕니다**

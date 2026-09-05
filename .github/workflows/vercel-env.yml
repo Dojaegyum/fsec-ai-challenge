@@ -58,6 +58,10 @@ on:
         description: "2차 탐지를 끈다 — NER_URL·NER_TIMEOUT_MS 를 지운다 (시연 팟을 terminate 하기 전에). NER_TOKEN 은 남긴다"
         type: boolean
         default: false
+      law_api_oc:
+        description: "LAW_API_OC — 국가법령정보 Open API 사용자 ID (법령 수집 크론). 비우면 안 건드림"
+        required: false
+        default: ""
       demo_mock:
         description: "NEXT_PUBLIC_DEMO_MOCK — 시작 화면 「Mock 파일로 실행」 칩. 1 보임(대회 기간) · 0 숨김 · 비우면 안 건드림. 빌드에 구워지는 값이라 redeploy 와 함께"
         required: false
@@ -108,6 +112,7 @@ jobs:
           IN_NER_URL: ${{ inputs.ner_url }}
           IN_NER_TIMEOUT_MS: ${{ inputs.ner_timeout_ms }}
           IN_DEMO_MOCK: ${{ inputs.demo_mock }}
+          IN_LAW_API_OC: ${{ inputs.law_api_oc }}
           SET_MAILER_KEY: ${{ inputs.set_mailer_key }}
           SET_NER_TOKEN: ${{ inputs.set_ner_token }}
           CLEAR_NER: ${{ inputs.clear_ner }}
@@ -140,6 +145,7 @@ jobs:
           put NER_URL        "$IN_NER_URL"
           put NER_TIMEOUT_MS "$IN_NER_TIMEOUT_MS"
           put NEXT_PUBLIC_DEMO_MOCK "$IN_DEMO_MOCK"
+          put LAW_API_OC     "$IN_LAW_API_OC"
           if [ "$SET_MAILER_KEY" = "true" ]; then
             if [ -z "$SECRET_MAILER_API_KEY" ]; then echo "::error::저장소 시크릿 MAILER_API_KEY 가 없습니다"; exit 1; fi
             put MAILER_API_KEY "$SECRET_MAILER_API_KEY"

@@ -356,8 +356,8 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
     expect(plan.problems).toEqual([])
   })
 
-  it('여섯 항목이 전부 행이 된다', () => {
-    expect(plan.rows).toHaveLength(6)
+  it('아홉 항목이 전부 행이 된다', () => {
+    expect(plan.rows).toHaveLength(9)
     expect(plan.rows.map((r) => r.step_key)).toEqual([
       'report-112',
       'freeze-request',
@@ -367,6 +367,10 @@ describe('⚠️ 실제로 배포될 파일이 실리는가', () => {
       // 2026-08-27 추가 — 골자가 「할 수 있는 일」의 예로 든 F-10 이 그동안
       // KB 에 한 줄도 없었습니다 → 05 U-36
       'identity-check',
+      // 2026-09-06 추가 — 공고 2개월 뒤의 결과 단계 셋 (ADR-073). 파일 끝에 붙어 순서가 여기입니다
+      'refund-decision',
+      'refund-payment',
+      'procedure-stopped',
     ])
   })
 

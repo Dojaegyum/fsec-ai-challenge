@@ -36,7 +36,7 @@
 
 | ID | 기능 | 설명 | 요건 | 상태 (2026-09-04) |
 | --- | --- | --- | --- | --- |
-| **F-11** | 매뉴얼 KB 운영 파이프라인 | Watcher(법령 API·보도자료·기관 공지) → 변경 감지 → LLM 영향 분석 → 사람 검수 승인 → 버전 릴리스. Staleness Guard(90일 재검증). **MVP는 수동 구축 + 파이프라인 시연** | ③ | **부분** — 「수동 구축」은 `src/kb/*.json` + `npm run kb:load`([RFC-002](../../rfc/002-kb-authoring.md))로 구현. Watcher·영향 분석·검수(`kb-collector`·`kb-reviewer`)는 **미조립**(부르는 곳 0), Staleness Guard 는 계획에 없음 |
+| **F-11** | 매뉴얼 KB 운영 파이프라인 | Watcher(법령 API·보도자료·기관 공지) → 변경 감지 → LLM 영향 분석 → 사람 검수 승인 → 버전 릴리스. Staleness Guard(90일 재검증). **MVP는 수동 구축 + 파이프라인 시연** | ③ | **구현(영향 분석 제외)** — 수집(국가법령정보 API · 조문 단위 · 하루 1회 크론)과 검수 큐·판단 기록(`npm run kb:review`)이 돕니다(2026-09-06 · [ADR-072](../../decisions/072-law-collection-wired.md)). LLM 영향 분석(`impact`)과 게시판 수집원은 없습니다. 「수동 구축」은 `src/kb/*.json` + `npm run kb:load`([RFC-002](../../rfc/002-kb-authoring.md))로 구현. Watcher·영향 분석·검수(`kb-collector`·`kb-reviewer`)는 **미조립**(부르는 곳 0), Staleness Guard 는 계획에 없음 |
 
 → 상세: ~~[07](../backend/08-14-kb-operations.md)~~(2026-08-26 은퇴) → [RFC-002](../../rfc/002-kb-authoring.md) · [데이터 모델 §11·§12](../backend/08-16-data-model.md)
 
@@ -57,7 +57,7 @@
 | F-06b 완수 검증 | `completion-checker` · `reminder-sender` | `work-handler` · `file-sender` |
 | F-07 대응 비서 챗 | `chat-receiver` · `pii-tokenizer` · `kb-finder` · `prompt-builder` · `citation-checker` · `chat-publisher` | `chat-handler` |
 | F-08 서류 기재 안내 | `doc-builder` | **셸 화면 `doc.tsx`** — 복원은 `pii-restorer`, 브라우저에서만 ([ADR-064](../../decisions/064-doc-filler-retired.md)) |
-| F-11 KB 운영 | `kb-collector` · `kb-reviewer`(둘 다 미조립) | — |
+| F-11 KB 운영 | `kb-collector` · `kb-reviewer`(2026-09-06 조립 · ADR-072) | — |
 
 **F-06이 브라우저에서 셋으로 갈린 것이 가장 큰 변화입니다.** 「실행 보드」 한 덩어리였던 것이
 진행 표시(`plan-viewer`) · 기한 표시(`deadline-viewer`) · 작업 패널(`work-handler`)로 나뉘었습니다.
