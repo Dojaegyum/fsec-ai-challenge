@@ -144,6 +144,9 @@ function wiredContainer(
       async findReference() {
         return []
       },
+      async listEntries() {
+        return []
+      },
     },
     auditStore: { appendChained: async (build) => build(null) },
     kbVersion: { current: async () => '2026.08.1' },

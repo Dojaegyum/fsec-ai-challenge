@@ -50,11 +50,12 @@ function baseHeaders(telemetry: Telemetry): Record<string, string> {
 /** 성공 응답 하나 */
 export function ok(
   body: unknown,
-  init: { status?: number; telemetry?: Telemetry } = {},
+  init: { status?: number; telemetry?: Telemetry; headers?: Readonly<Record<string, string>> } = {},
 ): Response {
   return Response.json(body, {
     status: init.status ?? 200,
-    headers: baseHeaders(init.telemetry ?? {}),
+    // 라우트가 실은 헤더(Set-Cookie)가 같은 이름의 기본 헤더를 이깁니다 → request.ts `RouteResult.headers`
+    headers: { ...baseHeaders(init.telemetry ?? {}), ...(init.headers ?? {}) },
   })
 }
 

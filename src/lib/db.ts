@@ -414,6 +414,18 @@ export function createKbStore(sql: Sql): KbStore {
       `
       return rows.map(toRow)
     },
+    async listEntries(kbVersion: string): Promise<readonly KbRow[]> {
+      // 검수 화면의 매뉴얼 렌즈 — 시행일로 거르지 않습니다. 아직 시행 전인 항목도 검수 대상입니다
+      const rows = await sql<Record<string, unknown>[]>`
+        SELECT kb_entry_id, kb_version, step_key, step_seq, channel_id, org_id,
+               track, title, body, legal_basis, source_url,
+               effective_from, effective_until, verified_at
+        FROM kb_entry
+        WHERE kb_version = ${kbVersion}
+        ORDER BY channel_id NULLS FIRST, org_id NULLS FIRST, step_seq
+      `
+      return rows.map(toRow)
+    },
   }
 }
 

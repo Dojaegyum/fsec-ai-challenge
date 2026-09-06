@@ -33,7 +33,7 @@ import { createSelectorPool, type SelectorPool } from './db-selector'
 import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
 import { linkTokenSource, newUlid, ulidSource } from './ids'
-import { createChangeStore, createRegistryStore, createSnapshotStore } from './db-kb-collect'
+import { createChangeStore, createRegistryStore, createSnapshotReader, createSnapshotStore } from './db-kb-collect'
 import { createLawFetcher } from './law-fetcher'
 import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
@@ -391,6 +391,12 @@ function changeStore(env: Env): ReturnType<typeof createChangeStore> {
   return createChangeStore(sql)
 }
 
+function snapshotReader(env: Env): ReturnType<typeof createSnapshotReader> {
+  const sql = createSql(env)
+  if (!sql) return unconfigured('SnapshotReader', ['DATABASE_URL'])
+  return createSnapshotReader(sql)
+}
+
 function slotWriter(env: Env): SlotWriter {
   const sql = createSql(env)
   if (!sql) return unconfigured('SlotWriter', ['DATABASE_URL'])
@@ -612,6 +618,10 @@ export interface Container {
    */
   readonly kbCollector: ReturnType<typeof createKbCollector>
   readonly kbReviewer: ReturnType<typeof createKbReviewer>
+  /** 검수 큐 원표 — 검수 화면의 이력·미룸 조회 (API §7). 판단은 kbReviewer 로만 */
+  readonly kbChanges: ReturnType<typeof createChangeStore>
+  /** 원문 스냅샷 읽기 — 직전/이번 본문 */
+  readonly kbSnapshots: ReturnType<typeof createSnapshotReader>
 }
 
 /**
@@ -756,6 +766,8 @@ export function createContainer(
       hasher: { hash: (text) => createHash('sha256').update(text).digest('hex') },
     }),
     kbReviewer: createKbReviewer({ store: changeStore(env), clock }),
+    kbChanges: changeStore(env),
+    kbSnapshots: snapshotReader(env),
 
     reminderSender: createReminderSender({
       source: ports.reminderSource,

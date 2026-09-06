@@ -21,6 +21,8 @@ import {
   ArtifactRequiredError,
   EgressBlockedError,
   IngestError,
+  KbChangeDecidedError,
+  KbChangeNotFoundError,
   KbCitationMissingError,
   KbEntryNotFoundError,
   KbUnavailableError,
@@ -55,6 +57,8 @@ const TABLE: readonly (readonly [string, number, string])[] = [
   ],
   ['SLOT_NOT_CONFIRMED', 409, '먼저 확인이 필요한 항목이 있습니다.'],
   ['ARTIFACT_REQUIRED', 409, '앞 단계의 접수번호가 필요합니다.'],
+  ['KB_CHANGE_NOT_FOUND', 404, '그 변경을 찾지 못했습니다.'],
+  ['KB_CHANGE_DECIDED', 409, '이미 판단이 끝난 변경입니다.'],
   ['LLM_UNAVAILABLE', 503, '지금은 응답할 수 없습니다. 잠시 후 다시 시도해 주세요.'],
   ['LLM_BAD_REQUEST', 500, '처리 중 문제가 발생했습니다.'],
   ['INGEST_FAILED', 422, '파일을 읽지 못했습니다. 다른 파일로 시도해 주세요.'],
@@ -76,6 +80,8 @@ const THROWN: Readonly<Record<string, AppError>> = {
   KB_UNAVAILABLE: new KbUnavailableError('x'),
   SLOT_NOT_CONFIRMED: new SlotNotConfirmedError('x'),
   ARTIFACT_REQUIRED: new ArtifactRequiredError('x'),
+  KB_CHANGE_NOT_FOUND: new KbChangeNotFoundError('x'),
+  KB_CHANGE_DECIDED: new KbChangeDecidedError('x'),
   LLM_UNAVAILABLE: new LlmError('x'),
   LLM_BAD_REQUEST: new LlmBadRequestError('x'),
   INGEST_FAILED: new IngestError('x'),
@@ -93,7 +99,7 @@ describe('사용자 문구 — 08-16-errors.md §3 표', () => {
     })
   }
 
-  it('표의 열일곱 줄이 하나도 안 빠졌다', () => {
+  it('표의 열아홉 줄이 하나도 안 빠졌다', () => {
     // 빠진 줄은 조용히 INTERNAL 로 떨어져 「처리 중 문제가 발생했습니다」가 나갑니다.
     // 2026-08-27 배포 서버에서 CASE_NOT_FOUND·BAD_REQUEST·UNAUTHORIZED 셋이 그랬습니다
     expect(Object.keys(USER_MESSAGE).sort()).toEqual(TABLE.map(([code]) => code).sort())

@@ -35,7 +35,7 @@
  * 화면이 그 값으로 순서를 정하든 표시를 하든 그건 부르는 쪽의 일입니다.
  */
 
-import { KbError } from '@/lib/errors'
+import { KbChangeDecidedError, KbChangeNotFoundError, KbError } from '@/lib/errors'
 
 import type {
   ChangeGroup,
@@ -149,7 +149,7 @@ export function createKbReviewer(deps: {
     async review(decision: ReviewDecision): Promise<void> {
       const found = await store.findById(decision.changeId)
       if (!found) {
-        throw new KbError('그 변경을 찾지 못했습니다', {
+        throw new KbChangeNotFoundError('그 변경을 찾지 못했습니다', {
           changeId: decision.changeId,
         })
       }
@@ -161,7 +161,7 @@ export function createKbReviewer(deps: {
       // 본다」이고, 잠그면 미룬 것이 거절과 구분되지 않는 종결 상태가 됩니다 —
       // 시행일을 기다리던 개정이 어느 경로로도 승인 기록을 못 받습니다
       if (!REOPENABLE.has(found.reviewStatus)) {
-        throw new KbError('이미 판단이 끝난 변경입니다', {
+        throw new KbChangeDecidedError('이미 판단이 끝난 변경입니다', {
           changeId: decision.changeId,
           status: found.reviewStatus,
         })
@@ -184,7 +184,7 @@ export function createKbReviewer(deps: {
     async markReleased(changeId: string, kbVersion: string): Promise<void> {
       const found = await store.findById(changeId)
       if (!found) {
-        throw new KbError('그 변경을 찾지 못했습니다', { changeId })
+        throw new KbChangeNotFoundError('그 변경을 찾지 못했습니다', { changeId })
       }
 
       // **승인 없이 매뉴얼에 들어가는 경로를 만들지 않습니다** → 원칙 4.

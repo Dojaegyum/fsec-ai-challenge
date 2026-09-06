@@ -51,6 +51,8 @@ GUARDED_SEGMENTS = {
     "evidence_id": ("ulidParamOf",),
     "step_id": ("ulidParamOf",),
     "message_id": ("ulidParamOf",),
+    # 검수 큐의 변경 — ULID. 관리자 화면(S-12)만 씁니다 → API §7.2 · ADR-088
+    "change_id": ("ulidParamOf",),
 }
 
 # URL 에 오는 것은 링크 토큰 하나뿐입니다 → ADR-039.

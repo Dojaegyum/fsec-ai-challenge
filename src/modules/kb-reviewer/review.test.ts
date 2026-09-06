@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { KbError } from '@/lib/errors'
+import { KbChangeDecidedError, KbChangeNotFoundError, KbError } from '@/lib/errors'
 
 import { createKbReviewer } from './review'
 import type { ChangeStore, Clock, ReviewStatus, SourceChange } from './types'
@@ -277,7 +277,7 @@ describe('검수 이력을 덮어쓰지 않는다', () => {
 
     await expect(
       reviewer.review({ changeId: 'c1', status: 'approved', reviewedBy: '다른사람' }),
-    ).rejects.toBeInstanceOf(KbError)
+    ).rejects.toBeInstanceOf(KbChangeDecidedError)
     expect(decisions).toHaveLength(0)
   })
 
@@ -288,7 +288,7 @@ describe('검수 이력을 덮어쓰지 않는다', () => {
 
     await expect(
       reviewer.review({ changeId: 'c1', status: 'rejected', reviewedBy: '다른사람' }),
-    ).rejects.toThrow(KbError)
+    ).rejects.toBeInstanceOf(KbChangeDecidedError)
     expect(decisions).toHaveLength(0)
   })
 
@@ -297,7 +297,7 @@ describe('검수 이력을 덮어쓰지 않는다', () => {
 
     await expect(
       reviewer.review({ changeId: 'nope', status: 'approved', reviewedBy: '김태현' }),
-    ).rejects.toBeInstanceOf(KbError)
+    ).rejects.toBeInstanceOf(KbChangeNotFoundError)
     expect(decisions).toHaveLength(0)
   })
 

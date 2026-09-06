@@ -66,6 +66,9 @@ function kbStoreOf(rows: readonly KbRow[]) {
     async findReference() {
       return []
     },
+    async listEntries() {
+      return []
+    },
   }
   return { store, seen }
 }
