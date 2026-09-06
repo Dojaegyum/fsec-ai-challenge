@@ -363,8 +363,11 @@ export function QuestionBlock({
       const picked = question.options?.indexOf(value) ?? -1;
       if (picked === 0) return void ask.confirmAnswer("confirm").then(onAnswered);
       if (picked === 1) return void ask.confirmAnswer("reject").then(onAnswered);
-      // 선택지 밖의 글자는 보낼 곳이 없습니다 — 값으로 흘리면 그것이 슬롯에 적힙니다
-      return skip();
+      // 선택지 밖의 글자는 **아무것도 안 보냅니다.** 값으로 흘리면 그것이 슬롯에
+      // 적히고, 「모름」으로 흘리면 답하려던 슬롯이 `unknown` 으로 닫혀 **다시 안
+      // 물어봅니다**(`slot-checker` 는 `empty` 만 순회합니다). 여기 오는 일 자체가
+      // 서버가 낸 선택지와 어긋났다는 뜻이라, 문항을 그대로 두는 것이 맞습니다
+      return;
     }
     void ask.answer(value).then(onAnswered);
   };

@@ -124,6 +124,26 @@ describe("되묻기의 답은 뜻으로 나간다 — ADR-082", () => {
     expect(confirmAnswer).not.toHaveBeenCalled();
   });
 
+  it("선택지 밖의 글자는 아무것도 안 보낸다 — 「모름」으로 닫아 버리지 않는다", () => {
+    // 「모름」으로 흘리면 답하려던 슬롯이 `unknown` 으로 닫혀 **다시 안 물어봅니다**
+    // (`slot-checker` 는 `empty` 만 순회합니다). 여기 오는 일 자체가 서버가 낸
+    // 선택지와 어긋났다는 뜻이라, 문항을 그대로 두는 것이 맞습니다
+    const confirmAnswer = vi.fn(nothing);
+    const answer = vi.fn(nothing);
+    const skip = vi.fn(nothing);
+    const question = {
+      ...CONFIRM,
+      options: ["맞아요", "아니에요, 다시 적을게요", "직접 적을게요", "모름·기억 안 남"],
+    };
+    draw(askOf({ question, confirmAnswer, answer, skip }));
+
+    press("직접 적을게요");
+
+    expect(confirmAnswer).not.toHaveBeenCalled();
+    expect(answer).not.toHaveBeenCalled();
+    expect(skip).not.toHaveBeenCalled();
+  });
+
   it("되묻기가 아닌 문항은 그대로 값으로 답한다", () => {
     const confirmAnswer = vi.fn(nothing);
     const answer = vi.fn(nothing);

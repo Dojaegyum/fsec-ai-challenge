@@ -276,7 +276,8 @@ describe("되묻기의 답 — confirmAnswer 는 뜻만 보낸다 (ADR-082)", ()
       await hookNow().ask.confirmAnswer("confirm");
     });
 
-    expect(calls[0]?.url).toContain("/slots/org_name");
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(patched[0]?.url).toContain("/slots/org_name");
   });
 });
 
