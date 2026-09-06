@@ -40,6 +40,7 @@ import { createPiiTokenizer } from '@/modules/pii-tokenizer'
 import type { Line } from '@/modules/transcriber'
 
 import { collectReading, maskLines, startReading } from './read-evidence'
+import { fakeSlotContainer, type AlreadySlot } from './test-container'
 
 const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
 const EVIDENCE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4B'
@@ -578,27 +579,22 @@ describe('증거에서 값을 뽑아 확인 전으로 둔다 — ADR-069', () =>
     lineOf('32,000,000원'),
   ]
 
+  /**
+   * 모델·슬롯 세 칸은 **진술 쪽과 같은 대역**을 씁니다 → `test-container.ts` · ADR-087.
+   * 두 벌로 두면 한쪽만 고쳐져 「자료에서는 걸러지는데 진술에서는 안 걸러지는」 자리가 생깁니다
+   */
   function extractHarness(base: {
-    readonly already?: readonly { slotKey: string; state: string; valueMasked: string | null }[]
+    readonly already?: readonly AlreadySlot[]
     readonly reply: (maskedText: string) => unknown
   }) {
-    const wrote: { slotKey: string; state: string; valueMasked: string | null; source: string }[] = []
+    const fake = fakeSlotContainer(base)
     const one = harness({ lines: RECEIPT })
     const container = one.container as unknown as Record<string, unknown>
-    ;(container.ports as Record<string, unknown>).llm = {
-      completeText: async (prompt: { system: string; user: string }) => {
-        // 기관 교정(`repairOrgs`)은 사전이 비어 모델을 안 부릅니다 — 여기 오는 것은 추출뿐
-        if (!prompt.system.includes('사실만 뽑아내는')) return { text: '' }
-        return { text: JSON.stringify(base.reply(prompt.user)) }
-      },
-    }
-    container.slots = { read: async () => base.already ?? [] }
-    container.slotWrite = {
-      write: async (input: (typeof wrote)[number]) => {
-        wrote.push(input)
-      },
-    }
-    return { container: one.container, wrote }
+    // `ports` 를 통째로 덮지 않습니다 — `kbVersion` 이 함께 있습니다
+    ;(container.ports as Record<string, unknown>).llm = fake.llm
+    container.slots = fake.slots
+    container.slotWrite = fake.slotWrite
+    return { container: one.container, wrote: fake.wrote, prompts: fake.prompts }
   }
 
   const collect = (container: Container) =>

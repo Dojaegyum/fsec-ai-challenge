@@ -29,6 +29,8 @@
  * 없습니다** → 08-16-errors.md 원칙 1.
  */
 
+import { after } from 'next/server'
+
 import { chatTurn } from '@/flows/chat-turn'
 import { BadRequestError, readJsonObject } from '@/lib/http'
 import { caseIdOf, handleRoute } from '@/lib/request'
@@ -149,9 +151,19 @@ export async function POST(
 
     const turn = await chatTurn({ caseId, content: body.content }, container)
 
+    // **진술에서 슬롯을 뽑는 것은 응답 뒤입니다** → ADR-087. 모델 호출 하나가 더 붙는
+    // 일이라 턴 안에서 돌리면 사용자가 답을 보는 시각이 그만큼 밀립니다 — 뽑힌 값은
+    // 다음 번들에서 되묻기 문항으로 나오면 되는 것이라 이 응답을 기다리게 하지 않습니다.
+    // 흐름이 스스로 삼키므로 여기서 터질 것은 없습니다(불변 규칙 5)
+    after(turn.deferred)
+
     // **계측 넷을 여기서 채웁니다** → §1.1. 안 채우면 넷 다 「없음」으로 나가는데,
-    // 이 경로가 **이 제품의 유일한 외부 모델 호출**입니다 — 개인정보 보호가
-    // 작동한다는 것을 응답이 증명해야 하는 자리가 바로 여기입니다
+    // 답변 생성이 **응답 경로의 유일한 외부 모델 호출**입니다 — 개인정보 보호가
+    // 작동한다는 것을 응답이 증명해야 하는 자리가 바로 여기입니다.
+    //
+    // 위 `after` 로 미룬 슬롯 추출(ADR-087)도 모델을 한 번 부르지만 **응답 뒤**라
+    // 이 계측에 안 셉니다 — 헤더는 이미 나간 뒤이고, 그 호출의 토큰·잔여는 이 응답이
+    // 증명할 수 있는 것이 아닙니다. 세려면 감사 쪽(`llm.called`)에 따로 남길 일입니다
     ctx.telemetry.addTokenCounts(turn.telemetry.piiTokenCounts)
     ctx.telemetry.setEgressResidual(turn.telemetry.piiEgressResidual)
     ctx.telemetry.useKbVersion(turn.telemetry.kbVersion)

@@ -77,7 +77,7 @@ export class KbError extends AppError {
   readonly httpStatus: number = 500
 }
 
-/** 검수 큐의 변경 하나를 못 찾음 — 관리자 API §7.3 (ADR-087) */
+/** 검수 큐의 변경 하나를 못 찾음 — 관리자 API §7.3 (ADR-088) */
 export class KbChangeNotFoundError extends KbError {
   readonly code: string = 'KB_CHANGE_NOT_FOUND'
   readonly httpStatus: number = 404

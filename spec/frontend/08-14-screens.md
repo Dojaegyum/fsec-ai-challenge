@@ -36,7 +36,7 @@
 | `S-08` | 증거함 | `/c/{token}` | 국면 1~3 | `transcript-viewer` · `file-sender` |
 | `S-10` | 서류 기재 안내 | `/c/{token}` | 국면 3 | 셸 `doc.tsx` · `pii-restorer` · `key-handler` ([ADR-064](../../decisions/064-doc-filler-retired.md)) |
 | `S-11` | **이 답변에 무엇이 나갔나** | `/c/{token}` (시트) | 국면 1~4 | `pii-restorer` · `key-handler` |
-| `S-12` | **KB 검수 큐** — 팀용, 피해자 화면에서 링크하지 않음 | `/admin/kb` | — (운영 · [ADR-087](../../decisions/087-kb-review-screen.md)) | 없음 — 셸 `src/app/admin/kb/` |
+| `S-12` | **KB 검수 큐** — 팀용, 피해자 화면에서 링크하지 않음 | `/admin/kb` | — (운영 · [ADR-088](../../decisions/088-kb-review-screen.md)) | 없음 — 셸 `src/app/admin/kb/` |
 | ~~`S-03`~~ | ~~피싱 백신 (부가)~~ | ~~`/vaccine`~~ | — | **폐기됨 (2026-09-04)** — 위 [폐기 표](#폐기된-화면--번호는-재사용하지-않습니다) |
 
 **`S-06`·`S-07`·`S-08`·`S-10`은 경로가 같습니다.** 화면 ID가 가리키는 것은 경로가 아니라
@@ -797,7 +797,7 @@ side    plan.steps 에 지금 할 단계가 있으면  → 'work'
 
 ## S-12 · KB 검수 큐 — `/admin/kb`
 
-> 2026-09-06 신설 → [ADR-087](../../decisions/087-kb-review-screen.md). **피해자 화면이 아니라 팀이 쓰는 화면**입니다.
+> 2026-09-06 신설 → [ADR-088](../../decisions/088-kb-review-screen.md). **피해자 화면이 아니라 팀이 쓰는 화면**입니다.
 > 시안은 [핸드오프 09-06-s12-kb-review](../../assets/artifacts/handoff/09-06-s12-kb-review/README.md).
 > **2026-09-06 구현** — 화면 커밋 `999f852`(`src/app/admin/kb/`), 구현 계획은 [09-06-kb-review-screen](../../docs/plans/09-06-kb-review-screen.md).
 
@@ -829,7 +829,7 @@ filter:    'all' | 'first' | 'changed' | 'deferred' | 'page'
 유일한 자리이고, 서버 쪽 판단은 `kb-reviewer` 가 합니다.
 
 > ⬜ 다음 단계 후보 — 매뉴얼 기준 화면의 항목별 결론(손댐 필요 / 영향 없음)과, 기관 페이지 변경의 추출
-> 힌트(은행연합회 페이지 ↔ `org.json` 대조). 캔버스 둘째 페이지 「C」와 ADR-087 「맥락」의 스파이크 참고.
+> 힌트(은행연합회 페이지 ↔ `org.json` 대조). 캔버스 둘째 페이지 「C」와 ADR-088 「맥락」의 스파이크 참고.
 
 ## S-03 · 피싱 백신 — `/vaccine` (F-09, 부가)
 

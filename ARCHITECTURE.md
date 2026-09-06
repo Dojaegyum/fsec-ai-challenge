@@ -93,6 +93,7 @@ flowchart LR
 | 대응표 보관소(볼트) | 같은 Postgres의 `case_vault` 스키마 · 암호문만 | `src/migrations/0004` |
 | 객체 저장소 | Supabase Storage `evidence` 버킷(비공개) · 서명 주소로만 접근 | `src/lib/storage.ts` |
 | 언어모델 | Grok(xAI) `grok-4.5` · OpenAI 호환 `/chat/completions` 하나 · SDK 없음 · 도구 호출 안 씀 | `src/lib/llm.ts` |
+| 자료 선별 모델 | 같은 제공자의 빠른 모델(`LLM_SELECT_MODEL`) · 번호만 고름 · 비면 꺼짐 | `src/modules/kb-selector/` |
 | STT · OCR · NER | FastAPI 서비스 · faster-whisper `large-v3`(GPU) 또는 `medium`(CPU) · EasyOCR · Ollama `gemma3:4b` | `services/transcriber/` |
 | 매뉴얼 검색 | 조건 조회(트랙 · 경유 유형 · 기관 · 날짜 · 버전) · 벡터 검색 아님 | `src/modules/kb-finder/` |
 | 주기 실행 | Vercel Cron 셋(알림 · 파기 · 법령 수집) · 앱의 API 라우트를 깨움 | `src/vercel.json` |
@@ -107,7 +108,7 @@ flowchart LR
 | --- | --- |
 | 업로드는 서명 주소로 Storage에 직접 | 녹음 파일 수십 MB · 함수 본문 한계 밖 |
 | 전사·판독은 맡기고 폴링 | 서비스 왕복 한 번 8초 상한 (`src/lib/inference.ts`) |
-| 챗은 스트리밍 없이 응답 1회 | 챗 라우트 `maxDuration = 60` · 모델 호출 55초에서 앱이 끊음 (`src/lib/llm.ts`) |
+| 챗은 스트리밍 없이 응답 1회 | 챗 라우트 `maxDuration = 100` · 모델 호출 90초에서 앱이 끊음 (`src/lib/llm.ts`) |
 | 이름 찾기(NER)는 동기 호출 | 기본 12초 · CPU 서버면 `NER_TIMEOUT_MS`로 조정 |
 | 모델 재시도는 형식 실패 시 1회 | `retry-checker` |
 | 크론은 하루 1회 | Hobby 플랜 제한 |
@@ -139,7 +140,7 @@ flowchart LR
 
 이름의 정본은 [모듈 명칭](spec/common/08-16-module-names.md), 책임과 금지는 [모듈 경계](spec/common/08-16-module-boundaries.md). 층은 실행 시점으로 나눈다. 그림에는 하는 일을 적고, 모듈 이름은 그림 아래 표에서 잇는다.
 
-- 모듈 32개 전부 코드가 있다. 서버 모듈의 `index.ts`는 `import "server-only"`, 브라우저 모듈은 `import "client-only"`로 시작한다.
+- 모듈 33개 전부 코드가 있다. 서버 모듈의 `index.ts`는 `import "server-only"`, 브라우저 모듈은 `import "client-only"`로 시작한다.
 - 회색 점선 칸 둘(수법 판정 · 서식 안내)은 코드는 있으나 호출처가 없다.
 
 ### 층 1 · 자료가 들어올 때 (한 번)
@@ -182,7 +183,8 @@ flowchart TB
     IN["발화"] --> RECV["순서 부르기"]
     RECV --> TOK["개인정보 가림"]
     TOK --> FIND["매뉴얼 조회"]
-    FIND --> PB["프롬프트 조립"]
+    FIND --> SEL["자료 선별<br/>발화 보고 고름"]
+    SEL --> PB["프롬프트 조립"]
     PB --> LLM{{"Grok<br/>1회 호출"}}
     LLM --> CC["근거 검증"]
 
@@ -205,6 +207,7 @@ flowchart TB
 | 순서 부르기 | `chat-receiver` | 아래 단계를 순서대로 부른다. 판정은 하지 않는다 |
 | 개인정보 가림 | `pii-tokenizer` | 층 1과 같은 모듈 |
 | 매뉴얼 조회 | `kb-finder` | 사건의 트랙 · 경유 유형 · 기관 · 오늘 날짜 · 매뉴얼 버전으로 조회. 조건은 서버가 넣고 모델은 바꿀 수 없다 |
+| 자료 선별 | `kb-selector` | 토큰화된 최근 대화를 보고 두 묶음 밖의 자료(다른 절차 · 기관 연락처 · 법령 조문) 중 쓸 것의 번호만 고른다. 빠른 두 번째 모델(`LLM_SELECT_MODEL`)이 하고, 비면 꺼진다. 실패·시간 초과는 빈 선택 |
 | 프롬프트 조립 | `prompt-builder` | 7블록 조립. 사용자 글과 전사문에는 격리 태그를 씌운다 |
 | 근거 검증 | `citation-checker` | 답의 인용이 조회 결과 안에 있는지 확인하고 세 갈래 중 하나로 보낸다 |
 | 질문 한 개 | `slot-checker` | 근거를 못 붙이면 부족한 슬롯을 묻는 질문 한 개를 낸다 |
@@ -341,7 +344,7 @@ flowchart LR
 [ADR-056](decisions/056-transcript-org-normalization.md) · [ADR-064](decisions/064-doc-filler-retired.md) · [ADR-067](decisions/067-pii-confirm-server-masks.md) ·
 [ADR-068](decisions/068-no-admin-screen.md) · [ADR-069](decisions/069-evidence-slot-extraction.md) · [ADR-072](decisions/072-law-collection-wired.md) ·
 [ADR-077](decisions/077-upload-is-not-proof.md) · [ADR-078](decisions/078-shell-polls-all-processing-evidence.md) · [ADR-079](decisions/079-known-name-reuse.md) ·
-[ADR-087](decisions/087-kb-review-screen.md) · [RFC-002](rfc/002-kb-authoring.md) · [기한 계산 규칙](spec/common/08-16-deadline-rules.md)
+[ADR-088](decisions/088-kb-review-screen.md) · [RFC-002](rfc/002-kb-authoring.md) · [기한 계산 규칙](spec/common/08-16-deadline-rules.md)
 
 ## 5. 데이터 흐름
 
@@ -392,12 +395,16 @@ sequenceDiagram
     participant B as 브라우저
     participant A as API
     participant M as 모델 서비스
+    participant F as 선별 모델
     participant G as Grok
 
     B->>B: 1차 가림 · 아는 이름 치환
     B->>A: 발화
     A->>M: 이름 찾기 (켜져 있을 때)
-    A->>A: 가림 · 매뉴얼 조회 · 프롬프트 조립
+    A->>A: 가림 · 매뉴얼 조회
+    A->>F: 자료 선별 (묶음마다 병렬 · 번호만)
+    F-->>A: 고른 번호
+    A->>A: 고른 자료 본문 + 프롬프트 조립
     A->>G: 1회 호출 (형식 실패면 1회 더)
     G-->>A: 답 + 인용
     A->>A: 근거 검증 · 송출 검사
@@ -429,7 +436,7 @@ sequenceDiagram
 
 | 무엇 | 쓰임 | 선택 | 경계 |
 | --- | --- | --- | :---: |
-| 언어모델 | 챗 · 정보 뽑기 · 기관명 교정 | Grok `grok-4.5`(인용 계약 3/3 · 2026-08-28 실측). `LLM_*` 셋으로 다른 OpenAI 호환 제공자로 교체 가능 | 지남 · 토큰만 |
+| 언어모델 | 챗 · 정보 뽑기 · 기관명 교정 · 자료 선별(번호만) | Grok `grok-4.5`(인용 계약 3/3 · 2026-08-28 실측). `LLM_*` 셋으로 다른 OpenAI 호환 제공자로 교체 가능 | 지남 · 토큰만 |
 | STT | 녹음 → 글 | faster-whisper `large-v3`(GPU). 상시 CPU 서버는 `medium`, 음성 길이의 3.7배 | 경계 이전 |
 | OCR | 이미지 → 글 | EasyOCR ko/en + 좌표로 행 복원 | 경계 이전 |
 | NER | 이름 찾기 | Ollama `gemma3:4b` · 같은 서비스의 `/ner` · 깨끗한 텍스트에서 누출 0% · 과차단 0% | 경계 그 자체 |
@@ -469,7 +476,7 @@ main 에 src/** 가 푸시됨
 ```
 
 - 환경은 Production 하나. PR 미리보기는 만들지 않는다. 환경변수만 바꿨을 때는 Actions 탭에서 `deploy`를 다시 건다.
-- 환경변수 이름의 정본은 [API 계약](spec/common/08-14-api.md) §1.2, 값은 Vercel 프로젝트 설정. 넣는 길은 소유자의 `vercel` CLI 또는 `vercel-env` 워크플로. 관리자 비밀번호는 `ADMIN_PASSWORD_HASH`(scrypt) 하나이고 `npm run admin:hash`로 만들어 저장소 시크릿에 둔다 ([ADR-087](decisions/087-kb-review-screen.md)).
+- 환경변수 이름의 정본은 [API 계약](spec/common/08-14-api.md) §1.2, 값은 Vercel 프로젝트 설정. 넣는 길은 소유자의 `vercel` CLI 또는 `vercel-env` 워크플로. 관리자 비밀번호는 `ADMIN_PASSWORD_HASH`(scrypt) 하나이고 `npm run admin:hash`로 만들어 저장소 시크릿에 둔다 ([ADR-088](decisions/088-kb-review-screen.md)).
 - 시연 자료: 합성 자료 셋 [`assets/demo/09-01-mock-evidence/`](assets/demo/09-01-mock-evidence/). 시작 화면의 「예시 자료로 체험하기」 칩이 한 번에 담고, 이후 사람이 고른 파일과 같은 길로 처리된다. 칩은 `NEXT_PUBLIC_DEMO_MOCK=1` 빌드에서만 보인다.
 
 | 워크플로 | 무엇을 보나 | 언제 |

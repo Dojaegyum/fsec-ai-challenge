@@ -33,11 +33,17 @@ import { KbCitationMissingError, LlmBadRequestError, LlmError } from '@/lib/erro
 import { newUlid } from '@/lib/ids'
 
 import type { Citation, NextQuestion, PublishInput } from '@/modules/chat-publisher'
-import type { CaseContext, FreshMapping, SettledOutcome } from '@/modules/chat-receiver'
+import type {
+  CaseContext,
+  FreshMapping,
+  SelectionStats,
+  SettledOutcome,
+} from '@/modules/chat-receiver'
 import { readIssuedLedger } from '@/modules/pii-tokenizer'
 import type { NextQuestion as SlotQuestion } from '@/modules/slot-checker'
 
 import { readApiDeadlines, type ApiDeadline } from './api-deadlines'
+import { extractSlotsFrom } from './extract-slots'
 import { readCasePlan } from './regenerate-plan'
 
 /** 한 턴의 결과 — 라우트가 그대로 내보냅니다 */
@@ -72,6 +78,17 @@ export interface TurnResult {
     readonly kbVersion: string
     readonly auditId: string
   }
+  /**
+   * **응답을 내보낸 뒤에** 돌 일 → ADR-087. 라우트가 `after()` 로 부릅니다.
+   *
+   * 진술에서 슬롯을 뽑는 것이 여기 있습니다. 턴 안에서 돌리면 사용자가 답을 보기까지
+   * 모델 호출 하나가 통째로 더해집니다 — 뽑힌 값은 **다음 번들**에서 되묻기 문항으로
+   * 나오면 되는 것이라 이 턴을 기다리게 할 이유가 없습니다.
+   *
+   * **던지지 않습니다.** 흐름 안에서 삼킵니다([불변 규칙 5](../../CLAUDE.md)) — 응답은
+   * 이미 나간 뒤라 여기서 터져도 사용자에게 말할 자리가 없습니다
+   */
+  readonly deferred: () => Promise<void>
 }
 
 /**
@@ -134,6 +151,7 @@ export async function chatTurn(
     detail: {
       applied: outcome.counts.applied,
       reference: outcome.counts.reference,
+      selected: outcome.counts.selected,
       kb_version: kbVersion,
       transcript_lines: outcome.counts.transcriptLines,
     },
@@ -151,12 +169,18 @@ export async function chatTurn(
   // ⚠️ **환경변수의 모델 이름을 쓰지 않습니다.** 후보를 차례로 시도하는 구조라
   // 거기 적힌 것과 실제로 답한 것이 다를 수 있고, 그러면 **감사 기록이 거짓이
   // 됩니다.** 제공자가 안 밝히면 그 칸을 **비웁니다** — 지어내지 않습니다
+  // 선별 호출은 답변 호출과 따로 센다 → ADR-089 ⑦ · 09 §10.2
+  if (outcome.selection) {
+    await recordSelection(input.caseId, outcome.selection, container)
+  }
+
   const call = outcome.reply.call
   await container.auditLogger.record({
     eventType: 'llm.called',
     actorType: 'model',
     caseId: input.caseId,
     detail: {
+      purpose: 'answer',
       attempts: outcome.attempts,
       ...(typeof call?.model === 'string' ? { model: call.model } : {}),
       ...(typeof call?.tokenIn === 'number' ? { token_in: call.tokenIn } : {}),
@@ -228,6 +252,19 @@ export async function chatTurn(
       kbVersion,
       auditId: contextAudit.auditId,
     },
+    // **자료와 같은 추출기를 진술에도 겁니다** → ADR-087. 보는 것은 `utteranceMasked` —
+    // 가려진 쪽입니다(불변 규칙 2). `source_ref` 는 이 턴의 메시지 번호라, 되묻기에서
+    // 「이 값이 맞나요」가 어느 말에서 나온 것인지 되짚을 수 있습니다
+    deferred: () =>
+      extractSlotsFrom(
+        {
+          caseId: input.caseId,
+          sourceRef: messageId,
+          sourceLabel: '사용자 진술',
+          text: outcome.utteranceMasked,
+        },
+        container,
+      ),
   }
 }
 
@@ -252,6 +289,49 @@ export async function chatTurn(
  * 감사 기록이 못 남는다고 여기서 던지면, 사용자가 받는 오류가 **인용 위반이
  * 아니라 저장소 오류**로 바뀝니다 — 원인이 가려집니다.
  */
+/**
+ * 선별의 감사 — 호출마다 `llm.called(select)`, 한 턴에 `chat.selected` 하나.
+ *
+ * 실패해도 답변은 나갔으므로 여기서 던지지 않습니다. 감사 저장이 실패하면 그것도 삼킵니다 —
+ * 답변이 이미 만들어진 뒤라, 기록 실패로 사용자에게 500 을 주지 않습니다.
+ */
+async function recordSelection(
+  caseId: string,
+  selection: SelectionStats,
+  container: Container,
+): Promise<void> {
+  try {
+    for (const call of selection.calls) {
+      await container.auditLogger.record({
+        eventType: 'llm.called',
+        actorType: 'model',
+        caseId,
+        detail: {
+          purpose: 'select',
+          ...(typeof call.model === 'string' ? { model: call.model } : {}),
+          ...(typeof call.tokenIn === 'number' ? { token_in: call.tokenIn } : {}),
+          ...(typeof call.tokenOut === 'number' ? { token_out: call.tokenOut } : {}),
+        },
+      })
+    }
+    await container.auditLogger.record({
+      eventType: 'chat.selected',
+      actorType: 'system',
+      caseId,
+      detail: {
+        pool: selection.pool,
+        groups: selection.groups,
+        rounds: selection.rounds,
+        picked: [...selection.picked],
+        ms: selection.ms,
+        ...(selection.skipped ? { skipped: selection.skipped } : {}),
+      },
+    })
+  } catch {
+    // 기록 실패는 답변을 막지 않는다
+  }
+}
+
 async function recordFailedCall(
   caseId: string,
   error: unknown,

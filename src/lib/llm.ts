@@ -25,6 +25,7 @@ import type { Env } from './env'
 import { LlmBadRequestError, LlmError } from './errors'
 
 import type { LlmClient, ModelReply } from '@/modules/chat-receiver'
+import type { SelectorLlm } from '@/modules/kb-selector'
 
 /**
  * 기본은 **Grok (xAI)** 입니다 → ARCHITECTURE §2 · §1.2 `XAI_API_KEY`.
@@ -296,7 +297,10 @@ export function llmCallOf(reply: unknown): LlmCall {
  * 알 수 있습니다.
  */
 export interface TextLlmClient extends LlmClient {
-  complete(prompt: { system: string; user: string }): Promise<LlmReply>
+  complete(
+    prompt: { system: string; user: string },
+    opts?: { timeoutMs?: number },
+  ): Promise<LlmReply>
   completeText(
     prompt: { system: string; user: string },
   ): Promise<{ text: string; call: LlmCall }>
@@ -350,10 +354,11 @@ export function createLlmClient(env: Env): TextLlmClient | null {
    */
   const sendText = async (
     prompt: { system: string; user: string },
+    opts?: { timeoutMs?: number },
   ): Promise<{ text: string; call: LlmCall }> => {
       // **예산은 통틀어 하나입니다.** 시도마다 45초씩 주면 재시도 두 번에
       // 함수 상한(60초)을 넘겨 버립니다 → 라우트의 `maxDuration`
-      const deadline = Date.now() + TIMEOUT_MS
+      const deadline = Date.now() + (opts?.timeoutMs ?? TIMEOUT_MS)
       const tries = models.length * MAX_ROUNDS
 
       let res: Response | null = null
@@ -447,8 +452,11 @@ export function createLlmClient(env: Env): TextLlmClient | null {
   }
 
   return {
-    async complete(prompt: { system: string; user: string }): Promise<LlmReply> {
-      const { text, call } = await sendText(prompt)
+    async complete(
+      prompt: { system: string; user: string },
+      opts?: { timeoutMs?: number },
+    ): Promise<LlmReply> {
+      const { text, call } = await sendText(prompt, opts)
       try {
         return { ...toReply(extractJson(text)), call }
       } catch {
@@ -463,6 +471,77 @@ export function createLlmClient(env: Env): TextLlmClient | null {
 
     async completeText(prompt: { system: string; user: string }) {
       return sendText(prompt)
+    },
+  }
+}
+
+/**
+ * 선별 전용 모델 → ADR-089 ④ · `kb-selector`.
+ *
+ * 답변 모델과 같은 제공자·열쇠를 쓰되 모델만 `LLM_SELECT_MODEL` 입니다. 번호만 고르는
+ * 일이라 인용 계약이 필요 없어 빠른 모델을 끼웁니다(2026-08-28 실측 `grok-4.20-…-non-reasoning` 2~6초).
+ *
+ * **재시도가 없습니다.** 한 번 부르고 끝입니다. 묶음 여러 개를 병렬로 부르는 자리라 재시도는
+ * 예산만 태우고, 실패한 묶음은 `kb-selector` 가 빈 답으로 다룹니다.
+ *
+ * **모델이 비어 있으면 `null`** — 선별기가 꺼지고 챗은 지금과 같이 돕니다.
+ */
+export function createSelectLlmClient(env: Env): SelectorLlm | null {
+  const model = env.values.LLM_SELECT_MODEL
+  const key = env.values.LLM_API_KEY ?? env.values.XAI_API_KEY
+  if (!model || !key) return null
+  const base = (env.values.LLM_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
+  const endpoint = `${base}/chat/completions`
+
+  return {
+    async completeText(prompt, opts) {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), Math.max(1, opts.timeoutMs))
+      const startedAt = Date.now()
+      let res: Response
+      try {
+        res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${key}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0,
+            messages: [
+              { role: 'system', content: prompt.system },
+              { role: 'user', content: prompt.user },
+            ],
+          }),
+          signal: controller.signal,
+          cache: 'no-store',
+        })
+      } catch (error) {
+        const timedOut = error instanceof Error && error.name === 'AbortError'
+        logAttempt(`${model} (선별)`, timedOut ? '시간 초과' : '닿지 못함', Date.now() - startedAt)
+        throw new LlmError(
+          timedOut ? '선별 모델이 제때 답하지 않았습니다' : '선별 모델에 닿지 못했습니다',
+          { reason: timedOut ? 'timeout' : 'unreachable', model, purpose: 'select' },
+        )
+      } finally {
+        clearTimeout(timer)
+      }
+      logAttempt(`${model} (선별)`, `HTTP ${res.status}`, Date.now() - startedAt)
+      if (!res.ok) {
+        throw new LlmError(`선별 모델이 거절했습니다 (${res.status})`, {
+          status: res.status,
+          model,
+          purpose: 'select',
+        })
+      }
+      const body: unknown = await res.json().catch(() => null)
+      const text = (body as { choices?: { message?: { content?: unknown } }[] } | null)
+        ?.choices?.[0]?.message?.content
+      if (typeof text !== 'string') {
+        throw new LlmError('선별 모델이 빈 답을 냈습니다', { model, purpose: 'select' })
+      }
+      return { text, call: toCall(body) }
     },
   }
 }

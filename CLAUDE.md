@@ -29,7 +29,7 @@
 | --- | --- | --- |
 | **이 서비스가 무엇을 약속하나** | [spec/common/08-17-service-concept.md](spec/common/08-17-service-concept.md) | **골자.** 기획서 §0을 대체 — 판단이 갈리면 여기로 거슬러 오세요 |
 | **구현이 따라야 할 계약** | `spec/` (`common/`·`backend/`·`frontend/`) | **정본.** 코드를 쓰기 전 여기부터 |
-| **시스템이 무엇으로 어떻게 도는가** | [ARCHITECTURE.md](ARCHITECTURE.md) | 기술 선택·모듈 배치·저장소·배포. **2026-09-06 `main` 기준으로 다시 씀** — 앱 밖 모델 서비스까지 §1, 모듈 32 의 연결도는 §4, 데이터 흐름은 §5 |
+| **시스템이 무엇으로 어떻게 도는가** | [ARCHITECTURE.md](ARCHITECTURE.md) | 기술 선택·모듈 배치·저장소·배포. **2026-09-06 `main` 기준으로 다시 씀** — 앱 밖 모델 서비스까지 §1, 모듈 33 의 연결도는 §4, 데이터 흐름은 §5 |
 | **앱 밖에서 도는 것 · 그 자리를 만드는 것** | `services/` · `deploy/` | 전사·판독 서비스(Python)와 서버 준비 도구. 경계는 [RFC-001](rfc/001-repo-structure.md) 「`services/`」·「`deploy/`」 |
 | **모듈 이름이 무엇이고 무엇을 맡나** | [spec/common/08-16-module-names.md](spec/common/08-16-module-names.md) | 서버 네 층 + **브라우저 층 C**. 코드 폴더가 여기 묶여 있어 CI가 강제 |
 | **무엇을 어디에 둘지 · 작업 규칙** | `rfc/` | **규약.** 현재형으로 "이렇게 한다". 새 파일을 만들기 전 [RFC-001](rfc/001-repo-structure.md) |
@@ -48,7 +48,7 @@
 | 대회 일정·진행 상황 | `docs/context/AGENDA.md` | 배경 |
 | 구현 계획 | `docs/plans/` | 무엇을 어떤 순서로 만들지. **세션이 바뀌면 [qa-readiness](docs/plans/08-23-qa-readiness.md) 부터.** 문서가 코드보다 뒤처진 자리는 [doc-gardening](docs/plans/08-26-doc-gardening.md). 끝난 계획은 지우지 않고 **은퇴** 절에 있습니다 |
 | 주제 선정 과정·탈락 후보 | `assets/artifacts/archived/candidates/` | 아카이브. 판단 과정은 `decisions/001-topic-selection.md`에 있으니 근거 원문이 필요할 때만. 갱신하지 않음 |
-| 코드 | `src/` | 도메인 모듈 32(`src/modules/` · 이름 33 중 `doc-filler` 는 [ADR-064](decisions/064-doc-filler-retired.md)로 폐기) · API 라우트 23(사건 13 + 크론 3 + 관리자 7) · 흐름(`src/flows/`) · 마이그레이션 0001~0010. 스캐폴딩 단계는 지났습니다 |
+| 코드 | `src/` | 도메인 모듈 33(`src/modules/` · 이름 34 중 `doc-filler` 는 [ADR-064](decisions/064-doc-filler-retired.md)로 폐기) · API 라우트 23(사건 13 + 크론 3 + 관리자 7) · 흐름(`src/flows/`) · 마이그레이션 0001~0010. 스캐폴딩 단계는 지났습니다 |
 | **매뉴얼을 어떻게 쓰나** | [RFC-002](rfc/002-kb-authoring.md) | KB 원본은 `src/kb/`. **DB는 사본이라 직접 INSERT 하지 않습니다** |
 | 로고·favicon·컴포넌트 원본 | `assets/brand/`, `assets/components/` | 원본만. 앱이 서빙하는 사본은 `src/public/` |
 

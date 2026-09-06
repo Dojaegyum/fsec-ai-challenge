@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 import type { ApiDeadline } from '@/flows/api-deadlines'
 import { chatTurn, deadlineState, deadlinesCited, stepsCited } from '@/flows/chat-turn'
 import type { CasePlanStore } from '@/flows/regenerate-plan'
+import { fakeSlotContainer } from '@/flows/test-container'
 
 import { createContainer, unconfiguredPorts } from '@/lib/container'
 import type { Container, Ports } from '@/lib/container'
@@ -733,7 +734,8 @@ function turnOf(over: Partial<TurnOutcome> = {}): TurnOutcome {
     kbContextRefs: [],
     promptMasked: '(프롬프트 전문)',
     utteranceMasked: '이제 뭘 하죠',
-    counts: { applied: 5, reference: 7, transcriptLines: 42 },
+    counts: { applied: 5, reference: 7, selected: 0, transcriptLines: 42 },
+    selection: null,
     // 계측 헤더가 이 값으로 섭니다 → §1.1 · `X-Pii-Token-Count`
     piiCounts: { account: 1 },
     // 서버가 이번 발화에서 막 만든 대응표 — 기본은 「없음」
@@ -1087,6 +1089,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
 
     const llm = one.audits.find((row) => row.eventType === 'llm.called')
     expect(llm?.detail).toEqual({
+      purpose: 'answer',
       attempts: 1,
       model: 'grok-4.5',
       token_in: 1200,
@@ -1101,7 +1104,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     await runTurn(one)
 
     const llm = one.audits.find((row) => row.eventType === 'llm.called')
-    expect(llm?.detail).toEqual({ attempts: 1 })
+    expect(llm?.detail).toEqual({ purpose: 'answer', attempts: 1 })
   })
 
 
@@ -1112,6 +1115,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     expect(one.audits[0]?.detail).toEqual({
       applied: 5,
       reference: 7,
+      selected: 0,
       kb_version: KB_VERSION,
       transcript_lines: 42,
     })
@@ -1121,7 +1125,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     const one = chatHarness({ turn: turnOf({ attempts: 2 }) })
     await runTurn(one)
 
-    expect(one.audits[1]?.detail).toEqual({ attempts: 2 })
+    expect(one.audits[1]?.detail).toEqual({ purpose: 'answer', attempts: 2 })
     // 모델이 답한 줄이라 행위자가 `model` 입니다 → §10 `actor_type`
     expect(one.audits[1]?.actorType).toBe('model')
   })
@@ -1439,5 +1443,143 @@ describe('서버가 막 만든 대응표를 응답까지 올린다 — ADR-062 �
 
     expect(one.written).toHaveLength(1)
     expect(JSON.stringify(one.written[0])).not.toContain('김민수')
+  })
+})
+
+/**
+ * ⚠️ **진술에 적은 값이 사건 파일에 안 남고 있었습니다** (2026-09-06 QA).
+ *
+ * 첫 진술이 「국민은행 [계좌-1] 로 300만원을 보냈습니다」였는데 금액은 「모름」이었고,
+ * 뒤에 올린 사기 문자에서 뽑은 32,000,000원을 되물었습니다. 추출기는 자료에만 걸려
+ * 있었습니다 → [ADR-087](../../decisions/087-statement-slot-extraction.md).
+ *
+ * **여기서 못 박는 것 셋:**
+ * 1. 턴 결과에 `deferred` 가 있고, 그것을 부르면 추출기가 **한 번 더** 돈다
+ * 2. 모델이 보는 것은 **가려진 발화**다 — 원문이 아니다 (불변 규칙 2)
+ * 3. 턴 자체는 추출을 기다리지 않는다 — 응답 뒤(`after()`)의 몫이다
+ */
+describe('진술에서도 슬롯을 뽑는다 — 응답 뒤에 (ADR-087)', () => {
+  const SAID = '국민은행 [계좌-1] 로 300만원을 보냈습니다'
+
+  /** 추출기가 볼 세 칸만 갈아끼웁니다 — 자료 쪽과 같은 대역입니다 */
+  function withExtractor(
+    reply: unknown,
+    over: { readonly utteranceMasked?: string } = {},
+  ) {
+    const one = chatHarness({
+      turn: turnOf({ utteranceMasked: over.utteranceMasked ?? SAID }),
+    })
+    const fake = fakeSlotContainer({ reply: () => reply })
+    const container = one.container as unknown as Record<string, unknown>
+    ;(container.ports as Record<string, unknown>).llm = fake.llm
+    container.slots = fake.slots
+    container.slotWrite = fake.slotWrite
+    return { one, fake }
+  }
+
+  const AMOUNT = { slots: [{ slot_key: 'amount', value: '300만원', confidence: 0.9 }] }
+
+  it('턴 안에서는 안 돈다 — 챗 지연에 모델 한 번을 더하지 않는다', async () => {
+    const { one, fake } = withExtractor(AMOUNT)
+
+    const got = await chatTurn({ caseId: CASE_ID, content: SAID }, one.container)
+
+    expect(typeof got.deferred).toBe('function')
+    expect(fake.prompts).toEqual([])
+    expect(fake.wrote).toEqual([])
+  })
+
+  it('부르면 가려진 발화를 담아 추출기가 돌고, source_ref 는 그 턴의 메시지 번호다', async () => {
+    const { one, fake } = withExtractor(AMOUNT)
+
+    const got = await chatTurn({ caseId: CASE_ID, content: SAID }, one.container)
+    await got.deferred()
+
+    expect(fake.prompts).toHaveLength(1)
+    expect(fake.prompts[0]).toContain('사용자 진술')
+    expect(fake.prompts[0]).toContain(SAID)
+    expect(fake.wrote).toEqual([
+      expect.objectContaining({
+        slotKey: 'amount',
+        state: 'extracted',
+        valueMasked: '3000000',
+        source: 'auto',
+        sourceRef: one.written[0]!.messageId,
+      }),
+    ])
+  })
+
+  it('추출이 터져도 던지지 않는다 — 응답은 이미 나갔습니다 (불변 규칙 5)', async () => {
+    const { one } = withExtractor(AMOUNT)
+    const container = one.container as unknown as Record<string, unknown>
+    // 모델이 안 뜬 자리 — 리시버는 대역이라 이 자리를 안 지납니다
+    ;(container.ports as Record<string, unknown>).llm = {
+      completeText: async () => {
+        throw new Error('모델이 안 떴습니다')
+      },
+    }
+
+    const got = await chatTurn({ caseId: CASE_ID, content: SAID }, one.container)
+
+    await expect(got.deferred()).resolves.toBeUndefined()
+  })
+})
+
+describe('선별이 감사에 남는다 — ADR-089 ⑦ · 09 §10.2', () => {
+  it('호출마다 llm.called(select), 한 턴에 chat.selected 하나, 답변은 llm.called(answer)', async () => {
+    const one = chatHarness({
+      turn: turnOf({
+        counts: { applied: 5, reference: 7, selected: 2, transcriptLines: 42 },
+        selection: {
+          pool: 150,
+          groups: 2,
+          rounds: 1,
+          ms: 4_200,
+          picked: ['kb:card-freeze', 'org:kb-bank'],
+          calls: [
+            { model: 'fast', tokenIn: 900, tokenOut: 20 },
+            { model: 'fast', tokenIn: 850, tokenOut: 18 },
+            { model: 'fast', tokenIn: 400, tokenOut: 30 },
+          ],
+        },
+      }),
+    })
+    await runTurn(one)
+
+    expect(one.audits.map((row) => row.eventType)).toEqual([
+      'chat.context_built',
+      'llm.called',
+      'llm.called',
+      'llm.called',
+      'chat.selected',
+      'llm.called',
+    ])
+    expect(one.audits[0]?.detail).toMatchObject({ selected: 2 })
+    expect(one.audits[1]?.detail).toEqual({ purpose: 'select', model: 'fast', token_in: 900, token_out: 20 })
+    expect(one.audits[4]?.detail).toEqual({
+      pool: 150,
+      groups: 2,
+      rounds: 1,
+      picked: ['kb:card-freeze', 'org:kb-bank'],
+      ms: 4_200,
+    })
+    expect(one.audits[4]?.actorType).toBe('system')
+    expect(one.audits[5]?.detail).toMatchObject({ purpose: 'answer' })
+  })
+
+  it('선별이 건너뛰어졌으면 그 이유가 남는다 — 호출 없이 chat.selected 만', async () => {
+    const one = chatHarness({
+      turn: turnOf({
+        selection: { pool: 150, groups: 2, rounds: 0, ms: 10_000, picked: [], calls: [], skipped: 'timeout' },
+      }),
+    })
+    await runTurn(one)
+
+    expect(one.audits.map((row) => row.eventType)).toEqual([
+      'chat.context_built',
+      'chat.selected',
+      'llm.called',
+    ])
+    expect(one.audits[1]?.detail).toMatchObject({ skipped: 'timeout', picked: [] })
   })
 })

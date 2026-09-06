@@ -129,7 +129,7 @@ export const RATE_RULES = {
     windowMs: MINUTE,
     what: '사건 조회 실패',
   },
-  // 계정이 하나라 IP 로 셉니다. 무차별 대입 방어 → §7.1 · ADR-087.
+  // 계정이 하나라 IP 로 셉니다. 무차별 대입 방어 → §7.1 · ADR-088.
   // `/api/admin/*` 은 제한하지 않지만(§1.3) 로그인은 그 접두사 밖이라 여기가 걸립니다
   adminLogin: {
     bucket: 'adminLogin',

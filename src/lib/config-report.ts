@@ -50,8 +50,12 @@ export function configReport(container: Container): readonly PortStatus[] {
     row('언어모델', has(env, 'XAI_API_KEY') || has(env, 'LLM_API_KEY'),
       ['XAI_API_KEY 또는 LLM_API_KEY'],
       '챗이 답하지 못합니다'),
+    // 선별기(ADR-089)는 있으면 좋은 것이라 비어도 챗은 돕니다 — 다만 발화에 맞춘 다른 절차·연락처·조문이
+    // 안 들어오는 것을 운영자가 알아야 「왜 연락처를 안 주나」를 코드에서 찾지 않습니다
+    row('발화 자료 선별', ports.selectLlm !== null, ['LLM_SELECT_MODEL'],
+      '사건 조건으로 고른 절차만 프롬프트에 갑니다. 다른 절차·기관 연락처·법령 조문은 발화에 맞춰 안 들어옵니다. **챗은 그대로 돕니다**'),
     // 「관리자 계정」 줄은 2026-09-04 에 지웠다가(ADR-068 — 화면을 안 만들기로) 2026-09-06 에
-    // 비밀번호 해시 하나로 되살렸습니다(ADR-087 — KB 검수 큐 화면). 비면 /admin/kb 로그인이
+    // 비밀번호 해시 하나로 되살렸습니다(ADR-088 — KB 검수 큐 화면). 비면 /admin/kb 로그인이
     // 전부 401 이라 검수를 아무도 못 하지만, 사건 진행은 그 값과 무관합니다
     row('관리자 비밀번호', has(env, 'ADMIN_PASSWORD_HASH'), ['ADMIN_PASSWORD_HASH'],
       '/admin/kb 로그인이 전부 401 입니다 — KB 검수 큐를 아무도 못 씁니다. **사건 진행은 그대로 돕니다**'),

@@ -64,7 +64,7 @@ on:
         required: false
         default: ""
       set_admin_password_hash:
-        description: "ADMIN_PASSWORD_HASH 를 저장소 시크릿 ADMIN_PASSWORD_HASH 에서 넣는다 (KB 검수 큐 /admin/kb 의 문 · `npm run admin:hash` 로 만든 값 · ADR-087)"
+        description: "ADMIN_PASSWORD_HASH 를 저장소 시크릿 ADMIN_PASSWORD_HASH 에서 넣는다 (KB 검수 큐 /admin/kb 의 문 · `npm run admin:hash` 로 만든 값 · ADR-088)"
         type: boolean
         default: false
       demo_mock:

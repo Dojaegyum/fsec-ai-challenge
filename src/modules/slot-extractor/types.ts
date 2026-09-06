@@ -79,7 +79,7 @@ export interface ExtractedSlot {
   readonly valueType: SlotValueType
   /** 0~1. **임계값 판단은 여기서 하지 않습니다** — 아래 참고 */
   readonly confidence: number
-  /** 어느 증거에서 나왔나. `case_slot.source_ref` */
+  /** 어느 자료(evidence_id) 또는 진술(message_id)에서 나왔나. `case_slot.source_ref` → ADR-087 */
   readonly sourceRef: string | null
 }
 
