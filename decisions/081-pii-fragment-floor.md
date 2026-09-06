@@ -7,6 +7,7 @@
   [ADR-034](034-browser-shows-plaintext.md)(화면은 전부 원문) · [ADR-062](062-transcript-mapping-handover.md)(대응표 인수인계) ·
   [ADR-079](079-known-name-reuse.md)(아는 이름 재사용) · `src/modules/pii-tokenizer/tokenize.ts` ·
   `src/modules/pii-tokenizer/transcript-digits.ts` · `src/modules/pii-masker/mask.ts` · `src/app/c/[token]/send.ts`
+- 후속: [ADR-082](082-confirm-answers-are-actions.md) — 여기서 어긋난 되묻기의 글자 비교를 뜻(`action`)으로 옮긴다
 
 ## 맥락
 

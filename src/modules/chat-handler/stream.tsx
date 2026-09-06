@@ -28,6 +28,10 @@ export function AnswerBubble({ turn }: { turn: Turn }) {
  * 슬롯 질문의 버튼 형태 — **한 번에 하나, 기본 선택 없음** (§S-06 · §3.4).
  * **버튼으로 담을 수 있는 질문은 전부 이걸로** 그립니다 (ADR-061).
  *
+ * **되묻기(`confirm`)도 같은 모양입니다** — 다른 것은 답이 글자가 아니라 뜻으로
+ * 간다는 것뿐이고(ADR-082), 그 갈래는 부르는 쪽(`onAnswer`)이 가릅니다. 여기서
+ * 안 그리면 되묻기 문항에 답할 수단이 없어 그 슬롯이 영영 `extracted` 로 남습니다.
+ *
  * **`options` 를 걸러내지 마세요.** 「모름」이 항상 들어 있고, 없으면 그건
  * **서버 쪽 스펙 위반**입니다 — 화면이 대신 채우면 그 위반이 가려집니다.
  */
@@ -44,7 +48,8 @@ export function QuestionButtons({
   onSkip?: () => void;
   busy?: boolean;
 }) {
-  if (question.input !== "buttons" || !question.options) return null;
+  if ((question.input !== "buttons" && question.input !== "confirm") || !question.options)
+    return null;
 
   return (
     <div
@@ -78,7 +83,7 @@ export function QuestionButtons({
   );
 }
 
-/** `input` 넷 중 버튼이 아닌 셋 → §3.4 */
+/** `input` 다섯 중 버튼이 아닌 셋 → §3.4 (`buttons`·`confirm` 은 `QuestionButtons`) */
 const FIELD_KIND: Readonly<Record<string, { type: string; hint: string }>> = {
   text: { type: "text", hint: "적어 주세요" },
   date: { type: "date", hint: "날짜를 골라 주세요" },

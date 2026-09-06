@@ -212,7 +212,8 @@ export function createQuestionSource(): QuestionSource {
  * 계좌 토큰(`[계좌-1]`)은 **그대로** 둡니다 — 원문은 브라우저만 알고, 화면이 토큰 자리를
  * 되살립니다(`pii-restorer`). 여기서 번호를 쓸 수 있는 방법이 없고, 있어서도 안 됩니다.
  *
- * 선택지의 앞 둘은 **글자가 곧 계약**입니다 — `flows/answer-slot.ts` 가 그 글자로 가릅니다.
+ * 선택지의 앞 둘은 **자리가 곧 계약**입니다 → ADR-082. 화면이 첫째를 `action: "confirm"`,
+ * 둘째를 `"reject"` 로 보냅니다 — 글자는 사람이 읽는 것이라 가려져도 뜻이 안 흔들립니다.
  */
 const CONFIRM_LABEL: Readonly<Partial<Record<SlotKey, string>>> = {
   amount: '보낸 금액',
@@ -230,7 +231,8 @@ function confirmForm(slotKey: SlotKey, value: string): QuestionForm | undefined 
   if (!label) return undefined
   return {
     text: `올린 자료에서 찾은 ${label}입니다: ${shownValue(slotKey, value)}. 맞나요?`,
-    input: 'buttons',
+    // 그림은 버튼과 같고, 답만 뜻으로 갑니다 → ADR-082
+    input: 'confirm',
     options: [CONFIRM_YES, CONFIRM_NO],
   }
 }

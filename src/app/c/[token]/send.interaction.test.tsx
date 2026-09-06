@@ -233,6 +233,54 @@ describe("되묻기 카드는 그 슬롯의 것이다 — §3.5 · ADR-041", () 
 });
 
 /**
+ * 되묻기의 답은 **뜻으로** 나간다 — ADR-082.
+ *
+ * 2026-09-06 배포본에서는 버튼 글자가 그대로 실려 나갔고, 브라우저가 보내기 전에
+ * 「요」를 `[이름-5]` 로 바꾸는 바람에(ADR-081) 서버의 글자 비교가 어긋나 그 글자가
+ * 피해 금액으로 저장됐습니다. 이제 `value` 를 아예 안 싣습니다.
+ */
+describe("되묻기의 답 — confirmAnswer 는 뜻만 보낸다 (ADR-082)", () => {
+  it("「맞아요」는 { action: 'confirm' } — 값은 싣지 않는다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(patched).toHaveLength(1);
+    expect(JSON.parse(patched[0]!.body)).toEqual({ action: "confirm" });
+  });
+
+  it("「아니에요」는 { action: 'reject' }", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("reject");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(JSON.parse(patched[0]!.body)).toEqual({ action: "reject" });
+  });
+
+  it("지금 질문의 슬롯으로 간다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    expect(calls[0]?.url).toContain("/slots/org_name");
+  });
+});
+
+/**
  * ⚠️ **전사가 만든 대응표가 그 자리에서 버려지고 있었습니다** (ADR-062).
  *
  * 서버는 토큰화한 그 폴링 응답에만 원문 포함 대응표를 실어 보냅니다 — 보관하지

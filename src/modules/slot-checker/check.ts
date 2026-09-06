@@ -156,7 +156,14 @@ export const CONFIRMABLE_KEYS: readonly SlotKey[] = [
   'notice_started_at',
 ]
 
-/** 되묻기의 두 선택지. **글자가 곧 계약입니다** — `flows/answer-slot.ts` 가 이 글자로 가릅니다 */
+/**
+ * 되묻기의 두 선택지 — **사람이 읽는 글자**입니다.
+ *
+ * 2026-09-04 까지는 *"글자가 곧 계약"* 이라 서버가 이 글자를 비교했습니다. 브라우저가
+ * 보내기 전에 「요」를 가려(ADR-081) 그 비교가 어긋나 버튼 글자가 금액으로 저장된 뒤로는,
+ * **자리(0·1)가 `action: "confirm"`·`"reject"` 로 갑니다** → ADR-082.
+ * `flows/answer-slot.ts` 의 글자 비교는 옛 화면 호환으로만 남아 있습니다.
+ */
 export const CONFIRM_YES = '맞아요'
 export const CONFIRM_NO = '아니에요, 다시 적을게요'
 
@@ -306,7 +313,9 @@ function pickQuestion(
  * 문구를 주는 쪽이 빠뜨려도 여기서 채워, **스펙 위반이 구조적으로 일어나지 않게** 한다.
  */
 function withUnknownOption(question: NextQuestion): NextQuestion {
-  if (question.input !== 'buttons') return question
+  // 되묻기(`confirm`)도 선택지로 그려집니다 — 「모름」이 빠지면 뽑힌 값이 틀린 사람이
+  // 그 자리에서 막힙니다 (ADR-082 가 `input` 을 가른 뒤에도 이 규칙은 그대로입니다)
+  if (question.input !== 'buttons' && question.input !== 'confirm') return question
 
   const options = question.options ?? []
   if (options.includes(UNKNOWN_OPTION)) return question

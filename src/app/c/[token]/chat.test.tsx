@@ -38,6 +38,7 @@ const askOf = (over: Partial<ChatSend["ask"]> = {}): ChatSend["ask"] => ({
   answer: nothing,
   skip: nothing,
   resolve: nothing,
+  confirmAnswer: nothing,
   ...over,
 });
 
@@ -184,9 +185,21 @@ describe("되묻기 문구의 토큰은 브라우저가 되살린다 — ADR-069
   const confirmAccount: NextQuestion = {
     slot_key: "counterpart_account",
     text: "올린 자료에서 찾은 받는 쪽 계좌입니다: [계좌-2]. 맞나요?",
-    input: "buttons",
+    // 되묻기는 제 `input` 을 갖습니다 — 그림은 버튼과 같고 답만 뜻으로 갑니다 (ADR-082)
+    input: "confirm",
     options: ["맞아요", "아니에요, 다시 적을게요", "모름·기억 안 남"],
   };
+
+  it("**선택지를 그린다** — `confirm` 도 버튼과 같은 모양이다 (ADR-082)", () => {
+    // 안 그리면 되묻기 문항에 답할 수단이 없어 그 슬롯이 영영 `extracted` 로 남습니다
+    const html = renderToStaticMarkup(
+      <QuestionBlock ask={askOf({ question: confirmAccount })} onAnswered={() => {}} i={0} />,
+    );
+    const text = textOf(html);
+    expect(text).toContain("맞아요");
+    expect(text).toContain("아니에요, 다시 적을게요");
+    expect(text).toContain("모름·기억 안 남");
+  });
 
   it("복원 목록이 있으면 번호로 보인다", () => {
     const html = renderToStaticMarkup(

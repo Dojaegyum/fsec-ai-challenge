@@ -38,8 +38,14 @@ import { readCasePlan, regeneratePlan } from './regenerate-plan'
 import type { DeadlineChange } from '@/lib/db'
 import type { NextQuestion } from '@/modules/slot-checker'
 
-/** 사용자가 할 수 있는 것 → §3.5 */
-export type SlotAction = 'answer' | 'unknown' | 'mask' | 'keep'
+/**
+ * 사용자가 할 수 있는 것 → §3.5.
+ *
+ * `confirm`·`reject` 는 **자료에서 뽑힌 값의 되묻기 답**입니다 → ADR-082. 「맞아요」·
+ * 「아니에요, 다시 적을게요」라는 글자로 오던 것이 뜻으로 옵니다 — 브라우저가 보내기 전에
+ * 그 글자를 가려(ADR-081) 비교가 어긋나고 버튼 글자가 금액으로 저장된 일이 있었습니다.
+ */
+export type SlotAction = 'answer' | 'unknown' | 'mask' | 'keep' | 'confirm' | 'reject'
 
 export interface AnswerResult {
   readonly slotKey: string
@@ -99,67 +105,43 @@ export async function answerSlot(
     }
   }
 
+  // ── 되묻기의 답 — 뜻으로 온 것 (ADR-082) ──────────────────────────
+  //
+  // **글자를 안 봅니다.** 화면이 첫 선택지를 `confirm`, 둘째를 `reject` 로 보냅니다.
+  // 아래 옛 길(글자 비교)과 **같은 두 함수**를 지납니다 — 갈라 적으면 한쪽만 고쳐집니다
+  if (input.action === 'confirm' || input.action === 'reject') {
+    if (!(CONFIRMABLE_KEYS as readonly string[]).includes(input.slotKey)) {
+      throw new BadRequestError('되묻기 문항이 아닙니다', { param: 'action' })
+    }
+    const held = await readHeldValue(input.caseId, input.slotKey, container)
+    if (!held) {
+      throw new BadRequestError('확인할 값이 없습니다', { param: 'action' })
+    }
+    const target = { caseId: input.caseId, slotKey: input.slotKey, tier, valueType }
+    return input.action === 'confirm'
+      ? confirmHeld(target, held, container)
+      : rejectHeld(target, container)
+  }
+
   const raw = input.value
   if (typeof raw !== 'string' || raw.trim().length === 0) {
     throw new BadRequestError('value 가 없습니다', { param: 'value' })
   }
 
-  // ── 증거에서 뽑힌 값의 되묻기 답 — 「맞아요」·「아니에요」 (ADR-069) ────────
+  // ── 되묻기의 답이 글자로 온 옛 길 — 「맞아요」·「아니에요」 (ADR-069 · 호환) ────
   //
-  // 슬롯 체커가 `extracted` 값을 버튼으로 되물었고(`CONFIRMABLE_KEYS`), 그 답이 왔습니다.
-  // **토큰화보다 앞에 있어야 합니다** — 아래 일반 경로로 흘리면 「맞아요」라는 글자가
-  // 금액 슬롯의 값이 됩니다. 버튼 밖의 글(사용자가 직접 적은 값)은 그대로 아래로 흘러
-  // 뽑힌 값을 갈아끼웁니다 — 고치는 길을 막지 않습니다
+  // 배포된 화면이 바뀌기 전 요청을 막지 않습니다 → ADR-082. **토큰화보다 앞에 있어야
+  // 합니다** — 아래 일반 경로로 흘리면 「맞아요」라는 글자가 금액 슬롯의 값이 됩니다.
+  // 버튼 밖의 글(사용자가 직접 적은 값)은 그대로 아래로 흘러 뽑힌 값을 갈아끼웁니다 —
+  // 고치는 길을 막지 않습니다
   if (input.action === 'answer' && (CONFIRMABLE_KEYS as readonly string[]).includes(input.slotKey)) {
-    const held = (await container.slots.read(input.caseId)).find(
-      (one) => one.slotKey === input.slotKey,
-    )
-    if (held && held.state === 'extracted' && held.valueMasked !== null) {
+    const held = await readHeldValue(input.caseId, input.slotKey, container)
+    if (held) {
       const answer = raw.trim()
-      if (answer === CONFIRM_YES) {
-        // 값은 그대로, 상태만 닫습니다. `source` 는 `auto` 로 둡니다 — 기한 계산이
-        // 「증거에서 온 날짜」를 확정으로 보는 근거가 이 칸입니다(`compute-deadlines.ts`)
-        await container.slotWrite.write({
-          caseId: input.caseId,
-          slotKey: input.slotKey,
-          tier,
-          valueType,
-          state: 'confirmed',
-          valueMasked: held.valueMasked,
-          source: 'auto',
-          sourceRef: held.sourceRef ?? null,
-          confidence: held.confidence ?? null,
-        })
-        return {
-          slotKey: input.slotKey,
-          state: 'confirmed',
-          value: held.valueMasked,
-          piiConfirm: null,
-          counts: null,
-          planRegenerated: true,
-        }
-      }
-      if (answer === CONFIRM_NO) {
-        // 비웁니다. 그러면 슬롯 체커가 **그 문항을 원래 형식으로** 다시 냅니다 —
-        // 뽑힌 값을 두고 다시 물으면 같은 되묻기가 되풀이됩니다
-        await container.slotWrite.write({
-          caseId: input.caseId,
-          slotKey: input.slotKey,
-          tier,
-          valueType,
-          state: 'empty',
-          valueMasked: null,
-          source: 'user',
-        })
-        return {
-          slotKey: input.slotKey,
-          state: 'empty',
-          value: null,
-          piiConfirm: null,
-          counts: null,
-          planRegenerated: false,
-        }
-      }
+      const target = { caseId: input.caseId, slotKey: input.slotKey, tier, valueType }
+      // **위 갈래와 같은 함수입니다** — 두 길이 다르게 굴면 어느 쪽이 옳은지 알 수 없습니다
+      if (answer === CONFIRM_YES) return confirmHeld(target, held, container)
+      if (answer === CONFIRM_NO) return rejectHeld(target, container)
     }
   }
 
@@ -273,6 +255,99 @@ export async function answerSlot(
     },
     container,
   )
+}
+
+/** 되묻기가 확인받으려던 값 — 어느 슬롯에 무엇이 들어 있나 */
+interface HeldValue {
+  readonly valueMasked: string
+  readonly sourceRef: string | null
+  readonly confidence: number | null
+}
+
+/** 되묻기 답이 향하는 슬롯 하나 */
+interface ConfirmTarget {
+  readonly caseId: string
+  readonly slotKey: string
+  readonly tier: ReturnType<typeof tierOf>
+  readonly valueType: ReturnType<typeof valueTypeOf>
+}
+
+/**
+ * 그 슬롯이 **확인을 기다리는 상태인가** — 아니면 `null`.
+ *
+ * 되묻기의 두 길(뜻 · 옛 글자)이 같은 판정을 씁니다. 갈라 적으면 한쪽만
+ * `extracted` 를 확인하게 되고, 그쪽으로 온 답이 없는 값을 확정합니다.
+ */
+async function readHeldValue(
+  caseId: string,
+  slotKey: string,
+  container: Container,
+): Promise<HeldValue | null> {
+  const held = (await container.slots.read(caseId)).find((one) => one.slotKey === slotKey)
+  if (!held || held.state !== 'extracted' || held.valueMasked === null) return null
+  return {
+    valueMasked: held.valueMasked,
+    sourceRef: held.sourceRef ?? null,
+    confidence: held.confidence ?? null,
+  }
+}
+
+/**
+ * 「맞나요」에 그렇다고 답한 것 — **값은 그대로, 상태만 닫습니다.**
+ *
+ * `source` 는 `auto` 로 둡니다 — 기한 계산이 「증거에서 온 날짜」를 확정으로 보는
+ * 근거가 이 칸입니다(`compute-deadlines.ts`).
+ */
+async function confirmHeld(
+  one: ConfirmTarget,
+  held: HeldValue,
+  container: Container,
+): Promise<AnswerResult> {
+  await container.slotWrite.write({
+    caseId: one.caseId,
+    slotKey: one.slotKey,
+    tier: one.tier,
+    valueType: one.valueType,
+    state: 'confirmed',
+    valueMasked: held.valueMasked,
+    source: 'auto',
+    sourceRef: held.sourceRef,
+    confidence: held.confidence,
+  })
+  return {
+    slotKey: one.slotKey,
+    state: 'confirmed',
+    value: held.valueMasked,
+    piiConfirm: null,
+    counts: null,
+    planRegenerated: true,
+  }
+}
+
+/**
+ * 「아니에요, 다시 적을게요」 — **비웁니다.**
+ *
+ * 그러면 슬롯 체커가 그 문항을 **원래 형식으로** 다시 냅니다. 뽑힌 값을 두고 다시
+ * 물으면 같은 되묻기가 되풀이됩니다.
+ */
+async function rejectHeld(one: ConfirmTarget, container: Container): Promise<AnswerResult> {
+  await container.slotWrite.write({
+    caseId: one.caseId,
+    slotKey: one.slotKey,
+    tier: one.tier,
+    valueType: one.valueType,
+    state: 'empty',
+    valueMasked: null,
+    source: 'user',
+  })
+  return {
+    slotKey: one.slotKey,
+    state: 'empty',
+    value: null,
+    piiConfirm: null,
+    counts: null,
+    planRegenerated: false,
+  }
 }
 
 /**

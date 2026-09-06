@@ -156,6 +156,57 @@ describe('목록 밖 슬롯 이름 — §5.1 · 08-16-errors.md §3', () => {
   })
 })
 
+/**
+ * 되묻기의 답은 **뜻으로** 온다 — ADR-082 · §3.5.
+ *
+ * 2026-09-06 QA 에서 브라우저가 보내기 전에 버튼 글자의 「요」를 가려(ADR-081)
+ * 「아니에[이름-5], 다시 적을게[이름-5]」가 도착했고 그 글자가 금액으로 저장됐습니다.
+ * 라우트가 이 둘을 목록 밖으로 튕기면 새 화면의 답이 통째로 400 이 됩니다.
+ */
+describe('되묻기의 답 — action 목록에 confirm·reject 가 있다 (ADR-082)', () => {
+  /** 자료에서 뽑혀 확인을 기다리는 금액 — `slots.read` 가 내주는 모양 그대로 */
+  const EXTRACTED = [
+    {
+      slotKey: 'amount',
+      tier: 'T2' as const,
+      state: 'extracted',
+      valueMasked: '32000000',
+      valueType: 'decimal',
+      source: 'auto',
+      confidence: 0.9,
+      sourceRef: '01J8XKQZ3M7N2P4R6T8V0W2Y4B',
+    },
+  ]
+
+  beforeEach(() => {
+    holder.container = { ...wiredContainer(), slots: { read: async () => EXTRACTED } }
+  })
+
+  it('confirm 은 뽑힌 값을 그대로 확정한다', async () => {
+    const one = ask('amount', { action: 'confirm' })
+    const res = await PATCH(one.request, one.route)
+    const body = (await res.json()) as { slot: { state: string; value: string | null } }
+
+    expect(res.status).toBe(200)
+    expect(body.slot).toEqual({ slot_key: 'amount', state: 'confirmed', value: '32000000' })
+  })
+
+  it('reject 는 그 슬롯을 비운다 — 원래 형식으로 다시 묻게', async () => {
+    const one = ask('amount', { action: 'reject' })
+    const res = await PATCH(one.request, one.route)
+    const body = (await res.json()) as { slot: { state: string; value: string | null } }
+
+    expect(res.status).toBe(200)
+    expect(body.slot).toEqual({ slot_key: 'amount', state: 'empty', value: null })
+  })
+
+  it('목록 밖 action 은 그대로 400 이다', async () => {
+    const one = ask('amount', { action: 'confirmed' })
+
+    expect((await PATCH(one.request, one.route)).status).toBe(400)
+  })
+})
+
 describe('계측 헤더 — 08-14-api.md §1.1', () => {
   it('되묻기로 나간 개인정보 후보를 유형별 건수로 적는다', async () => {
     // 안 채우면 헤더가 언제나 `none` 이라, 경계가 도는지 멈췄는지를 응답만
