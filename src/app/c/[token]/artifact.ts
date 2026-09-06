@@ -96,18 +96,26 @@ export interface ArtifactSend {
    * 판독이 끝나 다시 판정된 단계를 받아 안내를 갈아끼웁니다.
    *
    * 부르는 쪽은 번들이 바뀔 때마다 **판정을 낸 그 단계**(`verdictStepId`)를 찾아
-   * 넘깁니다 → `page.tsx`. 다른 단계면 아무 일도 안 합니다
+   * 넘깁니다 → `page.tsx`. **낡은 번들이면 아무 일도 안 합니다** — 아래
+   * `settle` 구현의 네 관문을 보세요
    */
   settle(step: SettledStep): void;
   /** 판정 표시를 걷습니다 — 사용자가 다음 단계로 넘어갈 때 */
   clear(): void;
 }
 
-/** `settle` 이 보는 만큼의 단계 — §3.6 의 `state` 와 `artifacts[].verify_reason` */
+/** `settle` 이 보는 만큼의 단계 — §3.6 의 `state` 와 `artifacts[]` */
 export interface SettledStep {
   readonly step_id: string;
   readonly state: string;
-  readonly artifacts?: readonly { readonly verify_reason?: string | null }[];
+  readonly artifacts?: readonly {
+    /**
+     * **낸 판정과 번들을 맞대는 열쇠입니다** — 이것이 없으면 「낸 그 부산물이
+     * 번들에 들어왔는가」를 물을 수 없고, 낡은 번들로 안내를 갈아끼우게 됩니다
+     */
+    readonly artifact_id?: string;
+    readonly verify_reason?: string | null;
+  }[];
 }
 
 /**
@@ -198,15 +206,42 @@ export function useArtifact(
   );
 
   /**
-   * 번들이 바뀌었을 때 그 단계의 지금 판정으로 안내를 맞춥니다.
+   * 번들이 바뀌었을 때 그 단계의 **새 판정**으로 안내를 맞춥니다.
    *
-   * **판정을 낸 단계의 것만 받습니다** — 다른 단계의 소식으로 이 안내를 바꾸면
-   * 안 한 일의 말이 여기 붙습니다(`verdictStepId` 가 있는 이유와 같습니다).
+   * ⚠️ **낡은 번들로 갈아끼우면 더 나빠집니다.** 이 함수는 번들이 바뀔 때마다
+   * 불리는데, 부산물을 막 냈을 때의 번들은 **그 부산물을 아직 모릅니다** —
+   * 서버를 다시 읽는 것은 판독이 끝난 뒤입니다. 그 목록의 마지막 줄은 **앞
+   * 시도**이고, 그것으로 고르면 방금 올린 파일에 앞 시도의 실패 문구가 붙습니다.
+   * L1·L3 은 아예 판독이 뒤집을 것이 없는데도 말이 덮였습니다 (검토 1회차).
+   *
+   * 그래서 관문 넷을 지납니다 —
+   *
+   * | 관문 | 왜 |
+   * | --- | --- |
+   * | 판정을 낸 **그 단계**인가 | 남의 판정을 이 단계에 붙이지 않습니다(`verdictStepId` 와 같은 이유) |
+   * | 단계가 **완료**로 바뀌었나 | 그러면 할 말이 없습니다 — 지웁니다 |
+   * | 판정이 **아직 안 끝난 것**인가 (`not_applicable`) | L1·L3 은 판독이 뒤집을 것이 없습니다. 그 말은 다시 낼 때까지 그대로입니다 |
+   * | 번들이 **낸 그 부산물**을 알고, 그 이유가 더는 `reading_pending` 인가 | 아니면 낡은 번들입니다 — 아무것도 안 합니다 |
    */
   const settle = useCallback(
     (step: SettledStep) => {
       if (verdict && verdict.stepId !== step.step_id) return;
-      setNote(noteOfStep(step));
+      if (step.state === "done_verified") {
+        setNote(null);
+        return;
+      }
+      // 맞댈 판정이 없으면 맞출 것도 없습니다. 새로고침 뒤의 안내는 이 훅이 아니라
+      // 화면이 단계에서 직접 고릅니다 → `page.tsx` 의 `noteOfStep`
+      if (!verdict) return;
+      if (verdict.got.verify_result !== "not_applicable") return;
+
+      const mine = step.artifacts?.find((one) => one.artifact_id === verdict.got.artifact_id);
+      if (!mine || mine.verify_reason === "reading_pending") return;
+
+      // **할 말이 생겼을 때만 갈아끼웁니다** — 표에 없는 이유로 하던 말을 지우면
+      // 사용자는 무엇을 더 해야 하는지 모른 채 남습니다
+      const next = noteFor(mine.verify_reason);
+      if (next) setNote(next);
     },
     [verdict],
   );

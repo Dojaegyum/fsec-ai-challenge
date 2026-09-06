@@ -46,6 +46,7 @@ export interface PlanStep {
    * (`app/c/[token]/artifact.ts` 의 `noteOfStep`). 이유가 없으면 `null`
    */
   artifacts?: readonly {
+    artifact_id: string;
     kind: string;
     verify_level: string;
     verify_result: string;

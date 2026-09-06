@@ -362,7 +362,7 @@ src/modules/{모듈 이름}/
 
 | 규칙 | 왜 |
 | --- | --- |
-| **`index.ts` 밖으로 내부 파일을 import 하지 않습니다** | 모듈 경계가 문서에만 있으면 코드에서 새어 나갑니다 |
+| **`index.ts` 밖으로 내부 파일을 import 하지 않습니다** | 모듈 경계가 문서에만 있으면 코드에서 새어 나갑니다. **예외 하나** — 모듈의 `index.ts` 가 `server-only` 인데 브라우저 층(층 C)이 **같은 표를 써야 하는 순수 상수 파일**은 그 파일을 직접 import 합니다(첫 사례 `completion-checker/notes.ts`). 그 파일 머리에 왜 그런지를 적습니다 |
 | **`types.ts` 머리에 계약 링크와 「절대 하지 않는 것」을 적습니다** | [모듈 경계](../spec/common/08-16-module-boundaries.md) 표의 그 줄을 그대로 옮깁니다 |
 | **금지 사항을 테스트로 박습니다** | "대표번호는 가리지 않는다"는 주석으로 두면 다음 사람이 지웁니다 |
 | **렌더의 금지도 테스트로 박습니다** | 「빨강 금지」·「모름 안 지우기」·「화면이 날짜를 안 세기」는 타입도 순수 함수 시험도 못 잡습니다. `react-dom/server` 의 `renderToStaticMarkup` 으로 HTML 문자열을 받아 봅니다 — **브라우저가 필요 없습니다** |
@@ -630,5 +630,6 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-25 | 배포 워크플로(`deploy`) 신설 — `main` 머지가 곧 배포. 손으로 올린 주소가 `main` 보다 뒤처져 있었습니다 | [ADR-053](../decisions/053-deploy-on-merge.md) |
 | 2026-08-26 | 「은퇴」 신설 — 역할이 끝난 `spec/`·`docs/` Markdown 은 옮기거나 지우지 않고 제자리에서 배너 + README 「은퇴」 절로. ADR 이 그 주소를 수십 곳 가리키고 있어 옮기면 고칠 수 없는 문서의 링크가 깨집니다. `docs/plans/` 의 「반영되면 지운다」 규정도 이걸로 대체. 첫 손질에서 6편 은퇴 · `doc-gardening` 스킬 신설 · 폴더 지도에 `assets/components/`·`src/migrations/` 보강 | 커밋 메시지 · [docs/plans/08-26-doc-gardening.md](../docs/plans/08-26-doc-gardening.md) |
 | 2026-09-04 | 배포본 스모크(`npm run smoke` · `smoke` 워크플로) 신설 — **게이트 밖 둘째.** 올리기 전을 보는 검사는 여덟인데 올라간 것이 도는지는 아무도 안 봤습니다. 같은 날 서버 모듈 21개 진입점에 `server-only` 표식을 달아 ADR-028 「다섯」을 코드로 — 그 대가로 `tsx` 스크립트는 `npm run`(`--conditions=react-server`)을 지나야 합니다 | 커밋 메시지 · [ADR-028](../decisions/028-runtime-and-module-shape.md) |
+| 2026-09-06 | 「`index.ts` 밖으로 내부 파일을 import 하지 않습니다」에 **예외 하나** — 모듈의 `index.ts` 가 `server-only` 인데 브라우저 층이 같은 표를 써야 하는 순수 상수 파일(첫 사례 `completion-checker/notes.ts`)은 직접 import 합니다. 글자를 양쪽에 적으면 한쪽만 고쳐도 아무 시험이 안 깨진 채 두 화면이 다른 말을 합니다 | 커밋 메시지 · [ADR-077](../decisions/077-upload-is-not-proof.md) |
 | 2026-08-27 | 게이트 한 번에 도는 `gates.sh` 신설 — **CI 가 멈춘 날 만들었습니다.** 러너가 안 붙어 검사가 `queued` 로 남거나 0초에 `startup_failure` 로 떨어졌고 **검사 0개로 머지된 PR 이 생겼습니다.** 러너가 죽어도 검사 자체는 우리 것이라, 그것을 손에 들려 주는 자리입니다 | 커밋 메시지 |
 | 2026-09-06 | `assets/artifacts/plans/{MM-dd-slug}/` — **제출물에 넣는 도표(PNG) 묶음의 자리.** 첫 사례 `09-06-spec-diagrams/`(기능명세서 그림 9장). 원본은 원고의 mermaid 이고 PNG 는 산출물이라 손으로 고치지 않습니다. 구조 게이트가 새 폴더에 규약 수정을 요구해 함께 적습니다 | 커밋 메시지 |
