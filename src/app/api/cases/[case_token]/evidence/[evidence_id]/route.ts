@@ -15,11 +15,25 @@
  * *"`transcript` 는 토큰화된 상태로 내려갑니다"*(§3.3). 원문 복원은
  * **브라우저가 자기 매핑으로** 합니다 — 서버에는 복호화 키가 없습니다
  * → 04-pii-boundary.md 규칙 3.
+ *
+ * ## 모델을 부르는 일은 응답 뒤로 보냅니다 → ADR-086
+ *
+ * 이 요청 하나가 2026-09-06 배포본에서 **56~69초** 걸렸습니다. 줄마다 이름 탐지에
+ * 더해 기관명 보정과 슬롯 추출(둘 다 모델 호출)이 같은 요청 안에서 돌았기
+ * 때문입니다. `after()` 로 응답 뒤에 돌리고, 그 결과는 다음 번들 조회에서 보입니다.
  */
+
+import { after } from 'next/server'
 
 import { collectReading } from '@/flows/read-evidence'
 import { CaseNotFoundError } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
+
+/**
+ * 이 경로는 **전사 결과를 받아 토큰화하는 자리**라 다른 조회보다 오래 걸립니다
+ * → ADR-086. 상한을 넘기면 이 응답에만 실리는 대응표를 통째로 잃습니다(ADR-062).
+ */
+export const maxDuration = 120
 
 export async function GET(
   request: Request,
@@ -62,6 +76,10 @@ export async function GET(
         stored: found.transcriptMasked,
       },
       container,
+      // **기관명 보정과 슬롯 추출을 응답 뒤로 보냅니다** → ADR-086.
+      // 여기가 `after` 를 아는 유일한 자리이고, 흐름은 「미룰 자리」만 압니다 —
+      // 그래야 흐름 시험이 Next 런타임 없이 돕니다
+      { defer: (work) => after(work) },
     )
 
     if (state.status === 'running') {
