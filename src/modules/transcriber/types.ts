@@ -290,6 +290,11 @@ export type EngineProgress =
   | { readonly status: 'done'; readonly output: EngineOutput }
   /** **짧은 표시값입니다.** 예외 문구를 담지 않습니다 — 파일 내용이 섞여 올 수 있습니다 */
   | { readonly status: 'failed'; readonly reason: string }
+  /**
+   * 서비스가 그 번호를 모른다 — 끝난 작업을 버린 뒤(30분)거나 서비스가 다시 떴을 때.
+   * **실패가 아니라 다시 맡기라는 신호입니다** → flows/read-evidence.ts
+   */
+  | { readonly status: 'missing' }
 
 /** 엔진이 낸 조각 하나. **믿지 않고 검사합니다** — 아래 `EngineLine` 참고 */
 export interface EnginePiece {
@@ -483,6 +488,8 @@ export type CollectResult =
   | { readonly status: 'done'; readonly result: TranscribeResult }
   /** **에러로 올리지 않습니다** — 부르는 쪽이 `ingest_status` 를 `failed` 로 적으면 됩니다 */
   | { readonly status: 'failed'; readonly reason: string }
+  /** 도구가 맡긴 일을 모른다 — 부르는 쪽이 **같은 번호로 다시 맡깁니다.** 실패로 덮지 않습니다 */
+  | { readonly status: 'missing' }
 
 export interface Transcriber {
   /**

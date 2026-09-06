@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import { FileRail } from "@/modules/file-sender";
 import { countTokens, TranscriptView } from "@/modules/transcript-viewer";
 
-import type { PiiMapping } from "@/modules/pii-masker";
 import type { RestorableMapping } from "@/modules/pii-restorer";
 
 import { FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
-import { useEvidence } from "./load";
+import type { EvidenceState } from "./load";
+import { pickFile } from "./upload";
 import type { Uploads } from "./upload";
 
 /**
@@ -35,8 +35,13 @@ import type { Uploads } from "./upload";
  *
  * ## 값이 어디서 오나
  *
- *  · **전사·토큰** — `GET …/evidence/{id}` (§3.3). 서버가 준 `poll_after_ms` 로만
- *    다시 묻습니다 (`load.ts` 의 `useEvidence`). 간격을 화면이 지어내지 않습니다
+ *  · **전사·토큰** — `GET …/evidence/{id}` (§3.3) 의 결과를 **셸이 `server` 로 내려줍니다.**
+ *    묻는 것은 셸의 `useEvidenceReads`(`load.ts`) 이고 이 화면은 그리기만 합니다 → ADR-078.
+ *
+ *    ⚠️ **2026-09-06 까지 이 화면이 폴링을 직접 돌렸습니다** — 선택된 파일 하나에 대해,
+ *    이 화면이 떠 있는 동안만. 통지문을 올리고 대화 탭으로 간 사람은 25분 넘게
+ *    「처리중」을 봤고, 팟은 끝난 작업을 30분 뒤 버렸습니다. 폴링의 주인을 셸로 올린
+ *    이유입니다 — 「다른 화면에 가셔도 됩니다」가 그때부터 참이 됐습니다
  *  · **자료 레일** — 브라우저가 들고 있는 목록입니다(`useUploads`). 못 가려서
  *    **안 올린 파일도 남아야** 해서 서버 응답만으로는 못 만듭니다 (ADR-026)
  *  · **복원 매핑** — **셸이 볼트에서 열어 온 것**을 그대로 받습니다 (`chat.restorable`).
@@ -62,7 +67,8 @@ export default function EvidenceView({
   uploads,
   onContinue,
   restorable,
-  onMappings,
+  server,
+  again,
   locked = false,
 }: {
   token: string | null;
@@ -81,11 +87,13 @@ export default function EvidenceView({
    */
   restorable?: readonly RestorableMapping[];
   /**
-   * 전사가 만든 원문 포함 대응표가 왔을 때 → ADR-062.
-   * 셸이 `chat.absorb` 를 이어 줍니다 — **그 응답 한 번뿐**이라 안 이으면
-   * 올린 본인의 기기에서도 원문이 영영 안 보입니다
+   * **지금 그릴 파일의 §3.3 조회 상태** — 셸의 `useEvidenceReads` 가 들고 내려줍니다.
+   * 이 화면은 서버를 부르지 않습니다. 파일에 `evidence_id` 가 없거나(못 올린 것)
+   * 아직 안 물었으면 `loading` 이고, 그때는 레일 줄의 상태로 그립니다
    */
-  onMappings?: (fresh: readonly PiiMapping[]) => void;
+  server: EvidenceState;
+  /** 「다시 확인」 — 조회가 끊긴 파일을 셸이 처음부터 다시 묻게 합니다 (§3.1: 누르는 것은 사용자) */
+  again: () => void;
   /** 이 기기에 열쇠가 없나 — 가족이 링크를 받아 연 경우입니다 (ADR-050) */
   locked?: boolean;
 }) {
@@ -93,29 +101,16 @@ export default function EvidenceView({
   const files = uploads.files;
   const selected = uploads.selectedId;
   /**
-   * ⚠️ **`files[0]` 을 그냥 쓰면 자료가 0개일 때 화면이 통째로 죽습니다.**
-   * 아래 「아직 올리신 자료가 없습니다」 분기가 이미 있는데, 그 앞줄에서 먼저
-   * 터져 **영영 도달하지 않았습니다.** `noUncheckedIndexedAccess` 가 없어
-   * 타입 검사로는 안 잡히는 자리입니다
+   * **셸과 같은 규칙으로 고릅니다** (`pickFile`) — 셸이 내려준 `server` 는 이 규칙으로
+   * 고른 파일의 것입니다. `files[0]` 을 그냥 쓰면 자료가 0개일 때 화면이 통째로 죽습니다
    */
-  const file = files.find((f) => f.id === selected) ?? files.at(0);
+  const file = pickFile(files, selected);
 
-  // 올라간 파일만 서버에 물을 것이 있습니다 — `evidence_id` 가 없으면 안 부릅니다
-  const { state: server, again } = useEvidence(token, file?.evidence_id, onMappings);
   const read = server.phase === "ready" ? server.read : null;
   /** 조회 자체가 실패했다 — 전사가 실패한 것(`readFailed`)과 다릅니다 */
   const askFailed = server.phase === "failed" ? server.fail : null;
-
-  // **처리 상태의 주인은 서버입니다** — 응답이 오면 레일 줄도 그 값으로 맞춥니다.
-  // 이게 없으면 전사가 끝나도 레일이 「개인정보 보호 처리중」에 남고,
-  // 실패한 파일의 갈림길이 영영 안 뜹니다 (`markRail`)
-  const mark = uploads.mark;
-  useEffect(() => {
-    if (!read?.evidence_id) return;
-    if (read.ingest_status === "done" || read.ingest_status === "failed") {
-      mark(read.evidence_id, read.ingest_status);
-    }
-  }, [mark, read?.evidence_id, read?.ingest_status]);
+  // 레일 줄을 서버 값으로 맞추는 것(`markRail`)도 셸이 합니다 — 이 화면이 안 떠 있어도
+  // 끝난 파일의 줄이 「전사 완료」로 바뀌어야 하기 때문입니다 (ADR-078)
 
   /**
    * **처리 상태의 주인은 서버입니다.** 레일의 값은 브라우저가 방금 올리며 적어 둔
@@ -129,6 +124,8 @@ export default function EvidenceView({
   const readFailed = read?.ingest_status === "failed";
   const sendFailed = !read && file?.status === "failed";
   const status = read?.ingest_status ?? file?.status;
+  /** §3.3 `progress.percent` — 서버가 준 값 그대로. 레일 줄에도 같은 값이 있습니다(`markRail`) */
+  const percent = read?.progress?.percent ?? file?.percent;
   const lines = read?.transcript ?? (token === null ? FIXTURE_EVIDENCE.transcript : []);
   const tokens = read?.pii_tokens ?? (token === null ? FIXTURE_EVIDENCE.pii_tokens : []);
   /** §3.3 `shortfalls[]` — 픽스처엔 없습니다. 개발 경로에서는 「다 읽었다」로 둡니다 */
@@ -273,9 +270,19 @@ export default function EvidenceView({
                 className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
               />
               개인정보 보호 처리중입니다. 끝나면 전사가 여기 뜹니다
+              {typeof percent === "number" && (
+                <span data-numeric className="text-ink-3">
+                  · {percent}%
+                </span>
+              )}
             </p>
-            <p className="text-[12.5px] text-ink-3">
-              원본은 아직 이 브라우저 안에 있습니다.
+            {/* **예상 시간은 적지 않습니다** — 실측이 없고, 틀린 숫자는 기다리는 사람을
+                더 불안하게 합니다. 대신 진행률과 「가셔도 됩니다」. 이 문장이 참인 것은
+                폴링을 셸이 들기 때문입니다(ADR-078) — 화면을 떠나도 조회는 계속됩니다 */}
+            <p className="text-[12.5px] leading-[1.6] text-ink-3">
+              원본은 아직 이 브라우저 안에 있습니다.{" "}
+              <b className="font-[620] text-ink-2">다른 화면에 가셔도 됩니다</b> — 이 창을 열어
+              두면 끝났을 때 자료함에 「전사 완료」로 표시됩니다.
             </p>
           </div>
         ) : readFailed || sendFailed ? (

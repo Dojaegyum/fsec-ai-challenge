@@ -475,84 +475,160 @@ export async function fetchEvidence(
   return { phase: "ready", read, verdict };
 }
 
-/**
- * 서버가 지시한 간격으로만 다시 묻습니다.
+/* ── 처리중인 자료를 전부 묻기 — 셸이 듭니다 (ADR-078) ─────────────────
  *
- * **이건 자동 재시도가 아닙니다.** 에러 §3.1 이 금지한 것은 「에러 응답을 스스로
- * 다시 부르는 것」이고, 여기서 되풀이하는 것은 **서버가 `poll_after_ms` 로 시킨**
- * 정상 진행입니다. 간격을 화면이 지어내면 그때 부하 조절이 무의미해집니다 (§3.3).
+ * ⚠️ **2026-09-06 까지 폴링이 자료함 화면 안에서, 선택된 파일 하나에 대해서만 돌았습니다.**
+ * 팟 결과를 서버로 옮기는 길은 §3.3 조회 하나인데(서버는 스스로 받아 오지 않습니다 —
+ * 그 이유는 ADR-062: 토큰화가 일어난 그 응답에만 원문 대응표가 실리고 받을 브라우저가
+ * 있어야 합니다), 그 조회가 화면과 함께 죽어서 통지문을 올리고 대화 탭으로 간 사람은
+ * 25분 넘게 「처리중」을 봤습니다. 팟은 끝난 작업을 30분 뒤 버립니다.
+ *
+ * 그래서 묻는 주인을 사건 페이지 셸로 올리고, 대상을 「처리중인 것 전부 + 지금 고른 것」
+ * 으로 넓힙니다. 화면(`evidence.tsx`)은 받은 상태를 그리고 「다시 확인」을 알리기만 합니다.
  */
-export function useEvidence(
-  caseToken: string | null,
-  evidenceId: string | undefined,
+
+/** 증거 번호 → 마지막 조회 상태. 없으면 아직 안 물은 것입니다 */
+export type EvidenceReads = Readonly<Record<string, EvidenceState | undefined>>;
+
+export interface EvidenceReadHandlers {
+  /** 서버가 `done`·`failed` 라고 말한 순간 — 그 번호에 대해 한 번. 레일을 맞추고 플랜을 다시 읽는 자리 */
+  readonly onSettled: (evidenceId: string, status: "done" | "failed") => void;
+  /** `processing` 응답의 `progress.percent` — 서버가 준 값 그대로 */
+  readonly onProgress: (evidenceId: string, percent: number) => void;
   /**
    * 원문 포함 대응표가 실려 왔을 때 — **한 응답에 한 번만** 옵니다 (ADR-062).
    * 셸이 `ChatSend.absorb` 를 이어 줍니다. 안 이으면 그 짝은 여기서 버려져
    * 올린 본인의 기기에서도 원문이 영영 안 보입니다
    */
-  onMappings?: (fresh: readonly PiiMapping[]) => void,
-) {
-  const key = `${caseToken}/${evidenceId}`;
-  const [got, setGot] = useState<{ key: string; state: EvidenceState } | null>(null);
-  /**
-   * 「다시 확인」을 누른 횟수 — 효과의 열쇠에 넣어 폴링을 처음부터 다시 겁니다.
-   *
-   * ⚠️ **이게 없어서 조회가 한 번 실패하면 화면이 「개인정보 보호 처리중」에
-   * 영영 멈췄습니다.** 실패하면 `verdict.poll` 이 꺼져 되풀이가 서는데(§3.1 —
-   * 에러 응답을 스스로 다시 부르지 않습니다), 사용자가 다시 물을 길도 없었습니다.
-   * 다시 부르는 것은 **사용자**입니다.
-   */
+  readonly onMappings: (fresh: readonly PiiMapping[]) => void;
+}
+
+/**
+ * 한 바퀴에 묻는 최대 수.
+ *
+ * §1.3 이 「그 외 조회」를 **세션당 분당 300회**로 잡고 폴링을 여기 넣었습니다. 서버 간격이
+ * 1.5초면 파일 하나가 분당 40회라, 넷이면 160회로 절반 아래입니다. 다섯째부터는 다음
+ * 바퀴에 앞으로 옵니다 — 뒤에 있다고 굶지 않습니다(아래 커서)
+ */
+const READS_PER_ROUND = 4;
+
+/** 더 물을 것이 없는 상태 — 끝났거나(done·failed·간격 없음) 조회가 끊긴 것(§3.1: 스스로 다시 안 부름) */
+function settled(state: EvidenceState | undefined): boolean {
+  if (!state) return false;
+  if (state.phase === "failed") return true;
+  return state.phase === "ready" && !state.verdict.poll;
+}
+
+/**
+ * `wanted` 에 든 증거를 **끝날 때까지** 서버가 시킨 간격으로 묻습니다.
+ *
+ * **이건 자동 재시도가 아닙니다.** 에러 §3.1 이 금지한 것은 「에러 응답을 스스로
+ * 다시 부르는 것」이고, 여기서 되풀이하는 것은 **서버가 `poll_after_ms` 로 시킨**
+ * 정상 진행입니다. 조회가 끊기면 그 번호는 `failed` 로 남고, 다시 묻는 것은
+ * 사용자입니다(`again`).
+ *
+ * `wanted` 가 바뀌면(파일이 더 올라오면) 바퀴를 처음부터 다시 돕니다 — 새 번호를
+ * 다음 간격까지 기다리게 하지 않습니다. 이미 끝난 번호는 다시 묻지 않습니다.
+ */
+export function useEvidenceReads(
+  caseToken: string | null,
+  wanted: readonly string[],
+  handlers: EvidenceReadHandlers,
+): { reads: EvidenceReads; again: (evidenceId: string) => void } {
+  const [reads, setReads] = useState<EvidenceReads>({});
+  /** 「다시 확인」 횟수 — 효과의 열쇠에 넣어 바퀴를 처음부터 다시 돕니다 */
   const [asked, setAsked] = useState(0);
-  // 콜백이 바뀌어도 폴링을 다시 시작하지 않습니다 — 최신 것만 부릅니다.
-  // 그리는 중에 ref 를 쓰면 안 되므로(리액트 규칙) 효과에서 갱신합니다 —
-  // 폴링 응답은 비동기라 효과가 먼저 돕니다
-  const onMappingsRef = useRef(onMappings);
+  // 콜백이 바뀌어도 바퀴를 다시 돌지 않습니다 — 최신 것만 부릅니다.
+  // 그리는 중에 ref 를 쓰면 안 되므로(리액트 규칙) 효과에서 갱신합니다
+  const handlersRef = useRef(handlers);
   useEffect(() => {
-    onMappingsRef.current = onMappings;
-  }, [onMappings]);
+    handlersRef.current = handlers;
+  }, [handlers]);
+  /**
+   * 상태의 최신 사본. 효과가 `reads` 를 의존성으로 들면 응답마다 효과가 다시 서서
+   * 돌고 있던 바퀴를 끊습니다 — 그래서 바퀴는 이 ref 를 읽습니다
+   */
+  const readsRef = useRef<EvidenceReads>({});
+  /** 바퀴마다 시작점을 옮기는 커서 — 다섯째 이후가 굶지 않게 */
+  const cursorRef = useRef(0);
+  // 배열 자체는 렌더마다 새 것일 수 있어 내용으로 열쇠를 만듭니다
+  const wantedKey = wanted.join("\u0000");
 
   useEffect(() => {
-    if (!caseToken || !evidenceId) return;
+    if (!caseToken || wantedKey.length === 0) return;
+    const ids = wantedKey.split("\u0000");
     const ac = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const ask = async () => {
-      const next = await fetchEvidence(caseToken, evidenceId, ac.signal);
-      if (!next || !alive) return;
-      setGot({ key, state: next });
-      // 대응표는 이 응답 한 번뿐입니다 — 화면 상태와 무관하게 즉시 건넵니다
-      if (next.phase === "ready" && next.read.pii_mappings?.length) {
-        onMappingsRef.current?.(
-          next.read.pii_mappings.map((one) => ({
-            token: one.token,
-            kind: one.kind as PiiMapping["kind"],
-            seq: one.seq,
-            original: one.original,
-          })),
-        );
+    const round = async () => {
+      const due = ids.filter((id) => !settled(readsRef.current[id]));
+      if (due.length === 0) return;
+      const start = cursorRef.current % due.length;
+      const batch = [...due.slice(start), ...due.slice(0, start)].slice(0, READS_PER_ROUND);
+      cursorRef.current = start + batch.length;
+
+      const results = await Promise.all(
+        batch.map(async (id) => [id, await fetchEvidence(caseToken, id, ac.signal)] as const),
+      );
+      if (!alive) return;
+
+      const next: Record<string, EvidenceState> = {};
+      let delay: number | null = null;
+      for (const [id, state] of results) {
+        if (!state) continue; // 끊긴 것 — 효과가 내려간 뒤입니다
+        next[id] = state;
+        if (state.phase !== "ready") continue;
+        const read = state.read;
+        // 대응표는 이 응답 한 번뿐입니다 — 화면 상태와 무관하게 즉시 건넵니다
+        if (read.pii_mappings?.length) {
+          handlersRef.current.onMappings(
+            read.pii_mappings.map((one) => ({
+              token: one.token,
+              kind: one.kind as PiiMapping["kind"],
+              seq: one.seq,
+              original: one.original,
+            })),
+          );
+        }
+        if (read.ingest_status === "processing" && typeof read.progress?.percent === "number") {
+          handlersRef.current.onProgress(id, read.progress.percent);
+        }
+        if (read.ingest_status === "done" || read.ingest_status === "failed") {
+          handlersRef.current.onSettled(id, read.ingest_status);
+        }
+        if (state.verdict.poll) {
+          delay = delay === null ? state.verdict.delayMs : Math.min(delay, state.verdict.delayMs);
+        }
       }
-      if (next.phase === "ready" && next.verdict.poll) {
-        timer = setTimeout(() => void ask(), next.verdict.delayMs);
-      }
+      // ref 를 먼저 — 다음 바퀴가 setState 반영보다 먼저 돌 수 있습니다
+      readsRef.current = { ...readsRef.current, ...next };
+      setReads((prev) => ({ ...prev, ...next }));
+
+      if (!ids.some((id) => !settled(readsRef.current[id]))) return;
+      // 이번 바퀴에 못 든 번호가 있으면 그것들은 **처음 묻는 것**이라 간격이 없습니다 —
+      // 바로 다음 바퀴로. 다 들었으면 서버가 시킨 간격 중 가장 짧은 것으로
+      const left = due.length > batch.length;
+      timer = setTimeout(() => void round(), left ? 0 : (delay ?? 0));
     };
-    void ask();
+    void round();
 
     return () => {
       alive = false;
       ac.abort();
       clearTimeout(timer);
     };
-    // `asked` 는 「다시 확인」 — 값이 오르면 처음부터 다시 묻습니다
-  }, [caseToken, evidenceId, key, asked]);
+    // `asked` 는 「다시 확인」 — 값이 오르면 바퀴를 처음부터 다시 돕니다
+  }, [caseToken, wantedKey, asked]);
 
-  const again = useCallback(() => {
-    setGot(null);
+  const again = useCallback((evidenceId: string) => {
+    // 그 번호만 「아직 안 물은 것」으로 되돌립니다 — 다른 번호의 상태는 그대로
+    const rest: Record<string, EvidenceState | undefined> = { ...readsRef.current };
+    delete rest[evidenceId];
+    readsRef.current = rest;
+    setReads(rest);
     setAsked((n) => n + 1);
   }, []);
 
-  return {
-    state: got?.key === key ? got.state : ({ phase: "loading" } as EvidenceState),
-    again,
-  };
+  return { reads, again };
 }

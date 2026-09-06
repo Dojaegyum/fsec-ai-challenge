@@ -80,7 +80,8 @@ export default function LandingScenes() {
         title="가려지는 게 보입니다"
         caption="가려진 값은 이 기기에서만 풀립니다. 밖으로는 토큰만 나갑니다."
       >
-        <EvidenceView token={null} uploads={uploads} />
+        {/* 개발 갤러리 — 서버를 안 부르므로 조회 상태는 「아직 안 물음」이고 픽스처로 그립니다 */}
+        <EvidenceView token={null} uploads={uploads} server={{ phase: "loading" }} again={() => {}} />
       </Scene>
 
       <Scene

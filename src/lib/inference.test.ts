@@ -151,6 +151,24 @@ describe('물어본다', () => {
     expect(await stt.poll('j1')).toEqual({ status: 'failed', reason: 'unknown_status' })
   })
 
+  it('서비스가 그 작업을 모르면(404) 「없다」로 답한다 — 실패도 예외도 아니다', async () => {
+    // 팟은 끝난 작업을 30분 뒤 지웁니다(`services/transcriber/jobs.py` 의 `KEEP_DONE_SECONDS`).
+    // 그 뒤의 404 를 실패로 덮으면 화면은 「다시 확인」을 영원히 누르게 되고, 예외로
+    // 올리면 다시 맡길 길이 없습니다 — 부르는 쪽(`flows/read-evidence.ts`)이 다시 맡깁니다
+    server([{ status: 404, body: { detail: 'no_such_job' } }])
+    const { stt, ocr } = createInferenceEngines(CFG)
+
+    expect(await stt.poll('j1')).toEqual({ status: 'missing' })
+    expect(await ocr.poll('j1')).toEqual({ status: 'missing' })
+  })
+
+  it('맡길 때(POST) 의 404 는 「없다」가 아니다 — 주소가 틀린 것이라 그대로 던진다', async () => {
+    server([{ status: 404 }])
+    const { stt } = createInferenceEngines(CFG)
+
+    await expect(stt.submit({ url: 'u', mimeType: 'audio/m4a' })).rejects.toThrow()
+  })
+
   it('작업 번호를 주소에 안전하게 넣는다', async () => {
     const seen = server([{ body: { status: 'running', percent: 1 } }])
     const { stt } = createInferenceEngines(CFG)

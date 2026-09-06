@@ -57,6 +57,8 @@ export async function GET(
         // 글로 올린 자료는 **서버가 직접 읽습니다** — 전사기가 할 일이 없어
         // 그 몫이 흐름에 있습니다 (`flows/read-evidence.ts` 의 `readWritten`)
         objectKey: found.objectKey,
+        // 팟이 결과를 버린 뒤 다시 맡길 때 씁니다 (`collectReading` 의 `missing`)
+        mimeType: found.mimeType,
         stored: found.transcriptMasked,
       },
       container,

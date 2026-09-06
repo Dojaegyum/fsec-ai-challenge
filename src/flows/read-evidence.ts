@@ -54,6 +54,9 @@ const POLL_AFTER_MS = 1500
  * 없기도 하고, 있어도 서비스가 다시 뜨면 가리키는 곳이 사라집니다.
  * 번호를 유도할 수 있으면 그냥 다시 맡기면 됩니다.
  */
+/** 맡긴 결과. **실패는 이미 `failed` 로 적힌 뒤입니다** — 부르는 쪽이 다시 적지 않습니다 */
+export type StartOutcome = { readonly ok: true } | { readonly ok: false; readonly reason: string }
+
 export async function startReading(
   input: {
     readonly caseId: string
@@ -63,17 +66,18 @@ export async function startReading(
     readonly mimeType: string
   },
   container: Container,
-): Promise<void> {
+): Promise<StartOutcome> {
   // 글로 올라온 것은 **맡길 것이** 없습니다 — 이미 글이라 엔진이 할 일이
   // 없습니다. 다만 **아무도 안 읽는다는 뜻은 아닙니다** — 본문을 가져와
   // 토큰화하는 것은 `collectReading` 이 합니다 (아래 `readWritten`)
-  if (input.kind === 'text') return
+  if (input.kind === 'text') return { ok: true }
 
   try {
     await container.transcriber.start({
       media: { objectKey: input.objectKey, kind: input.kind, mimeType: input.mimeType },
       jobId: input.evidenceId,
     })
+    return { ok: true }
   } catch (error) {
     // **맡기기 자체가 실패한 것은 그 자리에서 `failed` 로 적습니다.** 2026-09-06 까지는
     // 이 예외가 202 뒤로 사라져, 화면이 첫 폴링(§3.3)에서 다시 부딪히고서야 알았습니다 —
@@ -82,11 +86,13 @@ export async function startReading(
     // 고칠 수 없는 상태를 전사 실패로 덮지 않습니다(`transcribe.ts` 의 같은 판단)
     if (!(error instanceof IngestError)) throw error
     const reason = error.detail.reason
+    const why = typeof reason === 'string' ? reason : 'submit_failed'
     await container.evidenceWrite.fail({
       caseId: input.caseId,
       evidenceId: input.evidenceId,
-      reason: typeof reason === 'string' ? reason : 'submit_failed',
+      reason: why,
     })
+    return { ok: false, reason: why }
   }
 }
 
@@ -136,6 +142,8 @@ export async function collectReading(
      * 주소만 추론 서비스에 건네고 바이트가 우리 함수를 통과하지 않습니다.
      */
     readonly objectKey: string
+    /** 다시 맡길 때 전사기에 건넵니다 — 팟이 결과를 버린 뒤(아래 `missing`) */
+    readonly mimeType: string
     /** 이미 저장된 결과. 있으면 다시 읽지 않습니다 */
     readonly stored: string | null
   },
@@ -161,6 +169,33 @@ export async function collectReading(
           phase: input.kind === 'audio' ? 'stt' : 'ocr',
           kind: input.kind,
         })
+
+  if (progress.status === 'missing') {
+    // **팟이 그 번호를 모릅니다** — 끝난 작업을 30분 뒤 버렸거나 서비스가 다시 떴습니다.
+    //
+    // ⚠️ 2026-09-06 까지는 이 답이 `poll_failed`(422) 로 던져져, 화면이 「다시 확인」을
+    // 아무리 눌러도 같은 답을 받았습니다. 폴링이 자료함 화면 안에서만 돌아 화면을 떠난
+    // 채 30분이 지나면 반드시 여기 왔습니다(「처리중」 25분). 파일은 저장소에 그대로 있고
+    // 작업 번호는 증거 번호라 **같은 번호로 다시 맡기면 됩니다.** 그 사이 상태는 처리중이고,
+    // 다시 맡기는 것도 안 되면 그때 `failed` 로 적힙니다(`startReading` 안에서)
+    const started = await startReading(
+      {
+        caseId: input.caseId,
+        evidenceId: input.evidenceId,
+        objectKey: input.objectKey,
+        kind: input.kind,
+        mimeType: input.mimeType,
+      },
+      container,
+    )
+    if (!started.ok) return { status: 'failed', reason: started.reason }
+    return {
+      status: 'running',
+      phase: input.kind === 'audio' ? 'stt' : 'ocr',
+      percent: 0,
+      pollAfterMs: POLL_AFTER_MS,
+    }
+  }
 
   if (progress.status === 'running') {
     return {

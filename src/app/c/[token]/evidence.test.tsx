@@ -44,14 +44,14 @@ describe("자료가 하나도 없어도 죽지 않는다", () => {
     // ⚠️ `files[0]` 을 그냥 읽던 자리라 **화면이 통째로 죽었습니다.**
     // 빈 상태 분기가 아래에 이미 있었는데 그 앞줄이 먼저 터졌습니다
     const text = textOf(
-      renderToStaticMarkup(<EvidenceView token="T" uploads={uploadsOf([])} restorable={[]} />),
+      renderToStaticMarkup(<EvidenceView token="T" server={{ phase: "loading" }} again={() => {}} uploads={uploadsOf([])} restorable={[]} />),
     );
     expect(text).toContain("아직 올리신 자료가 없습니다");
   });
 
   it("증거가 관문이 아니라고 말한다", () => {
     const text = textOf(
-      renderToStaticMarkup(<EvidenceView token="T" uploads={uploadsOf([])} restorable={[]} />),
+      renderToStaticMarkup(<EvidenceView token="T" server={{ phase: "loading" }} again={() => {}} uploads={uploadsOf([])} restorable={[]} />),
     );
     expect(text).toContain("없어도 사건은");
   });
@@ -64,7 +64,7 @@ describe("실패의 뜻을 뭉개지 않는다", () => {
     const text = textOf(
       renderToStaticMarkup(
         <EvidenceView
-          token="T"
+          token="T" server={{ phase: "loading" }} again={() => {}}
           uploads={uploadsOf([railFile({ status: "failed", evidence_id: undefined })])}
           restorable={[]}
         />,
@@ -80,7 +80,7 @@ describe("실패의 뜻을 뭉개지 않는다", () => {
     // 「막지 않고 갈림길을 준다」가 갈림길 없이 문구만 남아 있었습니다
     const html = renderToStaticMarkup(
       <EvidenceView
-        token="T"
+        token="T" server={{ phase: "loading" }} again={() => {}}
         uploads={uploadsOf([railFile({ status: "failed", evidence_id: undefined })])}
         restorable={[]}
       />,
@@ -93,7 +93,7 @@ describe("실패의 뜻을 뭉개지 않는다", () => {
   it("빨강을 쓰지 않는다 — 앰버까지입니다 (ADR-026)", () => {
     const html = renderToStaticMarkup(
       <EvidenceView
-        token="T"
+        token="T" server={{ phase: "loading" }} again={() => {}}
         uploads={uploadsOf([railFile({ status: "failed", evidence_id: undefined })])}
         restorable={[]}
       />,
@@ -106,7 +106,7 @@ describe("픽스처 원문이 실서버 경로로 새지 않는다", () => {
   it("개발 경로가 아니면 예시 매핑을 쓰지 않는다", () => {
     // 이 사건에 없는 값을 「원문」이라고 말하면 그 번호가 서류로 옮겨 갑니다
     const html = renderToStaticMarkup(
-      <EvidenceView token="T" uploads={uploadsOf([railFile()])} restorable={[]} />,
+      <EvidenceView token="T" server={{ phase: "loading" }} again={() => {}} uploads={uploadsOf([railFile()])} restorable={[]} />,
     );
     expect(html).not.toContain("김민수");
     expect(html).not.toContain("110-2345-678901");
@@ -117,10 +117,59 @@ describe("열쇠가 없으면 그 이유를 말한다 — ADR-050", () => {
   it("잠긴 기기에서는 「원문입니다」라고 단언하지 않는다", () => {
     const text = textOf(
       renderToStaticMarkup(
-        <EvidenceView token="T" uploads={uploadsOf([railFile()])} restorable={[]} locked />,
+        <EvidenceView token="T" server={{ phase: "loading" }} again={() => {}} uploads={uploadsOf([railFile()])} restorable={[]} locked />,
       ),
     );
     expect(text).toContain("여는 열쇠가 없습니다");
     expect(text).not.toContain("이 화면은 원문입니다");
+  });
+});
+
+/**
+ * ADR-078 — 폴링의 주인이 셸로 올라가면서 「다른 화면에 가셔도 됩니다」가 **참**이 됐습니다.
+ * 그 전에는 이 문장을 쓸 수 없었습니다 — 화면을 떠나면 폴링이 함께 죽었습니다.
+ */
+describe("처리중에는 기다리는 법을 말한다 — ADR-078", () => {
+  it("다른 화면에 가도 된다고 말한다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <EvidenceView
+          token="T"
+          uploads={uploadsOf([railFile({ status: "processing" })])}
+          server={{ phase: "loading" }}
+          again={() => {}}
+        />,
+      ),
+    );
+    expect(text).toContain("다른 화면");
+    expect(text).toContain("원본은 아직 이 브라우저 안에 있습니다");
+  });
+
+  it("진행률이 있으면 본문에도 그린다 — 서버가 준 값 그대로", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <EvidenceView
+          token="T"
+          uploads={uploadsOf([railFile({ status: "processing", percent: 42 })])}
+          server={{ phase: "loading" }}
+          again={() => {}}
+        />,
+      ),
+    );
+    expect(text).toContain("42%");
+  });
+
+  it("예상 시간을 지어내지 않는다 — 실측이 없습니다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <EvidenceView
+          token="T"
+          uploads={uploadsOf([railFile({ status: "processing" })])}
+          server={{ phase: "loading" }}
+          again={() => {}}
+        />,
+      ),
+    );
+    expect(text).not.toMatch(/약 \d+분|\d+분 안에|\d+초 안에/);
   });
 });
