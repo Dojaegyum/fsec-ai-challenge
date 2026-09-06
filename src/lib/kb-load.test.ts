@@ -794,6 +794,52 @@ describe('⚠️ 유형 파일도 함께 실린다', () => {
     })
   })
 
+  /**
+   * **단위를 세는 법도 문장에 있어야 합니다** — 「14일은 영업일인가요」, 「2개월은 언제
+   * 차나요」, 「5영업일이면 주말 빼나요」는 기관 기한에도 나오는 질문이고, 그 답은
+   * 계산기(`date-checker`)에만 있어 모델은 모릅니다. 문장이 계산기와 같은 규칙을
+   * 말해야 화면의 날짜와 챗의 설명이 어긋나지 않습니다.
+   */
+  describe('기한 단위를 어떻게 세는지도 문장(summary)에 있다 — 기관 기한도 물어본다', () => {
+    const deadlineOf = (row: (typeof plan.rows)[number]) =>
+      row.body.deadline as { kind?: string; grace?: { kind?: string } | null } | null
+    const summaryOf = (row: (typeof plan.rows)[number]) => row.body.summary as string
+
+    it.each([
+      // 자기 기한으로 영업일을 말하는 항목 — 「이 유형에는 3영업일이 없다」는 덮개는 아닙니다
+      'common-relief-documents',
+      'frozen-objection-result',
+    ])('%s — 영업일은 무엇을 빼고 세는지 말한다', (id) => {
+      const row = plan.rows.find((r) => r.kb_entry_id === id)
+      expect(row, id).toBeDefined()
+      expect(summaryOf(row!)).toMatch(/영업일/)
+      expect(summaryOf(row!)).toMatch(/토요일|주말/)
+      expect(summaryOf(row!)).toMatch(/공휴일/)
+    })
+
+    it('달력일로 정한 기한(유예 포함)은 「달력」이라고 말한다', () => {
+      const rows = plan.rows.filter((r) => {
+        const d = deadlineOf(r)
+        return d?.kind === 'calendar_days' || d?.grace?.kind === 'calendar_days'
+      })
+      expect(rows.map((r) => r.kb_entry_id)).toEqual(
+        expect.arrayContaining(['common-relief-documents', 'common-refund-decision']),
+      )
+      for (const row of rows) expect(summaryOf(row), row.kb_entry_id).toContain('달력')
+    })
+
+    it('개월로 정한 기한은 어느 날부터 세고 어느 날에 차는지 말한다 — 민법 제160조', () => {
+      const rows = plan.rows.filter((r) => deadlineOf(r)?.kind === 'months')
+      expect(rows.map((r) => r.kb_entry_id)).toEqual(
+        expect.arrayContaining(['common-debt-extinction-notice', 'frozen-objection-file']),
+      )
+      for (const row of rows) {
+        expect(summaryOf(row), row.kb_entry_id).toContain('공고일')
+        expect(summaryOf(row), row.kb_entry_id).toMatch(/같은 날짜/)
+      }
+    })
+  })
+
   it('대면편취가 공통의 두 단계를 덮는다 — 순서가 뒤집히는 유형이다', () => {
     const mine = plan.rows.filter((r) => r.channel_id === 'CH-facetoface')
     expect(mine.map((r) => r.step_key)).toEqual(['report-112', 'freeze-request'])
