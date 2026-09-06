@@ -153,6 +153,7 @@
 | [075](075-chat-mapping-handover.md) | 챗이 만든 대응표도 그 응답에서 브라우저에 건넨다 — 발화는 이미 원문으로 왔고, 위치만 보내는 안은 엉뚱한 값을 되살린다 | 채택 |
 | [076](076-q1-fills-transferred-and-reply-acknowledges.md) | 시작 화면의 답은 곧 첫 문항의 답이다 — `transferred` 를 사건과 함께 저장하고, 답변은 방금 한 말을 먼저 받아 준다 | 채택 |
 | [078](078-shell-polls-all-processing-evidence.md) | 처리중인 자료는 브라우저 셸이 전부 묻는다 — 서버가 스스로 받아 오지 않고, 팟이 버린 작업은 다시 맡긴다 | 채택 |
+| [080](080-kb-entry-fields-to-prompt.md) | KB 행의 `steps`·`caveat`·`legal_basis`·완료 증거를 적용 절차의 프롬프트 본문에 넣는다 — 참고 절차는 요약만. 챗이 「자료에 없다」던 서류·수수료·자율배상 수치를 답한다 | 채택 |
 
 ## 아직 안 쓴 것
 

@@ -104,6 +104,27 @@ ORDER BY channel_id, step_seq;
 
 두 묶음의 각 항목에 서버가 `kb-1`, `kb-2` … 를 붙입니다. **절차만이 아니라 프롬프트에 들어가는 자료 전체에 붙으므로** 규칙은 §3.4에 모아 두었습니다.
 
+### 2.5 항목의 어느 칸이 프롬프트에 가나
+
+> 2026-09-06 확정 → [ADR-080](../../decisions/080-kb-entry-fields-to-prompt.md). 그 전에는 **정한 곳이 없었고** 부르는 쪽(`src/lib/adapters.ts`)이 `summary` 한 칸만 옮겼습니다.
+
+`kb_entry` 한 행에는 `title`·`body.summary`·`body.steps[]`·`body.caveat`·`body.required_artifact`·`body.deadline`·`legal_basis` 가 있습니다. **묶음에 따라 다르게 옮깁니다.**
+
+| | 적용 절차 (`applied`) | 참고 절차 (`reference`) |
+| --- | --- | --- |
+| `label` | `title` | `title` |
+| 본문 1행 | `summary` | `summary` **만** |
+| 본문 2행 | `할 일: 1) … 2) …` — `steps[].text` 순서대로 | — |
+| 본문 3행 | `남기는 것: …` — `required_artifact.label` | — |
+| 본문 4행 | `주의: …` — `caveat` | — |
+| 본문 5행 | `근거: …` — `legal_basis` | — |
+
+없는 칸은 줄을 만들지 않습니다. **글자로 가지 않는 것**은 `steps[].contact_ref`·`url`(연락처는 [09](08-16-data-model.md) §11.4.4 가 막혔을 때만 주기로 했습니다), `deadline`(계산기의 것 — 기한을 말로 하는 것은 `summary` 의 몫 → [RFC-002 자기점검](../../rfc/002-kb-authoring.md)), `kb_entry_id`·`kb_version`(§5 — 모델이 되받지 않습니다)입니다.
+
+**왜 적용 절차만 넉넉한가.** 2026-09-06 배포본에서 *"서류는 뭘 내야 하나요? 수수료도 있어요?"* 에 챗이 「제 안내에 없습니다」라고 했는데, 그 답(별지 제1호서식·신분증 사본 1부·수수료 없음)은 같은 행의 `steps` 에 있었고 **작업 패널은 그것을 그대로 그리고 있었습니다.** 자율배상의 41건·0.1%·평균 116일(`caveat` · 불변 규칙 8), 「OO이 오면 올려주세요」의 OO(`required_artifact` · 지시문 §4 3항)도 같은 자리였습니다. 적용 절차 일곱을 넉넉히 넣으면 그 턴의 입력이 **4,827 → 6,785 토큰**(grok-4.5 실측 · 약 40%)입니다. 참고 절차 스무 개까지 넣으면 글자수가 다시 두 배 넘게 늘어 그쪽은 요약만 둡니다 — 다른 유형의 절차는 조건 라벨을 붙여 한 줄로 안내하는 자리이지 서류 목록을 읊는 자리가 아닙니다(§2.3).
+
+**옮기는 것은 부르는 쪽입니다** — `kb-finder` 는 행을 그대로 돌려주고 `prompt-builder` 는 문자열을 받을 뿐, 둘은 서로를 모릅니다. 시험은 `src/lib/adapters.test.ts`.
+
 ---
 
 ## 3. 프롬프트 구성 (`prompt-builder`)

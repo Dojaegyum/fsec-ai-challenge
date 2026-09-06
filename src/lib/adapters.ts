@@ -73,26 +73,77 @@ export function asRetryJudge(checker: RetryChecker): RetryJudge {
  * | 표(`kb_entry`) | 프롬프트 |
  * | --- | --- |
  * | `title` | `label` |
- * | `body` — 구조화된 데이터 | `body` — 문자열 |
+ * | `body` — 구조화된 데이터 · `legal_basis` | `body` — 문자열 |
  *
- * ⬜ **누가 옮기는지 정본에 없습니다.** 지금은 부르는 쪽(여기)이 합니다 →
- * `src/modules/chat-receiver/README.md` 「아직 아닌 것」.
+ * **어느 칸이 가는지는 11-chat-context.md §2.5 가 정합니다** (2026-09-06 · ADR-080).
+ * 옮기는 것은 부르는 쪽인 이 파일입니다 — `kb-finder` 와 `chat-receiver` 는 서로를 모릅니다.
  *
- * `summary` 만 옮기는 이유는 그것이 절차 한 단계를 한 문장으로 말한 것이기
- * 때문입니다. `steps[]` 까지 통째로 넣으면 프롬프트가 커지고, 연락처는
- * `contact_ref` 로 가리키기만 해서 그대로는 뜻이 없습니다
- * → 09-data-model.md §11.4.1.
+ * ## 2026-09-06 까지는 `summary` 한 칸만 갔습니다
+ *
+ * 그래서 서류·수수료(`steps`)·자율배상 수치(`caveat`)·접수증(`required_artifact`)처럼
+ * 사람이 KB 에 써 둔 지식을 챗이 「자료에 없다」고 답했습니다. **작업 패널은 같은 칸을
+ * 그대로 그리는데 챗만 몰랐습니다.** 적용 절차에만 넉넉히 넣고 참고 절차는 요약만
+ * 두는 이유는 크기입니다 — 참고 절차는 다른 유형의 것이라 스무 개가 넘고, 그쪽까지
+ * 넣으면 한 턴 입력이 3,000 토큰 가까이 늘어납니다(적용 절차만은 약 950 토큰).
+ *
+ * **연락처와 `deadline` 은 여기서도 안 나갑니다.** 번호는 09-data-model.md §11.4.4 가
+ * 막혔을 때만 주기로 했고, 기한은 계산기의 것이라 문장은 `summary` 가 맡습니다
+ * (RFC-002 「적재 전 자기점검」). `steps[].contact_ref`·`url` 도 글자로 뜻이 없어 뺍니다.
  */
-export function kbRowToPromptEntry(row: KbRow): KbEntry {
-  const body = row.body as { summary?: unknown } | null
+export type KbGroup = 'applied' | 'reference'
+
+export function kbRowToPromptEntry(row: KbRow, group: KbGroup): KbEntry {
+  const body = (typeof row.body === 'object' && row.body !== null ? row.body : {}) as {
+    summary?: unknown
+    steps?: unknown
+    caveat?: unknown
+    required_artifact?: unknown
+  }
+
+  const lines: string[] = []
+  const summary = text(body.summary)
+  if (summary) lines.push(summary)
+
+  if (group === 'applied') {
+    // 「서류는 뭘 내야 하나요」「수수료 있어요」의 답이 여기 있습니다
+    const steps = Array.isArray(body.steps)
+      ? body.steps
+          .map((one) => text((one as { text?: unknown } | null)?.text))
+          .filter((one): one is string => one !== null)
+      : []
+    if (steps.length > 0) {
+      lines.push(`할 일: ${steps.map((one, index) => `${index + 1}) ${one}`).join(' ')}`)
+    }
+
+    // 지시문 3)「OO이 오면 올려주세요」가 여기서 근거를 얻습니다 — 없으면 모델은
+    // 무엇을 올리라고 할지 모릅니다(완료는 부산물로 판정 · 불변 규칙 6)
+    const artifact = text((body.required_artifact as { label?: unknown } | null | undefined)?.label)
+    if (artifact) lines.push(`남기는 것: ${artifact}`)
+
+    // 기대치를 낮추는 말 — 자율배상 41건·0.1%·116일이 여기 있습니다 (불변 규칙 8)
+    const caveat = text(body.caveat)
+    if (caveat) lines.push(`주의: ${caveat}`)
+
+    // 「무슨 법이에요」— 인용 카드에만 붙던 조문을 모델도 봅니다
+    const basis = text(row.legalBasis)
+    if (basis) lines.push(`근거: ${basis}`)
+  }
+
   return {
     kbEntryId: row.kbEntryId,
     kbVersion: row.kbVersion,
     label: row.title,
-    body: typeof body?.summary === 'string' ? body.summary : '',
+    body: lines.join('\n'),
     // 참고 절차에만 붙습니다. 조건 라벨을 붙일 근거가 됩니다 → 11-chat-context.md §2.3
     ...(row.channelId ? { channelId: row.channelId } : {}),
   }
+}
+
+/** 문자열이고 비어 있지 않을 때만 — 「null」「undefined」가 글자로 새지 않게 */
+function text(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
 /** `kb-finder` 를 `chat-receiver` 의 `kb` 자리에 넣을 수 있게 감쌉니다 */
@@ -101,8 +152,8 @@ export function asKbSource(finder: KbFinder): KbSource {
     async find(query) {
       const groups = await finder.find(query)
       return {
-        applied: groups.applied.map(kbRowToPromptEntry),
-        reference: groups.reference.map(kbRowToPromptEntry),
+        applied: groups.applied.map((row) => kbRowToPromptEntry(row, 'applied')),
+        reference: groups.reference.map((row) => kbRowToPromptEntry(row, 'reference')),
       }
     },
   }
