@@ -25,9 +25,20 @@
 
 import { after } from 'next/server'
 
-import { collectReading } from '@/flows/read-evidence'
+import { collectReading, startReading } from '@/flows/read-evidence'
 import { CaseNotFoundError } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
+
+/**
+ * `pending` 이 이만큼 지나도록 안 바뀌면 **완료 통지가 누락된 것**으로 봅니다.
+ *
+ * 정상 흐름은 올리고 몇 초 안에 `…/complete` 로 `processing` 이 되는데, 그 통지가
+ * 화면 이동·네트워크로 빠지면 자료가 `pending` 에 영영 남습니다(2026-09-06 배포본
+ * 점검에서 시연 자료 한 건이 그랬습니다). 아래에서 그때 완료 처리를 다시 태워
+ * 판독을 깨웁니다. 값이 넉넉한 이유는 큰 파일 업로드가 진행 중인 정상 `pending` 을
+ * 성급히 실패로 만들지 않기 위해서입니다 — 우리 자료는 몇 초면 올라갑니다.
+ */
+const STALE_PENDING_MS = 90_000
 
 /**
  * 이 경로는 **전사 결과를 받아 토큰화하는 자리**라 다른 조회보다 오래 걸립니다
@@ -50,8 +61,36 @@ export async function GET(
     const found = await container.evidence.read(caseId, evidenceId)
     if (!found) throw new CaseNotFoundError('그 증거를 찾지 못했습니다')
 
-    // 아직 안 올라온 것은 읽을 것이 없습니다 — 물어보면 그대로 답합니다
+    // 아직 안 올라온 것은 읽을 것이 없습니다 — 물어보면 그대로 답합니다.
     if (found.ingestStatus === 'pending') {
+      const ageMs = Date.now() - Date.parse(found.createdAt)
+
+      // **오래 멈춘 `pending` 은 완료 통지가 누락된 것**이라 판독을 다시 깨웁니다.
+      // `completeUpload`(→ `markUploaded`)는 `pending` 일 때만 옮기고, `startReading`
+      // 은 전사기 잠금으로 두 번 돌지 않아(→ complete 라우트 주석) **다시 불러도
+      // 안전**합니다. 파일이 저장소에 없으면 판독이 `failed` 로 떨어져 「대기 중」
+      // 무한 루프를 벗어납니다(불변 규칙 5 — 막지 않고 갈림길로).
+      if (Number.isFinite(ageMs) && ageMs > STALE_PENDING_MS) {
+        const status = await container.caseIntake.completeUpload(caseId, evidenceId)
+        await startReading(
+          {
+            caseId,
+            evidenceId,
+            objectKey: found.objectKey,
+            kind: found.kind,
+            mimeType: found.mimeType,
+          },
+          container,
+        )
+        return {
+          body: {
+            evidence_id: evidenceId,
+            ingest_status: status,
+            poll_after_ms: 1500,
+          },
+        }
+      }
+
       return {
         body: {
           evidence_id: evidenceId,

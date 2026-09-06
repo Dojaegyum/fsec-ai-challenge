@@ -28,6 +28,7 @@
  */
 
 import { startReading } from '@/flows/read-evidence'
+import { CaseNotFoundError } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
 
 export async function POST(
@@ -39,24 +40,29 @@ export async function POST(
     const caseId = await caseIdOf(route, container.caseTokens)
     const evidenceId = await ulidParamOf(route, 'evidence_id')
 
+    // **없는 증거는 404 입니다** — `GET …/evidence/{id}` 와 같은 자리여야 합니다.
+    // 먼저 조회해 없으면 여기서 끊습니다. 이 확인을 건너뛰면 `completeUpload` 가
+    // 없는 행에 부딪혀 일반 오류(500)로 새어 나갑니다 — 없는 자원을 못 찾음으로
+    // 안 잇던 결함(2026-09-06 배포본 점검에서 확인). 조회는 `case_id` 를 함께 봐
+    // 남의 사건 증거를 자기 주소로 열 수 없습니다(ADR-039)
+    const found = await container.evidence.read(caseId, evidenceId)
+    if (!found) throw new CaseNotFoundError('그 증거를 찾지 못했습니다')
+
     const status = await container.caseIntake.completeUpload(caseId, evidenceId)
 
     // **여기서 읽기를 맡깁니다.** 결과를 기다리지 않습니다 — 서버 함수가
     // 몇 분을 못 살고, 화면은 §3.3 으로 물어봅니다.
     // 작업 번호로 증거 번호를 그대로 쓰므로 어디에도 적어 둘 필요가 없습니다
-    const found = await container.evidence.read(caseId, evidenceId)
-    if (found) {
-      await startReading(
-        {
-          caseId,
-          evidenceId,
-          objectKey: found.objectKey,
-          kind: found.kind,
-          mimeType: found.mimeType,
-        },
-        container,
-      )
-    }
+    await startReading(
+      {
+        caseId,
+        evidenceId,
+        objectKey: found.objectKey,
+        kind: found.kind,
+        mimeType: found.mimeType,
+      },
+      container,
+    )
 
     return {
       // 202 — 접수했고 아직 안 끝났습니다. 진행 상태는 §3.3 으로 묻습니다

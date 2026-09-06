@@ -448,6 +448,12 @@ export interface EvidenceReader {
     readonly ingestStatus: IngestStatus
     /** 다 읽었으면 **토큰화된 결과**. 아직이면 `null` */
     readonly transcriptMasked: string | null
+    /**
+     * 이 행이 만들어진 시각(ISO). **`pending` 이 오래 멈췄는지 판단하는 재료**입니다 —
+     * 완료 통지(`…/complete`)가 누락돼 판독이 시작조차 안 한 자료를 다시 깨울 때 씁니다
+     * → `evidence/[evidence_id]/route.ts` 의 stale-pending 재맡기기
+     */
+    readonly createdAt: string
   } | null>
 
   /**
@@ -558,9 +564,10 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
           mime_type: string | null
           ingest_status: IngestStatus
           transcript_masked: string | null
+          created_at: Date | string
         }[]
       >`
-        SELECT kind, object_key, mime_type, ingest_status, transcript_masked
+        SELECT kind, object_key, mime_type, ingest_status, transcript_masked, created_at
         FROM evidence WHERE case_id = ${caseId} AND evidence_id = ${evidenceId}
       `
       const row = rows[0]
@@ -572,6 +579,8 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
         mimeType: row.mime_type ?? '',
         ingestStatus: row.ingest_status,
         transcriptMasked: row.transcript_masked,
+        createdAt:
+          row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
       }
     },
 
