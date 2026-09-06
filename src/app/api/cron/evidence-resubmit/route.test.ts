@@ -17,7 +17,7 @@ vi.mock('@/lib/wire', () => ({
   },
 }))
 
-const report = { scanned: 2, resubmitted: 1, running: 1, unreachable: 0, failed: 0 }
+const report = { scanned: 2, resubmitted: 1, running: 1, unreachable: 0, failed: 0, skipped: 0 }
 const resubmitEvidence = vi.hoisted(() => vi.fn(async () => report))
 vi.mock('@/flows/resubmit-evidence', () => ({ resubmitEvidence }))
 
