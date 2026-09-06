@@ -78,5 +78,59 @@ class CreateBackoff(unittest.TestCase):
         self.assertFalse(w.creation_paused(st, 300.0 + 3600))
 
 
+class GithubRuns(unittest.TestCase):
+    def test_pick_first_run_created_after_dispatch(self):
+        runs = [
+            {"id": 3, "created_at": "2026-09-07T01:00:30Z", "status": "queued"},
+            {"id": 2, "created_at": "2026-09-07T00:59:00Z", "status": "completed"},
+        ]
+        self.assertEqual(w.pick_run_after(runs, "2026-09-07T01:00:00Z")["id"], 3)
+        self.assertIsNone(w.pick_run_after(runs, "2026-09-07T01:01:00Z"))
+
+
+class Mail(unittest.TestCase):
+    def test_body_has_pod_and_url_but_no_secret(self):
+        text = w.mail_text("new_pod", pod_id="abc", url="https://abc-8917.proxy.runpod.net", extra="ok")
+        self.assertIn("abc", text)
+        self.assertIn("https://abc-8917.proxy.runpod.net", text)
+        self.assertNotIn("Bearer", text)
+
+
+class DryRun(unittest.TestCase):
+    """--dry-run: decide() 는 정상대로 돌지만 조치는 하나도 안 나간다 (컨트롤러 판단 1)."""
+
+    def test_running_unhealthy_skips_restart(self):
+        st = w.State()
+        real_pod = w.pod
+        calls = []
+
+        class FakePod:
+            PodError = real_pod.PodError
+
+            @staticmethod
+            def find_pods(name):
+                return [{"id": "p1", "name": name, "desiredStatus": "RUNNING"}]
+
+            @staticmethod
+            def health_once(pod_id, timeout=10):
+                return {"ready": False}
+
+        orig_pod, orig_restart, orig_balance, orig_state_dir = (
+            w.pod, w.do_restart, w.check_balance, w.state_dir,
+        )
+        w.pod = FakePod
+        w.do_restart = lambda *a, **k: calls.append(a)
+        w.check_balance = lambda *a, **k: None  # 잔액 조회는 네트워크가 필요해 이 시험에서는 막는다
+        w.state_dir = lambda: HERE  # watch.paused 가 없는 자리
+        try:
+            action = w.tick(st, 1000.0, dry_run=True)
+        finally:
+            w.pod, w.do_restart, w.check_balance, w.state_dir = (
+                orig_pod, orig_restart, orig_balance, orig_state_dir,
+            )
+        self.assertEqual(action, "restart")
+        self.assertEqual(calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()
