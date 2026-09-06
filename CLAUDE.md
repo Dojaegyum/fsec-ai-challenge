@@ -183,5 +183,5 @@ docs/research/  무엇이 사실인가       decisions/  왜 그렇게 정했나
 
 ## 아직 정해지지 않은 것
 
-- 대회 공식 일정·제출물 규격 (`docs/context/AGENDA.md`의 `확인 필요` 항목)
+- ~~대회 공식 일정·제출물 규격~~ → 2026-09-06 데이콘 대회 페이지 기준으로 확정 (`docs/context/AGENDA.md`). 접수는 **PDF** 둘 + URL
 - 코드보다 뒤처진 spec 의 갱신 순서와, 같은 값을 세 문서가 다르게 적은 자리의 정본 지정 → [docs/plans/08-26-doc-gardening.md](docs/plans/08-26-doc-gardening.md)
