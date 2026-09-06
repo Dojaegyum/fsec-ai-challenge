@@ -13,7 +13,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { CaseFileCard } from "./page";
+import { CaseFileCard, RestartHint } from "./page";
 import type { CaseSlot } from "./load";
 
 const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -86,5 +86,24 @@ describe("가려진 값은 파랗게 — §S-06 「PII」", () => {
     const html = draw([slot("amount", "confirmed", "3000000")]);
     // 카드 머리의 맥동 점(bg-pii)은 있으므로 글자색만 봅니다
     expect(html).not.toContain("text-pii");
+  });
+});
+
+/**
+ * 「계좌가 묶인 쪽이라면 새로 시작」 — ADR-066 이 요구한 자리.
+ *
+ * 「잘 모르겠어요」로 들어온 사람은 `victim` 사건을 받습니다(ADR-060). 실제로는
+ * 통장묶기 명의인이면 절차가 완전히 다른데, `track` 은 만든 뒤 바꾸지 않으므로
+ * 되짚기는 **새 사건**입니다 — `/start` 로 보내는 한 줄이 그 길입니다.
+ */
+describe("계좌가 묶인 쪽이라면 새로 시작 — ADR-066", () => {
+  it("victim 사건에는 /start 로 가는 한 줄이 뜬다", () => {
+    const html = renderToStaticMarkup(<RestartHint track="victim" />);
+    expect(textOf(html)).toContain("계좌가 묶인 쪽");
+    expect(html).toMatch(/<a\s[^>]*href="\/start"/);
+  });
+
+  it("frozen_account 사건에는 그리지 않는다 — 이미 그쪽 절차입니다", () => {
+    expect(renderToStaticMarkup(<RestartHint track="frozen_account" />)).toBe("");
   });
 });

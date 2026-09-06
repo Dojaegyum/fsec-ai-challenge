@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { openCase } from "@/modules/case-opener";
@@ -221,6 +222,38 @@ export function CaseFileCard({
         진행됩니다.
       </p>
     </div>
+  );
+}
+
+/**
+ * 「계좌가 묶인 쪽이라면 새로 시작」 — ADR-066 이 요구한 자리. 위치는 **사건 파일 카드
+ * 아래**로 정했습니다 (2026-09-06 · 사용자 확정).
+ *
+ * 「잘 모르겠어요」로 들어온 사람은 `victim` 사건을 받습니다(ADR-060 ⓑ). 실제로는 통장묶기
+ * 명의인이면 절차가 완전히 다른데, `track` 은 만든 뒤 바꾸지 않습니다 — 되짚기는 **새 사건**이고
+ * 그 길은 `/start` 의 첫 선택지(「내 계좌가 갑자기 묶였어요」)입니다.
+ *
+ * 왜 사건 파일 아래인가 — 「진술에서 파악한 것」이 서 있는 자리라 잘못 분류된 것을 바로잡는
+ * 문장이 여기서 가장 자연스럽고, 레일은 어느 국면에도 서 있어 늘 닿습니다. 챗 첫 답에 넣으면
+ * AI 의 말에 링크가 끼어 대화가 안내문이 되고, T0 알약은 안전 절차 자리라 뜻이 섞입니다.
+ *
+ * `frozen_account` 사건에는 그리지 않습니다 — 이미 그쪽 절차입니다.
+ */
+export function RestartHint({ track }: { track: string }) {
+  if (track !== "victim") return null;
+  return (
+    <p className="mt-2.5 px-1 text-[12.5px] leading-[1.6] text-ink-3">
+      돈을 보낸 쪽이 아니라 <b className="font-[620] text-ink-2">계좌가 묶인 쪽</b>이라면 절차가
+      다릅니다.{" "}
+      <Link
+        href="/start"
+        data-hit
+        className="whitespace-nowrap font-[620] text-pii underline underline-offset-[3px]
+                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pii"
+      >
+        새로 시작하기 →
+      </Link>
+    </p>
   );
 }
 
@@ -629,6 +662,8 @@ function CaseScreen({
           <div className={bundle.steps.length > 0 ? "border-t border-hairline pt-3" : ""}>
             <div className="mb-3 text-[12.5px] tracking-[0.12em] text-ink-4">사건 파일</div>
             <CaseFileCard slots={bundle.slots} asking={bundle.question?.slot_key ?? null} />
+            {/* 잘못 분류된 사람이 빠져나가는 길 — victim 사건에만 그립니다 (ADR-066) */}
+            <RestartHint track={bundle.case.track} />
           </div>
 
           {/* ── 이정표 칩 — 할 일이 시야 밖일 때만, 숨기는 게 아니라 알립니다
