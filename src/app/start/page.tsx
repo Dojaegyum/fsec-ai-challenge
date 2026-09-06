@@ -607,6 +607,12 @@ export function ConsentClauses({
  * 머리(`확인 N / 5`)와 발(「N개 항목 확인 남음」)에 항상 보입니다. 왜 못 누르는지
  * 모르게 두는 것이 진짜 이탈 원인입니다.
  *
+ * **「전부 확인」은 다섯을 한 번에 채우는 또 하나의 길입니다**
+ * ([ADR-074](../../../decisions/074-consent-check-all.md)) — 관문(다섯 모두)은 그대로고
+ * 조작의 수만 줍니다. 채울 것이 있을 때만 그리고, [동의하고 계속하기]와 **합치지 않습니다**
+ * (확인은 읽었다, 동의는 하겠다). 2026-09-06 접수 전 점검에서 다섯 번 클릭이
+ * 「정당하지만 마찰」로 잡혀 들어왔습니다.
+ *
  * 밖으로 뺀 이유는 `ConsentClauses` 와 같습니다 — **머리말과 관문의 상태는 읽히는
  * 것이라 시험이 붙어야 하는데**, `Start` 안에 있으면 `useRouter` 때문에 정적으로 못
  * 그립니다. 상태(`checks`)는 여전히 `Start` 가 들고 있습니다.
@@ -616,11 +622,13 @@ export function ConsentClauses({
 export function ConsentModal({
   checks,
   onToggle,
+  onCheckAll,
   onAgree,
   onClose,
 }: {
   checks: readonly boolean[];
   onToggle: (i: number) => void;
+  onCheckAll: () => void;
   onAgree: () => void;
   onClose: () => void;
 }) {
@@ -639,8 +647,10 @@ export function ConsentModal({
         onClick={(e) => e.stopPropagation()}
         className="rise flex max-h-[84vh] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[oklch(0.305_0.013_267.1/80%)] bg-stage shadow-[0_40px_90px_-30px_oklch(0_0_0/90%)]"
       >
-        <div className="flex items-center justify-between gap-4 border-b border-[oklch(0.305_0.013_267.1/72%)] px-6 py-[18px]">
-          <div>
+        {/* 좁은 화면에서는 오른쪽 묶음(전부 확인 · 확인 N / 5 · ✕)이 제목 아래로 내려옵니다 —
+            제목을 한 글자씩 꺾는 것보다 낫습니다 */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[oklch(0.305_0.013_267.1/72%)] px-6 py-[18px]">
+          <div className="min-w-0">
             <div className="text-[16.5px] font-[660] tracking-[-0.015em] text-ink-1">
               개인정보 수집·이용 동의 (필수)
             </div>
@@ -648,7 +658,17 @@ export function ConsentModal({
               시행 2026-09 · 초안
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            {/* 채울 것이 있을 때만 — 다 채워지면 `확인 5 / 5` 가 그 자리를 말합니다 (ADR-074) */}
+            {!canAgree && (
+              <button
+                type="button"
+                onClick={onCheckAll}
+                className="inline-flex min-h-[30px] items-center rounded-full border border-[oklch(0.305_0.013_267.1/72%)] px-3 text-[13px] font-[620] text-ink-2 transition-colors hover:border-[oklch(1_0_0/25%)] hover:text-ink-1"
+              >
+                전부 확인
+              </button>
+            )}
             <span
               data-numeric
               className="inline-flex items-center rounded-full border border-[oklch(0.697_0.16_258.2/42%)] bg-[oklch(0.697_0.16_258.2/10%)] px-2.5 py-[3px] text-[13px] font-[620] text-pii"
@@ -830,6 +850,8 @@ export default function Start() {
   const checkedCount = checks.filter(Boolean).length;
   const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
   const toggle = (i: number) => setChecks((c) => c.map((v, j) => (j === i ? !v : v)));
+  // 다섯을 한 번에 — 관문은 그대로고(위 `canAgree`), 채우는 조작만 준다 (ADR-074)
+  const checkAll = () => setChecks((c) => c.map(() => true));
   const agree = () => {
     if (!canAgree) return;
     setAgreed(true);
@@ -1226,6 +1248,7 @@ export default function Start() {
         <ConsentModal
           checks={checks}
           onToggle={toggle}
+          onCheckAll={checkAll}
           onAgree={agree}
           onClose={() => setModalOpen(false)}
         />

@@ -320,7 +320,13 @@ describe("동의 전문 모달 — 관문", () => {
 
   const modal = (checks: readonly boolean[]) =>
     renderToStaticMarkup(
-      <ConsentModal checks={checks} onToggle={() => {}} onAgree={() => {}} onClose={() => {}} />,
+      <ConsentModal
+        checks={checks}
+        onToggle={() => {}}
+        onCheckAll={() => {}}
+        onAgree={() => {}}
+        onClose={() => {}}
+      />,
     );
 
   it("다 확인하기 전에는 [동의하고 계속하기]가 잠겨 있고, 몇 개 남았는지가 머리와 발에 보인다", () => {
@@ -365,6 +371,7 @@ describe("동의 전문 모달 — 머리말", () => {
         <ConsentModal
           checks={[false, false, false, false, false]}
           onToggle={() => {}}
+          onCheckAll={() => {}}
           onAgree={() => {}}
           onClose={() => {}}
         />,
@@ -377,5 +384,43 @@ describe("동의 전문 모달 — 머리말", () => {
 
   it("「법무 검토 전」은 화면에 없다 — 주석과 ADR 에 남는다", () => {
     expect(header()).not.toContain("법무 검토 전");
+  });
+});
+
+/**
+ * 「전부 확인」 — **다섯을 한 번에 채우는 길** (ADR-074).
+ *
+ * 관문은 그대로다(다섯을 모두 확인해야 열림 · ADR-031). 바뀐 것은 다섯을 채우는
+ * 조작의 수다. 단추는 채울 것이 있을 때만 있고, [동의하고 계속하기]와 합쳐지지
+ * 않는다 — 확인(읽었다)과 동의(하겠다)는 다른 행위다.
+ *
+ * 누르면 실제로 다섯이 채워지는지는 `Start` 의 `checkAll` 한 줄이라 정적으로 못 본다.
+ * 여기는 단추가 **있어야 할 때 있고, 없어야 할 때 없는지**를 본다.
+ */
+describe("동의 전문 모달 — 전부 확인", () => {
+  const modal = (checks: readonly boolean[]) =>
+    renderToStaticMarkup(
+      <ConsentModal
+        checks={checks}
+        onToggle={() => {}}
+        onCheckAll={() => {}}
+        onAgree={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+  it("채울 것이 남아 있으면 「전부 확인」 단추가 있다", () => {
+    const html = modal([true, false, false, false, false]);
+    expect(html).toMatch(/<button[^>]*>전부 확인<\/button>/);
+  });
+
+  it("다 채워지면 사라진다 — 채울 것이 없다", () => {
+    expect(textOf(modal([true, true, true, true, true]))).not.toContain("전부 확인");
+  });
+
+  it("「전부 확인하고 동의」로 합치지 않는다 — 동의 단추는 따로 있다", () => {
+    const text = textOf(modal([false, false, false, false, false]));
+    expect(text).not.toContain("전부 확인하고");
+    expect(text).toContain("동의하고 계속하기");
   });
 });
