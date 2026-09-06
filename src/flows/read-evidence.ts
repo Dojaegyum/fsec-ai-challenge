@@ -53,8 +53,31 @@ const POLL_AFTER_MS = 1500
  * 없기도 하고, 있어도 서비스가 다시 뜨면 가리키는 곳이 사라집니다.
  * 번호를 유도할 수 있으면 그냥 다시 맡기면 됩니다.
  */
-/** 맡긴 결과. **실패는 이미 `failed` 로 적힌 뒤입니다** — 부르는 쪽이 다시 적지 않습니다 */
-export type StartOutcome = { readonly ok: true } | { readonly ok: false; readonly reason: string }
+/**
+ * 맡긴 결과.
+ *
+ * **최종적 실패는 이미 `failed` 로 적힌 뒤입니다** — 부르는 쪽이 다시 적지 않습니다.
+ * **일시적 실패(`transient: true`)는 적지 않았습니다** — 부르는 쪽이 「재시도중」으로 답하고,
+ * 다음 폴링이 다시 맡깁니다 → ADR-091 §3.
+ */
+export type StartOutcome =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: string; readonly transient: boolean }
+
+export interface StartOptions {
+  /**
+   * 일시적 실패면 **2초 뒤 한 번 더** 맡깁니다 — 에러 §2 의 `IngestError` 1회.
+   * 완료 통지 라우트만 켭니다. 폴링 안의 다시 맡기기는 안 켭니다 — 5초 뒤 다음 폴링이 곧 재시도입니다
+   */
+  readonly retryOnce?: boolean
+  /** 시험이 기다림을 건너뛰려고 갈아 끼웁니다 */
+  readonly sleep?: (ms: number) => Promise<void>
+}
+
+/** 에러 §2.1 — `IngestError` 의 1차 대기 */
+const SUBMIT_RETRY_DELAY_MS = 2000
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 export async function startReading(
   input: {
@@ -65,34 +88,50 @@ export async function startReading(
     readonly mimeType: string
   },
   container: Container,
+  opts: StartOptions = {},
 ): Promise<StartOutcome> {
   // 글로 올라온 것은 **맡길 것이** 없습니다 — 이미 글이라 엔진이 할 일이
   // 없습니다. 다만 **아무도 안 읽는다는 뜻은 아닙니다** — 본문을 가져와
   // 토큰화하는 것은 `collectReading` 이 합니다 (아래 `readWritten`)
   if (input.kind === 'text') return { ok: true }
 
-  try {
-    await container.transcriber.start({
-      media: { objectKey: input.objectKey, kind: input.kind, mimeType: input.mimeType },
-      jobId: input.evidenceId,
-    })
-    return { ok: true }
-  } catch (error) {
-    // **맡기기 자체가 실패한 것은 그 자리에서 `failed` 로 적습니다.** 2026-09-06 까지는
-    // 이 예외가 202 뒤로 사라져, 화면이 첫 폴링(§3.3)에서 다시 부딪히고서야 알았습니다 —
-    // 그 사이 자료함은 「읽는 중」을 그렸습니다. 에러로 올리지 않는 이유는 `collectReading`
-    // 의 같은 자리와 같습니다 → 불변 규칙 5. 미설정(AppError · 500)은 그대로 올립니다 —
-    // 고칠 수 없는 상태를 전사 실패로 덮지 않습니다(`transcribe.ts` 의 같은 판단)
-    if (!(error instanceof IngestError)) throw error
-    const reason = error.detail.reason
-    const why = typeof reason === 'string' ? reason : 'submit_failed'
+  const attempt = async (): Promise<StartOutcome> => {
+    try {
+      await container.transcriber.start({
+        media: { objectKey: input.objectKey, kind: input.kind, mimeType: input.mimeType },
+        jobId: input.evidenceId,
+      })
+      return { ok: true }
+    } catch (error) {
+      // 미설정(AppError · 500)은 그대로 올립니다 — 고칠 수 없는 상태를 전사 실패로 덮지
+      // 않습니다(`transcribe.ts` 의 같은 판단)
+      if (!(error instanceof IngestError)) throw error
+      const reason = error.detail.reason
+      const why = typeof reason === 'string' ? reason : 'submit_failed'
+      return { ok: false, reason: why, transient: error.detail.transient === true }
+    }
+  }
+
+  let outcome = await attempt()
+  if (!outcome.ok && outcome.transient && opts.retryOnce) {
+    await (opts.sleep ?? realSleep)(SUBMIT_RETRY_DELAY_MS)
+    outcome = await attempt()
+  }
+
+  // **일시적 실패는 적지 않습니다** → ADR-091 §3. 파일은 저장소에 그대로 있고 작업 번호는
+  // 증거 번호라, 브라우저의 다음 폴링(5초 뒤)이 같은 번호로 다시 맡깁니다. 여기서 `failed`
+  // 로 적으면 팟이 10분 뒤 돌아와도 사용자가 파일을 다시 올려야 합니다
+  if (!outcome.ok && !outcome.transient) {
+    // **최종적 실패는 그 자리에서 `failed` 로 적습니다.** 2026-09-06 까지는 이 예외가 202 뒤로
+    // 사라져, 화면이 첫 폴링(§3.3)에서 다시 부딪히고서야 알았습니다. 에러로 올리지 않는 이유는
+    // `collectReading` 의 같은 자리와 같습니다 → 불변 규칙 5
     await container.evidenceWrite.fail({
       caseId: input.caseId,
       evidenceId: input.evidenceId,
-      reason: why,
+      reason: outcome.reason,
     })
-    return { ok: false, reason: why }
   }
+  return outcome
 }
 
 /** §3.3 이 돌려주는 것 */
