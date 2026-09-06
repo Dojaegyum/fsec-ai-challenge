@@ -13,7 +13,8 @@ name: vercel-env
 # (deploy/runpod-bench.md 「시연 당일 순서」 ⑥). 그쪽은 비어 있는 것이 정상인 값이라 지워도 안 멈춥니다.
 #
 # **비밀값은 입력으로 받지 않습니다.** 입력은 실행 화면에 그대로 남습니다. 열쇠는 저장소 시크릿에
-# 두고(`MAILER_API_KEY` · `NER_TOKEN`) 켜기 스위치만 입력으로 받습니다. 요약에도 이름만 적습니다.
+# 두고(`MAILER_API_KEY` · `NER_TOKEN` · `ADMIN_PASSWORD_HASH`) 켜기 스위치만 입력으로 받습니다. 요약에도 이름만 적습니다.
+# 비밀번호 해시도 같습니다 — 해시라도 실행 화면에 남으면 오프라인으로 맞춰 볼 수 있습니다(공개 저장소).
 #
 # 끝나면 `deploy` 를 다시 겁니다 — **환경변수는 다시 빌드해야 반영됩니다**(ADR-053).
 # `demo_mock`(`NEXT_PUBLIC_DEMO_MOCK`)은 브라우저 번들에 구워지는 값이라 특히 그렇습니다 — deploy/README.md 「시연 칩」.
@@ -62,6 +63,10 @@ on:
         description: "LAW_API_OC — 국가법령정보 Open API 사용자 ID (법령 수집 크론). 비우면 안 건드림"
         required: false
         default: ""
+      set_admin_password_hash:
+        description: "ADMIN_PASSWORD_HASH 를 저장소 시크릿 ADMIN_PASSWORD_HASH 에서 넣는다 (KB 검수 큐 /admin/kb 의 문 · `npm run admin:hash` 로 만든 값 · ADR-081)"
+        type: boolean
+        default: false
       demo_mock:
         description: "NEXT_PUBLIC_DEMO_MOCK — 시작 화면 「Mock 파일로 실행」 칩. 1 보임(대회 기간) · 0 숨김 · 비우면 안 건드림. 빌드에 구워지는 값이라 redeploy 와 함께"
         required: false
@@ -115,9 +120,11 @@ jobs:
           IN_LAW_API_OC: ${{ inputs.law_api_oc }}
           SET_MAILER_KEY: ${{ inputs.set_mailer_key }}
           SET_NER_TOKEN: ${{ inputs.set_ner_token }}
+          SET_ADMIN_PASSWORD_HASH: ${{ inputs.set_admin_password_hash }}
           CLEAR_NER: ${{ inputs.clear_ner }}
           SECRET_MAILER_API_KEY: ${{ secrets.MAILER_API_KEY }}
           SECRET_NER_TOKEN: ${{ secrets.NER_TOKEN }}
+          SECRET_ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
         run: |
           set -u
           done_names=""
@@ -153,6 +160,11 @@ jobs:
           if [ "$SET_NER_TOKEN" = "true" ]; then
             if [ -z "$SECRET_NER_TOKEN" ]; then echo "::error::저장소 시크릿 NER_TOKEN 이 없습니다"; exit 1; fi
             put NER_TOKEN "$SECRET_NER_TOKEN"
+          fi
+          if [ "$SET_ADMIN_PASSWORD_HASH" = "true" ]; then
+            if [ -z "$SECRET_ADMIN_PASSWORD_HASH" ]; then echo "::error::저장소 시크릿 ADMIN_PASSWORD_HASH 가 없습니다"; exit 1; fi
+            case "$SECRET_ADMIN_PASSWORD_HASH" in scrypt\$*) ;; *) echo "::error::ADMIN_PASSWORD_HASH 가 scrypt\$… 꼴이 아닙니다 — npm run admin:hash 로 만든 값이어야 합니다"; exit 1 ;; esac
+            put ADMIN_PASSWORD_HASH "$SECRET_ADMIN_PASSWORD_HASH"
           fi
           # 끄기 — 이름으로 id 를 찾아 지웁니다. 지운 뒤 다시 빌드해야 배포본이 그 주소를 안 부릅니다.
           # NER_TOKEN 은 남깁니다 — 비밀값이라 다시 넣는 쪽이 더 번거롭고, URL 이 없으면 안 쓰입니다
