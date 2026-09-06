@@ -356,8 +356,8 @@ export function createLlmClient(env: Env): TextLlmClient | null {
     prompt: { system: string; user: string },
     opts?: { timeoutMs?: number },
   ): Promise<{ text: string; call: LlmCall }> => {
-      // **예산은 통틀어 하나입니다.** 시도마다 45초씩 주면 재시도 두 번에
-      // 함수 상한(60초)을 넘겨 버립니다 → 라우트의 `maxDuration`
+      // **예산은 통틀어 하나입니다.** 시도마다 90초씩 주면 재시도 두 번에
+      // 함수 상한(100초)을 넘겨 버립니다 → 라우트의 `maxDuration`
       const deadline = Date.now() + (opts?.timeoutMs ?? TIMEOUT_MS)
       const tries = models.length * MAX_ROUNDS
 
