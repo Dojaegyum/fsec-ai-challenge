@@ -61,7 +61,7 @@ const DEFAULT_MODEL = 'grok-4.5'
  * 서버 함수 자체가 오래 못 삽니다. 여기서 안 끊으면 함수가 먼저 죽고,
  * 사용자는 「응답 없음」만 봅니다 — 무엇이 늦었는지 안 남습니다.
  *
- * **함수 상한보다 짧아야 합니다** — 라우트의 `maxDuration` 이 100초라 여유 10초를 둡니다.
+ * **함수 상한보다 짧아야 합니다** — 라우트의 `maxDuration` 이 300초라 여유 10초를 둡니다.
  * 우리가 먼저 끊어야 「제때 답하지 않았습니다」가 남고, 함수가 먼저 죽으면 아무것도 안 남습니다.
  *
  * ⚠️ 2026-08-25: 45초로는 **배포 환경에서 세 번 다 넘겼습니다.** 같은 순간
@@ -75,8 +75,14 @@ const DEFAULT_MODEL = 'grok-4.5'
  *
  * ⚠️ 2026-09-06: 55초로는 16:40~17:00 배포본에서 20턴 중 6턴이 끊겼습니다(모델 제공자 지연).
  * 같은 배포에서 판독 수거 요청이 69초를 넘겨도 살아 있었으므로 플랫폼 상한은 60초가 아닙니다(Fluid compute).
+ *
+ * **2026-09-06 저녁: 우리가 먼저 끊지 않기로 정했습니다.** 90초로 올린 뒤에도 재검에서 한 턴이
+ * 93초로 끊겼고, 정상 턴은 15~35초라 예산이 답의 질과 무관했습니다. 그래서 함수 상한을 플랫폼
+ * 최대(Hobby · Fluid compute 300초)로 열고 이 값은 그 바로 아래에 둡니다 — 이 10초는 「함수가
+ * 죽기 전에 우리 503 을 남기는」 최소한의 여유일 뿐 답을 기다리는 한계가 아닙니다.
+ * 503 을 실제로 줄이는 것은 `LLM_MODEL` 에 보조 후보를 더 적는 것입니다(위 폴백).
  */
-const TIMEOUT_MS = 90_000
+const TIMEOUT_MS = 290_000
 
 /**
  * **다시 보내면 될 수도 있는 것들.**
@@ -356,8 +362,8 @@ export function createLlmClient(env: Env): TextLlmClient | null {
     prompt: { system: string; user: string },
     opts?: { timeoutMs?: number },
   ): Promise<{ text: string; call: LlmCall }> => {
-      // **예산은 통틀어 하나입니다.** 시도마다 90초씩 주면 재시도 두 번에
-      // 함수 상한(100초)을 넘겨 버립니다 → 라우트의 `maxDuration`
+      // **예산은 통틀어 하나입니다.** 시도마다 290초씩 주면 재시도 두 번에
+      // 함수 상한(300초)을 넘겨 버립니다 → 라우트의 `maxDuration`
       const deadline = Date.now() + (opts?.timeoutMs ?? TIMEOUT_MS)
       const tries = models.length * MAX_ROUNDS
 
