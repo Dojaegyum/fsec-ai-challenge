@@ -51,6 +51,20 @@ const KINSHIP: readonly string[] = [
   '고객', '고객님', '손님', '선생님', '사장님', '본인', '당사자', '피해자', '저희',
 ]
 
+/**
+ * 사람을 가리키는 일반 낱말 — 「검찰청이라고 하는 사람이」의 「사람」.
+ *
+ * PR #115 배포 뒤 재검(2026-09-07)에서 모델이 「사람」을 PERSON 으로 냈고, 한 번 볼트에
+ * 들어가자 브라우저가 이후 발화의 「사람」을 전부 `[이름-1]` 로 가렸습니다(ADR-079 의
+ * 아는 이름 재사용) — 「검찰이라는 [이름-1]이랑 통화 중」. 흔한 낱말일수록 한 번의 오탐이
+ * 그 기기의 모든 발화를 망가뜨립니다.
+ */
+const GENERIC_PERSON: readonly string[] = [
+  '사람', '사람들', '남자', '여자', '남성', '여성', '상대', '상대방', '그쪽', '저쪽', '누군가',
+  '아저씨', '아줌마', '아가씨', '청년', '노인', '어르신', '학생', '주부', '직장인',
+  '사기범', '범인', '피의자', '용의자', '가해자', '명의인', '수신자', '발신자',
+]
+
 /** 직함·역할 — 사기범이 사칭하는 자리이자 안내에 흔히 등장하는 낱말 */
 const TITLES: readonly string[] = [
   '직원', '담당자', '상담원', '상담사', '행원', '창구직원', '기사', '배달원', '택배기사',
@@ -78,4 +92,9 @@ const ORGANIZATIONS: readonly string[] = [
  * `allowedTerms`(기관 사전)와 같은 자리에서, 같은 규칙으로 대조합니다 → `tokenize.ts`
  * `nerToSpans`. 여기 있는 낱말은 어느 경로에서든 `[이름-N]` 이 되지 않습니다.
  */
-export const COMMON_NOUNS: readonly string[] = [...KINSHIP, ...TITLES, ...ORGANIZATIONS]
+export const COMMON_NOUNS: readonly string[] = [
+  ...KINSHIP,
+  ...GENERIC_PERSON,
+  ...TITLES,
+  ...ORGANIZATIONS,
+]
