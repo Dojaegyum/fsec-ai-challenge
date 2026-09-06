@@ -216,8 +216,12 @@ export default function ChatView({
           (2026-09-04 사용자 확정 — 「짧을 때도 길 때와 같은 위치로」).
           `mt-auto` 가 짧은 대화에서 바닥까지 밀고, 대화가 화면을 넘으면
           sticky 가 그 자리를 지킵니다 — 두 경우 모두 위치가 같습니다.
-          뒤로 지나가는 말풍선은 바닥색 그라데이션이 받칩니다. 포커스 링은 여기에만 */}
-      <div className="sticky bottom-0 z-10 mt-auto pt-4 pb-2 [background:linear-gradient(to_top,var(--ground)_62%,transparent)]">
+          뒤로 지나가는 말풍선은 **배경 흐림**이 받칩니다 — 위로 갈수록 옅어지는
+          마스크라 어디서 시작하는지 선이 없습니다. **바닥색을 칠하지 않습니다**
+          (2026-09-06): 화면 바닥엔 HorizonGlow 가 깔려 있어 `--ground` 를 칠하면
+          열 너비의 어두운 직사각형이 글로우 위에 테두리째 드러났습니다. 흐림은
+          매끈한 글로우를 그대로 두고 말풍선만 눅입니다. 포커스 링은 여기에만 */}
+      <div className="sticky bottom-0 z-10 mt-auto pt-4 pb-2 backdrop-blur-md [mask-image:linear-gradient(to_top,black_62%,transparent)]">
       <div className="flex items-center gap-2 rounded-[14px] border border-[oklch(0.697_0.16_258.2/45%)] bg-surface px-[14px] shadow-[0_0_0_3px_oklch(0.697_0.16_258.2/10%)]">
         <input
           aria-label="진술 입력"

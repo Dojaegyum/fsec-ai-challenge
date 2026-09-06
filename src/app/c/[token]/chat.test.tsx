@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import type { NextQuestion } from "@/modules/chat-handler";
 
-import { MiniChat, QuestionBlock } from "./chat";
+import ChatView, { MiniChat, QuestionBlock } from "./chat";
 import type { ChatSend } from "./send";
 
 const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -206,5 +206,20 @@ describe("되묻기 문구의 토큰은 브라우저가 되살린다 — ADR-069
       <QuestionBlock ask={askOf({ question: confirmAccount })} onAnswered={() => {}} i={0} />,
     );
     expect(textOf(html)).toContain("[계좌-2]");
+  });
+});
+
+describe("컴포저 받침은 바닥색을 칠하지 않는다 — 호라이즌 위의 직사각형", () => {
+  it("배경 흐림과 마스크로 받치고, --ground 를 칠하지 않는다", () => {
+    // 2026-09-06 사용자 지적 — 화면 바닥엔 HorizonGlow 가 깔려 있어, 컴포저 뒤에
+    // 바닥색을 칠하면 열 너비의 어두운 직사각형 테두리가 글로우 위에 드러납니다.
+    // 흐림은 매끈한 글로우를 그대로 두고 지나가는 말풍선만 눅입니다
+    const html = renderToStaticMarkup(
+      <ChatView atWork={false} token={null} chat={chatOf()} onPickChoice={() => {}} />,
+    );
+    const composer = html.match(/<div class="([^"]*sticky[^"]*)"/)?.[1] ?? "";
+    expect(composer).toContain("backdrop-blur");
+    expect(composer).toContain("mask");
+    expect(composer).not.toContain("var(--ground)");
   });
 });
