@@ -16,7 +16,10 @@
  * ## 세는 곳 — 공유 저장소가 있으면 거기, 없으면 메모리
  *
  * 정본 §1.3 이 그렇게 정했습니다(2026-08-21). 공유 저장소가 있으면 거기서 세고,
- * 없으면 프로세스 메모리에 셉니다 — 지금은 메모리뿐입니다.
+ * 없으면 프로세스 메모리에 셉니다. **공유 저장소는 Postgres 표 하나입니다**
+ * → [rate-limit-pg.ts](./rate-limit-pg.ts) · [ADR-085](../../decisions/085-shared-rate-counter.md).
+ * `DATABASE_URL` 이 있으면 그쪽이 붙고, 없으면 아래 메모리 카운터입니다
+ * ([wire.ts](./wire.ts) 가 고릅니다).
  *
  * **「부르면 터지는 대역」으로 두지 않습니다.** 다른 미설정 자원과 다릅니다
  * → [not-configured.ts](./not-configured.ts). 속도 제한은 **모든 요청이 지나는
@@ -33,21 +36,38 @@
  * | 인스턴스 N개 | **실효 상한이 N배** | 정확 |
  * | 인스턴스 재시작 | 카운터가 0으로 | 유지 |
  *
- * 공유 저장소를 붙일 때 [`RateCounterStore`](#RateCounterStore) 하나만 갈아 끼웁니다.
+ * 공유 저장소는 [`RateCounterStore`](#RateCounterStore) 하나만 갈아 끼운 것입니다.
  * 규칙(무엇을 얼마나)은 이 파일에 그대로 남습니다.
  *
- * ⬜ **공유 구현이 아직 없습니다.** 셀 곳을 안 정했습니다 —
- * `docs/plans/08-20-api-routes.md` 「속도 제한 카운터 위치」. 계약은 여기 있고 구현만 없습니다.
+ * ⚠️ **이 파일은 2026-09-06 까지 「볼트를 따라 Postgres 로 가지 마세요」라고 적고
+ * 있었습니다** — 카운터는 초당 여러 번 갱신되고 창이 지나면 버려지니 성격이 다르다는
+ * 이유였습니다. [ADR-085](../../decisions/085-shared-rate-counter.md) 가 그것을
+ * 뒤집었습니다: 약속한 상한이 **한 번도 지켜진 적이 없었던 것**이 요청당 upsert 한 줄보다
+ * 무겁습니다. 끝난 창은 `purge` 크론이 하루 한 번 걷어냅니다(아래 `purgeExpired`).
  *
- * ⚠️ **볼트를 따라가지 마세요.** 볼트는 같은 Postgres 로 갔지만(ADR-049) 성격이 다릅니다 —
- * 매핑은 사건당 몇 줄이고 파기일까지 남지만, 카운터는 **초당 여러 번 갱신되고 창이 지나면
- * 버려집니다.** 관계형 DB 에 두면 모든 요청이 쓰기를 한 번씩 더 합니다.
+ * ## 공유 카운터가 안 되면 — **막지 않고 이 인스턴스에서 셉니다**
  *
- * 그리고 **인스턴스가 여럿이면 지금은 실효 상한이 그만큼 늘어납니다.** 메모리라
- * 프로세스마다 따로 셉니다.
+ * 세는 곳을 DB 로 옮기면서 **길목에 터질 수 있는 것이 하나 생겼습니다.** 표가 아직
+ * 없거나(마이그레이션 전) 풀러가 몰리면 `hit` 이 던지고, 그것이 그대로 올라가면
+ * **모든 경로가 500** 이 됩니다 — 위의 「부르면 터지는 대역으로 두지 않습니다」를
+ * 정면으로 어깁니다.
+ *
+ * 그래서 `check` 는 공유 카운터의 실패를 잡아 **이 프로세스의 메모리 카운터로
+ * 떨어집니다**(fail-open 이되 상한은 남습니다 — 인스턴스마다 따로 셀 뿐입니다).
+ * 실패는 `console.warn` 으로 한 번씩 남깁니다. **대상 값은 로그에 안 적습니다** —
+ * IP 는 그 자체로 사람에 가까운 값입니다.
+ *
+ * ## 세는 키는 지문입니다
+ *
+ * `X-Session-Id` 는 **클라이언트가 아무 값이나 넣습니다**(§1 이 형식을 안 정했습니다).
+ * 그 값을 열쇠에 그대로 실으면 (1) btree 색인 상한(약 2704바이트)을 넘는 헤더 하나가
+ * 기본키 삽입을 터뜨리고 (2) 매 요청 다른 값을 보내면 요청마다 한 줄이 늘어납니다.
+ * 그래서 **대상은 SHA-256 앞 32자로 접어** 넣습니다. 갈래 이름은 우리 것이라 그대로 둡니다.
  */
 
 import 'server-only'
+
+import { createHash } from 'node:crypto'
 
 import type { ServerClock } from './clock'
 import { RateLimitedError } from './errors'
@@ -55,7 +75,7 @@ import { RateLimitedError } from './errors'
 /** 무엇을 기준으로 세는가 */
 export type RateScope = 'case' | 'session' | 'ip'
 
-/** 정본 §1.3 표의 일곱 줄 중 **창(window)으로 세는 다섯** */
+/** 정본 §1.3 표의 일곱 줄 중 **창(window)으로 세는 여섯** — 증거 업로드만 누적 총량입니다 */
 export type RateBucket = 'chat' | 'slot' | 'vault' | 'caseCreate' | 'read' | 'notFound'
 
 export interface RateRule {
@@ -155,6 +175,14 @@ export interface RateWindow {
 export interface RateCounterStore {
   readonly kind: 'memory' | 'shared'
   hit(key: string, windowMs: number, nowMs: number): Promise<RateWindow>
+  /**
+   * 끝난 창을 걷어낸다. 지운 개수를 돌려줍니다 → ADR-085.
+   *
+   * **메모리 카운터에는 청소 타이머가 없습니다** — 서버리스 함수가 언제 얼면
+   * 타이머가 안 도는지 알 수 없어서입니다. 공유 저장소는 반대로 아무도 안
+   * 지우면 줄이 남으므로, `purge` 크론이 하루 한 번 이것을 부릅니다.
+   */
+  purgeExpired(nowMs: number): Promise<number>
 }
 
 /**
@@ -178,11 +206,16 @@ export interface RateCounterStore {
 export function createMemoryRateCounter(maxKeys = 10_000): RateCounterStore {
   const windows = new Map<string, { count: number; resetAtMs: number }>()
 
-  /** 이미 끝난 창을 걷어낸다 */
-  const sweep = (nowMs: number) => {
+  /** 이미 끝난 창을 걷어낸다. 지운 개수를 돌려줍니다 */
+  const sweep = (nowMs: number): number => {
+    let gone = 0
     for (const [key, one] of windows) {
-      if (one.resetAtMs <= nowMs) windows.delete(key)
+      if (one.resetAtMs <= nowMs) {
+        windows.delete(key)
+        gone += 1
+      }
     }
+    return gone
   }
 
   /** 살아 있는 것 중 가장 먼저 끝나는 것을 하나 버린다. 버릴 것이 없으면 거짓 */
@@ -221,6 +254,11 @@ export function createMemoryRateCounter(maxKeys = 10_000): RateCounterStore {
       found.count += 1
       return { count: found.count, resetAtMs: found.resetAtMs }
     },
+
+    async purgeExpired(nowMs) {
+      // 여기서는 덤입니다 — `hit` 이 그 키를 볼 때 어차피 버립니다
+      return sweep(nowMs)
+    },
   }
 }
 
@@ -235,6 +273,24 @@ export interface RateLimiter {
    *         남은 창 시간이 들어갑니다 → 08-16-errors.md §3.1
    */
   check(bucket: RateBucket, subject: string): Promise<void>
+  /**
+   * 끝난 창을 걷어낸다 → ADR-085. `purge` 크론이 하루 한 번 부릅니다.
+   *
+   * **여기가 시각을 정합니다** — 부르는 쪽이 「지금」을 만들어 넘기면 크론마다
+   * 시계가 달라집니다. 카운터가 쓰는 시계와 같은 것을 씁니다.
+   */
+  purgeExpired(): Promise<number>
+}
+
+/**
+ * 세는 대상을 지문으로 접는다 → ADR-085.
+ *
+ * **비밀로 만들려는 것이 아닙니다** — 길이를 고정하려는 것입니다. 대상은 사건
+ * 식별자·세션 식별자·IP 인데 그중 세션 식별자는 클라이언트가 아무 값이나 넣습니다.
+ * 32자면 충돌이 사실상 없고(128비트), 열쇠 길이가 갈래 이름 + 33자로 고정됩니다.
+ */
+function fingerprint(subject: string): string {
+  return createHash('sha256').update(subject).digest('hex').slice(0, 32)
 }
 
 export function createRateLimiter(deps: {
@@ -243,13 +299,41 @@ export function createRateLimiter(deps: {
 }): RateLimiter {
   const { counter, clock } = deps
 
+  /**
+   * 공유 카운터가 안 될 때 떨어질 자리 → ADR-085 「실패 모드」.
+   *
+   * **이 프로세스 것입니다.** 상한이 인스턴스 수만큼 늘어나지만, 그건 2026-09-06
+   * 이전과 같은 상태이고 **길목이 통째로 500 이 되는 것보다 낫습니다.**
+   */
+  const fallback = createMemoryRateCounter()
+
   return {
     storeKind: counter.kind,
+
+    async purgeExpired() {
+      return counter.purgeExpired(clock.nowMs())
+    },
 
     async check(bucket, subject) {
       const rule = RATE_RULES[bucket]
       const nowMs = clock.nowMs()
-      const window = await counter.hit(`${bucket}:${subject}`, rule.windowMs, nowMs)
+      // 갈래 이름은 우리 것이라 그대로, 대상만 접습니다 — 위 「세는 키는 지문입니다」
+      const key = `${bucket}:${fingerprint(subject)}`
+
+      let window: RateWindow
+      try {
+        window = await counter.hit(key, rule.windowMs, nowMs)
+      } catch (error) {
+        // ⚠️ **여기서 던지면 모든 경로가 500 입니다.** 「제한이 정상 사용을 막으면
+        // 안 된다」의 가장 심한 형태라, 막지 않고 이 인스턴스에서 셉니다 → ADR-085.
+        // **대상 값은 안 적습니다**(IP 는 사람에 가까운 값입니다 · §10.1).
+        // 메시지도 안 적습니다 — 접속 문자열이 섞여 나옵니다(`db.ts` 의 같은 규칙)
+        console.warn('[rate-limit] 공유 카운터 실패 — 이 인스턴스의 메모리 카운터로 셉니다', {
+          bucket,
+          error: error instanceof Error ? error.name : 'unknown',
+        })
+        window = await fallback.hit(key, rule.windowMs, nowMs)
+      }
 
       if (window.count <= rule.limit) return
 

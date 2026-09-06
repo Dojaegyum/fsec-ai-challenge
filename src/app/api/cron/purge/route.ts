@@ -55,11 +55,28 @@ export async function GET(request: Request) {
         )
       }
 
+      // **끝난 속도 제한 창도 여기서 걷어냅니다** → ADR-085. 창이 지나면 쓸모없는
+      // 줄이고 아무도 안 지우면 남기만 합니다. 사건 파기와 같은 「하루 한 번」이라
+      // 크론을 새로 만들지 않았습니다 — 예약 실행은 셋뿐이고 시각을 겹치지 않게
+      // 벌려 두었습니다(§6.4 · ADR-025).
+      //
+      // **실패해도 파기 응답을 깨뜨리지 않습니다.** 배포본에 아직 마이그레이션
+      // 0011 이 안 돌았으면 표가 없어 던집니다 — 그 한 줄 때문에 사건 파기가
+      // 실패로 보이면 안 됩니다. 위 `run.failed` 와 같은 규칙입니다
+      const rateWindows = await ctx.container.rateLimiter.purgeExpired().catch((why: unknown) => {
+        console.error(
+          `[cron/purge] 속도 제한 창 정리 실패 이유=${why instanceof Error ? why.message : '알 수 없음'}`,
+        )
+        return null
+      })
+
       return {
         body: {
           scanned: run.scanned,
           purged: run.purged.length,
           failed: run.failed.length,
+          // 몇 줄을 걷어냈나. `null` 이면 정리가 실패한 것입니다(로그에 이유가 있습니다)
+          rate_windows_purged: rateWindows,
           // **어느 층이 몇 건 남았나.** 볼트만 계속 남으면 볼트 설정이 잘못된
           // 것이고, 객체 저장소만 남으면 삭제 권한 문제입니다 — 건수만으로도
           // 어디를 봐야 하는지가 갈립니다

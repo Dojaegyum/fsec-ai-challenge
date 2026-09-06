@@ -610,9 +610,10 @@ export function createContainer(
   env: Env = readEnv(),
   ports: Ports = unconfiguredPorts(env),
   /**
-   * 속도 제한을 어디에 세나. ⬜ 저장 위치가 정본에 미정이라 기본은
-   * 프로세스 메모리입니다 → [rate-limit.ts](./rate-limit.ts).
-   * 공유 저장소가 정해지면 여기 하나만 갈아 끼웁니다.
+   * 속도 제한을 어디에 세나. 기본은 프로세스 메모리이고, 실제 서버는
+   * **Postgres 표 하나**를 넘겨받습니다 → [wire.ts](./wire.ts) · ADR-085.
+   * 기본값이 메모리인 이유는 시험이 DB 없이도 조립되어야 하기 때문입니다
+   * → [rate-limit.ts](./rate-limit.ts).
    */
   rateCounter: RateCounterStore = createMemoryRateCounter(),
 ): Container {

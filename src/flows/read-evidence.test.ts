@@ -105,8 +105,15 @@ function harness(base: {
   readonly vaultTokens?: readonly string[]
   readonly transcripts?: readonly { speaker: string; text: string }[]
   readonly lines: readonly Line[]
+  /**
+   * 기관 사전. **비우면 `repairOrgs` 가 모델을 안 부릅니다** — 위 시험들이
+   * 그 상태를 그대로 씁니다. 모델까지 가는 것을 보려면 하나 이상 주세요
+   */
+  readonly orgCandidates?: readonly { orgId: string; name: string; aliases: readonly string[] }[]
 }) {
   const finished: { transcriptMasked: string }[] = []
+  // **모델을 언제 불렀는지**를 봅니다 — ADR-086 이 그 시점을 응답 뒤로 옮겼습니다
+  const completeText = vi.fn(async () => ({ text: '' }))
 
   const container = {
     piiTokenizer: createPiiTokenizer(),
@@ -119,12 +126,19 @@ function harness(base: {
       },
     },
     // 제외 목록은 이 파일이 보는 것이 아닙니다 → `allowed-terms.test.ts`
-    channelWrite: { allCandidates: async () => [], allPublicNames: async () => [] },
+    channelWrite: {
+      allCandidates: async () => base.orgCandidates ?? [],
+      allPublicNames: async () => [],
+    },
     ports: {
       kbVersion: { current: async () => '2026.08.1' },
-      // 기관 교정은 안 봅니다 — `repairOrgs` 는 사전이 비면 모델을 안 부릅니다
-      llm: { completeText: async () => ({ text: '' }) },
+      // 기관 교정의 **내용**은 안 봅니다 — 사전이 비면 모델을 안 부르고, 사전이
+      // 있어도 빈 답이라 아무것도 확정되지 않습니다. 보는 것은 **부른 시점**입니다
+      llm: { completeText },
     },
+    // 슬롯 추출이 모델까지 가려면 이 둘이 있어야 합니다 → ADR-069
+    slots: { read: async () => [] },
+    slotWrite: { write: async () => {} },
     vaultWrite: {
       put: async () => 0,
       list: async () => [],
@@ -146,7 +160,7 @@ function harness(base: {
     },
   } as unknown as Container
 
-  return { container, finished }
+  return { container, finished, completeText }
 }
 
 const read = (one: ReturnType<typeof harness>) =>
@@ -791,5 +805,78 @@ describe('맡기기가 실패하면 그 자리에서 failed 로 적는다', () =
     await startReading({ ...input, kind: 'text', mimeType: 'text/plain' }, one.container)
 
     expect(one.failed).toHaveLength(0)
+  })
+})
+
+/**
+ * ⚠️ **수거 요청 하나가 56~69초 걸렸습니다** (2026-09-06 배포본) → ADR-086.
+ *
+ * 줄마다 이름 탐지에 더해 기관명 보정(모델 호출)과 슬롯 추출(모델 호출)을 **같은
+ * 요청 안에서** 돌았습니다. 브라우저는 그 시간 동안 폴링을 지켜야 하고, 함수 상한을
+ * 넘기면 판독 결과를 통째로 잃습니다 — 대응표는 그 응답에만 실립니다(ADR-062).
+ *
+ * **여기서 못 박는 것 셋:**
+ * 1. `defer` 를 주면 모델 호출이 응답 뒤로 간다
+ * 2. 그래도 저장(`finish`)과 부산물 판정(`settleArtifacts`)은 응답 전에 끝나 있다
+ * 3. `defer` 가 없으면 지금까지처럼 전부 응답 전에 돈다 (옛 호출부·시험이 그대로)
+ */
+describe('모델 호출을 응답 뒤로 미룬다 — ADR-086', () => {
+  const ORGS = [{ orgId: 'kb-bank', name: '국민은행', aliases: ['국민'] }]
+
+  const withDefer = (one: ReturnType<typeof harness>, deferred: (() => Promise<void>)[]) =>
+    collectReading(
+      {
+        caseId: CASE_ID,
+        evidenceId: EVIDENCE_ID,
+        kind: 'audio',
+        mimeType: 'audio/m4a',
+        objectKey: KEY,
+        stored: null,
+      },
+      one.container,
+      { defer: (work) => { deferred.push(work) } },
+    )
+
+  it('defer 를 주면 기관명 보정·슬롯 추출은 그 안에서 돌고, finish·settle 은 응답 전에 끝난다', async () => {
+    settled.calls.length = 0
+    const one = harness({ lines: [lineOf('국민은행이라고 했어요')], orgCandidates: ORGS })
+    const deferred: (() => Promise<void>)[] = []
+
+    const got = await withDefer(one, deferred)
+
+    expect(got.status).toBe('done')
+    // 저장과 판정은 **응답 전에** 끝나 있어야 합니다 — 판정이 저장된 글을 읽습니다
+    expect(one.finished).toHaveLength(1)
+    expect(settled.calls).toEqual([{ caseId: CASE_ID, evidenceId: EVIDENCE_ID }])
+    // 모델은 아직 안 불렸습니다 — 이것이 56초를 만들던 자리입니다
+    expect(one.completeText).not.toHaveBeenCalled()
+    expect(deferred).toHaveLength(1)
+
+    for (const work of deferred) await work()
+
+    // 미뤄 둔 일이 돌면 그제서야 모델을 부릅니다 (기관명 보정 + 슬롯 추출)
+    expect(one.completeText).toHaveBeenCalled()
+  })
+
+  it('미뤄 둔 일이 터져도 응답은 이미 나갔고 되던지지 않는다', async () => {
+    const one = harness({ lines: [lineOf('국민은행이라고 했어요')], orgCandidates: ORGS })
+    one.completeText.mockRejectedValue(new Error('모델이 안 뜹니다'))
+    const deferred: (() => Promise<void>)[] = []
+
+    const got = await withDefer(one, deferred)
+
+    expect(got.status).toBe('done')
+    // `repairOrgs`·`extractSlots` 는 스스로 삼킵니다 — 미룬 뒤에도 그대로여야
+    // `after()` 안에서 처리 안 된 거부가 안 남습니다
+    await expect(Promise.all(deferred.map((work) => work()))).resolves.toBeDefined()
+  })
+
+  it('defer 가 없으면 지금처럼 응답 전에 전부 돈다', async () => {
+    const one = harness({ lines: [lineOf('국민은행이라고 했어요')], orgCandidates: ORGS })
+
+    const got = await read(one)
+
+    expect(got.status).toBe('done')
+    expect(one.completeText).toHaveBeenCalled()
   })
 })

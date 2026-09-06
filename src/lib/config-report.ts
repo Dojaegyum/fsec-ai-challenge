@@ -99,9 +99,11 @@ export function configReport(container: Container): readonly PortStatus[] {
       ['(lib/questions.ts 의 문구 표가 비었습니다)'],
       '질문이 안 나갑니다. **사건 생성·플랜은 그대로 돕니다**'),
     // 세기는 셉니다. 다만 프로세스 하나 안에서만이라, 인스턴스가 여럿이면
-    // 실효 상한이 그 수만큼 늘어납니다 → rate-limit.ts
+    // 실효 상한이 그 수만큼 늘어납니다 → rate-limit.ts.
+    // **저장 위치는 더 이상 미정이 아닙니다**(ADR-085) — 비어 있다면 이유는
+    // 「어디에 셀지 안 정함」이 아니라 **DB 가 안 붙어서**입니다
     row('속도 제한 저장소', container.rateLimiter.storeKind === 'shared',
-      ['(정본 §1.3 TODO — 저장 위치 미정)'],
+      ['DATABASE_URL'],
       '프로세스 안에서만 셉니다. 인스턴스가 여럿이면 실효 상한이 그만큼 늘어납니다'),
   ]
 }

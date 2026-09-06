@@ -25,7 +25,10 @@
 import 'server-only'
 
 import { createContainer, unconfiguredPorts, type Container, type Ports } from './container'
+import { createSql } from './db'
 import { readEnv, type Env } from './env'
+import { createMemoryRateCounter } from './rate-limit'
+import { createPostgresRateCounter } from './rate-limit-pg'
 
 /**
  * 밖에서 오는 자원을 실제 구현으로 바꿔 끼우는 자리.
@@ -71,7 +74,15 @@ export function getContainer(): Container {
   const slot = globalThis as unknown as Slot
   if (!slot[SLOT]) {
     const env = readEnv()
-    slot[SLOT] = createContainer(env, buildPorts(env))
+    // **속도 제한은 인스턴스가 여럿이면 메모리로는 안 섭니다** → ADR-085.
+    // `DATABASE_URL` 이 있으면 표 하나에 모아 세고, 없으면 프로세스 메모리입니다 —
+    // 없다고 터뜨리지 않습니다(모든 요청이 지나는 길목입니다 · §1.3)
+    const sql = createSql(env)
+    slot[SLOT] = createContainer(
+      env,
+      buildPorts(env),
+      sql ? createPostgresRateCounter(sql) : createMemoryRateCounter(),
+    )
   }
   return slot[SLOT]
 }

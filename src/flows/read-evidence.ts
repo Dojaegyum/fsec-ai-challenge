@@ -129,6 +129,18 @@ export type ReadState =
   | { readonly status: 'failed'; readonly reason: string }
 
 /**
+ * 응답 뒤로 미룰 일을 받는 자리 → [ADR-086](../../decisions/086-defer-llm-work-after-read.md).
+ *
+ * **안 주면 그 자리에서 기다립니다.** 기본값을 「띄우고 잊기」로 두면 옛 호출부와
+ * 시험이 조용히 다르게 돌고, 무엇이 응답 전에 끝나 있는지가 부르는 쪽마다
+ * 달라집니다. 라우트만 `after` 를 넘깁니다.
+ */
+export interface CollectOptions {
+  /** 응답 뒤로 미룰 일을 받는 자리 → ADR-086. 없으면 그 자리에서 기다립니다 */
+  readonly defer?: (work: () => Promise<void>) => void
+}
+
+/**
  * 진행 상태를 묻는다 → §3.3.
  *
  * **끝났으면 토큰화까지 해서 돌려줍니다.** 이 함수가 원문을 밖으로 내보내는
@@ -150,6 +162,7 @@ export async function collectReading(
     readonly stored: string | null
   },
   container: Container,
+  opts: CollectOptions = {},
 ): Promise<ReadState> {
   // **이미 다 읽은 것은 저장된 것을 돌려줍니다.**
   //
@@ -261,22 +274,6 @@ export async function collectReading(
     ],
   }
 
-  // **토큰화가 끝난 뒤에 기관 이름을 고칩니다** → ADR-056.
-  //
-  // 이 자리인 이유는 경계 때문입니다 — 여기서부터 개인정보는 토큰이라
-  // 밖으로 내보내도 [불변 규칙 2](../../CLAUDE.md)를 안 깨뜨립니다.
-  // 기관명은 토큰화 제외 목록이라 평문 그대로 남아 있어 모델이 볼 수 있습니다.
-  await repairOrgs(input.caseId, masked.lines, container)
-
-  // **금액·시각·상대 계좌도 여기서 뽑습니다** → ADR-069. 같은 자리인 이유도 같습니다 —
-  // 토큰화 뒤라 모델이 보는 것은 토큰뿐이고, 뽑힌 값은 `extracted` 로 두어 슬롯 체커가
-  // 한 번의 탭으로 확인받습니다. 문진이 그 문항을 통째로 묻지 않게 되는 자리입니다
-  await extractSlots(
-    { caseId: input.caseId, evidenceId: input.evidenceId, kind: input.kind },
-    masked.lines,
-    container,
-  )
-
   // **한 번만 토큰화합니다.** 저장해 두면 다음 폴링은 위에서 바로 돌아갑니다.
   // 챗도 이 값을 맥락으로 씁니다 → `flows/chat-turn.ts`
   await container.evidenceWrite.finish({
@@ -296,6 +293,39 @@ export async function collectReading(
   await settleArtifacts({ caseId: input.caseId, evidenceId: input.evidenceId, container }).catch(
     () => [],
   )
+
+  /**
+   * **모델을 부르는 둘은 응답 뒤로 갑니다** → ADR-086.
+   *
+   * 저장(`finish`)과 판정(`settleArtifacts`) 앞에 있던 것을 뒤로 옮긴 것입니다.
+   * 수거 요청 하나가 56~69초 걸렸고, 브라우저는 그동안 폴링을 지켜야 했습니다 —
+   * 함수 상한을 넘기면 이 응답에만 실리는 대응표를 통째로 잃습니다(ADR-062).
+   * 결과(되묻기 문항·기관 확정)는 다음 번들 조회에서 보입니다.
+   *
+   * **뒤로 미뤄도 안전한 이유**는 둘 다 스스로 예외를 삼키고, 슬롯 표에 쓸 뿐
+   * 이 응답의 내용을 만들지 않기 때문입니다.
+   */
+  const later = async () => {
+    // **토큰화가 끝난 뒤에 기관 이름을 고칩니다** → ADR-056.
+    //
+    // 이 자리인 이유는 경계 때문입니다 — 여기서부터 개인정보는 토큰이라
+    // 밖으로 내보내도 [불변 규칙 2](../../CLAUDE.md)를 안 깨뜨립니다.
+    // 기관명은 토큰화 제외 목록이라 평문 그대로 남아 있어 모델이 볼 수 있습니다.
+    await repairOrgs(input.caseId, masked.lines, container)
+
+    // **금액·시각·상대 계좌도 여기서 뽑습니다** → ADR-069. 같은 자리인 이유도 같습니다 —
+    // 토큰화 뒤라 모델이 보는 것은 토큰뿐이고, 뽑힌 값은 `extracted` 로 두어 슬롯 체커가
+    // 한 번의 탭으로 확인받습니다. 문진이 그 문항을 통째로 묻지 않게 되는 자리입니다
+    await extractSlots(
+      { caseId: input.caseId, evidenceId: input.evidenceId, kind: input.kind },
+      masked.lines,
+      container,
+    )
+  }
+
+  // **미룰 자리를 안 받았으면 그대로 기다립니다** — 옛 호출부와 시험이 그대로 돕니다
+  if (opts.defer) opts.defer(later)
+  else await later()
 
   return state
 }
