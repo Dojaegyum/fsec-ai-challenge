@@ -560,7 +560,7 @@ describe('선별기 — 두 묶음 밖의 자료를 발화에 맞춰 (ADR-089 ·
 
     await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
 
-    expect(llm.complete).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 90_000 - 4_200 })
+    expect(llm.complete).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 290_000 - 4_200 })
   })
 
   it('선별이 예산을 다 먹어도 답변은 20초는 기다린다', async () => {
@@ -579,6 +579,6 @@ describe('선별기 — 두 묶음 밖의 자료를 발화에 맞춰 (ADR-089 ·
     expect(turn.selection).toBe(null)
     expect(turn.counts.selected).toBe(0)
     expect((prompts.seen[0] as { kbSelected?: unknown[] }).kbSelected).toEqual([])
-    expect(llm.complete).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 90_000 })
+    expect(llm.complete).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 290_000 })
   })
 })

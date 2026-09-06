@@ -45,7 +45,7 @@ import type {
 const MAX_ATTEMPTS = 2
 
 /** 답변 모델의 예산. `lib/llm.ts` 의 상한과 같다 — 선별에 쓴 시간을 여기서 뺀다(ADR-089 ④) */
-const ANSWER_BUDGET_MS = 90_000
+const ANSWER_BUDGET_MS = 290_000
 /** 선별이 예산을 다 먹어도 답변은 이만큼은 기다린다 */
 const ANSWER_BUDGET_FLOOR_MS = 20_000
 
