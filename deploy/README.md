@@ -374,6 +374,34 @@ SMOKE_BASE_URL=<주소> npm run smoke           # 다른 주소
 
 ---
 
+## 팟이 죽으면 — 세 겹 (2026-09-07 · [ADR-092](../decisions/092-pod-self-heal-and-watcher.md))
+
+| 겹 | 무엇 | 어디서 | 얼마나 |
+| --- | --- | --- | --- |
+| 돈 | RunPod **auto-pay** 와 잔액 알림 — 콘솔 Billing · Settings → Notification | 사람이 켬 | 잔액 0 이면 볼륨 없는 팟은 삭제됩니다 |
+| 프로세스 | `/opt/finally/watchdog.sh` — 20초마다 `/health`, 마지막 재시작 뒤 180초 지났으면 `restart.sh` | 팟 안 (`runpod-provision.sh` 가 설치) | 2~3분 |
+| 팟 | `finally-runpod-watch` systemd 서비스 — 30초마다 RunPod API + `/health`. 없으면 새 팟, RUNNING 인데 죽었으면 ssh 재시작 → 180초 뒤에도 안 되면 새 팟. 새 팟이면 `vercel-env` 를 걸어 주소 교체 → `POST /api/cron/evidence-resubmit` → 메일 | 상시 서버(OCI 141.148.13.6) | 15~20분 |
+
+**세지 않습니다** — 연속 실패 조건이 없습니다. 조치 뒤 유예 180초와 「싼 조치부터」가 그 역할을 합니다.
+
+설치는 서버에서 `bash deploy/runpod-watch-install.sh` — 처음 돌리면 `/etc/finally/watch.env` 를 만들어 두고 멈춥니다. 채울 값은
+`deploy/watch.env.example`. 팟 ssh 키(`~/.ssh/id_ed25519_finally`)를 `ubuntu` 홈에 복사해야 합니다.
+
+| 하고 싶은 것 | 명령 |
+| --- | --- |
+| 지금 뭘 하나 | `journalctl -u finally-runpod-watch -f` |
+| **손으로 `down` 하기 전에** | `touch /var/lib/finally/watch.paused` — 안 하면 30초 안에 새 팟을 만듭니다 |
+| 다시 켜기 | `rm /var/lib/finally/watch.paused` |
+| 한 회만 손으로 | `set -a; . /etc/finally/watch.env; set +a; python3 deploy/runpod-watch.py --once` |
+| 새 팟 경로 시험(주소 교체 없이 · 약 $0.3) | 같은 명령에 `--shadow` |
+| 판단만 보고 아무것도 안 함 | 같은 명령에 `--dry-run` |
+| 시험 팟에서 훈련(주소 교체 없이) | `WATCH_POD_NAME=finally-demo-shadow WATCH_NO_SWITCH=1 … --once` |
+
+`GITHUB_TOKEN` 이 비어 있으면 새 팟까지는 만들고 **주소 교체는 건너뛰고 메일로 알립니다** — 그때는 Actions → `vercel-env` 를 손으로.
+자료 쪽은 그동안 「재시도중」으로 기다립니다([ADR-091](../decisions/091-evidence-retrying-not-failed.md)).
+
+---
+
 ## 아직 여기 없는 것
 
 | 무엇 | 왜 |

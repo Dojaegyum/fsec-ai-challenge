@@ -1,0 +1,16 @@
+# 추론 팟 감시자 — ADR-092 C. 설치: deploy/runpod-watch-install.sh
+[Unit]
+Description=FinAlly RunPod pod watcher (restart / recreate / switch)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+EnvironmentFile=/etc/finally/watch.env
+WorkingDirectory=/home/ubuntu/fsec-ai-challenge
+ExecStart=/usr/bin/python3 /home/ubuntu/fsec-ai-challenge/deploy/runpod-watch.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

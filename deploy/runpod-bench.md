@@ -127,6 +127,7 @@ curl -s localhost:8917/health         # "ready": true
 | ③ | `python deploy/runpod-pod.py provision` | 꾸러미를 올리고 팟 안에서 Ollama · `gemma3:4b` · ffmpeg · pip · uvicorn(`FINALLY_WARMUP=1` · large-v3 · VAD — ADR-052). 10분쯤 |
 | ④ | `python deploy/runpod-pod.py health` | 바깥 주소 `/health` 가 `"ready": true` 가 될 때까지 기다립니다 |
 | ⑤ | Actions → `vercel-env` | `transcriber_url` = `ner_url` = `https://<팟ID>-8917.proxy.runpod.net` · `set_ner_token` ✓ · `ner_timeout_ms` 는 **비움**(GPU 기준 12초가 기본) · `redeploy` ✓ — 끝나면 `deploy` 와 `smoke` 가 돕니다 |
+| ⑤½ | 감시자가 돌고 있으면 **먼저 멈춥니다** — OCI 에서 `touch /var/lib/finally/watch.paused` | 안 멈추면 ⑥ 의 `down` 30초 뒤 새 팟이 생깁니다 ([ADR-092](../decisions/092-pod-self-heal-and-watcher.md)) |
 | ⑥ | 시연 뒤 | Actions → `vercel-env`: `clear_ner` ✓ · `transcriber_url` = 상시 서버(`https://141-148-13-6.sslip.io`) · `redeploy` ✓. **그 다음** `python deploy/runpod-pod.py down` |
 
 **⑥ 의 순서가 중요합니다.** 팟을 먼저 지우면 배포본이 죽은 주소를 부르고, 2차 탐지는 경계라
