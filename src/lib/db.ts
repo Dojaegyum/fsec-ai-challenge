@@ -580,7 +580,7 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
         ingestStatus: row.ingest_status,
         transcriptMasked: row.transcript_masked,
         createdAt:
-          row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+          row.created_at instanceof Date ? seoulIso(row.created_at) : String(row.created_at),
       }
     },
 
@@ -616,8 +616,10 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
         byteSize: one.byte_size === null ? null : Number(one.byte_size),
         ingestStatus: one.ingest_status,
         ingestError: one.ingest_error,
+        // `+09:00` 표기 — 정본 §1 「시각」. `toISOString()` 은 `Z` 로 찍혀 같은 응답 안의
+        // 다른 시각(`opened_at`·`due_at`)과 표기가 갈렸습니다(2026-09-06 배포본 점검)
         createdAt:
-          one.created_at instanceof Date ? one.created_at.toISOString() : String(one.created_at),
+          one.created_at instanceof Date ? seoulIso(one.created_at) : String(one.created_at),
         hasTranscript: one.has_transcript === true,
       }))
     },
@@ -1192,10 +1194,12 @@ export function createCaseReader(sql: Sql): CaseReader {
       return {
         track: row.track,
         status: row.status,
-        createdAt: row.created_at.toISOString(),
+        // 둘 다 `+09:00` 표기입니다 → 정본 §1 「시각」 · §3.10 예시. `toISOString()` 의 `Z` 는
+        // 같은 응답의 `opened_at`·`due_at` 과 표기가 갈렸습니다(2026-09-06 배포본 점검)
+        createdAt: seoulIso(row.created_at),
         // **`updated_at` 이 마지막 활동입니다.** 파기일을 미는 것도 이 값을
         // 함께 올립니다 → `touchPurgeAfter`
-        lastActivityAt: row.updated_at.toISOString(),
+        lastActivityAt: seoulIso(row.updated_at),
         // 날짜입니다. 시각을 붙이면 「언제 지워지나」가 시간대에 따라 하루 어긋납니다
         purgeAfter: row.purge_after.toISOString().slice(0, 10),
       }
@@ -1633,7 +1637,7 @@ export function createMessageStore(sql: Sql, newId: () => string): MessageStore 
           insufficient: one.insufficient,
           referencedSteps: idList(one.referenced_steps),
           referencedDeadlines: idList(one.referenced_deadlines),
-          createdAt: one.created_at.toISOString(),
+          createdAt: seoulIso(one.created_at),
         })),
         truncated,
       }
