@@ -326,6 +326,8 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 ```
 
+`source_ref` 에는 자료의 `evidence_id` 뿐 아니라 **진술의 `message_id`** 도 옵니다 — 자유 진술에서 뽑은 슬롯(→ [ADR-087](../../decisions/087-statement-slot-extraction.md))은 그 발화를 가리킵니다. 둘 다 CHAR(26) ULID 라 열의 모양은 그대로입니다.
+
 ### 5.1 슬롯 이름
 
 [02-slot-tiering.md](08-14-slot-tiering.md)의 티어와 대응합니다. **목록에 없는 이름을 쓰면 적재를 거부합니다.** 이름이 자유 문자열이면 오타 하나로 슬롯이 안 채워지고, 그 사실이 조용히 넘어갑니다.

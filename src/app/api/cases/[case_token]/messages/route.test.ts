@@ -58,6 +58,17 @@ vi.mock('@/flows/chat-turn', () => ({
   chatTurn: async () => turned.result,
 }))
 
+/**
+ * `after` 는 요청 스코프 안에서만 도는 Next 의 것이라 시험에서는 그대로 못 부릅니다.
+ * **삼키지 않고 모아 둡니다** — 미룬 일이 실제로 건네졌는지 이 파일이 봅니다 (ADR-087)
+ */
+const deferred = vi.hoisted(() => ({ tasks: [] as (() => unknown)[] }))
+vi.mock('next/server', () => ({
+  after: (task: () => unknown) => {
+    deferred.tasks.push(task)
+  },
+}))
+
 function wiredContainer(turns: readonly Turn[], truncated = false) {
   const ports = {
     ...unconfiguredPorts(readEnv({})),
@@ -106,6 +117,7 @@ async function bodyOf(turns: readonly Turn[], truncated = false) {
 
 beforeEach(() => {
   holder.container = undefined
+  deferred.tasks.length = 0
 })
 
 describe('답이 가리킨 단계·기한이 이력에 실린다 — §3.12 · ADR-065', () => {
@@ -159,8 +171,12 @@ describe('답이 가리킨 단계·기한이 이력에 실린다 — §3.12 · A
 })
 
 /** 한 턴의 결과 — 시험마다 대응표만 갈아끼웁니다 */
-function turnResult(freshMappings: TurnResult['freshMappings']): TurnResult {
+function turnResult(
+  freshMappings: TurnResult['freshMappings'],
+  onDeferred: () => Promise<void> = async () => {},
+): TurnResult {
   return {
+    deferred: onDeferred,
     body: {
       message_id: '01J8XKRE000000000000000000',
       reply: '네, 확인했습니다.',
@@ -217,5 +233,28 @@ describe('서버가 막 만든 대응표가 그 응답에 실린다 — §3.9 `p
     const body = await postBody(turnResult([]))
 
     expect(body).not.toHaveProperty('pii_mappings')
+  })
+})
+
+/**
+ * 진술에서 슬롯을 뽑는 일은 **응답을 내보낸 뒤**에 돕니다 → ADR-087.
+ * 턴 안에서 돌리면 사용자가 답을 보기까지 모델 호출 하나가 통째로 더해집니다
+ */
+describe('미룬 일을 `after` 에 건넨다 — ADR-087', () => {
+  it('턴이 낸 `deferred` 가 그대로 건네지고, 부르면 돈다', async () => {
+    let ran = 0
+    const body = await postBody(
+      turnResult([], async () => {
+        ran += 1
+      }),
+    )
+
+    // 응답은 미룬 일을 기다리지 않습니다
+    expect(body).toMatchObject({ reply: '네, 확인했습니다.' })
+    expect(ran).toBe(0)
+
+    expect(deferred.tasks).toHaveLength(1)
+    await deferred.tasks[0]!()
+    expect(ran).toBe(1)
   })
 })
