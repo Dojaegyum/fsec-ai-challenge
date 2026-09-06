@@ -539,8 +539,9 @@ CREATE INDEX idx_artifact_case ON artifact (case_id);
 | `verify_level` | 방식 | `plan_step.state` 결과 |
 | --- | --- | --- |
 | `L1` | 접수번호(`receipt_no`)를 **받아 적었나** — 오타·빈칸 거르개(`looksLikeReceiptNumber`) + 형식 정본이 있는 기관만 대조. 정본이 없으면 `verify_detail.reason: format_unchecked` 로 **통과** → [ADR-057](../../decisions/057-receipt-number-l1.md) | `done_verified` |
-| `L2` | 캡처·서류 업로드 (`sms_capture` · `receipt_doc` · `pii-tokenizer` 통과). **업로드 자체는 증빙이 아닙니다** ([ADR-077](../../decisions/077-upload-is-not-proof.md) · 2026-09-06 정정). 그 자료의 **판독 글**(`evidence.transcript_masked`)에 「접수번호」 자리와 번호(가린 이름표 포함)가 있거나 **공공기관**(`org_public`) 이름이 있으면 `passed` · `verify_detail.reason: receipt_number_found | org_name_found` | `done_verified` |
-| | 둘 다 없음(`no_receipt_marks`) · 읽기 실패·자료 없음(`unreadable`) · 통화 녹음(`not_a_document`) → `failed` — **올렸지만 확인 못 함** | **`unconfirmed`** |
+| `L2` | 캡처·서류 업로드 (`sms_capture` · `receipt_doc` · `pii-tokenizer` 통과). **업로드 자체는 증빙이 아닙니다** ([ADR-077](../../decisions/077-upload-is-not-proof.md) · 2026-09-06 정정). 그 자료의 **판독 글**(`evidence.transcript_masked`)에 「접수번호」 자리와 번호(가린 이름표 포함)가 있으면 `passed` · `verify_detail.reason: receipt_number_found` — **공공기관**(`org_public`) 이름만으로는 통과하지 않습니다 ([ADR-083](../../decisions/083-receipt-number-required-for-l2.md) · 2026-09-06 — 사기 문자에도 수사기관 이름은 거의 늘 들어 있습니다) | `done_verified` |
+| | 공공기관 이름만 있고 접수번호가 없음(`org_only`) → `failed` — **기관 이름은 보이지만 접수번호가 없다** | **`unconfirmed`** |
+| | 접수번호도 기관 이름도 없음(`no_receipt_marks`) · 읽기 실패·자료 없음(`unreadable`) · 통화 녹음(`not_a_document`) → `failed` — **올렸지만 확인 못 함** | **`unconfirmed`** |
 | | 아직 읽는 중 → `not_applicable` · `reading_pending`. 읽기가 끝나면 `flows/settle-artifacts.ts` 가 같은 규칙으로 `verify_result`·`verify_detail` 을 갱신하고 단계를 옮깁니다 | **`unconfirmed`** → 판정 뒤 바뀜 |
 | `L3` | 자기 신고 (`other`) — `verify_result: not_applicable` | **`unconfirmed`** |
 
