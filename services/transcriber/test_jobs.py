@@ -21,7 +21,7 @@ from __future__ import annotations
 import threading
 import unittest
 
-from .jobs import JobStore
+from .jobs import JobStore, is_job_id
 
 
 class CreateIsIdempotent(unittest.TestCase):
@@ -102,6 +102,22 @@ class CreateIsIdempotent(unittest.TestCase):
         self.assertEqual(
             opened_flags.count(True), 1, f"하나만 열려야 합니다 — 실제: {opened_flags}"
         )
+
+
+class JobIdIsSafeForPaths(unittest.TestCase):
+    """앱이 준 번호가 작업 파일 경로에 그대로 들어갑니다 — 경로를 벗어나는 글자를 거른다."""
+
+    def test_증거_번호_모양은_통과한다(self) -> None:
+        self.assertTrue(is_job_id("01J8XKQZ3M7N2P4R6T8V0W2Y4A"))
+        self.assertTrue(is_job_id("ev_1-a"))
+
+    def test_경로_구분자와_상위_폴더는_막는다(self) -> None:
+        for bad in ("../etc/passwd", "a/b", "a\\b", "..", "", " ", "a b", "x" * 65):
+            self.assertFalse(is_job_id(bad), bad)
+
+    def test_문자열이_아니면_막는다(self) -> None:
+        self.assertFalse(is_job_id(None))
+        self.assertFalse(is_job_id(3))
 
 
 if __name__ == "__main__":

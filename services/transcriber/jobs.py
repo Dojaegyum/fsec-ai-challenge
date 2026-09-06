@@ -35,6 +35,20 @@ from typing import Any
 # 끝난 작업을 언제까지 들고 있나. 화면이 폴링해 가져갈 시간은 줘야 합니다
 KEEP_DONE_SECONDS = 30 * 60
 
+# 앱이 정해 보내는 번호의 모양 — 증거 번호(ULID 26자)가 오지만 여기서는 「경로에 그대로 써도
+# 안전한 글자」까지만 봅니다. 번호가 작업 파일 경로(`workdir/<job_id>`)에 그대로 들어가므로
+# `../` 나 `/` 가 섞이면 작업 폴더 밖에 파일을 쓰게 됩니다
+_JOB_ID_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+
+
+def is_job_id(value: object) -> bool:
+    """앱이 준 작업 번호를 경로에 써도 되는가 — 영숫자·`_`·`-` 만, 1~64자."""
+    return (
+        isinstance(value, str)
+        and 0 < len(value) <= 64
+        and all(ch in _JOB_ID_CHARS for ch in value)
+    )
+
 
 @dataclass
 class Job:
