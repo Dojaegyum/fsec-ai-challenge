@@ -55,6 +55,7 @@ import { parseToken, restore } from "@/modules/pii-restorer";
 import type { RestorableMapping } from "@/modules/pii-restorer";
 
 import type { Line } from "./send";
+import { apiHeaders } from "./session-id";
 
 /**
  * 1차(정규식)가 **번호를 발급하는** 종류 넷. `[이름-1]` 은 서버 NER 이 만듭니다 —
@@ -173,7 +174,7 @@ export async function openVault(
   try {
     res = await fetch(`/api/cases/${encodeURIComponent(caseToken)}/vault`, {
       signal,
-      headers: { accept: "application/json" },
+      headers: apiHeaders({ accept: "application/json" }),
     });
   } catch {
     return NO_VAULT;
@@ -332,7 +333,7 @@ export async function fetchHistory(
   try {
     res = await fetch(`/api/cases/${encodeURIComponent(caseToken)}/messages`, {
       signal,
-      headers: { accept: "application/json" },
+      headers: apiHeaders({ accept: "application/json" }),
     });
   } catch {
     // ⚠️ **못 읽은 것과 대화가 없던 것을 가릅니다.** 뭉치면 며칠 뒤 링크로 돌아온

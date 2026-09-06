@@ -32,7 +32,7 @@ import { isCronCall } from './cron-call'
 import { isAdminPath, isCronPath } from './gated-paths'
 import { AppError } from './errors'
 import { BadRequestError, CaseNotFoundError, UnauthorizedError, fail, ok } from './http'
-import { isTokenShaped, isUlid } from './ids'
+import { isTokenShaped, isUlid, isUuidShaped } from './ids'
 import type { CaseRateBucket, UpfrontRateBucket } from './rate-limit'
 import { hasAdminSession } from './session-cookie'
 import { createTelemetry, type TelemetryRecorder } from './telemetry'
@@ -45,7 +45,7 @@ export interface RequestContext {
   readonly container: Container
   /** 이 응답에 실릴 계측값을 모으는 자리 → §1.1 */
   readonly telemetry: TelemetryRecorder
-  /** `X-Session-Id` 헤더. 없으면 `null` */
+  /** `X-Session-Id` 헤더. 없거나 **UUID 모양이 아니면** `null` */
   readonly sessionId: string | null
   /** 프록시가 알려준 발신 주소. 없으면 `null` */
   readonly clientIp: string | null
@@ -106,9 +106,21 @@ export function clientIpOf(request: Request): string | null {
   return request.headers.get('x-real-ip')?.trim() || null
 }
 
-/** 세션 식별자 → §1 */
+/**
+ * 세션 식별자 → §1 · §1.3.
+ *
+ * **브라우저가 탭마다 만들어 모든 `/api/cases/*` 요청에 붙입니다**
+ * (`app/c/[token]/session-id.ts`). 없으면 아래 `subjectFor` 가 IP 로 셉니다.
+ *
+ * ⚠️ **모양이 아닌 값은 없는 것으로 봅니다.** 이 헤더는 클라이언트가 아무 문자열이나
+ * 넣을 수 있어서, 그대로 받으면 세는 키가 밖에서 정해집니다 — 접두사(`s:`)가
+ * 이름 공간은 갈라 주지만 길이까지 막지는 않습니다(§1.3 「SHA-256 앞 32자로 접습니다」).
+ * 거절하지 않고 IP 로 떨어뜨리는 것이 §1.3 의 *"제한이 정상 사용을 막으면 안 됩니다"* 입니다.
+ */
 export function sessionIdOf(request: Request): string | null {
-  return request.headers.get('x-session-id')?.trim() || null
+  const raw = request.headers.get('x-session-id')?.trim()
+  if (!raw || !isUuidShaped(raw)) return null
+  return raw
 }
 
 /**

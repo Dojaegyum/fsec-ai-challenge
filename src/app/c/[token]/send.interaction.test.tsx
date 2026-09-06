@@ -66,6 +66,8 @@ const json = (body: unknown, status = 200) =>
 interface Call {
   readonly url: string;
   readonly body: string;
+  /** 실린 헤더 — 속도 제한이 세는 단위가 붙었나 (§1.3) */
+  readonly headers: Record<string, string>;
 }
 
 /**
@@ -80,7 +82,10 @@ function stubServer(calls: Call[]) {
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const body = typeof init?.body === "string" ? init.body : "";
-      if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      if (init?.method !== undefined && init.method !== "GET") {
+        calls.push({ url, body, headers });
+      }
 
       if (url.includes("/vault")) return json({ entries: [] });
       if (url.includes("/slots/")) {
@@ -282,6 +287,48 @@ describe("되묻기의 답 — confirmAnswer 는 뜻만 보낸다 (ADR-082)", ()
 });
 
 /**
+ * 속도 제한이 **세션당**으로 서려면 브라우저가 그 값을 보내야 합니다 — §1.3.
+ *
+ * ⚠️ 2026-09-06 까지 이 헤더를 **어디서도 안 보냈습니다.** 서버는 없으면 IP 로 세는데
+ * (`lib/request.ts`), ADR-085 로 카운터가 공유 저장소가 되면서 그 합산이 진짜로
+ * 걸리기 시작했습니다 — 같은 NAT 뒤의 사용자 둘이면 판독 폴링만으로 300회를 넘겨
+ * 사건 화면이 「불러오지 못했습니다」가 됩니다.
+ */
+describe("모든 요청에 이 탭의 세션 식별자가 실린다 — §1.3", () => {
+  it("슬롯 답에 X-Session-Id 가 붙는다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(patched[0]?.headers["X-Session-Id"]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it("발화도 같은 값으로 나간다 — 한 탭이 한 통입니다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+    await act(async () => {
+      await hookNow().send("이게 무슨 뜻이에요?");
+    });
+
+    const ids = calls.map((one) => one.headers["X-Session-Id"]);
+    expect(ids.length).toBeGreaterThan(1);
+    expect(new Set(ids).size).toBe(1);
+  });
+});
+
+/**
  * ⚠️ **전사가 만든 대응표가 그 자리에서 버려지고 있었습니다** (ADR-062).
  *
  * 서버는 토큰화한 그 폴링 응답에만 원문 포함 대응표를 실어 보냅니다 — 보관하지
@@ -316,7 +363,9 @@ describe("전사가 만든 대응표를 이 기기 것으로 만든다 — absor
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         const body = typeof init?.body === "string" ? init.body : "";
-        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (init?.method !== undefined && init.method !== "GET") {
+          calls.push({ url, body, headers: (init.headers ?? {}) as Record<string, string> });
+        }
         if (url.includes("/vault") && init?.method === "POST")
           return json({ error: { message: "잠시 뒤에", retryable: true } }, 503);
         if (url.includes("/vault")) return json({ entries: [] });
@@ -453,7 +502,9 @@ describe("챗 응답이 실어 온 대응표도 이 기기 것으로 만든다 �
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         const body = typeof init?.body === "string" ? init.body : "";
-        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (init?.method !== undefined && init.method !== "GET") {
+          calls.push({ url, body, headers: (init.headers ?? {}) as Record<string, string> });
+        }
         if (url.includes("/vault") && init?.method === "POST") return json({ stored: 1 });
         if (url.includes("/vault")) return json({ entries: [] });
         if (url.includes("/messages") && init?.method === "POST") {
@@ -518,7 +569,9 @@ describe("같은 이름을 다시 말하면 이번엔 브라우저가 가려 보
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         const body = typeof init?.body === "string" ? init.body : "";
-        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (init?.method !== undefined && init.method !== "GET") {
+          calls.push({ url, body, headers: (init.headers ?? {}) as Record<string, string> });
+        }
         if (url.includes("/vault") && init?.method === "POST") return json({ stored: 1 });
         if (url.includes("/vault")) return json({ entries: [] });
         if (url.includes("/messages") && init?.method === "POST") {
