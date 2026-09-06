@@ -156,6 +156,7 @@ describe('사건 하나가 접수부터 파기까지 이어진다', () => {
       store: {
         findApplied: async () => APPLIED,
         findReference: async () => [],
+        listEntries: async () => [],
       },
     })
 
@@ -265,6 +266,7 @@ describe('정보가 모자라도 멈추지 않는다', () => {
       store: {
         findApplied: async () => [APPLIED[0]],
         findReference: async () => [],
+        listEntries: async () => [],
       },
     })
 

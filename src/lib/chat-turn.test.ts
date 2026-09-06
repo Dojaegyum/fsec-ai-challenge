@@ -316,6 +316,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
       store: {
         findApplied: async () => [KB_ROW],
         findReference: async () => [],
+        listEntries: async () => [],
       },
     })
 
@@ -406,7 +407,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
 
   it('조회가 0건이면 절차를 말하지 않고 1332 안내로 간다', async () => {
     const kbFinder = createKbFinder({
-      store: { findApplied: async () => [], findReference: async () => [] },
+      store: { findApplied: async () => [], findReference: async () => [], listEntries: async () => [] },
     })
 
     const chat = createChatReceiver({

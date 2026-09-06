@@ -95,6 +95,8 @@ export interface KbStore {
   findApplied(query: KbQuery): Promise<readonly KbRow[]>
   /** 다른 유형의 기본 항목만 (`org_id IS NULL` · `channel_id IS NOT NULL`) */
   findReference(query: KbQuery): Promise<readonly KbRow[]>
+  /** 한 릴리스의 항목 전부 — 검수 화면의 매뉴얼 렌즈용 (API §7.3). 시행일로 거르지 않습니다 */
+  listEntries(kbVersion: string): Promise<readonly KbRow[]>
 }
 
 export interface KbFinder {

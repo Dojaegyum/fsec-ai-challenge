@@ -44,6 +44,7 @@ function finder(store: Partial<KbStore>) {
     store: {
       findApplied: async () => [],
       findReference: async () => [],
+      listEntries: async () => [],
       ...store,
     },
   })

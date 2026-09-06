@@ -48,6 +48,9 @@ const kbStore: KbStore = {
   async findReference() {
     return []
   },
+  async listEntries() {
+    return []
+  },
 }
 
 /** 만든 사건을 들고 있는 자리 */
