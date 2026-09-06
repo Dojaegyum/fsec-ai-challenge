@@ -26,7 +26,7 @@ import 'server-only'
 
 import { allowedTermsFor } from '@/lib/allowed-terms'
 import type { Container } from '@/lib/container'
-import { IngestError } from '@/lib/errors'
+import { IngestError, PiiTokenizerUnavailableError } from '@/lib/errors'
 import {
   ORG_REPAIR_PROMPT,
   buildOrgRepairInput,
@@ -44,6 +44,11 @@ import { settleArtifacts } from './settle-artifacts'
 
 /** 화면이 다음에 언제 물을지 → §3.3 `poll_after_ms` */
 const POLL_AFTER_MS = 1500
+/**
+ * 「재시도중」일 때의 간격 → ADR-091 §2. 죽은 서버를 1.5초마다 두드릴 이유가 없고,
+ * 팟이 돌아온 뒤 늦어도 5초 안에 다음 시도가 갑니다
+ */
+export const RETRY_POLL_AFTER_MS = 5000
 
 /**
  * 읽기를 맡긴다 → §3.2 3단계.
@@ -141,6 +146,11 @@ export type ReadState =
       readonly phase: IngestPhase
       readonly percent: number
       readonly pollAfterMs: number
+      /**
+       * **서버에 닿지 못해 다시 맡기는 중** → ADR-091 §2. `ingest_status` 는 그대로 `processing`.
+       * 화면은 진행률 대신 「다시 연결하는 중」을 그립니다
+       */
+      readonly retrying?: true
     }
   | {
       readonly status: 'done'
@@ -207,28 +217,19 @@ export async function collectReading(
   // 30분 뒤 작업을 버리므로, 그 뒤에는 아예 못 읽습니다
   if (input.stored !== null) return fromStored(input.stored)
 
-  // **글은 우리가 읽습니다.** 전사기는 옮길 것이 없어 `not_applicable` 로
-  // 돌려주고(`transcribe.ts` 의 `nothingToRead`), 그 주석이 *"부르는 쪽이
-  // 토큰화만 거쳐 그대로 저장하면 됩니다"* 로 몫을 여기에 넘겼습니다 —
-  // 그 몫을 2026-09-03 까지 아무도 안 해서 **올린 대화 전체가 사라졌습니다**
-  const progress =
-    input.kind === 'text'
-      ? await readWritten(input.objectKey, container)
-      : await container.transcriber.collect({
-          jobId: input.evidenceId,
-          // 아래 둘은 `collect` 가 결과를 어느 갈래로 읽을지 정할 때만 씁니다
-          phase: input.kind === 'audio' ? 'stt' : 'ocr',
-          kind: input.kind,
-        })
-
-  if (progress.status === 'missing') {
-    // **팟이 그 번호를 모릅니다** — 끝난 작업을 30분 뒤 버렸거나 서비스가 다시 떴습니다.
-    //
-    // ⚠️ 2026-09-06 까지는 이 답이 `poll_failed`(422) 로 던져져, 화면이 「다시 확인」을
-    // 아무리 눌러도 같은 답을 받았습니다. 폴링이 자료함 화면 안에서만 돌아 화면을 떠난
-    // 채 30분이 지나면 반드시 여기 왔습니다(「처리중」 25분). 파일은 저장소에 그대로 있고
-    // 작업 번호는 증거 번호라 **같은 번호로 다시 맡기면 됩니다.** 그 사이 상태는 처리중이고,
-    // 다시 맡기는 것도 안 되면 그때 `failed` 로 적힙니다(`startReading` 안에서)
+  const phase: IngestPhase = input.kind === 'audio' ? 'stt' : 'ocr'
+  const retrying = (): ReadState => ({
+    status: 'running',
+    phase,
+    percent: 0,
+    pollAfterMs: RETRY_POLL_AFTER_MS,
+    retrying: true,
+  })
+  /**
+   * 같은 번호로 다시 맡긴 뒤 답을 정합니다 — `missing`(팟이 잊음)과 「닿지 못함」이 함께 씁니다.
+   * 됐으면 평소 처리중, 닿지 못했으면 재시도중, 최종적으로 안 됐으면(`startReading` 이 이미 `failed` 로 적음) failed
+   */
+  const resubmit = async (): Promise<ReadState> => {
     const started = await startReading(
       {
         caseId: input.caseId,
@@ -239,13 +240,44 @@ export async function collectReading(
       },
       container,
     )
-    if (!started.ok) return { status: 'failed', reason: started.reason }
-    return {
-      status: 'running',
-      phase: input.kind === 'audio' ? 'stt' : 'ocr',
-      percent: 0,
-      pollAfterMs: POLL_AFTER_MS,
-    }
+    if (started.ok) return { status: 'running', phase, percent: 0, pollAfterMs: POLL_AFTER_MS }
+    if (started.transient) return retrying()
+    return { status: 'failed', reason: started.reason }
+  }
+
+  // **글은 우리가 읽습니다.** 전사기는 옮길 것이 없어 `not_applicable` 로
+  // 돌려주고(`transcribe.ts` 의 `nothingToRead`), 그 주석이 *"부르는 쪽이
+  // 토큰화만 거쳐 그대로 저장하면 됩니다"* 로 몫을 여기에 넘겼습니다 —
+  // 그 몫을 2026-09-03 까지 아무도 안 해서 **올린 대화 전체가 사라졌습니다**
+  let progress: CollectResult
+  try {
+    progress =
+      input.kind === 'text'
+        ? await readWritten(input.objectKey, container)
+        : await container.transcriber.collect({
+            jobId: input.evidenceId,
+            // 아래 둘은 `collect` 가 결과를 어느 갈래로 읽을지 정할 때만 씁니다
+            phase,
+            kind: input.kind,
+          })
+  } catch (error) {
+    // **닿지 못한 것은 오류가 아닙니다** → ADR-091 §3. 팟이 죽어 있거나 프록시가 5xx 를 내는
+    // 동안입니다. 같은 번호로 다시 맡겨 보고(팟이 살아 있으면 여기서 이어집니다), 그것도
+    // 닿지 못하면 「재시도중」으로 답해 다음 폴링이 또 맡기게 합니다. 2026-09-06 까지는
+    // 422 를 내서 사람이 「다시 확인」을 눌러야 했습니다. 최종적 실패(미설정 · 4xx)는 그대로 올립니다
+    if (error instanceof IngestError && error.detail.transient === true) return resubmit()
+    throw error
+  }
+
+  if (progress.status === 'missing') {
+    // **팟이 그 번호를 모릅니다** — 끝난 작업을 30분 뒤 버렸거나 서비스가 다시 떴습니다.
+    //
+    // ⚠️ 2026-09-06 까지는 이 답이 `poll_failed`(422) 로 던져져, 화면이 「다시 확인」을
+    // 아무리 눌러도 같은 답을 받았습니다. 폴링이 자료함 화면 안에서만 돌아 화면을 떠난
+    // 채 30분이 지나면 반드시 여기 왔습니다(「처리중」 25분). 파일은 저장소에 그대로 있고
+    // 작업 번호는 증거 번호라 **같은 번호로 다시 맡기면 됩니다.** 다시 맡기는 것도 안 되면
+    // 그때 `failed` 로 적히고(`startReading` 안에서), 닿지 못한 것이면 「재시도중」입니다(ADR-091 §3)
+    return resubmit()
   }
 
   if (progress.status === 'running') {
@@ -289,7 +321,16 @@ export async function collectReading(
     vault: container.vaultWrite,
     masked: container.maskedTexts,
   })
-  const masked = await maskLines(progress.result.lines, container, allowed, issued)
+  let masked: Awaited<ReturnType<typeof maskLines>>
+  try {
+    masked = await maskLines(progress.result.lines, container, allowed, issued)
+  } catch (error) {
+    // **이름 탐지 서비스에 닿지 못했습니다** → ADR-091 §3. 원문(`progress.result.lines`)은 이 함수의
+    // 메모리에만 있고 여기서 버려집니다 — 저장도 응답도 없습니다. 다음 폴링이 팟에서 같은 결과를
+    // 다시 받아(30분 보관) 다시 토큰화합니다. 최종적 실패(비밀값 틀림 등)는 지금처럼 503 입니다
+    if (error instanceof PiiTokenizerUnavailableError && error.detail.transient === true) return retrying()
+    throw error
+  }
 
   const state: ReadState = {
     status: 'done',
