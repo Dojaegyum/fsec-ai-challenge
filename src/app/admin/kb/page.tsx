@@ -13,14 +13,11 @@ import { LoginCard } from "./login";
 import { QueueList } from "./queue";
 import { initialState, nextPendingAfter, reduce } from "./state";
 
-export { ChangeDetail, EntryDetail } from "./detail";
-export { LoginCard } from "./login";
-export { QueueList } from "./queue";
-
 type Phase =
   | { kind: "loading" }
   | { kind: "login"; message: string | null }
-  | { kind: "ready"; queue: QueueBody; entries: EntriesBody }
+  // 미룬 것은 큐가 아닙니다(ADR-044) — 따로 받아 「미룸」 필터에서만 보입니다
+  | { kind: "ready"; queue: QueueBody; deferred: QueueBody; entries: EntriesBody }
   | { kind: "failed"; message: string };
 
 const CHIP =
@@ -42,15 +39,16 @@ export default function AdminKbPage() {
   // 상태 갱신은 전부 응답이 온 뒤(.then)에 — 효과 안에서 동기로 setState 하지 않습니다
   const load = useCallback(
     () =>
-      Promise.all([fetchQueue("pending"), fetchEntries()]).then(([q, e]) => {
+      Promise.all([fetchQueue("pending"), fetchQueue("deferred"), fetchEntries()]).then(([q, d, e]) => {
         // 이름은 브라우저에만 있습니다(load.ts) — 서버 렌더와 어긋나지 않게 첫 응답 뒤에 읽습니다
         setName(rememberedName());
-        if (!q.ok || !e.ok) {
-          const fail = !q.ok ? q : (e as Extract<typeof e, { ok: false }>);
+        const fail = [q, d, e].find((one) => !one.ok);
+        if (fail && !fail.ok) {
           setPhase(fail.status === 401 ? { kind: "login", message: null } : { kind: "failed", message: fail.message });
           return;
         }
-        setPhase({ kind: "ready", queue: q.data, entries: e.data });
+        if (!q.ok || !d.ok || !e.ok) return; // 위에서 걸렀습니다 — 타입을 좁히려는 줄
+        setPhase({ kind: "ready", queue: q.data, deferred: d.data, entries: e.data });
       }),
     [],
   );
@@ -105,6 +103,11 @@ export default function AdminKbPage() {
   const onDecide = async (status: DecisionStatus, note: string) => {
     if (phase.kind !== "ready" || !state.selected || !("changeId" in state.selected)) return;
     const id = state.selected.changeId;
+    // 이름은 브라우저에만 있습니다(load.ts). 지워졌으면 서버가 400 을 내니 여기서 먼저 막습니다
+    if (name.trim().length === 0) {
+      setMessage("검수자 이름이 없습니다. 「나가기」로 나갔다가 이름을 적고 다시 들어와 주세요.");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const r = await postDecision(id, { status, reviewed_by: name, note: note.trim() || null });
@@ -156,8 +159,9 @@ export default function AdminKbPage() {
               <Link href="/start" className={NAV_LINK}>
                 시작
               </Link>
-              <Link href="/c/demo?view=chat" className={NAV_LINK}>
-                시연 챗
+              {/* 시연 진입은 시작 화면의 `?demo` 입니다 — 사건 화면은 발급된 링크 토큰으로만 열립니다 */}
+              <Link href="/start?demo" className={NAV_LINK}>
+                시연
               </Link>
             </nav>
             {name && <span className={CHIP}>검수자 {name}</span>}
@@ -183,7 +187,7 @@ export default function AdminKbPage() {
       )}
       {phase.kind === "ready" && (
         <div className="mx-auto grid w-full max-w-shell grid-cols-[400px_minmax(0,1fr)] gap-[18px] px-[clamp(16px,3vw,32px)] pb-8 pt-[22px]">
-          <QueueList state={state} queue={phase.queue} entries={phase.entries} dispatch={pick} />
+          <QueueList state={state} queue={phase.queue} deferred={phase.deferred} entries={phase.entries} dispatch={pick} />
           <section className="self-start rounded-[18px] bg-stage p-5 shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)]">
             {state.lens === "entry" && state.selected && "kbEntryId" in state.selected ? (
               (() => {

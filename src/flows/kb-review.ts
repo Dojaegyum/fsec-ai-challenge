@@ -144,12 +144,13 @@ export async function readQueue(container: Container, status: 'pending' | 'defer
     status === 'pending'
       ? await container.kbReviewer.queue()
       : deferred.map((one) => ({ dedupeKey: one.dedupeKey, changes: [one], confidence: null, affectedEntries: [] }))
-  const made = await Promise.all(
-    groups.map(async (group) => ({
-      dedupe_key: group.dedupeKey,
-      changes: await viewsOf(container, group.changes, rows),
-    })),
-  )
+  // 스냅샷 조회는 묶음마다가 아니라 한 번 — 최초 수집 58건은 묶음이 58개라 왕복이 58번이었습니다
+  const views = await viewsOf(container, groups.flatMap((group) => group.changes), rows)
+  const viewOf = new Map(views.map((view) => [view.change_id, view]))
+  const made = groups.map((group) => ({
+    dedupe_key: group.dedupeKey,
+    changes: group.changes.map((one) => viewOf.get(one.changeId)!),
+  }))
   return { kb_version: kbVersion, counts: { pending: pending.length, deferred: deferred.length }, groups: made }
 }
 

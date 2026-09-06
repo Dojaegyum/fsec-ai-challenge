@@ -64,9 +64,11 @@ describe('판단 — §7.3', () => {
     expect(res.status).toBe(409)
     expect((await res.json()).error.code).toBe('KB_CHANGE_DECIDED')
   })
-  it('검수자가 비면 400 · status 가 셋 밖이면 400 · ULID 가 아니면 400', async () => {
+  it('검수자가 비면 400 · 65자면 400 · status 가 셋 밖이면 400 · ULID 가 아니면 400', async () => {
     holder.container = createContainer(env)
     expect((await ask(ID, { status: 'approved', reviewed_by: ' ' })).status).toBe(400)
+    expect((await ask(ID, { status: 'approved', reviewed_by: '가'.repeat(65) })).status).toBe(400)
+    expect((await ask(ID, { status: 'approved', reviewed_by: '가'.repeat(64) })).status).toBe(200)
     expect((await ask(ID, { status: 'released', reviewed_by: '김태현' })).status).toBe(400)
     expect((await ask('not-a-ulid', { status: 'approved', reviewed_by: '김태현' })).status).toBe(400)
   })

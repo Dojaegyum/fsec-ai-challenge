@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { ChangeBody, EntriesBody, QueueBody } from "@/flows/kb-review";
-import { ChangeDetail, LoginCard, QueueList } from "./page";
+import { ChangeDetail } from "./detail";
+import { LoginCard } from "./login";
+import { QueueList } from "./queue";
 import { initialState } from "./state";
 
 const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -22,6 +24,12 @@ const QUEUE: QueueBody = {
   kb_version: "2026.09.2",
   counts: { pending: 2, deferred: 0 },
   groups: [{ dedupe_key: null, changes: [view("A", "제3조", ["common-freeze-request"]), view("B", "제13조의4")] }],
+};
+const NONE: QueueBody = { kb_version: "2026.09.2", counts: { pending: 2, deferred: 0 }, groups: [] };
+const HELD: QueueBody = {
+  kb_version: "2026.09.2",
+  counts: { pending: 2, deferred: 1 },
+  groups: [{ dedupe_key: null, changes: [{ ...view("H", "제7조"), review_status: "deferred" as const }] }],
 };
 const ENTRIES: EntriesBody = {
   kb_version: "2026.09.2",
@@ -59,16 +67,50 @@ describe("로그인 카드 — 401 이면 본문 자리에", () => {
 describe("목록 — 두 렌즈", () => {
   it("조문 기준은 조문을, 매뉴얼 기준은 항목을 줄 세운다", () => {
     const article = textOf(
-      renderToStaticMarkup(<QueueList state={initialState} queue={QUEUE} entries={ENTRIES} dispatch={() => {}} />),
+      renderToStaticMarkup(
+        <QueueList state={initialState} queue={QUEUE} deferred={NONE} entries={ENTRIES} dispatch={() => {}} />,
+      ),
     );
     expect(article).toContain("제3조");
     expect(article).toContain("새 조문");
     const entry = textOf(
       renderToStaticMarkup(
-        <QueueList state={{ ...initialState, lens: "entry" }} queue={QUEUE} entries={ENTRIES} dispatch={() => {}} />,
+        <QueueList
+          state={{ ...initialState, lens: "entry" }}
+          queue={QUEUE}
+          deferred={NONE}
+          entries={ENTRIES}
+          dispatch={() => {}}
+        />,
       ),
     );
     expect(entry).toContain("지급정지를 요청합니다");
+  });
+});
+
+describe("미룸 — 큐 밖이라 따로 받아 「미룸」 칩에서만 보인다 (ADR-044)", () => {
+  it("전체에는 없고 미룸 필터에는 있다", () => {
+    const all = textOf(
+      renderToStaticMarkup(
+        <QueueList state={initialState} queue={QUEUE} deferred={HELD} entries={ENTRIES} dispatch={() => {}} />,
+      ),
+    );
+    expect(all).not.toContain("제7조");
+    expect(all).toContain("미룸 1");
+    expect(all).toContain("조문 기준 2");
+    const held = textOf(
+      renderToStaticMarkup(
+        <QueueList
+          state={{ ...initialState, filter: "deferred" }}
+          queue={QUEUE}
+          deferred={HELD}
+          entries={ENTRIES}
+          dispatch={() => {}}
+        />,
+      ),
+    );
+    expect(held).toContain("제7조");
+    expect(held).not.toContain("제3조");
   });
 });
 

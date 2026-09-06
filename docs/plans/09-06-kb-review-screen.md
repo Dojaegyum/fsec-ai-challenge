@@ -2260,7 +2260,7 @@ export default function AdminKbPage() {
             <nav aria-label="고객 화면 열기" className="inline-flex items-center gap-0.5 rounded-full border border-hairline bg-chip p-0.5">
               <a href="/" className="inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] text-ink-3 hover:text-ink-1">랜딩</a>
               <a href="/start" className="inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] text-ink-3 hover:text-ink-1">시작</a>
-              <a href="/c/demo?view=chat" className="inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] text-ink-3 hover:text-ink-1">시연 챗</a>
+              <a href="/start?demo" className="inline-flex min-h-[var(--size-touch)] items-center rounded-full px-3 text-[13px] text-ink-3 hover:text-ink-1">시연</a>
             </nav>
             {name && <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-chip px-3 py-[5px] text-[13px] text-ink-3">검수자 {name}</span>}
             {phase.kind === "ready" && (
