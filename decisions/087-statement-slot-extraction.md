@@ -17,7 +17,7 @@
 ## 결정
 
 챗 턴이 저장된 뒤 같은 추출기(`slot-extractor`)를 **가려진 발화**에 돌려 `extracted` 로 두고,
-되묻기([ADR-069](069-evidence-slot-extraction.md))를 거쳐 확정한다.
+되묻기([ADR-069](069-evidence-slot-extraction.md) · 답은 글자가 아니라 뜻으로 보낸다 [ADR-082](082-confirm-answers-are-actions.md))를 거쳐 확정한다.
 `source_ref` 는 message_id. 이미 `confirmed` 인 슬롯은 건드리지 않는다(자료 추출과 같은 규칙).
 응답 뒤(`after()`)에 돌아 챗 지연에 더해지지 않는다.
 
