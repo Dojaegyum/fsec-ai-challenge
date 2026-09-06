@@ -310,7 +310,7 @@ CREATE TABLE case_slot (
   state        TEXT          NOT NULL DEFAULT 'empty'
                CHECK (state IN ('empty','extracted','pii_pending','confirmed','unknown')),
   source       TEXT          NULL CHECK (source IN ('auto','user','system')),
-  source_ref   CHAR(26)      NULL,       -- 어느 자료(evidence_id) 또는 진술(message_id)에서 나왔는가 (ADR-087)
+  source_ref   CHAR(26)      NULL,       -- 어느 evidence 에서 나왔는가
   confidence   NUMERIC(3,2)  NULL,
   created_at   TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
@@ -325,6 +325,8 @@ CREATE INDEX idx_case_slot_state ON case_slot (case_id, state);
 CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 ```
+
+`source_ref` 에는 자료의 `evidence_id` 뿐 아니라 **진술의 `message_id`** 도 옵니다 — 자유 진술에서 뽑은 슬롯(→ [ADR-087](../../decisions/087-statement-slot-extraction.md))은 그 발화를 가리킵니다. 둘 다 CHAR(26) ULID 라 열의 모양은 그대로입니다.
 
 ### 5.1 슬롯 이름
 
