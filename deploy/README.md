@@ -5,7 +5,7 @@
 
 | 무엇 | 어디에 | 왜 거기인가 |
 | --- | --- | --- |
-| **앱** (Next.js) | **Vercel** · 서울(`icn1`) | [ARCHITECTURE §8](../ARCHITECTURE.md#8-배포) |
+| **앱** (Next.js) | **Vercel** · 서울(`icn1`) | [ARCHITECTURE §7](../ARCHITECTURE.md#7-배포) |
 | **DB · 저장소** | **Supabase** · 서울(`ap-northeast-2`) | [ADR-016](../decisions/016-retention-and-datastore.md) |
 | **전사·판독** | **OCI** · [`oci-provision.py`](oci-provision.py) | 모델을 서버리스 함수에 못 띄웁니다 → [ADR-028](../decisions/028-runtime-and-module-shape.md) |
 | **벤치마크용 GPU** | **RunPod** · [`runpod-bench.md`](runpod-bench.md) | 합성 데이터만 올립니다 → [ADR-043](../decisions/043-gpu-hosting.md). **띄운 직후 확인할 것 둘**이 거기 있습니다 |
@@ -373,5 +373,5 @@ SMOKE_BASE_URL=<주소> npm run smoke           # 다른 주소
 | 무엇 | 왜 |
 | --- | --- |
 | ~~**크론 둘** (파기 · KB 수집)~~ → **파기·알림 크론은 섰습니다** (`/api/cron/purge` 2026-09-03 · `/api/cron/reminders` 2026-09-01 · `src/vercel.json` `crons`). **KB 수집 크론만 아직 없습니다** — `kb-collector` 가 미조립입니다 → [ADR-025](../decisions/025-scheduled-jobs.md) |
-| **Preview 환경 분리** | 지금은 Production 하나만 씁니다 — PR 미리보기는 `service_role` 키 때문에 일부러 안 만듭니다 → [ARCHITECTURE §8](../ARCHITECTURE.md#8-배포) |
+| **Preview 환경 분리** | 지금은 Production 하나만 씁니다 — PR 미리보기는 `service_role` 키 때문에 일부러 안 만듭니다 → [ARCHITECTURE §7](../ARCHITECTURE.md#7-배포) |
 | ~~**스모크 시험**~~ → **섰습니다** (2026-09-04) — `npm run smoke` · `.github/workflows/smoke.yml`. 위 「4. 올린 뒤」 |

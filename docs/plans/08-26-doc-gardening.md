@@ -57,7 +57,7 @@
 `main 6e74f74` 기준으로 [ARCHITECTURE.md](../../ARCHITECTURE.md) 를 절 안에서 다시 썼습니다(제목·앵커는 유지).
 앱 밖 Python 서비스(`services/transcriber/` — STT·OCR·NER)를 §1·§4·§5·§6 에 넣었고, 볼트(`case_vault`)·크론 셋·
 법령 수집원 하나·미조립 둘(`case-reader`·`doc-builder`)·`pii-restorer` 전부 원문(ADR-034)·대응표 건네기(ADR-062·075·079)·
-셸 폴링(ADR-078)을 실제대로 그렸습니다. **§10 「아직 안 정해진 것」은 없앴습니다** — 미결은 각 절 제자리에 한 줄로 두고,
+셸 폴링(ADR-078)을 실제대로 그렸습니다. **§10 「아직 안 정해진 것」과 §7 「환경과 시크릿」은 없앴습니다**(환경변수 정본은 api §1.2 · 값은 Vercel) — 미결은 각 절 제자리에 한 줄로 두고, 그림에서 ADR 번호를 빼고 본문의 ADR 링크는 절 끝 「근거」 한 줄로 모았습니다. 라벨은 뷰어에서 잘리지 않게 짧게 끊고 줄바꿈을 넣었습니다.
 코드·판단이 필요한 것은 아래 4절 ⑥ 으로. 그 절을 가리키던 포인터(deploy/README · api §1.2 · glossary · research/09 R-1 ·
 plans/README · CLAUDE.md · README.md)는 같은 커밋에서 고쳤고, ADR 안의 참조는 이력이라 두었습니다.
 
