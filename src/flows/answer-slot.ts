@@ -50,6 +50,12 @@ export interface AnswerResult {
   readonly piiConfirm: {
     readonly found: readonly { kind: string; text: string }[]
   } | null
+  /**
+   * 이번 답에서 경계가 가린 건수 — 종류별 → §1.1 (`account=1;name=2`). 토큰화를 지나지
+   * 않은 갈래(모름 · 되묻기 확인)는 `null`. 라우트가 `X-Pii-Token-Count` 에 싣습니다.
+   * 이 칸이 없던 동안 「가릴게요」로 실제 치환이 일어난 답이 헤더에 안 잡혔습니다(2026-09-06)
+   */
+  readonly counts: Readonly<Record<string, number>> | null
   readonly planRegenerated: boolean
 }
 
@@ -88,6 +94,7 @@ export async function answerSlot(
       state: 'unknown',
       value: null,
       piiConfirm: null,
+      counts: null,
       planRegenerated: false,
     }
   }
@@ -128,6 +135,7 @@ export async function answerSlot(
           state: 'confirmed',
           value: held.valueMasked,
           piiConfirm: null,
+          counts: null,
           planRegenerated: true,
         }
       }
@@ -148,6 +156,7 @@ export async function answerSlot(
           state: 'empty',
           value: null,
           piiConfirm: null,
+          counts: null,
           planRegenerated: false,
         }
       }
@@ -215,6 +224,7 @@ export async function answerSlot(
         valueType,
         raw,
         masked: rechecked.masked,
+        counts: rechecked.counts,
       },
       container,
     )
@@ -243,6 +253,9 @@ export async function answerSlot(
         // 물으려면 그 값을 보여줘야 하는데, 그 값은 **브라우저에 이미 있습니다**
         found: masked.added.map((one) => ({ kind: one.kind, text: one.token })),
       },
+      // 아직 아무것도 가리지 않았습니다(값은 `pii_pending` 으로 미뤄짐). 헤더는 위 `found` 의
+      // 종류로 셉니다 — 라우트의 `tokenCounts`. 여기 건수를 실으면 같은 것을 두 번 셉니다
+      counts: null,
       planRegenerated: false,
     }
   }
@@ -256,6 +269,7 @@ export async function answerSlot(
       valueType,
       raw,
       masked: masked.masked,
+      counts: masked.counts,
     },
     container,
   )
@@ -286,6 +300,8 @@ async function storeAnswer(
     readonly raw: string
     /** 표에 남기는 가린 값 */
     readonly masked: string
+    /** 경계가 가린 건수 — 라우트가 헤더에 싣습니다 */
+    readonly counts: Readonly<Record<string, number>>
   },
   container: Container,
 ): Promise<AnswerResult> {
@@ -309,6 +325,7 @@ async function storeAnswer(
       state: 'empty',
       value: null,
       piiConfirm: null,
+      counts: one.counts,
       planRegenerated: false,
     }
   }
@@ -332,6 +349,7 @@ async function storeAnswer(
     state,
     value: one.masked,
     piiConfirm: null,
+    counts: one.counts,
     planRegenerated: true,
   }
 }

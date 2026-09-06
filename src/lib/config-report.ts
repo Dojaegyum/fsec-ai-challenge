@@ -45,7 +45,10 @@ export function configReport(container: Container): readonly PortStatus[] {
     row('객체 저장소', has(env, 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'),
       ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
       '파일 업로드 자리를 못 냅니다'),
-    row('언어모델', has(env, 'XAI_API_KEY'), ['XAI_API_KEY'],
+    // 열쇠는 둘 중 하나면 됩니다 → llm.ts (`LLM_API_KEY ?? XAI_API_KEY`). 한쪽만 보면
+    // 일반 이름으로 붙인 배포에서 「없음」이 떠서 운영자가 멀쩡한 챗을 의심합니다
+    row('언어모델', has(env, 'XAI_API_KEY') || has(env, 'LLM_API_KEY'),
+      ['XAI_API_KEY 또는 LLM_API_KEY'],
       '챗이 답하지 못합니다'),
     // 「관리자 계정」 줄은 2026-09-04 에 지웠습니다 — 화면을 만들지 않기로 해서(ADR-068)
     // 없는 것이 정상인데 「없음」으로 뜨면 운영자가 찾습니다
@@ -54,6 +57,10 @@ export function configReport(container: Container): readonly PortStatus[] {
     // 설명이 낡으면 운영자가 유입 차단을 찾는 동안 파기가 계속 멈춰 있습니다
     row('크론 비밀값', has(env, 'CRON_SECRET'), ['CRON_SECRET'],
       '크론 경로가 전부 401 입니다 — 사건 파기·기한 알림이 한 번도 안 돕니다'),
+    // 법령 수집(ADR-072)은 앱 밖의 일이라 비어도 사건 진행은 그대로입니다 —
+    // 다만 KB 가 낡는 것을 아무도 못 알아채게 되니 여기 드러냅니다
+    row('법령 수집', has(env, 'LAW_API_OC'), ['LAW_API_OC'],
+      '법령 수집 크론이 소스마다 「없다」로 남기고 지나갑니다. **사건 진행은 그대로 돕니다**'),
     // **붙어 있지만 완전하지 않습니다.** 그 사실을 숨기면 기한이 하루
     // 앞당겨진 것을 아무도 모릅니다 → holidays.ts
     row('공휴일 · 임시공휴일', holidaysComplete(ports.holidays),

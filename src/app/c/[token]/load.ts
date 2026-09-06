@@ -55,6 +55,14 @@ export interface CaseBundle {
    * 값으로 읽었습니다.**
    */
   readonly slots: readonly CaseSlot[];
+  /**
+   * §3.6 `plan.channels[]` — 기재 안내(S-10)의 「어디에 내나요」 카드가 그리는 재료.
+   *
+   * ⚠️ **2026-09-03 까지 계약이 없어 이 값을 받을 자리가 아예 없었습니다.**
+   * `doc.tsx` 의 `submit`·`submitNote` prop 은 이미 서 있었는데(ADR-042) 여기서
+   * 버려졌고, 그래서 그 카드는 프로덕션에서 한 번도 안 그려졌습니다.
+   */
+  readonly channels: readonly CaseChannel[];
 }
 
 /** §3.4 의 슬롯 한 줄 — 깊이 검사하지 않습니다. 모양은 서버가 지키는 계약입니다 */
@@ -64,6 +72,25 @@ export interface CaseSlot {
   readonly state: string;
   /** 「모름」이면 `null`. 토큰이면 `[계좌-1]` 같은 모양입니다 */
   readonly value: string | null;
+}
+
+/**
+ * §3.6 `channels[]` 한 칸 — 깊이 검사하지 않습니다. 모양은 서버가 지키는 계약입니다.
+ *
+ * `submit` 의 모양은 `doc.tsx` 의 (모듈 안) `SubmitPath` 와 구조적으로 같습니다 —
+ * 세 곳(§11.1 · `lib/contact.ts` · `doc.tsx`)이 이미 같은 모양이라고 약속했습니다.
+ */
+export interface CaseChannel {
+  readonly channel_id: string;
+  /** `null` 이면 미특정 */
+  readonly org_id: string | null;
+  readonly org_name: string | null;
+  readonly amount: number | null;
+  readonly confidence: number | null;
+  /** 신청서를 내는 길 — 순서 그대로. 확인된 길이 없으면 빈 배열 (ADR-042) */
+  readonly submit: readonly { readonly how: "branch" | "app"; readonly text: string; readonly url?: string }[];
+  /** 그 기관에서 헷갈리기 쉬운 것 — `org.contact.caution`. 없으면 `null` */
+  readonly caution: string | null;
 }
 
 /** 못 읽었을 때 화면이 그리는 재료 — `decidePoll` 의 판정 + 사람이 읽을 한 줄 */
@@ -191,7 +218,7 @@ function toBundle(json: unknown): CaseBundle | null {
   const body = json as {
     case_id?: unknown;
     track?: unknown;
-    plan?: { steps?: unknown };
+    plan?: { steps?: unknown; channels?: unknown };
     deadlines?: { deadlines?: unknown };
     slots?: { next_question?: unknown; slots?: unknown };
   };
@@ -203,6 +230,9 @@ function toBundle(json: unknown): CaseBundle | null {
     : [];
   const question = (body.slots?.next_question ?? null) as NextQuestion | null;
   const slots = Array.isArray(body.slots?.slots) ? (body.slots.slots as CaseSlot[]) : [];
+  const channels = Array.isArray(body.plan?.channels)
+    ? (body.plan.channels as CaseChannel[])
+    : [];
 
   return {
     case: {
@@ -214,6 +244,7 @@ function toBundle(json: unknown): CaseBundle | null {
     deadlines,
     question,
     slots,
+    channels,
   };
 }
 
@@ -370,7 +401,7 @@ export interface EvidenceRead {
     original: string;
   }[];
   /** 기계가 못 읽은 것 — 화면이 「직접 확인해 주세요」로 씁니다 */
-  readonly shortfalls?: readonly unknown[];
+  readonly shortfalls?: readonly string[];
   /** `failed` 일 때만 */
   readonly reason?: string;
 }

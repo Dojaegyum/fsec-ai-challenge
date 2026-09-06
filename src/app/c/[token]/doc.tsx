@@ -34,7 +34,10 @@ import { amountShape, whenShape } from "./shape";
  *  · 칸 상태 판정 → `GET …/doc-guide` (⬜ 계약 없음). **판정은 서버가 해야 합니다**.
  *    지금은 §3.4 `slots[]` 로 채울 수 있는 칸만 채우고 나머지는 「직접 적으셔야
  *    합니다」입니다 — **모르는 칸을 지어 채우지 않습니다**
- *  · submit → **`org.contact.submit`** (배열) · submitNote → `report_hours`·`caution` (§11.1)
+ *  · submit → §3.6 `channels[].submit`(= `org.contact.submit`, 순서 그대로) · submitNote →
+ *    `channels[].caution`. **`report_hours` 는 아직 `channels[]` 계약에 없어**(2026-09-03
+ *    확정 목록엔 `submit`·`caution` 뿐) submitNote 가 지금은 `caution` 만 옮깁니다 —
+ *    계약이 넓어지면 `page.tsx` 의 `docSubmitOf` 한 곳만 고칩니다.
  *    ⚠️ **비어 있으면 이 카드를 아예 그리지 않습니다.** 확인 못 한 것과 「앱으로 안 된다」는
  *    다릅니다 — 배열에 없는 것이 「모른다」입니다 (ADR-042 ③)
  *  · restored → PII 로컬 복원 성공 여부. 실패는 **에러가 아닙니다**(다른 기기)
@@ -358,7 +361,7 @@ export default function DocGuide({
   // 제출」과 「국민은행」이 박혀 있었습니다. 사건의 은행이 무엇이든 화면이
   // 국민은행이라고 말했다는 뜻입니다 — 확인 못 한 것을 단정하는 것이
   // ADR-042 ③ 이 금지한 그것입니다. 비면 카드를 아예 안 그립니다
-  // ⬜ 서버 계약이 없습니다 → `org.contact.submit` (§11.1)
+  // §3.6 `channels[].submit` → `page.tsx` 의 `docSubmitOf` 가 내려줍니다 (2026-09-06 배선)
   submit = [],
   submitNote = "",
 }: {
@@ -366,7 +369,7 @@ export default function DocGuide({
   caseToken?: string;
   slots?: readonly CaseSlot[];
   restorable?: readonly RestorableMapping[];
-  submit?: SubmitPath[];
+  submit?: readonly SubmitPath[];
   submitNote?: string;
 }) {
   const sections = useMemo(() => buildSections(slots, restorable), [slots, restorable]);

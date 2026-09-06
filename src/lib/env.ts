@@ -17,13 +17,13 @@ export const ENV_KEYS = [
   'DIRECT_URL',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
-  'BLOB_TOKEN',
   'XAI_API_KEY',
   // 언어모델을 갈아끼우는 셋 → llm.ts. 셋 다 없어도 기본(xAI)으로 섭니다
   'LLM_BASE_URL',
   'LLM_MODEL',
   'LLM_API_KEY',
-  'ADMIN_USERNAME',
+  // 관리자 화면은 폐기됐습니다(ADR-068). 이 이름만 문지기(session-cookie.ts)가 읽는 자리라
+  // 남고, `ADMIN_USERNAME` 은 읽는 코드가 없어 2026-09-06 에 뺐습니다
   'ADMIN_PASSWORD_HASH',
   'CRON_SECRET',
   // 기한 알림 발송 → mailer.ts. **2026-09-01 에 Brevo 로 정해졌습니다** —
@@ -40,7 +40,7 @@ export const ENV_KEYS = [
   // 링크 없는 알림은 재진입이 아니라 광고입니다 (ADR-021)
   'APP_ORIGIN',
   'CASE_PURGE_DAYS',
-  'KB_FETCH_CRON',
+  // 수집 주기는 `vercel.json` 의 crons 가 정합니다 — `KB_FETCH_CRON` 은 읽는 코드가 없어 뺐습니다(2026-09-06)
   // 국가법령정보 Open API 의 사용자 ID(OC) → lib/law-fetcher.ts · ADR-072. 비면 수집 크론이
   // 「없다」로 남기고 지나갑니다 — 앱은 영향이 없습니다
   'LAW_API_OC',

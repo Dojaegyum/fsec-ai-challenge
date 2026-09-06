@@ -36,6 +36,20 @@ interface Entry {
 }
 
 /**
+ * 한 번에 받는 상한 → §3.11 (2026-09-06 확정).
+ *
+ * **상한이 없으면 볼트가 사건 하나로 채워집니다.** 값의 근거 —
+ * 항목 하나는 `key-handler` 가 개인정보 값 하나(계좌·전화·이름 · 수십 자)를 AES-GCM 으로
+ * 봉한 것이라 IV 를 합쳐도 base64 로 수백 자입니다. 4,096자는 그 열 배가 넘는 여유이고,
+ * 200개는 슬롯 전부와 전사문에서 나온 이름표를 다 더해도 닿지 않는 수입니다.
+ * 넘으면 400 — 정상 사용에서는 일어나지 않는 요청이라 재시도로 풀 일이 없습니다.
+ */
+export const VAULT_MAX_ENTRIES = 200
+export const VAULT_MAX_CIPHERTEXT_CHARS = 4_096
+/** 이름표는 `[계좌-12]` 꼴이라 이보다 길 수 없습니다 */
+export const VAULT_MAX_TOKEN_CHARS = 32
+
+/**
  * **모양은 `key-handler` 의 `VaultEntry` 그대로입니다** — 브라우저가 `sealAll()` 로
  * 만든 것을 그대로 받습니다. 서버가 다시 정의하지 않습니다 (§3.11).
  */
@@ -43,15 +57,33 @@ function readEntries(body: VaultBody): Entry[] {
   if (!Array.isArray(body.entries) || body.entries.length === 0) {
     throw new BadRequestError('entries 가 없습니다', { param: 'entries' })
   }
+  if (body.entries.length > VAULT_MAX_ENTRIES) {
+    throw new BadRequestError(`entries 가 너무 많습니다 (최대 ${VAULT_MAX_ENTRIES})`, {
+      param: 'entries',
+      max: VAULT_MAX_ENTRIES,
+    })
+  }
 
   return body.entries.map((one, i) => {
     const row = one as Partial<Entry>
     if (typeof row.token !== 'string' || row.token.length === 0) {
       throw new BadRequestError('token 이 없습니다', { param: `entries[${i}].token` })
     }
+    if (row.token.length > VAULT_MAX_TOKEN_CHARS) {
+      throw new BadRequestError('token 이 너무 깁니다', {
+        param: `entries[${i}].token`,
+        max: VAULT_MAX_TOKEN_CHARS,
+      })
+    }
     if (typeof row.ciphertext !== 'string' || row.ciphertext.length === 0) {
       throw new BadRequestError('ciphertext 가 없습니다', {
         param: `entries[${i}].ciphertext`,
+      })
+    }
+    if (row.ciphertext.length > VAULT_MAX_CIPHERTEXT_CHARS) {
+      throw new BadRequestError('ciphertext 가 너무 깁니다', {
+        param: `entries[${i}].ciphertext`,
+        max: VAULT_MAX_CIPHERTEXT_CHARS,
       })
     }
     return { token: row.token, ciphertext: row.ciphertext }

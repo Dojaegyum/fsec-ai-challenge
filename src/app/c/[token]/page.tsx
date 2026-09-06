@@ -14,7 +14,7 @@ import { slotFace } from "./shape";
 import ChatView, { MiniChat } from "./chat";
 import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
-import { useCaseBundle, type CaseBundle, type CaseSlot } from "./load";
+import { useCaseBundle, type CaseBundle, type CaseChannel, type CaseSlot } from "./load";
 import { useChatSend } from "./send";
 import { useArtifact } from "./artifact";
 import { useUploads } from "./upload";
@@ -112,6 +112,25 @@ function caseFileTone(
   // `pii_pending` 은 확인 전이라 **없는 값과 같습니다** (ADR-041)
   if (slot.value && (slot.state === "confirmed" || slot.state === "extracted")) return "filled";
   return "future";
+}
+
+/**
+ * 기재 안내(S-10) 「어디에 내나요」 카드에 넘길 값 — §3.6 `channels[]` → `doc.tsx`.
+ *
+ * **채널이 여럿이면 첫 번째만 그립니다.** 어느 채널을 그릴지는 화면이 정하는
+ * 몫이라고 §3.6 이 못 박아 두었습니다(간편송금 경유 등 — 서버는 채널별로 실어만 줍니다).
+ *
+ * `submitNote` 는 §11.1 의 `report_hours`·`caution` 을 합치는 자리인데, `report_hours` 는
+ * 아직 §3.6 `channels[]` 계약에 없습니다(2026-09-03 확정 목록엔 `submit`·`caution` 뿐 —
+ * spec/common/08-14-api.md §3.6). 지금은 `caution` 만 옵니다 — 계약이 넓어지면 여기
+ * 한 곳만 고칩니다.
+ */
+export function docSubmitOf(channels: readonly CaseChannel[]): {
+  submit: CaseChannel["submit"];
+  submitNote: string;
+} {
+  const first = channels[0];
+  return { submit: first?.submit ?? [], submitNote: first?.caution ?? "" };
 }
 
 /**
@@ -313,6 +332,9 @@ function CaseScreen({
   /** 증거함·챗이 서버를 부를 때 쓰는 토큰. **개발 경로에서는 `null`** — 픽스처로 그립니다 */
   const dataToken = wanted === null ? token : null;
 
+  /** 기재 안내(S-10) 「어디에 내나요」 카드 재료 — §3.6 `channels[]` */
+  const docSubmit = docSubmitOf(bundle.channels);
+
   /**
    * 대화는 **셸이 한 벌만** 들고 있습니다 — 전환 중 유령도 같은 것을 봐야 합니다.
    * 질문 자리도 여기 있습니다 — 슬롯 답과 발화가 **같은 매핑 목록**을 써야
@@ -353,8 +375,13 @@ function CaseScreen({
    * 받습니다(위 `useChatSend` 콜백). `applySignal` 은 안 씁니다 — 같은 규칙을
    * `picked` 한 값으로 직접 굴립니다. ⚠️ 이 자리에 「서버가 빈 배열만 낸다」는
    * 낡은 주석이 있었고, 그걸 믿은 오판이 실제로 나왔습니다(2026-09-03).
-   * 남은 공백은 **이력 복원**뿐입니다 — §3.12 에 그 칸이 없어 새로고침하면
-   * 과거 턴의 연결이 사라집니다(`history.ts`).
+   *
+   * ⚠️ **이력 복원도 2026-09-06 까지 공백이었습니다.** §3.12 에는 ADR-065 로
+   * 이미 칸이 있고 `history.ts` 도 파싱해 두고 있었는데, 아무도 안 읽어 매
+   * 새로고침마다 과거 턴의 연결이 사라졌습니다. 지금은 `useChatSend` 의 첫
+   * 로드가 이력을 다 읽은 뒤 **마지막 비서 턴**의 `referencedSteps` 를 이
+   * `picked` 콜백으로 한 번 더 흘려보냅니다(`send.ts`) — 살아있는 턴과
+   * 같은 자리·같은 규칙(`pickStep`)을 씁니다.
    */
   const activeStep = useMemo(() => {
     const open = bundle.steps.filter((one) => isOpen(one as WorkStep));
@@ -419,6 +446,18 @@ function CaseScreen({
 
   const atWork = side === "work";
   const chatIsMain = focus === "chat";
+
+  /**
+   * 워크스페이스의 「나중에」 — **서버에 낼 것이 없습니다** (`panels.tsx` `Later` 주석).
+   *
+   * 미룬다고 그 단계가 끝나는 것이 아니라 `picked` 를 지워 기본 규칙(가장 앞선
+   * 미완료 단계)에 고르는 일을 돌려주고, 본문을 챗으로 되돌립니다 — 지금 이
+   * 단계를 붙들고 있지 않겠다는 뜻이지, 사건에서 지운다는 뜻이 아닙니다.
+   */
+  const closeWork = () => {
+    setPicked(null);
+    setFocus("chat");
+  };
 
   /**
    * 헤더의 기한 배지 — **서버가 센 값이 있을 때만** 뜹니다.
@@ -623,6 +662,8 @@ function CaseScreen({
                   }
                   fail={artifact.fail}
                   onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
+                  /* 「나중에」 — 판단은 여기(호출부)가 합니다 (`work-handler` `Later` 주석) */
+                  onLater={closeWork}
                 />
                 {chatIsMain && (
                   <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-3">
@@ -754,6 +795,9 @@ function CaseScreen({
                  실서버 경로에서 픽스처를 쓰면 **이 사건에 없는 값이 서류 칸에
                  원문으로 그려집니다** (`evidence.tsx` 의 같은 자리 참고) */
               restorable={dataToken === null ? FIXTURE_MAPPINGS : chat.restorable}
+              /* 「어디에 내나요」 카드 — §3.6 channels[]. 비어 있으면 카드가 안 그려집니다 */
+              submit={docSubmit.submit}
+              submitNote={docSubmit.submitNote}
             />
           )}
           </div>
@@ -804,6 +848,8 @@ function CaseScreen({
                     caseToken={token}
                     slots={bundle.slots}
                     restorable={dataToken === null ? FIXTURE_MAPPINGS : chat.restorable}
+                    submit={docSubmit.submit}
+                    submitNote={docSubmit.submitNote}
                   />
                 )}
               </div>

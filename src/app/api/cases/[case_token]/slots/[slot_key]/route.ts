@@ -75,10 +75,9 @@ function readSlotKey(slotKey: string): string {
  * §1.1 이 `account=1;name=2` 로 못 박았습니다. 옮기는 표가
  * `pii-tokenizer` 의 `WIRE_NAME` 하나입니다.
  *
- * ⬜ **여기서 셀 수 있는 것은 되묻기로 나간 것뿐입니다.** `flows/answer-slot.ts`
- * 의 `AnswerResult` 에 건수 칸이 없어, 「가릴게요(`mask`)」로 실제 치환이 일어난
- * 답은 이 헤더에 안 잡힙니다. 그 흐름에 `counts` 를 실어야 메워집니다 —
- * `TokenizeResult.counts` 가 이미 그 값을 들고 있습니다.
+ * 2026-09-06 까지는 되묻기로 나간 것만 셀 수 있었습니다 — 「가릴게요(`mask`)」로 실제
+ * 치환이 일어난 답이 헤더에 안 잡혔습니다. 이제 `AnswerResult.counts` 가 토큰화를
+ * 지난 갈래마다 종류별 건수를 들고 오고, 이 함수는 되묻기 갈래에만 남습니다.
  */
 function tokenCounts(found: readonly { readonly kind: string }[]): Record<string, number> {
   const counts: Record<string, number> = {}
@@ -120,7 +119,11 @@ export async function PATCH(
 
     // **경계가 돌았다는 것을 응답이 증명합니다** → §1.1. 안 채우면 헤더가
     // 언제나 `none` 이라, 토큰화가 도는지 멈췄는지를 응답만 봐서는 못 가립니다
-    if (result.piiConfirm) {
+    // 토큰화를 지난 갈래는 `counts` 가 종류별 건수를 들고 옵니다(가릴게요 포함). 되묻기만
+    // 나가고 아직 안 가린 갈래는 찾은 것의 종류로 셉니다 — 둘 다 값이 아니라 건수입니다
+    if (result.counts) {
+      ctx.telemetry.addTokenCounts(result.counts)
+    } else if (result.piiConfirm) {
       ctx.telemetry.addTokenCounts(tokenCounts(result.piiConfirm.found))
     }
 

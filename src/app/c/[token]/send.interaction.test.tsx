@@ -293,3 +293,95 @@ describe("전사가 만든 대응표를 이 기기 것으로 만든다 — absor
     expect(hookNow().restorable.map((m) => m.token)).not.toContain("[계좌-9]");
   });
 });
+
+/**
+ * 새로고침 뒤 마지막 언급 다시 잡기 — 감사(2026-09-06) 회귀.
+ *
+ * §3.12 에는 ADR-065 로 이미 `referenced_steps` 칸이 있고 `history.ts` 도
+ * 파싱해 두고 있었는데, `useChatSend` 는 살아있는 턴에서만 `onReferenced` 를
+ * 불러 매 새로고침마다 워크스페이스의 연결이 사라졌습니다.
+ */
+describe("새로고침해도 마지막 언급을 다시 잡는다 — §3.12 referenced_steps", () => {
+  const HISTORY_ROW = (referencedSteps: readonly string[]) => ({
+    messages: [
+      {
+        message_id: "m1",
+        role: "user",
+        content: "돈을 보냈어요",
+        created_at: "2026-09-01T00:00:00+09:00",
+      },
+      {
+        message_id: "m2",
+        role: "assistant",
+        content: "지급정지부터 하세요.",
+        citations: [],
+        referenced_steps: referencedSteps,
+        created_at: "2026-09-01T00:00:05+09:00",
+      },
+    ],
+    truncated: false,
+  });
+
+  async function mountWith(onReferenced: (stepIds: readonly string[]) => void) {
+    function ReferencedProbe() {
+      useChatSend(TOKEN, ORG, undefined, onReferenced);
+      return null;
+    }
+    await act(async () => {
+      root.render(<ReferencedProbe />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // `openVault` 다음에야 `fetchHistory` 가 불립니다 — 두 왕복이 순서대로라
+    // 한 번의 마이크로태스크 비움으로 안 끝날 수 있습니다
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  it("이력을 다 읽으면 마지막 비서 턴의 언급을 한 번 흘려보낸다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/vault")) return json({ entries: [] });
+        return json(HISTORY_ROW(["01JSTEP"]));
+      }),
+    );
+    const onReferenced = vi.fn();
+
+    await mountWith(onReferenced);
+
+    expect(onReferenced).toHaveBeenCalledWith(["01JSTEP"]);
+  });
+
+  it("마지막 비서 턴에 언급이 없으면 부르지 않는다 — 지어내지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/vault")) return json({ entries: [] });
+        return json(HISTORY_ROW([]));
+      }),
+    );
+    const onReferenced = vi.fn();
+
+    await mountWith(onReferenced);
+
+    expect(onReferenced).not.toHaveBeenCalled();
+  });
+
+  it("대화가 아예 없으면 부르지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/vault")) return json({ entries: [] });
+        return json({ messages: [], truncated: false });
+      }),
+    );
+    const onReferenced = vi.fn();
+
+    await mountWith(onReferenced);
+
+    expect(onReferenced).not.toHaveBeenCalled();
+  });
+});

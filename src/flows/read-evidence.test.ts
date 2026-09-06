@@ -22,11 +22,12 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Container } from '@/lib/container'
+import { AppError, IngestError } from '@/lib/errors'
 
 import { createPiiTokenizer } from '@/modules/pii-tokenizer'
 import type { Line } from '@/modules/transcriber'
 
-import { collectReading, maskLines } from './read-evidence'
+import { collectReading, maskLines, startReading } from './read-evidence'
 
 const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
 const EVIDENCE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4B'
@@ -584,5 +585,75 @@ describe('증거에서 값을 뽑아 확인 전으로 둔다 — ADR-069', () =>
     expect(one.wrote).toEqual([
       expect.objectContaining({ slotKey: 'notice_started_at', state: 'extracted', valueMasked: '2026-09-03', source: 'auto' }),
     ])
+  })
+})
+
+/**
+ * 맡기기 자체가 실패하면 **그 자리에서** `failed` 로 적는다 (2026-09-06).
+ *
+ * 그 전에는 `startReading` 이 던진 예외가 202 뒤로 사라져, 화면이 첫 폴링(§3.3)에서
+ * 다시 부딪히고서야 알았습니다 — 그 사이 자료함은 「읽는 중」을 그렸습니다.
+ */
+describe('맡기기가 실패하면 그 자리에서 failed 로 적는다', () => {
+  function harnessFor(start: () => Promise<never>) {
+    const failed: { evidenceId: string; reason: string }[] = []
+    const container = {
+      transcriber: { start },
+      evidenceWrite: {
+        finish: async () => {},
+        async fail(one: { evidenceId: string; reason: string }) {
+          failed.push(one)
+        },
+      },
+    } as unknown as Container
+    return { container, failed }
+  }
+
+  const input = {
+    caseId: CASE_ID,
+    evidenceId: EVIDENCE_ID,
+    objectKey: KEY,
+    kind: 'audio' as const,
+    mimeType: 'audio/wav',
+  }
+
+  it('전사 실패(IngestError)는 삼키고 failed 를 적는다 — 이유까지', async () => {
+    const one = harnessFor(async () => {
+      throw new IngestError('읽어 달라고 맡기지 못했습니다', { reason: 'submit_failed' })
+    })
+
+    await expect(startReading(input, one.container)).resolves.toBeUndefined()
+
+    expect(one.failed).toEqual([{ caseId: CASE_ID, evidenceId: EVIDENCE_ID, reason: 'submit_failed' }])
+  })
+
+  it('이유가 없으면 submit_failed 로 적는다', async () => {
+    const one = harnessFor(async () => {
+      throw new IngestError('읽어 달라고 맡기지 못했습니다')
+    })
+
+    await startReading(input, one.container)
+
+    expect(one.failed[0]?.reason).toBe('submit_failed')
+  })
+
+  it('**미설정은 그대로 올린다** — 고칠 수 없는 상태를 전사 실패로 덮지 않는다', async () => {
+    const one = harnessFor(async () => {
+      throw new AppError('아직 안 붙었습니다')
+    })
+
+    await expect(startReading(input, one.container)).rejects.toThrow(AppError)
+
+    expect(one.failed).toHaveLength(0)
+  })
+
+  it('글은 맡길 것이 없어 아무것도 안 부른다', async () => {
+    const one = harnessFor(async () => {
+      throw new Error('부르면 안 됩니다')
+    })
+
+    await startReading({ ...input, kind: 'text', mimeType: 'text/plain' }, one.container)
+
+    expect(one.failed).toHaveLength(0)
   })
 })

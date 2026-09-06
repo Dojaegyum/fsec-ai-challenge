@@ -23,6 +23,8 @@ export type AuditEventType =
   | 'chat.context_built'
   | 'artifact.verified'
   | 'llm.called'
+  /** 모델을 불렀는데 답을 못 받음(시간 초과·닿지 못함) — `llm.called` 와 가릅니다(2026-09-06) */
+  | 'llm.failed'
   | 'case.purged'
 
 export type ActorType = 'user' | 'system' | 'model'

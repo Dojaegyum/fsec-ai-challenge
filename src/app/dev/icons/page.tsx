@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import Icon, { ICON_NAMES } from "@/components/ui/Icon";
 
 /**
@@ -18,6 +20,10 @@ const COLORS = [
 ] as const;
 
 export default function IconsDevPage() {
+  // **제품 주소에서는 열리지 않습니다.** 2026-09-06 점검에서 가드 없이 배포본에
+  // 공개돼 있던 것을 닫았습니다 — 개발 서버(`next dev`)에서만 봅니다
+  if (process.env.NODE_ENV === "production") notFound();
+
   return (
     <main className="mx-auto w-full max-w-shell px-[clamp(16px,3vw,32px)] py-10">
       <h1 className="text-[20px] font-[660] text-ink-1">아이콘 34종</h1>

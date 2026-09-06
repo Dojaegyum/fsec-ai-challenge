@@ -19,11 +19,13 @@
  * 에러 봉투에 `case_id` 를 담을 칸이 없기 때문입니다(08-16-errors.md §3).
  * 둘 다 만들어진 뒤 한 번에 저장합니다 → ADR-046.
  *
- * ## 지금 부르면 멈춥니다
+ * ## 저장은 `src/lib/db.ts` 가 맡습니다
  *
- * ⬜ DB 드라이버가 아직 없어(`package.json` 에 하나도 없습니다) 사건을 저장할
- * 자리가 안 붙어 있습니다. 부르면 **무엇이 왜 없는지 말하며** 멈춥니다
- * → [not-configured.ts](@/lib/not-configured).
+ * ~~⬜ DB 드라이버가 아직 없어 사건을 저장할 자리가 안 붙어 있습니다~~ →
+ * 2026-08 부터 `postgres` 드라이버로 붙어 있습니다(`src/lib/db.ts` · ADR-016 · ADR-049).
+ * `DATABASE_URL` 이 비어 있을 때만 **무엇이 왜 없는지 말하며** 멈춥니다
+ * → [not-configured.ts](@/lib/not-configured) · `lib/container.ts` 의 `unconfigured(…)`.
+ * (2026-09-06 정정 — 이 머리말이 「드라이버가 없다」고 적혀 있었습니다.)
  */
 
 import { toApiPlan } from '@/flows/api-plan'

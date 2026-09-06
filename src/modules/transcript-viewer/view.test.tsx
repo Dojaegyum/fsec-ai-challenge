@@ -84,3 +84,32 @@ describe("가려서 보낸 것은 개수로만 밝힌다", () => {
     expect(text).not.toContain("가려서");
   });
 });
+
+/**
+ * 못 읽은 것 — 감사(2026-09-06) 회귀. `read-evidence.ts` 가 `shortfalls` 를
+ * 이미 냈는데 이 화면이 버리고 있었습니다.
+ */
+describe("못 읽은 것을 목록 아래에 담담하게 말한다", () => {
+  it("shortfalls 가 있으면 그 줄이 뜬다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <TranscriptView lines={LINES} mappings={MAPPINGS} shortfalls={["no_layout"]} />,
+      ),
+    );
+    expect(text).toContain("대화창의 좌·우 구조를 갈라내지 못했습니다.");
+  });
+
+  it("안 넘기면 그 줄이 없다 — 지어내지 않는다", () => {
+    const text = textOf(renderToStaticMarkup(<TranscriptView lines={LINES} mappings={MAPPINGS} />));
+    expect(text).not.toContain("갈라내지 못했습니다");
+  });
+
+  it("모르는 코드뿐이면 아무것도 안 뜬다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <TranscriptView lines={LINES} mappings={MAPPINGS} shortfalls={["새로운-코드"]} />,
+      ),
+    );
+    expect(text).toContain("네 맞는데요"); // 화면은 비지 않습니다
+  });
+});

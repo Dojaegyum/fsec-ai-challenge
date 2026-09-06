@@ -443,6 +443,10 @@ export function useChatSend(
    *
    * **여기서 패널을 고르지 않습니다** — 언급이 여럿이어도 열 것은 하나이고,
    * 그 판단은 `work-handler` 의 `pickStep` 이 합니다.
+   *
+   * 살아있는 턴마다 부르는 것과 **더해** 첫 로드가 이력을 다 읽은 뒤 마지막
+   * 비서 턴을 골라 **한 번 더** 부릅니다 — 새로고침하면 그 연결이 사라지던
+   * 것을 막습니다(§3.12 `referenced_steps` · ADR-065).
    */
   onReferenced?: (stepIds: readonly string[]) => void,
 ): ChatSend {
@@ -519,6 +523,14 @@ export function useChatSend(
   const [asking, setAsking] = useState(false);
   const [askFail, setAskFail] = useState<{ stage: SlotStage; fail: LoadFail } | null>(null);
 
+  // 콜백이 바뀌어도 첫 로드를 다시 돌지 않습니다 — `page.tsx` 가 매 렌더 새
+  // 함수를 넘기므로, 아래 첫 로드 효과의 deps 에 그대로 넣으면 볼트·이력을
+  // 렌더마다 다시 부릅니다. `load.ts` 의 `onMappingsRef` 와 같은 자리입니다
+  const onReferencedRef = useRef(onReferenced);
+  useEffect(() => {
+    onReferencedRef.current = onReferenced;
+  }, [onReferenced]);
+
   /**
    * 첫 로드 — **볼트를 먼저 열고** 그 매핑으로 이력을 되살립니다 (ADR-050).
    *
@@ -555,6 +567,17 @@ export function useChatSend(
         setLines(past.lines);
         setTruncated(past.truncated);
         setPastFailed(past.failed === true);
+        // 새로고침하면 과거 턴의 연결이 사라졌습니다 — `history.ts` 는 이미
+        // `referenced_steps` 를 파싱해 두고 있었는데(§3.12 · ADR-065) 아무도
+        // 안 읽었습니다. **마지막 비서 턴**만 봅니다 — 그보다 앞선 언급은 그
+        // 뒤의 대화로 이미 지나간 것입니다. 어느 단계를 열지는 여기서
+        // 고르지 않습니다 — 살아있는 턴과 같은 자리(`pickStep`)로 넘깁니다
+        const lastAi = [...past.lines].reverse().find(
+          (l): l is Line & { who: "ai" } => l.who === "ai",
+        );
+        if (lastAi && lastAi.referencedSteps.length > 0) {
+          onReferencedRef.current?.(lastAi.referencedSteps);
+        }
       } catch {
         if (!alive) return;
         setPastFailed(true);

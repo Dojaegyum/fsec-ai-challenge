@@ -392,8 +392,11 @@ export function createLlmClient(env: Env): TextLlmClient | null {
           // 내용이 들어 있고, 이 메시지는 로그와 감사 기록으로 갑니다
           const timedOut = error instanceof Error && error.name === 'AbortError'
           logAttempt(model, timedOut ? '시간 초과' : '닿지 못함', Date.now() - startedAt)
+          // `reason` 은 감사 기록이 「보냈는데 답이 없음」과 「보내지 못함」을 가르는
+          // 유일한 신호입니다 → flows/chat-turn.ts `recordFailedCall`
           lastFailure = new LlmError(
             timedOut ? '모델이 제때 답하지 않았습니다' : '모델에 닿지 못했습니다',
+            { reason: timedOut ? 'timeout' : 'unreachable', model },
           )
           // **여기서 끝내지 않습니다.** 늦은 것도 닿지 못한 것도 「이 후보가
           // 안 된다」는 뜻일 뿐이라, 503 과 똑같이 다음 후보로 넘어갑니다.

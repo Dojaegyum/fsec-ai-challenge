@@ -152,3 +152,48 @@ describe("처리 상태의 주인은 서버다 — 레일도 그 값으로", () 
     expect(mark).toHaveBeenCalledWith("01EVIDENCE", "done");
   });
 });
+
+/**
+ * §3.3 `shortfalls[]` 회귀 — 감사(2026-09-06). 서버는 이미 내고 있었는데
+ * (`flows/read-evidence.ts`) 이 화면이 응답을 받고도 버리고 있었습니다.
+ */
+describe("기계가 못 읽은 것을 숨기지 않는다 — §3.3 shortfalls", () => {
+  it("전사 목록 아래에 무엇을 못 읽었는지 말한다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({
+          evidence_id: "01EVIDENCE",
+          ingest_status: "done",
+          transcript: [{ speaker: "A", text: "[계좌-1] 로 보내라", start_ms: 0 }],
+          pii_tokens: [{ token: "[계좌-1]", kind: "계좌" }],
+          shortfalls: ["no_layout", "truncated"],
+        }),
+      ),
+    );
+
+    await draw(<EvidenceView token={TOKEN} uploads={uploadsOf()} />);
+
+    expect(host.textContent).toContain("대화창의 좌·우 구조를 갈라내지 못했습니다.");
+    expect(host.textContent).toContain("내용이 길어 앞부분만 읽었습니다.");
+  });
+
+  it("못 읽은 것이 없으면 그 줄이 없다 — 지어내지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json({
+          evidence_id: "01EVIDENCE",
+          ingest_status: "done",
+          transcript: [{ speaker: "A", text: "[계좌-1] 로 보내라", start_ms: 0 }],
+          pii_tokens: [{ token: "[계좌-1]", kind: "계좌" }],
+          shortfalls: [],
+        }),
+      ),
+    );
+
+    await draw(<EvidenceView token={TOKEN} uploads={uploadsOf()} />);
+
+    expect(host.textContent).not.toContain("갈라내지 못했습니다");
+  });
+});
