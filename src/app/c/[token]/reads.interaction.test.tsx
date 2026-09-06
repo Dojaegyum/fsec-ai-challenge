@@ -41,10 +41,6 @@ const json = (body: unknown) =>
 const processing = (id: string, percent = 0) =>
   json({ evidence_id: id, ingest_status: "processing", progress: { phase: "stt", percent }, poll_after_ms: 1 });
 
-/** 한참 뒤에 다시 물으라는 응답 — 시험 안에서 둘째 바퀴가 안 돌게 */
-const processingSlow = (id: string) =>
-  json({ evidence_id: id, ingest_status: "processing", progress: { phase: "stt", percent: 0 }, poll_after_ms: 5000 });
-
 const done = (id: string, extra: Record<string, unknown> = {}) =>
   json({ evidence_id: id, ingest_status: "done", transcript: [], pii_tokens: [], shortfalls: [], ...extra });
 
@@ -243,17 +239,53 @@ describe("조회가 끊기면 스스로 다시 부르지 않는다 — §3.1", (
 });
 
 describe("한 바퀴에 넷까지만 묻는다 — 세션당 분당 300회 안에서 (§1.3)", () => {
-  it("여섯이 처리중이어도 첫 바퀴 조회는 넷이다", async () => {
-    const ids = ["E1", "E2", "E3", "E4", "E5", "E6"];
-    const { spy } = serverOf(Object.fromEntries(ids.map((id) => [id, [processingSlow(id)]])));
+  const ids = ["E1", "E2", "E3", "E4", "E5", "E6"];
+
+  /**
+   * 응답을 **시험이 놓아줄 때까지** 붙들어 둡니다. 응답이 바로 오면 둘째 바퀴가
+   * 언제 도는지가 `act` 의 타이밍에 걸려 시험이 흔들립니다(2026-09-06 · #84 CI 에서
+   * 4회 기대에 8회). 붙들어 두면 「응답 전에는 넷」이 타이밍과 무관하게 섭니다
+   */
+  function heldServer(pollAfterMs: number) {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const spy = vi.fn(async (input: string | URL | Request) => {
+      await gate;
+      return json({
+        evidence_id: idOf(String(input)),
+        ingest_status: "processing",
+        progress: { phase: "stt", percent: 0 },
+        poll_after_ms: pollAfterMs,
+      });
+    });
+    vi.stubGlobal("fetch", spy);
+    return { spy, release: () => release() };
+  }
+
+  it("여섯이 처리중이어도 응답이 오기 전에는 넷까지만 묻는다", async () => {
+    const { spy } = heldServer(5000);
 
     await draw(<Probe wanted={ids} on={handlers()} />);
+    await settle(20);
 
     expect(spy).toHaveBeenCalledTimes(4);
   });
 
-  it("다음 바퀴에는 남은 둘을 먼저 묻는다 — 뒤에 있다고 굶지 않는다", async () => {
-    const ids = ["E1", "E2", "E3", "E4", "E5", "E6"];
+  it("나머지 둘도 서버가 준 간격 뒤에 묻는다 — 바퀴 사이 간격이 §1.3 을 지킨다", async () => {
+    // 첫 바퀴 넷이 「5초 뒤에 다시」를 받았습니다. 그 사이에 나머지 둘을 곧장 물으면
+    // 여섯 파일이 간격 없이 돌아 요청 수가 파일 수에 비례해 치솟습니다
+    const { spy, release } = heldServer(5000);
+
+    await draw(<Probe wanted={ids} on={handlers()} />);
+    release();
+    await settle(60);
+
+    expect(spy).toHaveBeenCalledTimes(4);
+  });
+
+  it("간격이 짧으면 다음 바퀴에 남은 둘을 먼저 묻는다 — 뒤에 있다고 굶지 않는다", async () => {
     const { calls } = serverOf(Object.fromEntries(ids.map((id) => [id, [processing(id)]])));
 
     await draw(<Probe wanted={ids} on={handlers()} />);

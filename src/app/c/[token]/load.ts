@@ -508,7 +508,13 @@ export interface EvidenceReadHandlers {
  *
  * §1.3 이 「그 외 조회」를 **세션당 분당 300회**로 잡고 폴링을 여기 넣었습니다. 서버 간격이
  * 1.5초면 파일 하나가 분당 40회라, 넷이면 160회로 절반 아래입니다. 다섯째부터는 다음
- * 바퀴에 앞으로 옵니다 — 뒤에 있다고 굶지 않습니다(아래 커서)
+ * 바퀴에 앞으로 옵니다 — 뒤에 있다고 굶지 않습니다(아래 커서).
+ *
+ * ⚠️ **바퀴 사이에는 서버가 준 간격만큼 쉽니다.** 2026-09-06 첫 판은 「이번 바퀴에 못 든
+ * 번호는 처음 묻는 것이니 바로 다음 바퀴」로 두었는데, 파일이 넷을 넘으면 그 판단이 매 바퀴
+ * 참이라 **0ms 간격으로 계속 돌았습니다**(시험에서 60ms 에 192회). 상한은 「한 바퀴 넷 × 간격」
+ * 이어야 뜻이 있습니다 — 그래서 번호마다 「서버가 말한 다음 차례」를 두고, 바퀴는 그 간격
+ * 중 가장 짧은 것만큼 쉽니다. 간격을 화면이 지어내지는 않습니다 — 미루기만 합니다
  */
 const READS_PER_ROUND = 4;
 
@@ -551,6 +557,10 @@ export function useEvidenceReads(
   const readsRef = useRef<EvidenceReads>({});
   /** 바퀴마다 시작점을 옮기는 커서 — 다섯째 이후가 굶지 않게 */
   const cursorRef = useRef(0);
+  /** 번호마다 서버가 말한 다음 차례(ms 시각). 없으면 아직 안 물은 것 — 바로 물을 수 있습니다 */
+  const dueAtRef = useRef<Record<string, number>>({});
+  /** 서버가 준 간격 중 가장 짧은 것 — 바퀴 사이에 이만큼 쉽니다 */
+  const gapRef = useRef<number | null>(null);
   // 배열 자체는 렌더마다 새 것일 수 있어 내용으로 열쇠를 만듭니다
   const wantedKey = wanted.join("\u0000");
 
@@ -562,54 +572,67 @@ export function useEvidenceReads(
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const round = async () => {
-      const due = ids.filter((id) => !settled(readsRef.current[id]));
-      if (due.length === 0) return;
-      const start = cursorRef.current % due.length;
-      const batch = [...due.slice(start), ...due.slice(0, start)].slice(0, READS_PER_ROUND);
-      cursorRef.current = start + batch.length;
+      const open = ids.filter((id) => !settled(readsRef.current[id]));
+      if (open.length === 0) return;
+      // 서버가 「몇 ms 뒤에」라고 한 번호는 그때까지 안 묻습니다 — 간격은 서버의 것입니다
+      const now = Date.now();
+      const ready = open.filter((id) => (dueAtRef.current[id] ?? 0) <= now);
 
-      const results = await Promise.all(
-        batch.map(async (id) => [id, await fetchEvidence(caseToken, id, ac.signal)] as const),
-      );
-      if (!alive) return;
+      if (ready.length > 0) {
+        const start = cursorRef.current % ready.length;
+        const batch = [...ready.slice(start), ...ready.slice(0, start)].slice(0, READS_PER_ROUND);
+        cursorRef.current = start + batch.length;
 
-      const next: Record<string, EvidenceState> = {};
-      let delay: number | null = null;
-      for (const [id, state] of results) {
-        if (!state) continue; // 끊긴 것 — 효과가 내려간 뒤입니다
-        next[id] = state;
-        if (state.phase !== "ready") continue;
-        const read = state.read;
-        // 대응표는 이 응답 한 번뿐입니다 — 화면 상태와 무관하게 즉시 건넵니다
-        if (read.pii_mappings?.length) {
-          handlersRef.current.onMappings(
-            read.pii_mappings.map((one) => ({
-              token: one.token,
-              kind: one.kind as PiiMapping["kind"],
-              seq: one.seq,
-              original: one.original,
-            })),
-          );
+        const results = await Promise.all(
+          batch.map(async (id) => [id, await fetchEvidence(caseToken, id, ac.signal)] as const),
+        );
+        if (!alive) return;
+
+        const next: Record<string, EvidenceState> = {};
+        for (const [id, state] of results) {
+          if (!state) continue; // 끊긴 것 — 효과가 내려간 뒤입니다
+          next[id] = state;
+          if (state.phase !== "ready") continue;
+          const read = state.read;
+          // 대응표는 이 응답 한 번뿐입니다 — 화면 상태와 무관하게 즉시 건넵니다
+          if (read.pii_mappings?.length) {
+            handlersRef.current.onMappings(
+              read.pii_mappings.map((one) => ({
+                token: one.token,
+                kind: one.kind as PiiMapping["kind"],
+                seq: one.seq,
+                original: one.original,
+              })),
+            );
+          }
+          if (read.ingest_status === "processing" && typeof read.progress?.percent === "number") {
+            handlersRef.current.onProgress(id, read.progress.percent);
+          }
+          if (read.ingest_status === "done" || read.ingest_status === "failed") {
+            handlersRef.current.onSettled(id, read.ingest_status);
+          }
+          if (state.verdict.poll) {
+            dueAtRef.current[id] = Date.now() + state.verdict.delayMs;
+            gapRef.current =
+              gapRef.current === null
+                ? state.verdict.delayMs
+                : Math.min(gapRef.current, state.verdict.delayMs);
+          }
         }
-        if (read.ingest_status === "processing" && typeof read.progress?.percent === "number") {
-          handlersRef.current.onProgress(id, read.progress.percent);
-        }
-        if (read.ingest_status === "done" || read.ingest_status === "failed") {
-          handlersRef.current.onSettled(id, read.ingest_status);
-        }
-        if (state.verdict.poll) {
-          delay = delay === null ? state.verdict.delayMs : Math.min(delay, state.verdict.delayMs);
-        }
+        // ref 를 먼저 — 다음 바퀴가 setState 반영보다 먼저 돌 수 있습니다
+        readsRef.current = { ...readsRef.current, ...next };
+        setReads((prev) => ({ ...prev, ...next }));
       }
-      // ref 를 먼저 — 다음 바퀴가 setState 반영보다 먼저 돌 수 있습니다
-      readsRef.current = { ...readsRef.current, ...next };
-      setReads((prev) => ({ ...prev, ...next }));
 
-      if (!ids.some((id) => !settled(readsRef.current[id]))) return;
-      // 이번 바퀴에 못 든 번호가 있으면 그것들은 **처음 묻는 것**이라 간격이 없습니다 —
-      // 바로 다음 바퀴로. 다 들었으면 서버가 시킨 간격 중 가장 짧은 것으로
-      const left = due.length > batch.length;
-      timer = setTimeout(() => void round(), left ? 0 : (delay ?? 0));
+      const still = ids.filter((id) => !settled(readsRef.current[id]));
+      if (still.length === 0) return;
+      // 다음 바퀴는 ① 가장 이른 차례가 왔을 때, ② 그리고 이번에 무언가 물었으면 서버 간격
+      // 만큼은 쉰 뒤 — 둘 중 늦은 쪽입니다. 그래야 「한 바퀴 넷 × 간격」이 요청 상한이 됩니다.
+      // 아직 아무 간격도 못 받았으면(첫 바퀴가 전부 끝났거나 끊김) 바로 다음 차례로
+      const at = Date.now();
+      const nextDue = Math.min(...still.map((id) => dueAtRef.current[id] ?? 0));
+      const gap = ready.length > 0 ? (gapRef.current ?? 0) : 0;
+      timer = setTimeout(() => void round(), Math.max(0, nextDue - at, gap));
     };
     void round();
 
@@ -622,7 +645,9 @@ export function useEvidenceReads(
   }, [caseToken, wantedKey, asked]);
 
   const again = useCallback((evidenceId: string) => {
-    // 그 번호만 「아직 안 물은 것」으로 되돌립니다 — 다른 번호의 상태는 그대로
+    // 그 번호만 「아직 안 물은 것」으로 되돌립니다 — 다른 번호의 상태는 그대로.
+    // 차례도 지웁니다 — 누른 사람은 지금 알고 싶은 것입니다
+    delete dueAtRef.current[evidenceId];
     const rest: Record<string, EvidenceState | undefined> = { ...readsRef.current };
     delete rest[evidenceId];
     readsRef.current = rest;
