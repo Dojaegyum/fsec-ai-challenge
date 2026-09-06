@@ -127,6 +127,8 @@ export async function PATCH(
     // 사건당 분당 60회 → §1.3. 버튼 연타를 흡수합니다.
     // **경로 파라미터를 읽은 뒤에야 걸 수 있습니다** — 세는 단위가 사건입니다
     await ctx.limit('slot', caseId)
+    // 문항에 답하는 것은 활동입니다 — 파기일이 「마지막 활동일 + 180일」로 밀립니다(ADR-016)
+    ctx.activity(caseId)
 
     const body = await readJsonObject<AnswerBody>(ctx.request)
     const action = readAction(body)

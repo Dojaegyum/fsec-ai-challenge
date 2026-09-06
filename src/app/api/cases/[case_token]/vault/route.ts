@@ -151,6 +151,8 @@ export async function POST(
 
     // 값을 쓰기 직전마다 도니 슬롯과 같은 급입니다 → §1.3
     await ctx.limit('vault', caseId)
+    // 대응표를 맡기는 것도 활동입니다 — 파기일이 「마지막 활동일 + 180일」로 밀립니다(ADR-016)
+    ctx.activity(caseId)
 
     const entries = readEntries(await readJsonObject<VaultBody>(request))
     const stored = await container.vaultWrite.put(caseId, entries)

@@ -71,8 +71,15 @@ export const config = {
  */
 function unauthorized(): NextResponse {
   return NextResponse.json(
-    { error: { code: 'UNAUTHORIZED', message: userMessageFor('UNAUTHORIZED') } },
-    { status: 401, headers: telemetryHeaders({}) },
+    // `retryable` 은 껍데기(`lib/http.ts` 의 `fail`)가 내는 봉투와 같은 칸입니다 —
+    // 기다린다고 인증이 생기지 않으니 거짓. 문지기 응답만 이 칸이 빠져 있어
+    // 봉투 모양이 둘이었습니다(2026-09-06 배포본 점검)
+    { error: { code: 'UNAUTHORIZED', message: userMessageFor('UNAUTHORIZED'), retryable: false } },
+    {
+      status: 401,
+      // 껍데기 응답과 같이 `no-store` — 401 이 중간 캐시에 남으면 로그인한 뒤에도 그 답이 옵니다
+      headers: { ...telemetryHeaders({}), 'Cache-Control': 'no-store' },
+    },
   )
 }
 

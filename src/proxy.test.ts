@@ -76,6 +76,19 @@ describe('관리자 경로 — §5.1', () => {
     expect(proxy(ask('/api/admin/cases/x/trace')).status).toBe(401)
   })
 
+  it('401 도 껍데기와 같은 봉투다 — retryable 이 있고 캐시되지 않는다', async () => {
+    // 문지기 응답만 `retryable` 이 빠져 봉투 모양이 둘이었습니다(2026-09-06 배포본 점검).
+    // 08-16-errors.md §3 — 4xx 는 기다려도 안 풀리니 거짓, 그리고 `no-store`
+    configureAdmin()
+
+    const res = proxy(ask('/api/admin/cases/x/trace'))
+    const body = (await res.json()) as { error: { code: string; retryable: boolean } }
+
+    expect(body.error.code).toBe('UNAUTHORIZED')
+    expect(body.error.retryable).toBe(false)
+    expect(res.headers.get('Cache-Control')).toBe('no-store')
+  })
+
   it('맞는 쿠키면 지나간다', () => {
     configureAdmin()
 

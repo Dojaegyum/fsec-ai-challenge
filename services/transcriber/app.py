@@ -35,7 +35,7 @@ from pydantic import BaseModel
 
 from .config import load
 from .engines import build_ner, build_ocr, build_stt, warm_all
-from .jobs import JobStore
+from .jobs import JobStore, is_job_id
 
 log = logging.getLogger("transcriber")
 
@@ -294,6 +294,10 @@ def submit(
     _guard(x_finally_token)
     if req.kind not in ("audio", "image"):
         raise HTTPException(status_code=400, detail="unsupported_kind")
+    # 번호가 작업 파일 경로에 그대로 들어갑니다(`_run` 의 `os.path.join(cfg.workdir, job_id)`).
+    # `../` 가 섞이면 작업 폴더 밖에 씁니다 — 앱은 ULID 만 보내지만 여기서도 거릅니다
+    if req.job_id is not None and not is_job_id(req.job_id):
+        raise HTTPException(status_code=400, detail="bad_job_id")
     job, opened = jobs.create(req.kind, req.job_id)
     # ⚠️ **이미 돌고 있으면 다시 걸지 않습니다.** 접수는 멱등이어야 합니다 → ADR-051.
     # 앱이 같은 증거 번호로 다시 부르는 경로가 열려 있고(§3.2 3단계), 여기서

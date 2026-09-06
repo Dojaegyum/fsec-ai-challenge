@@ -183,6 +183,34 @@ describe('제외 목록이 NER 결과보다 우선한다', () => {
     expect(masked).toContain('[이름-1]')
   })
 
+  it('허용어의 안쪽 조각만 집어도 안 가린다', async () => {
+    // 모델이 「금융감독원」에서 「금융」만 PERSON 으로 낸 일이 있습니다(2026-09-06 배포본
+    // 점검) — 그대로 두면 `[이름-1]감독원` 이 되어 기관명이 사라집니다. 조각 자체는
+    // 허용어가 아니라 낱말 검사를 지나므로 **그 자리를 품는 허용어**를 봐야 합니다
+    const text = '금융감독원에 전화했어요'
+    const tokenizer = createPiiTokenizer({
+      ner: nerOf([{ label: 'PERSON', start: 0, end: 2, value: '금융' }]),
+    })
+
+    const { masked } = await tokenizer.tokenize(text, { allowedTerms: ['금융감독원'] })
+
+    expect(masked).toBe(text)
+  })
+
+  it('허용어 밖의 이름은 그대로 가린다 — 품는 허용어가 그 자리에 있을 때만 면제다', async () => {
+    // 위 규칙이 「허용어가 원문에 있으면 아무 조각이나 안 가린다」로 넓어지면 안 됩니다 —
+    // 같은 문장에 「금융감독원」이 있어도 그 밖의 「민수」는 가려야 합니다
+    const text = '금융감독원 다음에 민수 씨가 전화했어요'
+    const at = text.indexOf('민수')
+    const tokenizer = createPiiTokenizer({
+      ner: nerOf([{ label: 'PERSON', start: at, end: at + 2, value: '민수' }]),
+    })
+
+    const { masked } = await tokenizer.tokenize(text, { allowedTerms: ['금융감독원'] })
+
+    expect(masked).toBe('금융감독원 다음에 [이름-1] 씨가 전화했어요')
+  })
+
   it('금액과 시각은 애초에 안 걸린다', async () => {
     // 슬롯 T2 이자 서류 필수 기재사항이고 기한 계산의 기산점입니다
     const tokenizer = createPiiTokenizer()

@@ -72,6 +72,19 @@ JSON 만 낸다. 다른 말을 붙이지 마라.
 {text}
 </글>"""
 
+# 구분자와 같은 글자열이 글 안에 있으면 **글이 지시 자리로 새어 나옵니다** — 사기 문자에
+# `</글>` 을 적어 두면 그 뒤 문장이 규칙처럼 읽힙니다. 프롬프트로는 못 막고(4B 모델은
+# 지시를 흘립니다) 글자를 바꿔야 합니다. 앱의 슬롯 추출기가 같은 자리를 이스케이프합니다
+# (`src/modules/slot-extractor/extract.ts` 의 `isolate`)
+_DELIMITERS = (("</글>", "〈/글〉"), ("<글>", "〈글〉"))
+
+
+def build_prompt(text: str) -> str:
+    """글을 지시문 안 자기 자리에만 넣는다 — 구분자 흉내를 낸 글자는 다른 글자로."""
+    for raw, safe in _DELIMITERS:
+        text = text.replace(raw, safe)
+    return PROMPT.format(text=text)
+
 
 class OllamaNer:
     """Ollama 에 물어보고, 받은 낱말을 자리로 바꿔 낸다."""
@@ -97,7 +110,7 @@ class OllamaNer:
         if not text.strip():
             return {"engine": self._model, "spans": []}
 
-        raw = self._ask(PROMPT.format(text=text))
+        raw = self._ask(build_prompt(text))
         return {"engine": self._model, "spans": locate(text, _names(raw))}
 
     def warm(self) -> None:

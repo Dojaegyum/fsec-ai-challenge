@@ -138,6 +138,32 @@ function isAllowed(value: string, allowedTerms: readonly string[]): boolean {
 }
 
 /**
+ * 이 자리를 **통째로 품는** 허용어가 원문의 그 자리에 있는가.
+ *
+ * `isAllowed` 는 모델이 낸 낱말 자체를 봅니다. 여기는 그 낱말이 허용어의 일부인지를
+ * 원문 위치로 봅니다 — 「금융감독원에 …」에서 모델이 `금융`(0~2)만 냈을 때
+ * 「금융감독원」(0~5)이 그 자리를 품으면 참입니다. 허용어보다 긴 조각은 품길 수 없습니다.
+ */
+function insideAllowedTerm(
+  text: string,
+  span: { readonly start: number; readonly end: number },
+  terms: readonly string[],
+): boolean {
+  return terms.some((term) => {
+    if (term.length <= span.end - span.start) return false
+    // 품으려면 허용어가 `span.end - term.length` 이후, `span.start` 이전에 시작해야 합니다
+    let from = Math.max(0, span.end - term.length)
+    while (from <= span.start) {
+      const at = text.indexOf(term, from)
+      if (at === -1 || at > span.start) return false
+      if (at + term.length >= span.end) return true
+      from = at + 1
+    }
+    return false
+  })
+}
+
+/**
  * 두 자리가 겹치는가
  */
 function overlaps(a: Span, b: Span): boolean {
@@ -248,6 +274,12 @@ function nerToSpans(
     // 모델 지시문에 이미 적혀 있는데도 2026-09-06 격자 점검에서 여섯 낱말이 PERSON 으로
     // 왔습니다. 기관 사전과 달리 KB 없이도 서야 하는 목록이라 따로 둡니다
     if (isAllowed(one.value, COMMON_NOUNS)) continue
+    // 허용어의 **안쪽 조각**도 가리지 않습니다 — 모델이 「금융감독원」에서 「금융」만
+    // PERSON 으로 내면 `[이름-N]감독원` 이 됩니다(2026-09-06 배포본 점검). 조각은 허용어가
+    // 아니라 위 두 검사를 지나므로, **그 자리를 품는 허용어가 원문에 있는지**를 봅니다
+    if (insideAllowedTerm(text, one, allowedTerms) || insideAllowedTerm(text, one, COMMON_NOUNS)) {
+      continue
+    }
     // 우리 이름표 모양과 겹치면 다시 가리지 않습니다 → 위 `tokenRegions`
     if (ours.some((r) => r.start < one.end && one.start < r.end)) continue
 

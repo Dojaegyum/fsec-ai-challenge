@@ -9,8 +9,9 @@ name: code-check
 # 찾으며 터집니다 — 로컬은 .next 가 남아 있어 통과하고 CI 만 깨졌습니다.
 # 근거: RFC-001 「CI가 강제합니다」
 #
-# ⚠️ lint 는 아직 여기 없습니다 — eslint 가 로컬(Windows)에서 응답하지 않아
-#    사람이 돌릴 수 없는 검사를 CI 에만 두지 않았습니다. 원인을 찾으면 추가합니다.
+# lint 도 봅니다 (2026-09-07 부터). 「Windows 에서 응답하지 않는다」던 것은 그냥 느린
+# 것이었습니다 — 1분 54초에 끝나고 결과를 냅니다. 그동안 오류 1건(effect 안 setState)이
+# 아무 데서도 안 걸린 채 main 에 있었습니다.
 on:
   pull_request:
     paths:
@@ -42,6 +43,10 @@ jobs:
 
       - name: 타입 검사
         run: npm run typecheck
+
+      # 경고는 통과시키고 오류만 막습니다 — eslint 의 기본 종료 코드가 그렇습니다
+      - name: 린트
+        run: npm run lint
 
       - name: 테스트
         run: npm test
