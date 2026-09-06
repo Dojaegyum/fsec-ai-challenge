@@ -126,7 +126,12 @@ export async function GET(
         body: {
           evidence_id: evidenceId,
           ingest_status: 'processing',
-          progress: { phase: state.phase, percent: state.percent },
+          progress: {
+            phase: state.phase,
+            percent: state.percent,
+            // **서버에 닿지 못해 다시 맡기는 중** → ADR-091 §2. 없으면 칸을 아예 안 냅니다 — 옛 화면과 호환
+            ...(state.retrying ? { retrying: true } : {}),
+          },
           // 이게 없으면 화면이 언제 다시 물을지 모릅니다 → §3.3
           poll_after_ms: state.pollAfterMs,
         },
