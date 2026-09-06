@@ -56,8 +56,11 @@ export interface ArtifactVerdict {
   verify_result: "passed" | "failed" | "not_applicable";
   verify_detail?: { reason: string };
   step_state: "done_verified" | "in_progress" | "unconfirmed";
-  /** L1 이 실패했을 때 서버가 함께 내는 다음 길 */
-  next_options?: readonly { level: "L2" | "L3"; label: string }[];
+  /**
+   * 완료가 안 됐을 때 서버가 함께 내는 다음 길. L1 이 실패하면 L2·L3,
+   * 파일이 근거가 못 됐으면(L2 확인 못 함 · ADR-077) L1·L3 입니다
+   */
+  next_options?: readonly { level: "L1" | "L2" | "L3"; label: string }[];
   /** **증거 연쇄** — 이 부산물로 열린 단계들 */
   unlocked_steps?: readonly { step_id: string; title: string; reason: string }[];
   note?: string;

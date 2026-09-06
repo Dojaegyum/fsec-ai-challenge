@@ -153,8 +153,23 @@ function wiredContainer(
     ...createContainer(readEnv({}), ports),
     caseTokens: { toCaseId: async () => CASE_ID },
     slots: { read: async () => [] },
-    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0, markMet: async () => 0 },
     orgs: { read: async () => null, list: async () => [] },
+    // 파일로 낸 부산물은 그 자료를 읽은 결과를 봅니다 → ADR-077. 이 파일이 보는 것은
+    // 경계·너비·계측이라, 판독은 「접수번호 자리가 있는 사진」 하나로 고정합니다
+    evidence: {
+      read: async () => ({
+        kind: 'image',
+        objectKey: `${CASE_ID}/01J8EVID000000000000000000`,
+        mimeType: 'image/png',
+        ingestStatus: 'done',
+        transcriptMasked: JSON.stringify({
+          lines: [{ speaker: null, text: '접수번호 2026-004821', startMs: null }],
+          tokens: [],
+          shortfalls: [],
+        }),
+      }),
+    },
     // ── 이름표 장부 → 04-pii-boundary.md 「번호의 단위」 ──────────────
     // 서버 토큰화가 **이미 쓰인 번호를 이어받는** 자리입니다. 대역이 없으면
     // 미설정 포트를 불러 그 자리에서 터집니다 — 비어 있으면 1번부터입니다

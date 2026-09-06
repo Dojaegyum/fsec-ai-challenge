@@ -19,10 +19,22 @@
  * 3. 장부가 비면 1번부터다 (회귀)
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { Container } from '@/lib/container'
 import { AppError, IngestError } from '@/lib/errors'
+
+/**
+ * 판독이 끝난 뒤 미뤄 둔 부산물 판정을 부르는지만 봅니다 → ADR-077.
+ * 판정 자체는 `settle-artifacts.test.ts` 가 봅니다
+ */
+const settled = vi.hoisted(() => ({ calls: [] as { caseId: string; evidenceId: string }[] }))
+vi.mock('./settle-artifacts', () => ({
+  settleArtifacts: async (input: { caseId: string; evidenceId: string }) => {
+    settled.calls.push({ caseId: input.caseId, evidenceId: input.evidenceId })
+    return []
+  },
+}))
 
 import { createPiiTokenizer } from '@/modules/pii-tokenizer'
 import type { Line } from '@/modules/transcriber'
@@ -184,6 +196,41 @@ describe('흐름이 그 장부를 실제로 읽는다', () => {
 
     if (got.status !== 'done') throw new Error('끝났어야 합니다')
     expect(got.lines[0].text).toBe('[계좌-1] 요')
+  })
+})
+
+/**
+ * 파일로 낸 부산물은 올린 순간 판독이 안 끝나 있어 `reading_pending` 으로 적힙니다.
+ * **읽기가 끝나는 곳이 여기뿐**이라, 여기서 안 부르면 그 부산물은 영영 미확인입니다
+ */
+describe('판독이 끝나면 미뤄 둔 부산물 판정을 부른다 — ADR-077', () => {
+  it('저장한 뒤 그 자료 번호로 부른다', async () => {
+    settled.calls.length = 0
+    const one = harness({ lines: [lineOf('접수번호 2026-004821')] })
+
+    await read(one)
+
+    expect(one.finished).toHaveLength(1)
+    expect(settled.calls).toEqual([{ caseId: CASE_ID, evidenceId: EVIDENCE_ID }])
+  })
+
+  it('이미 저장된 것을 되읽을 때는 안 부른다 — 그때 판정할 새 사실이 없다', async () => {
+    settled.calls.length = 0
+    const one = harness({ lines: [] })
+
+    await collectReading(
+      {
+        caseId: CASE_ID,
+        evidenceId: EVIDENCE_ID,
+        kind: 'audio',
+        mimeType: 'audio/m4a',
+        objectKey: KEY,
+        stored: JSON.stringify({ lines: [], tokens: [], shortfalls: [] }),
+      },
+      one.container,
+    )
+
+    expect(settled.calls).toHaveLength(0)
   })
 })
 

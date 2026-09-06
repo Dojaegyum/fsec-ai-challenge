@@ -67,6 +67,13 @@ export function badgeOf(d: Deadline): DeadlineBadgeText | null {
   }
 
   const prefix = d.kind === "grace" ? "유예 " : "";
+
+  // **지킨 기한** — 단계가 끝나 서버가 `met` 으로 닫은 것 (ADR-077 · §3.7).
+  // 「까지」로 그리면 아직 할 일이 남은 것처럼 읽힙니다. 지난 것과 같은 중립 변형입니다 —
+  // 배지를 넷으로 늘리지 않는 이유는 `estimated` 와 같습니다
+  if (d.status === "met") {
+    return { variant: "passed", text: `${prefix}${date} · 지킴`, estimated };
+  }
   const dday = ddayLabel(d);
   return {
     variant: "user",

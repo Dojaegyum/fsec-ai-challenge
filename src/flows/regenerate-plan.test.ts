@@ -182,6 +182,7 @@ function containerFor(kbStore: Ports['kbStore']) {
     deadlineWrite: {
       apply: async () => [],
       sweepOverdue: async () => 0,
+    markMet: async () => 0,
     },
   }
 }
@@ -294,7 +295,7 @@ describe('시작 화면의 답을 사건과 함께 저장한다 — ADR-076', ()
         }),
       ),
       slots: { read: async () => [] },
-      deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+      deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0, markMet: async () => 0 },
     }
 
     await openCaseWithPlan(

@@ -201,8 +201,16 @@ describe('사건 하나가 접수부터 파기까지 이어진다', () => {
       receiptFormat: { matches: () => true },
     })
 
+    // **올린 것 자체는 증빙이 아닙니다** → ADR-077. 판독 글에 「접수번호」 자리가 있어야
+    // 통과합니다 — 은행 접수 문자가 실제로 남기는 것이 그것입니다
     const verdict = completion.verify({
       submission: { kind: 'sms_capture', evidenceId: 'EV01' },
+      evidence: {
+        kind: 'image',
+        ingestStatus: 'done',
+        text: '[국민은행] 지급정지 요청이 접수되었습니다\n접수번호 2026-004821',
+      },
+      orgNames: [],
     })
 
     expect(verdict.verifyLevel).toBe('L2')

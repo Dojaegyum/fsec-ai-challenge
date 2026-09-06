@@ -539,14 +539,21 @@ CREATE INDEX idx_artifact_case ON artifact (case_id);
 | `verify_level` | 방식 | `plan_step.state` 결과 |
 | --- | --- | --- |
 | `L1` | 접수번호(`receipt_no`)를 **받아 적었나** — 오타·빈칸 거르개(`looksLikeReceiptNumber`) + 형식 정본이 있는 기관만 대조. 정본이 없으면 `verify_detail.reason: format_unchecked` 로 **통과** → [ADR-057](../../decisions/057-receipt-number-l1.md) | `done_verified` |
-| `L2` | 캡처·서류 업로드 (`sms_capture` · `receipt_doc` · `pii-tokenizer` 통과). **업로드 자체가 증빙**입니다 | `done_verified` |
+| `L2` | 캡처·서류 업로드 (`sms_capture` · `receipt_doc` · `pii-tokenizer` 통과). **업로드 자체는 증빙이 아닙니다** ([ADR-077](../../decisions/077-upload-is-not-proof.md) · 2026-09-06 정정). 그 자료의 **판독 글**(`evidence.transcript_masked`)에 「접수번호」 자리와 번호(가린 이름표 포함)가 있거나 **공공기관**(`org_public`) 이름이 있으면 `passed` · `verify_detail.reason: receipt_number_found | org_name_found` | `done_verified` |
+| | 둘 다 없음(`no_receipt_marks`) · 읽기 실패·자료 없음(`unreadable`) · 통화 녹음(`not_a_document`) → `failed` — **올렸지만 확인 못 함** | **`unconfirmed`** |
+| | 아직 읽는 중 → `not_applicable` · `reading_pending`. 읽기가 끝나면 `flows/settle-artifacts.ts` 가 같은 규칙으로 `verify_result`·`verify_detail` 을 갱신하고 단계를 옮깁니다 | **`unconfirmed`** → 판정 뒤 바뀜 |
 | `L3` | 자기 신고 (`other`) — `verify_result: not_applicable` | **`unconfirmed`** |
+
+**파일로 낸 부산물의 `verify_detail` 에는 `evidence_id` 가 함께 들어갑니다** — `{ "reason": "reading_pending", "evidence_id": "01J…" }`.
+표에 그 칸이 없어서 여기 두고, 읽기가 끝난 자리가 **자료 번호로** 기다리던 것을 찾습니다(`ArtifactWriter.pendingFor`).
+증거 번호는 개인정보가 아니고, §3.8 응답에는 `reason` 만 나갑니다. `object_key` 에는 그 자료의 저장소 자리가 들어갑니다.
 
 > **2026-09-04 정정.** 이전 판은 L1 을 「접수번호 **포맷 체크** + 접수증 **OCR 대조**」로 적었습니다.
 > 포맷 체크는 [ADR-057](../../decisions/057-receipt-number-l1.md)(2026-08-26)이 「받아 적었나」로 뜻을 바로잡았고 —
 > 공개된 형식 규격이 어느 기관에도 없어 `format_unknown` 이 **제대로 한 사람을 실패로 판정**하고 있었습니다 —
-> 접수증 OCR 대조는 **⬜ 구현 전**입니다. `completion-checker/verify.ts` 는 `receipt_doc` 을 L2(업로드 = 통과)로 보내고
-> OCR 을 부르지 않습니다. 기능이 생기면 L1 이 아니라 **L2 위에 얹는 덤**이 될 자리입니다.
+> 접수증 OCR 대조는 **2026-09-06 에 L2 위에 얹혔습니다** ([ADR-077](../../decisions/077-upload-is-not-proof.md)) — 이름·날짜 대조가 아니라
+> **접수번호 자리·공공기관 이름** 유무만 봅니다. `completion-checker/verify.ts` 가 판독 글을 받아 판정하고, OCR 자체는 여전히
+> 전사 경로(`flows/read-evidence.ts`)가 돌립니다. 이름·날짜까지 대조하는 것은 ⬜ 구현 전입니다.
 
 **`L3`만으로 `done_verified`가 되는 경로를 만들지 않습니다.** 이 기능의 존재 이유가 사라집니다 → [05-completion-hook.md](08-14-completion-hook.md) 구현 주의.
 
@@ -613,6 +620,12 @@ CREATE UNIQUE INDEX uk_deadline_identity
 - **`COALESCE` 인 이유** — Postgres 의 `UNIQUE` 는 `NULL` 을 서로 다른 값으로 봅니다. 단계에 안 딸린 기한이 생기면 열쇠가 조용히 안 걸립니다.
 - **`void` 를 빼는 이유** — 근거가 사라져 내린 기한이 같은 자리의 새 기한을 막으면 안 됩니다. 기산 슬롯을 지웠다가 다시 채우는 것은 정상 흐름입니다.
 - **지우지 않고 `void` 로 둡니다** — 그 날짜를 한때 안내했다는 사실까지 사라지면 되짚을 수 없습니다. 읽기는 `void` 를 건너뜁니다.
+
+**`met` 은 단계가 끝날 때 적힙니다** ([ADR-077](../../decisions/077-upload-is-not-proof.md) · 2026-09-06). 부산물이 검증돼 `plan_step.state` 가
+`done_verified` 가 되면 그 단계의 `primary`·`grace` 중 `open` 인 것이 `met` 으로 닫힙니다(`DeadlineWriter.markMet`).
+`info`(공고 2개월 · 결과 통보)는 기관이 하는 일이라 그대로 흐르고, 이미 `missed` 인 것은 `met` 이 되지 않습니다 — 늦게 냈다는 사실은 사실이고,
+유예 안에 냈으면 유예가 `met` 이 됩니다. 재계산(`apply`)은 `met` 을 건드리지 않고, §3.7 은 `met` 에 `days_left` 를 싣지 않습니다.
+2026-09-06 까지는 이 값을 만드는 자리가 없어 **끝난 단계 옆에 D-3 이 계속 떴습니다.**
 
 ### 8.0 기산점은 「피해구제를 신청한 날」입니다
 

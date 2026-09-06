@@ -6,13 +6,14 @@
 
 import 'server-only'
 
-export { createCompletionChecker, looksLikeReceiptNumber } from './verify'
+export { createCompletionChecker, findReceiptMarks, looksLikeReceiptNumber } from './verify'
 export type {
   ArtifactKind,
   ArtifactSubmission,
   CompletionChecker,
   CompletionInput,
   CompletionVerdict,
+  EvidenceReading,
   NextOption,
   ReceiptNumberFormat,
   StepState,
