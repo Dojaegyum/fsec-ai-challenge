@@ -138,6 +138,7 @@ src/kb/
 | **그 근거가 이 절차를 말하나** | 링크는 맞는데 본문이 다른 조문을 말합니다 — 가장 자주 나는 실수입니다 |
 | **공포일과 시행일을 헷갈리지 않았나** | `effective_from`은 **시행일**입니다. 조문마다 다를 수 있습니다 ([07](../spec/backend/08-14-kb-operations.md)) |
 | **기한 숫자가 근거에 있나** | 3영업일·14일·2개월을 기억으로 쓰지 않습니다 |
+| **사용자 기한이 `summary` 에도 말로 있나** | 모델이 보는 KB 본문은 `summary` 한 칸입니다(`src/lib/adapters.ts`). `deadline` 에만 적고 문장에 없으면, 그 기한이 아직 계산되지 않은 사건에서 모델은 기한이 있다는 것조차 모릅니다 — 2026-09-06 배포본이 「3영업일이 무슨 뜻이냐」에 답 대신 되묻기를 냈습니다. 영업일이면 **무엇을 빼고 세는지**(토·일·공휴일)도 씁니다([기한 규칙 「영업일」](../spec/common/08-16-deadline-rules.md)). `src/lib/kb-load.test.ts` 가 실제 파일에서 봅니다 |
 | **`deadline.owner`가 맞나** | 기관 기한을 사용자 기한으로 적으면 불필요한 불안을 줍니다 ([§11.4.2](../spec/backend/08-16-data-model.md#1142-기한의-주인을-명시합니다)) |
 | **`caveat`가 필요한 자리인가** | 환급·자율배상·사각지대에서 `caveat`가 비어 있으면 기대치를 부풀립니다 |
 | **`action`이 실제 행동과 맞나** | `wait`으로 적었는데 사용자 기한이 붙어 있는 단계가 있습니다 ([§11.4.6](../spec/backend/08-16-data-model.md#1146-stepsaction--사용자가-무슨-행동을-하나)) |
@@ -208,3 +209,4 @@ DDL이 바뀌면 마이그레이션이 함께 옵니다 ([ADR-019](../decisions/
 | 2026-08-18 | 수집 파이프라인과의 경계를 명시 — 파이프라인은 `kb_entry`를 직접 쓰지 않는다 | [ADR-012](../decisions/012-kb-collection.md) |
 | 2026-09-01 | 자기점검에 한 줄 — 레일 `step_key`에 얹은 `action: read`는 S-07이 「해당 없음」으로 그린다 | [ADR-058](../decisions/058-crypto-not-applicable-overrides.md) |
 | 2026-09-04 | 파일 지도를 실재에 맞춤 — `ch-card`·`org-public` 추가, `ch-securities` 는 의도적 부재로 표기, `frozen-account` 신설 반영. 「적재기가 읽는 것과 무시하는 것」 신설 — `_` 메모 칸, `body.actor`·`body.action`·`steps[].action`·`deadline.owner` 허용값. `kb-load.ts` 가 이 규약을 근거로 인용하는데 본문이 없었습니다 | [ADR-055](../decisions/055-channel-card.md) · [ADR-066](../decisions/066-track-fixed-new-case.md) · [문서 손질 백로그](../docs/plans/08-26-doc-gardening.md) |
+| 2026-09-06 | 자기점검에 한 줄 — 사용자 기한은 `summary` 에도 말로 쓴다. 모델이 보는 KB 본문이 `summary` 뿐이라 구조화된 `deadline` 에만 적으면 「3영업일이 무슨 뜻이냐」에 답할 근거가 없어 되묻기로 빠졌다(배포본 2026-09-06). `common-relief-documents` 의 summary 를 그렇게 고치고 `kb-load.test.ts` 가 지킨다 | [research/01 §2.1](../docs/research/01-환급절차-기한.md) · [research/05](../docs/research/05-미확인-목록.md) |
