@@ -19,7 +19,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { Env } from './env'
-import { createLlmClient, llmCallOf } from './llm'
+import { LlmError } from './errors'
+import { createLlmClient, createSelectLlmClient, llmCallOf } from './llm'
 
 import type { ModelReply } from '@/modules/chat-receiver'
 
@@ -634,5 +635,59 @@ describe('호출 자취를 되꺼낸다 — `llmCallOf`', () => {
     })
     expect(llmCallOf(null)).toEqual({ model: null, tokenIn: null, tokenOut: null })
     expect(llmCallOf(undefined)).toEqual({ model: null, tokenIn: null, tokenOut: null })
+  })
+})
+
+describe('선별 전용 모델 — createSelectLlmClient (ADR-089 ④)', () => {
+  const select = { system: '선별기 지시', user: '후보 목록과 대화' }
+
+  it('모델 이름이 없으면 만들지 않는다 — 선별기가 꺼진다', () => {
+    expect(createSelectLlmClient(envWith(KEY))).toBe(null)
+  })
+
+  it('열쇠가 없으면 만들지 않는다', () => {
+    expect(createSelectLlmClient(envWith(undefined, { LLM_SELECT_MODEL: 'fast' }))).toBe(null)
+  })
+
+  it('그 모델 이름으로 temperature 0 을 보내고 글을 그대로 돌려준다', async () => {
+    const spy = respondWith('{"selected": [1, 3]}')
+    vi.stubGlobal('fetch', spy)
+    const client = createSelectLlmClient(envWith(KEY, { LLM_SELECT_MODEL: 'grok-fast' }))!
+    const out = await client.completeText(select, { timeoutMs: 5_000 })
+
+    const body = JSON.parse(String(spy.mock.calls[0]![1]?.body))
+    expect(body.model).toBe('grok-fast')
+    expect(body.temperature).toBe(0)
+    expect(body.messages[1].content).toBe(select.user)
+    expect(out.text).toBe('{"selected": [1, 3]}')
+    expect(out.call).toEqual({ model: null, tokenIn: null, tokenOut: null })
+  })
+
+  it('거절하면 던진다 — 재시도는 없다', async () => {
+    const spy = respondWith('', 503)
+    vi.stubGlobal('fetch', spy)
+    const client = createSelectLlmClient(envWith(KEY, { LLM_SELECT_MODEL: 'grok-fast' }))!
+
+    await expect(client.completeText(select, { timeoutMs: 5_000 })).rejects.toBeInstanceOf(LlmError)
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('상한을 넘기면 끊고 timeout 으로 던진다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string | URL | Request, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+            )
+          }),
+      ),
+    )
+    const client = createSelectLlmClient(envWith(KEY, { LLM_SELECT_MODEL: 'grok-fast' }))!
+
+    await expect(client.completeText(select, { timeoutMs: 20 })).rejects.toMatchObject({
+      detail: { reason: 'timeout', purpose: 'select' },
+    })
   })
 })

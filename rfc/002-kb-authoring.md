@@ -178,6 +178,11 @@ src/kb/
 어디에도 남지 않고, 「사람 검수 생략 불가」([07](../spec/backend/08-14-kb-operations.md))가
 승인 버튼 한 번으로 축소됩니다. **검수의 산출물은 diff입니다.**
 
+**예외 — 법령 조문 원문은 검수 없이 답변의 인용 후보로 씁니다** ([ADR-089](../decisions/089-kb-selector.md)).
+`source_snapshot` 의 `source_type='law'` 는 국가법령정보 API 에서 글자 그대로 가져온 것이라 우리의 해석이 없습니다.
+검수 큐(`source_change`)는 「매뉴얼을 고칠 것이 있나」를 보는 자리로 그대로 두고, 조문 자체는 승인 여부와 무관하게
+`kb-selector` 의 후보 풀에 들어갑니다. 매뉴얼(`kb_entry`)에 쓰는 길은 여전히 `kb:load` 하나입니다.
+
 ## genlab 매뉴얼 템플릿에서 가져온 것
 
 기존 CS 매뉴얼 구조를 참고했으나 **스키마는 우리 것을 유지합니다.**
@@ -209,4 +214,5 @@ DDL이 바뀌면 마이그레이션이 함께 옵니다 ([ADR-019](../decisions/
 | 2026-08-18 | 수집 파이프라인과의 경계를 명시 — 파이프라인은 `kb_entry`를 직접 쓰지 않는다 | [ADR-012](../decisions/012-kb-collection.md) |
 | 2026-09-01 | 자기점검에 한 줄 — 레일 `step_key`에 얹은 `action: read`는 S-07이 「해당 없음」으로 그린다 | [ADR-058](../decisions/058-crypto-not-applicable-overrides.md) |
 | 2026-09-04 | 파일 지도를 실재에 맞춤 — `ch-card`·`org-public` 추가, `ch-securities` 는 의도적 부재로 표기, `frozen-account` 신설 반영. 「적재기가 읽는 것과 무시하는 것」 신설 — `_` 메모 칸, `body.actor`·`body.action`·`steps[].action`·`deadline.owner` 허용값. `kb-load.ts` 가 이 규약을 근거로 인용하는데 본문이 없었습니다 | [ADR-055](../decisions/055-channel-card.md) · [ADR-066](../decisions/066-track-fixed-new-case.md) · [문서 손질 백로그](../docs/plans/08-26-doc-gardening.md) |
+| 2026-09-06 | 「수집 파이프라인과 어디서 만나나」에 예외 한 문단 — 법령 조문 원문은 검수 없이 `kb-selector` 의 인용 후보로 쓴다 | [ADR-089](../decisions/089-kb-selector.md) |
 | 2026-09-06 | 자기점검에 한 줄 — 사용자 기한은 `summary` 에도 말로 쓴다. 모델이 보는 KB 본문이 `summary` 뿐이라 구조화된 `deadline` 에만 적으면 「3영업일이 무슨 뜻이냐」에 답할 근거가 없어 되묻기로 빠졌다(배포본 2026-09-06). `common-relief-documents`(3영업일·14일 유예) · `common-debt-extinction-notice`(2개월) · `common-refund-decision`(14일) · `frozen-objection-file`(2개월) · `frozen-objection-result`(5영업일) 의 summary 를 그렇게 고치고 `kb-load.test.ts` 가 지킨다 | [research/01 §2.1](../docs/research/01-환급절차-기한.md) · [research/05](../docs/research/05-미확인-목록.md) |

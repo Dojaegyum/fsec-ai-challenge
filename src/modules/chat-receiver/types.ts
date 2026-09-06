@@ -51,7 +51,11 @@ export interface ModelReply {
  * 물어볼 이유가 없습니다 → 11-chat-context.md §1.
  */
 export interface LlmClient {
-  complete(prompt: { system: string; user: string }): Promise<ModelReply>
+  /** `opts.timeoutMs` — 이 턴에 남은 예산. 선별에 쓴 시간을 뺀 값이 온다 → ADR-089 ④ */
+  complete(
+    prompt: { system: string; user: string },
+    opts?: { timeoutMs?: number },
+  ): Promise<ModelReply>
 }
 
 /**
@@ -164,12 +168,54 @@ export interface PromptSource {
     }[]
     history: readonly { speaker: 'user' | 'assistant'; text: string }[]
     currentDate: string
+    /** 선별기가 고른 것 → §2.6 · 블록 6. 없으면 빈 배열 */
+    kbSelected?: readonly KbSelectedEntry[]
   }): {
     system: string
     user: string
     issued: readonly IssuedRef[]
-    counts: { applied: number; reference: number }
+    counts: { applied: number; reference: number; selected?: number }
   }
+}
+
+/** 선별기가 고른 항목 하나 — 프롬프트에 넣을 모양으로 이미 옮겨진 것 */
+export interface KbSelectedEntry {
+  readonly kind: 'kb' | 'org' | 'law'
+  readonly label: string
+  readonly body: string
+  /** 절차일 때만 — 인용 응답에 실린다 */
+  readonly kbEntryId?: string
+  readonly kbVersion?: string
+}
+
+/** 한 턴의 선별 계측 — 감사 `chat.selected` · `llm.called(select)` 로 간다 */
+export interface SelectionStats {
+  readonly pool: number
+  readonly groups: number
+  readonly rounds: number
+  readonly ms: number
+  readonly picked: readonly string[]
+  readonly calls: readonly { model: string | null; tokenIn: number | null; tokenOut: number | null }[]
+  readonly skipped?: string
+}
+
+/**
+ * 두 묶음 밖의 자료를 발화에 맞춰 고르는 자리 → ADR-089 · §2.6.
+ *
+ * **던지지 않는 것이 계약입니다.** 실패·시간 초과는 빈 `entries` 와 `stats.skipped` 로 온다.
+ * 넘기는 `history` 는 토큰화된 것이어야 한다 — 부르는 쪽이 순서로 지킨다.
+ */
+export interface SelectorSource {
+  select(input: {
+    history: readonly { speaker: 'user' | 'assistant'; text: string }[]
+    kbVersion: string
+    asOf: string
+    /** 이미 프롬프트에 든 절차의 열쇠 `kb:{kb_entry_id}` */
+    exclude: ReadonlySet<string>
+    /** 이 사건의 경유 기관·유형 — 후보 목록에 「이 사건의 기관」 표시를 붙이는 데 쓴다 */
+    orgId: string | null
+    channelId: string | null
+  }): Promise<{ entries: readonly KbSelectedEntry[]; stats: SelectionStats }>
 }
 
 /** 이번 턴에 발급한 참조 번호 하나 */
@@ -298,7 +344,9 @@ export interface TurnOutcome {
   /** 토큰화된 사용자 발화. `message` 에 저장할 것은 이쪽입니다 */
   readonly utteranceMasked: string
   /** 감사 로그(`chat.context_built`)에 넣을 건수. **여기서 쓰지 않습니다** → §7.2 */
-  readonly counts: { applied: number; reference: number; transcriptLines: number }
+  readonly counts: { applied: number; reference: number; selected: number; transcriptLines: number }
+  /** 선별기가 붙어 있었을 때만. 없으면 null — 감사에 아무것도 안 남긴다 */
+  readonly selection: SelectionStats | null
   /**
    * 이번 발화를 토큰화하며 **유형별로 몇 건**을 가렸나 → 08-14-api.md §1.1
    * (`X-Pii-Token-Count`).
@@ -327,7 +375,7 @@ export interface TurnOutcome {
 export interface KbContextRef {
   readonly kbEntryId: string
   readonly kbVersion: string
-  readonly group: 'applied' | 'reference'
+  readonly group: 'applied' | 'reference' | 'selected'
 }
 
 export interface ChatReceiver {

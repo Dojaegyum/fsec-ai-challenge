@@ -50,6 +50,15 @@ export interface HistoryTurn {
   readonly text: string
 }
 
+/** 선별기가 고른 항목 — 절차·기관 연락처·법령 조문. §2.6 · ADR-089 */
+export interface KbSelectedForPrompt {
+  readonly kind: 'kb' | 'org' | 'law'
+  readonly label: string
+  readonly body: string
+  readonly kbEntryId?: string
+  readonly kbVersion?: string
+}
+
 export interface PromptInput {
   readonly kbApplied: readonly KbEntryForPrompt[]
   readonly kbReference: readonly KbEntryForPrompt[]
@@ -59,6 +68,8 @@ export interface PromptInput {
   readonly history: readonly HistoryTurn[]
   /** "2026년 8월 18일" 처럼 이미 만들어진 문자열 */
   readonly currentDate: string
+  /** 블록 6 — 선별기가 고른 것. 없으면 블록 자체를 뺀다 → §2.6 · ADR-089 */
+  readonly kbSelected?: readonly KbSelectedForPrompt[]
 }
 
 /**
@@ -83,6 +94,7 @@ export interface IssuedRef {
 export interface PromptCounts {
   readonly applied: number
   readonly reference: number
+  readonly selected: number
   readonly talkLines: number
   readonly historyTurns: number
 }

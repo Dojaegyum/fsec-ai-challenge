@@ -1002,9 +1002,10 @@ CREATE INDEX idx_audit_type_time ON audit_log (event_type, created_at);
 | `slot.confirmed` | 슬롯 확정 | `{"slot_key":"channel"}` |
 | `plan.generated` | 플랜 생성 | `{"kb_version":"2026.08.1","steps":5}` |
 | `deadline.computed` | 기한 계산 | `{"kind":"primary","due_at":"..."}` |
-| `chat.context_built` | 챗 프롬프트 조립 | `{"applied":5,"reference":7,"kb_version":"...","transcript_lines":42}` |
+| `chat.context_built` | 챗 프롬프트 조립 | `{"applied":5,"reference":7,"selected":2,"kb_version":"...","transcript_lines":42}` |
+| `chat.selected` | 선별기가 고른 것 ([ADR-089](../../decisions/089-kb-selector.md)) · 선별 호출은 `llm.called` 에 `purpose: "select"` 로 따로 | `{"pool":152,"groups":6,"rounds":1,"picked":["kb-9","org-3"],"ms":4200}` |
 | `artifact.verified` | 부산물 검증 | `{"level":"L1","result":"passed"}` |
-| `llm.called` | LLM 호출 | `{"model":"...","token_in":1200}` |
+| `llm.called` | LLM 호출 — `purpose` 는 `answer`(답변) 또는 `select`(선별 · [ADR-089](../../decisions/089-kb-selector.md)) | `{"model":"...","purpose":"answer","token_in":1200}` |
 | `llm.failed` | LLM 을 불렀는데 답을 못 받음 — 시간 초과·닿지 못함(2026-09-06). `llm.called` 와 가릅니다: 답 없는 호출을 「불렀다」로 세지 않습니다 | `{"reason":"timeout","model":"..."}` |
 | `case.purged` | 파기 | `{"case_id":"..."}` |
 

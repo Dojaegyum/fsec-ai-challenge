@@ -62,7 +62,7 @@
 【층 2】 사용자가 말할 때마다 (매 턴)
 
    chat-receiver ─ 순서를 부르는 자리
-        └ pii-tokenizer → kb-finder → prompt-builder → [ 모델 1회 호출 ]
+        └ pii-tokenizer → kb-finder → kb-selector → prompt-builder → [ 답변 모델 1회 호출 ]
               → citation-checker → chat-publisher ─ 나가는 것을 마지막으로 만지는 자리
                     → (브라우저) pii-restorer
 
@@ -118,9 +118,10 @@
 
 | 이름 | 맡는 일 | 어디서 도나 | 관련 |
 | --- | --- | --- | --- |
-| `chat-receiver` | 발화를 받아 아래 셋을 순서대로 부르고 모델을 1회 호출한다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 하나 |
+| `chat-receiver` | 발화를 받아 아래 넷을 순서대로 부르고 답변 모델을 1회 호출한다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 하나 |
 | `pii-tokenizer` | 입력을 토큰화한다 (층 1과 같은 모듈) | 서버 | [04](08-14-pii-boundary.md) |
 | `kb-finder` | KB를 `applied`·`reference` 두 묶음으로 조회한다 | 서버 | [11](../backend/08-16-chat-context.md) §2 |
+| `kb-selector` | 토큰화된 발화를 보고 두 묶음 밖의 자료(다른 절차 · 기관 연락처 · 법령 조문)를 골라 셋째 묶음 `selected` 를 만든다. 답은 쓰지 않고 id 만 고른다 | 서버 | [11](../backend/08-16-chat-context.md) §2.6 · [ADR-089](../../decisions/089-kb-selector.md) |
 | `prompt-builder` | 7블록을 순서대로 조립하고 비신뢰 블록에 격리 태그를 씌운다 | 서버 | [11](../backend/08-16-chat-context.md) §3 §4 |
 | `citation-checker` | 인용 네 가지를 확인하고, 비었으면 **되묻기로 넘길지** 판정한다 | 서버 | [11](../backend/08-16-chat-context.md) §6 |
 | `chat-publisher` | 세 갈래를 한 형태로 씌우고, 판단 근거를 분리하고, 잔여 PII를 검사한다 | 서버 | [ADR-022](../../decisions/022-chat-turn-boundaries.md) 결정 둘 |
@@ -138,7 +139,7 @@
 **`citation-checker`와 `chat-publisher`의 경계** — 어느 갈래인지 **판정**하는 것은 `citation-checker`,
 그 갈래를 **형태로 옮기는** 것은 `chat-publisher`입니다. 판정이 뒤로 새면 갈래가 두 곳에서 결정됩니다.
 
-**모델 호출은 한 번이고 모델은 도구를 부르지 않습니다.** 조회 조건은 서버가 전부 알고 있습니다 → [11](../backend/08-16-chat-context.md) §1.
+**답변 모델 호출은 한 번이고 모델은 도구를 부르지 않습니다.** 조회 조건은 서버가 전부 알고 있습니다 → [11](../backend/08-16-chat-context.md) §1. `kb-selector` 의 호출은 답변이 아니라 자료 고르기라 따로 셉니다 → [ADR-089](../../decisions/089-kb-selector.md).
 
 > ⚠️ **`pii-restorer`는 이 표에서 유일하게 서버 모듈이 아닙니다.** 복원 여부 검사도, 실제 복원도 브라우저에서 일어납니다. 서버는 토큰 상태 그대로 내려보내고 끝입니다 — 복호화 키가 없어 복원 자체가 불가능합니다 → [04](08-14-pii-boundary.md) · [ADR-009](../../decisions/009-restore-mapping-location.md).
 >

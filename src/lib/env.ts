@@ -22,6 +22,9 @@ export const ENV_KEYS = [
   'LLM_BASE_URL',
   'LLM_MODEL',
   'LLM_API_KEY',
+  // 선별기(kb-selector) 전용 모델과 상한 → ADR-089. 모델이 비면 선별기가 꺼집니다
+  'LLM_SELECT_MODEL',
+  'LLM_SELECT_TIMEOUT_MS',
   // 관리자 화면은 폐기됐습니다(ADR-068). 이 이름만 문지기(session-cookie.ts)가 읽는 자리라
   // 남고, `ADMIN_USERNAME` 은 읽는 코드가 없어 2026-09-06 에 뺐습니다
   'ADMIN_PASSWORD_HASH',

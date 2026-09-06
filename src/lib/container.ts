@@ -28,7 +28,8 @@ import { createHash } from 'node:crypto'
 
 import 'server-only'
 
-import { asAuditSink, asKbSource, asRetryJudge } from './adapters'
+import { asAuditSink, asKbSource, asRetryJudge, asSelectorSource } from './adapters'
+import { createSelectorPool, type SelectorPool } from './db-selector'
 import { serverClock } from './clock'
 import { readEnv, type Env } from './env'
 import { linkTokenSource, newUlid, ulidSource } from './ids'
@@ -38,7 +39,7 @@ import { unconfigured } from './not-configured'
 import { createInferenceEngines } from './inference'
 import { createNerModel } from './ner'
 import { createHolidayCalendar } from './holidays'
-import { createLlmClient, type TextLlmClient } from './llm'
+import { createLlmClient, createSelectLlmClient, type TextLlmClient } from './llm'
 import { createMailer } from './mailer'
 import { createQuestionSource } from './questions'
 import {
@@ -117,6 +118,8 @@ import type { ReceiptNumberFormat } from '@/modules/completion-checker'
 import { createDateChecker } from '@/modules/date-checker'
 import type { HolidayCalendar } from '@/modules/date-checker'
 import { createKbFinder } from '@/modules/kb-finder'
+import { createKbSelector } from '@/modules/kb-selector'
+import type { KbSelector, SelectorLlm } from '@/modules/kb-selector'
 import type { KbStore } from '@/modules/kb-finder'
 import { createPlanner } from '@/modules/planner'
 import { createPromptBuilder } from '@/modules/prompt-builder'
@@ -214,6 +217,13 @@ export interface Ports {
    * 챗 전용 형식에 묶입니다.
    */
   readonly llm: TextLlmClient
+  /**
+   * 선별 전용 모델 → ADR-089. `LLM_SELECT_MODEL` 이 비면 `null` — 선별기가 꺼지고 챗은
+   * 두 묶음만으로 갑니다(지금까지와 같음). 대역을 두지 않는 이유는 있으면 좋은 것이라서입니다
+   */
+  readonly selectLlm: SelectorLlm | null
+  /** 선별 후보 풀 — 절차 전부 · 기관 연락처 · 법령 조문. DB 가 없으면 `null` */
+  readonly selectorPool: SelectorPool | null
   /** 메일 발송 */
   readonly mailer: Mailer
   /** 접수번호 형식 */
@@ -469,6 +479,8 @@ export function unconfiguredPorts(env: Env): Ports {
     // 우리가 돌리는 모델이면 원문이 안 나가고, 원격 API 면 나갑니다
     ...readingEngines(env),
     llm: createLlmClient(env) ?? unconfigured('LlmClient', ['XAI_API_KEY']),
+    selectLlm: createSelectLlmClient(env),
+    selectorPool: sql ? createSelectorPool(sql) : null,
     // **Brevo 입니다** (2026-09-01 결정 → mailer.ts 머리말). 열쇠·발신자·
     // 링크 밑동 셋이 다 있어야 붙고, 하나라도 비면 not-configured 로 정직하게
     // 꺼집니다 — 크론은 그래도 돌고, 보낼 사건이 `failed` 로 남습니다(§6.2)
@@ -583,6 +595,8 @@ export interface Container {
   /** 전사·판독. **격리 경계 이전이라 결과가 원문입니다** — 저장·송출 전에 토큰화 필수 */
   readonly transcriber: ReturnType<typeof createTranscriber>
   readonly kbFinder: ReturnType<typeof createKbFinder>
+  /** 선별기 → ADR-089. `selectLlm` 이 없으면 `null` */
+  readonly kbSelector: KbSelector | null
   readonly planner: ReturnType<typeof createPlanner>
   readonly dateChecker: ReturnType<typeof createDateChecker>
   readonly slotChecker: ReturnType<typeof createSlotChecker>
@@ -626,6 +640,18 @@ export function createContainer(
     newId: () => ulidSource.next(),
   })
   const kbFinder = createKbFinder({ store: ports.kbStore })
+  // 선별기 — 모델이 있을 때만. 상한은 환경변수, 나머지는 모듈 기본값(ADR-089 ③ ④)
+  const kbSelector = ports.selectLlm
+    ? createKbSelector({
+        llm: ports.selectLlm,
+        clock,
+        options: {
+          ...(env.values.LLM_SELECT_TIMEOUT_MS
+            ? { timeoutMs: Number(env.values.LLM_SELECT_TIMEOUT_MS) }
+            : {}),
+        },
+      })
+    : null
   // 기관 표를 두 곳이 씁니다 — 사건의 경유 서비스 기록과 **토큰화 제외 목록**.
   // 한 번만 세워 같은 것을 넘깁니다
   const channels = channelWriter(env)
@@ -679,6 +705,7 @@ export function createContainer(
     }),
 
     kbFinder,
+    kbSelector,
     dateChecker,
     planner: createPlanner({ clock }),
     // 문구가 없어도 던지지 않습니다 → questions.ts
@@ -699,6 +726,10 @@ export function createContainer(
       // 인자 넓이가 서로 반대라 좁혀 넘깁니다 → adapters.ts
       retry: asRetryJudge(retryChecker),
       clock,
+      // 두 묶음 밖의 자료를 발화에 맞춰 — 모델과 풀이 둘 다 있을 때만(ADR-089)
+      ...(kbSelector && ports.selectorPool
+        ? { selector: asSelectorSource(kbSelector, ports.selectorPool) }
+        : {}),
     }),
     // 토큰화할 때 한 번, 나갈 때 한 번 — **같은 규칙으로** 봅니다.
     // 다르면 한쪽이 조용히 새는 쪽이 됩니다

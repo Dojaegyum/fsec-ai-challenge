@@ -3,7 +3,7 @@
 **폴더 이름은 여기서 정하지 않습니다.** [모듈 명칭](../../spec/common/08-16-module-names.md)이 정본이고,
 이 폴더의 이름들은 거기서 온 것입니다 → [ADR-019](../../decisions/019-module-code-sync.md).
 
-**서른둘 전부 코드가 있습니다** (2026-09-04 확인 — 폴더마다 `index.ts`·`types.ts`·`README.md`).
+**서른셋 전부 코드가 있습니다** (2026-09-04 확인 — 폴더마다 `index.ts`·`types.ts`·`README.md`).
 ~~대부분은 아직 껍데기(`.gitkeep`)입니다.~~ 마지막 껍데기였던 `doc-filler` 는 [ADR-064](../../decisions/064-doc-filler-retired.md) 로
 폴더째 폐기됐습니다 — 정본도 32 입니다.
 
@@ -17,7 +17,7 @@
 | 층 | 모듈 | 조립 (2026-09-06) |
 | --- | --- | --- |
 | 1 · 증거가 들어올 때 | `case-intake` `transcriber` `pii-tokenizer` `case-reader` `slot-extractor` | `case-reader` 는 **아무 데서도 안 부릅니다**. ~~`slot-extractor` 는 `lib/questions.ts` 가 타입만 씁니다 — 코드는 있고 배선이 없습니다~~ → **배선됨**(2026-09-04 · [ADR-069](../../decisions/069-evidence-slot-extraction.md)) — `flows/read-evidence.ts` 가 토큰화 뒤에 `createSlotExtractor` 를 부릅니다 |
-| 2 · 사용자가 말할 때 | `chat-receiver` `kb-finder` `prompt-builder` `citation-checker` `chat-publisher` · `pii-restorer`(브라우저) | 전부 배선됨 |
+| 2 · 사용자가 말할 때 | `chat-receiver` `kb-finder` `kb-selector` `prompt-builder` `citation-checker` `chat-publisher` · `pii-restorer`(브라우저) | 전부 배선됨 — `kb-selector` 는 2026-09-06([ADR-089](../../decisions/089-kb-selector.md)) · `LLM_SELECT_MODEL` 이 비면 꺼진 채로 돕니다 |
 | 3 · 사건 상태가 바뀔 때 | `slot-checker` `planner` `date-checker` `completion-checker` `doc-builder` | `doc-builder` 는 **아무 데서도 안 부릅니다** — 기재 안내 화면(S-10)은 셸 `src/app/c/[token]/doc.tsx` 가 `GET …/doc-guide` 계약 없이 서 있습니다(ADR-064) |
 | 4 · 하루 1회 | `kb-collector` `kb-reviewer` `reminder-sender` `case-purger` | ~~`kb-collector`·`kb-reviewer` 는 **아무 데서도 안 부릅니다**~~ → **배선됨**(2026-09-06 · [ADR-072](../../decisions/072-law-collection-wired.md)) — `kb-collector` 는 크론 `/api/cron/kb-collect` 와 CLI `npm run kb:collect`(`scripts/kb-collect.ts`), `kb-reviewer` 는 CLI `npm run kb:review`(`scripts/kb-review.ts`) 가 부릅니다(둘 다 `lib/container.ts` 경유). 크론 셋은 `/api/cron/reminders`·`/api/cron/purge`·`/api/cron/kb-collect` |
 | 층 없음 | `retry-checker` `audit-logger` | 배선됨 |

@@ -31,7 +31,8 @@
 ```
 1. pii-tokenizer     개인정보를 토큰으로        ← 격리 경계
 2. kb-finder         두 묶음으로 조회
-3. prompt-builder    블록 여섯을 조립
+2'. kb-selector      두 묶음 밖의 자료를 발화에 맞춰 (있을 때만 · ADR-089)
+3. prompt-builder    블록 일곱을 조립
 4. 모델 1회 호출
 5. citation-checker  인용 검증
 ```

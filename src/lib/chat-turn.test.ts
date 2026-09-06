@@ -733,7 +733,8 @@ function turnOf(over: Partial<TurnOutcome> = {}): TurnOutcome {
     kbContextRefs: [],
     promptMasked: '(프롬프트 전문)',
     utteranceMasked: '이제 뭘 하죠',
-    counts: { applied: 5, reference: 7, transcriptLines: 42 },
+    counts: { applied: 5, reference: 7, selected: 0, transcriptLines: 42 },
+    selection: null,
     // 계측 헤더가 이 값으로 섭니다 → §1.1 · `X-Pii-Token-Count`
     piiCounts: { account: 1 },
     // 서버가 이번 발화에서 막 만든 대응표 — 기본은 「없음」
@@ -1087,6 +1088,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
 
     const llm = one.audits.find((row) => row.eventType === 'llm.called')
     expect(llm?.detail).toEqual({
+      purpose: 'answer',
       attempts: 1,
       model: 'grok-4.5',
       token_in: 1200,
@@ -1101,7 +1103,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     await runTurn(one)
 
     const llm = one.audits.find((row) => row.eventType === 'llm.called')
-    expect(llm?.detail).toEqual({ attempts: 1 })
+    expect(llm?.detail).toEqual({ purpose: 'answer', attempts: 1 })
   })
 
 
@@ -1112,6 +1114,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     expect(one.audits[0]?.detail).toEqual({
       applied: 5,
       reference: 7,
+      selected: 0,
       kb_version: KB_VERSION,
       transcript_lines: 42,
     })
@@ -1121,7 +1124,7 @@ describe('모델 호출이 감사에 남는다 — 11-chat-context.md §7.2 · 0
     const one = chatHarness({ turn: turnOf({ attempts: 2 }) })
     await runTurn(one)
 
-    expect(one.audits[1]?.detail).toEqual({ attempts: 2 })
+    expect(one.audits[1]?.detail).toEqual({ purpose: 'answer', attempts: 2 })
     // 모델이 답한 줄이라 행위자가 `model` 입니다 → §10 `actor_type`
     expect(one.audits[1]?.actorType).toBe('model')
   })
@@ -1518,5 +1521,64 @@ describe('진술에서도 슬롯을 뽑는다 — 응답 뒤에 (ADR-087)', () =
     const got = await chatTurn({ caseId: CASE_ID, content: SAID }, one.container)
 
     await expect(got.deferred()).resolves.toBeUndefined()
+  })
+})
+
+describe('선별이 감사에 남는다 — ADR-089 ⑦ · 09 §10.2', () => {
+  it('호출마다 llm.called(select), 한 턴에 chat.selected 하나, 답변은 llm.called(answer)', async () => {
+    const one = chatHarness({
+      turn: turnOf({
+        counts: { applied: 5, reference: 7, selected: 2, transcriptLines: 42 },
+        selection: {
+          pool: 150,
+          groups: 2,
+          rounds: 1,
+          ms: 4_200,
+          picked: ['kb:card-freeze', 'org:kb-bank'],
+          calls: [
+            { model: 'fast', tokenIn: 900, tokenOut: 20 },
+            { model: 'fast', tokenIn: 850, tokenOut: 18 },
+            { model: 'fast', tokenIn: 400, tokenOut: 30 },
+          ],
+        },
+      }),
+    })
+    await runTurn(one)
+
+    expect(one.audits.map((row) => row.eventType)).toEqual([
+      'chat.context_built',
+      'llm.called',
+      'llm.called',
+      'llm.called',
+      'chat.selected',
+      'llm.called',
+    ])
+    expect(one.audits[0]?.detail).toMatchObject({ selected: 2 })
+    expect(one.audits[1]?.detail).toEqual({ purpose: 'select', model: 'fast', token_in: 900, token_out: 20 })
+    expect(one.audits[4]?.detail).toEqual({
+      pool: 150,
+      groups: 2,
+      rounds: 1,
+      picked: ['kb:card-freeze', 'org:kb-bank'],
+      ms: 4_200,
+    })
+    expect(one.audits[4]?.actorType).toBe('system')
+    expect(one.audits[5]?.detail).toMatchObject({ purpose: 'answer' })
+  })
+
+  it('선별이 건너뛰어졌으면 그 이유가 남는다 — 호출 없이 chat.selected 만', async () => {
+    const one = chatHarness({
+      turn: turnOf({
+        selection: { pool: 150, groups: 2, rounds: 0, ms: 10_000, picked: [], calls: [], skipped: 'timeout' },
+      }),
+    })
+    await runTurn(one)
+
+    expect(one.audits.map((row) => row.eventType)).toEqual([
+      'chat.context_built',
+      'chat.selected',
+      'llm.called',
+    ])
+    expect(one.audits[1]?.detail).toMatchObject({ skipped: 'timeout', picked: [] })
   })
 })
