@@ -721,11 +721,18 @@ function CaseScreen({
           레일은 문진 중에도 서 있습니다 — 사건 파일이 그 자리에서 채워지는 것이
           보여야 화면 구조가 처음부터 보입니다(문진 중 왼쪽이 통째로 비어
           「TODO·WS 를 볼 수 없다」는 지적이 같은 날 세 번 나왔습니다) */}
+      {/* 열 폭은 **폭에 맞춰 둘 → 셋**입니다. 고정폭 350·330 을 md(768)부터 세 열로 펴면
+          아이패드 폭(768~1100)에서 가운데 본문이 88~344px 로 찌그러져 전사문이 한 줄에
+          두세 글자씩 흘러내렸습니다(2026-09-06 배포본 점검 · 페이지 높이 13,085px).
+          md 에서는 레일 + 본문 두 열이고 미니 챗은 **아래로 한 줄 전체**를 차지하며,
+          xl(1280)부터 세 열 — lg(1024)에서 세 열로 펴면 양 옆이 `minmax` 여도 본문이
+          344px 까지 내려가서(2026-09-07 로컬 실측) 1024~1279 도 두 열로 둡니다.
+          세 열에서는 본문이 600px 아래로 내려가지 않습니다 */}
       <div
         className={`mx-auto grid w-full max-w-shell flex-1 gap-0 ${
           chatIsMain
-            ? "md:grid-cols-[350px_minmax(0,1fr)]"
-            : "md:grid-cols-[350px_minmax(0,1fr)_330px]"
+            ? "md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:grid-cols-[350px_minmax(0,1fr)]"
+            : "md:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] xl:grid-cols-[minmax(280px,350px)_minmax(0,1fr)_minmax(260px,330px)]"
         }`}
       >
         {/* ── 왼쪽 레일 — 위에서부터 워크스페이스 · 할 일 · 사건 파일.
@@ -959,10 +966,12 @@ function CaseScreen({
             챗 단독인 열이라 위아래 경계 상자를 두지 않습니다(2026-09-03 사용자
             확정) — 열 전체가 챗이고, 뷰포트 높이에 붙여 컴포저가 늘 손에 있습니다 */}
         {!chatIsMain && (
-          <aside className="order-2 flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:my-[clamp(14px,2vh,22px)] md:mr-[clamp(10px,1.2vw,18px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)]">
+          // md·lg(두 열)에서는 한 줄 전체(`col-span-2`)로 아래에 서고, xl 부터 셋째 열로
+          // 올라갑니다 — 붙박이(sticky)·뷰포트 높이는 열로 섰을 때(xl)만 뜻이 있습니다
+          <aside className="order-2 flex min-w-0 flex-col border-t border-hairline bg-stage p-[clamp(16px,3vw,20px)] md:order-none md:col-span-2 md:mx-[clamp(10px,1.2vw,18px)] md:my-[clamp(14px,2vh,22px)] md:rounded-[18px] md:border-t-0 md:shadow-[0_1px_0_oklch(1_0_0/6%)_inset,0_16px_40px_-18px_oklch(0_0_0/70%)] xl:col-span-1 xl:ml-0 xl:mr-[clamp(10px,1.2vw,18px)]">
             {/* **셸이 든 대화 한 벌을 그대로 내려줍니다** — 본문 챗과 같은 것을
                 봐야 두 자리가 어긋나지 않습니다. 문진도 여기 뜹니다 */}
-            <div className="flex min-h-[320px] flex-1 flex-col md:sticky md:top-[clamp(14px,2vh,22px)] md:h-[calc(100svh-130px)] md:flex-none">
+            <div className="flex min-h-[320px] flex-1 flex-col xl:sticky xl:top-[clamp(14px,2vh,22px)] xl:h-[calc(100svh-130px)] xl:flex-none">
               <MiniChat chat={chat} token={dataToken} />
             </div>
           </aside>
