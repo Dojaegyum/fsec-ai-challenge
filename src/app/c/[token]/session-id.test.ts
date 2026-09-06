@@ -6,9 +6,9 @@
  * 값이 요청마다 바뀌면 세는 단위가 요청이 되어 제한이 뜻을 잃고, 아예 안 붙으면
  * 서버가 IP 로 세어 **한 NAT 뒤의 사용자들이 한 통에 들어갑니다**(ADR-085).
  *
- * **jsdom 을 안 씁니다.** 이 모듈이 만지는 것은 `globalThis` 의 둘(`sessionStorage`·
- * `crypto`)뿐이라 대역을 끼우면 그대로 보입니다 — 환경 준비에 30초를 쓰지 않습니다
- * (`vitest.config.mts` 의 「상호작용을 봐야 하는 파일만」).
+ * **jsdom 을 안 씁니다.** 이 모듈이 만지는 것은 `globalThis` 의 셋(`window`·
+ * `sessionStorage`·`crypto`)뿐이라 대역을 끼우면 그대로 보입니다 — 환경 준비에
+ * 30초를 쓰지 않습니다 (`vitest.config.mts` 의 「상호작용을 봐야 하는 파일만」).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +34,9 @@ async function fresh() {
 }
 
 beforeEach(() => {
+  // 이 모듈은 **탭이 있을 때만** 값을 만듭니다 — 서버에서 만들면 한 프로세스가
+  // 한 값을 나눠 써 세션당 상한이 서버당 상한이 됩니다
+  vi.stubGlobal("window", {});
   vi.stubGlobal("sessionStorage", fakeStorage());
 });
 
@@ -86,12 +89,20 @@ describe("탭 하나에 값 하나 — §1", () => {
     expect(sessionId()).toBe(first);
   });
 
-  /** 보관소가 아예 없는 자리(서버 렌더)에서도 던지지 않습니다 */
+  /** 보관소를 안 여는 브라우저에서도 던지지 않습니다 */
   it("sessionStorage 가 없어도 값은 나온다", async () => {
     vi.stubGlobal("sessionStorage", undefined);
     const { sessionId } = await fresh();
 
     expect(sessionId()).toMatch(UUID);
+  });
+
+  /** 탭이 없는 자리(서버 렌더)에서는 만들지 않습니다 — 한 값을 여럿이 나눠 쓰면 안 됩니다 */
+  it("브라우저 밖에서는 null 이다", async () => {
+    vi.stubGlobal("window", undefined);
+    const { sessionId } = await fresh();
+
+    expect(sessionId()).toBeNull();
   });
 
   /** 만들 수 없는 자리(옛 브라우저)에서는 헤더를 안 붙이고 서버가 IP 로 셉니다 */

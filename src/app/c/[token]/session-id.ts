@@ -63,11 +63,16 @@ function writeStored(value: string): void {
 /**
  * 새 값 하나.
  *
- * **못 만들면 `null` 입니다** — 서버 렌더(`sessionStorage` 도 `crypto` 도 없는 자리)와
- * `randomUUID` 가 없는 오래된 브라우저입니다. 그때는 헤더를 안 붙이고 서버가 IP 로
- * 셉니다 — 지금까지의 동작 그대로라 새로 깨지는 것이 없습니다.
+ * **못 만들면 `null` 입니다** — 그때는 헤더를 안 붙이고 서버가 IP 로 셉니다.
+ * 지금까지의 동작 그대로라 새로 깨지는 것이 없습니다.
+ *
+ * ⚠️ **브라우저 밖에서는 안 만듭니다.** 서버에서 만들면 위 `cached` 가 그 프로세스의
+ * 것이라 **모든 사용자가 한 값을 나눠 쓰게** 되고, 세션당 300회가 서버 하나당 300회가
+ * 됩니다 — 지금은 부르는 자리가 전부 `"use client"` 지만, 이 함수가 서버에서 도는
+ * 순간 조용히 그렇게 됩니다. 탭이 없으면 세션도 없습니다.
  */
 function create(): string | null {
+  if (typeof window === "undefined") return null;
   return typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : null;
 }
 
