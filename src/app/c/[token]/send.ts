@@ -166,6 +166,8 @@ async function screenAndSeal(input: {
   //     볼트 POST 보다 **앞**입니다 — 걸리면 네트워크 호출이 정말 0회입니다.
   //     실패 문구에 원문을 싣지 않습니다. (2026-09-03 까지는 이 함수가 선언만
   //     있고 호출이 없었습니다)
+  //     4자 미만 원문은 검산에서 빠집니다 → ADR-081 (`mask.ts` 의 `assertNoLeak`).
+  //     여기서 거르지 않는 것은 그 판단이 검산 함수 하나에 있어야 하기 때문입니다
   const firstPass = out.mappings.filter((m) => FIRST_PASS_KINDS.has(m.kind));
   try {
     assertNoLeak(out.content, firstPass);
