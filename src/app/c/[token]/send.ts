@@ -786,8 +786,20 @@ export function useChatSend(
       // 함께 그리고(카드가 있으면 선택지·입력칸을 안 그립니다) 새 질문에는
       // 답할 수단이 없습니다. 아래 `put` 이 답을 제 슬롯으로 보내더라도 이
       // 어긋남은 남습니다 — 「되묻기가 오면 질문은 그대로 둔다」는 규칙이
-      // 발화 쪽에도 있어야 합니다
-      if (confirmRef.current === null) moveQuestion(result.turn.question, "local");
+      // 발화 쪽에도 있어야 합니다.
+      //
+      // **발화 응답의 `null` 이나 같은 문항으로는 옮기지 않습니다.** 발화는 슬롯을
+      // 바로 채우지 않으므로(추출은 응답 뒤 · ADR-087) 그 응답의 문항은 「방금 것
+      // 그대로」이거나, 안내 갈래(1332 등)에서는 `null` 입니다 — 둘 다 답한 게
+      // 아닙니다. 여기서 옮기면 떠 있던 문항을 「답한 것」으로 적어, 뒤에 오는
+      // 번들이 그 문항을 되살리지 못합니다(검토 2회차)
+      const spoken = result.turn.question;
+      if (
+        confirmRef.current === null &&
+        spoken !== null &&
+        questionSig(spoken) !== questionSig(questionRef.current)
+      )
+        moveQuestion(spoken, "local");
       return true;
     },
     [absorb, caseToken, mappings, moveQuestion, onReferenced, sending, store, vaultRead],
@@ -890,7 +902,9 @@ export function useChatSend(
     if (sig === questionSig(questionRef.current)) return;
     if (confirmRef.current !== null) return;
     moveQuestion(firstQuestion, "bundle");
-  }, [firstQuestion, moveQuestion]);
+    // `confirm` 은 카드가 닫힌 뒤 한 번 더 보게 하려고 든 것입니다 — 카드가 떠 있어
+    // 미룬 번들 문항을 카드가 닫힐 때 붙입니다
+  }, [firstQuestion, moveQuestion, confirm]);
 
   const ask = useMemo<SlotAsk>(
     () => ({
