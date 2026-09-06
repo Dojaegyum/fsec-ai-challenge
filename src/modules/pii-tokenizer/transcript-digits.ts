@@ -245,6 +245,19 @@ function groupBySentence(
 }
 
 /**
+ * 자기 토큰을 갖는 덩어리의 최소 자릿수 → ADR-081.
+ *
+ * **판정(`kindOf`·자릿수 세기)에는 모든 덩어리가 참여합니다.** 여기서 거르는 것은
+ * 「이 덩어리가 제 자리를 갖는가」뿐입니다 — 세는 데서까지 빼면 경계에 걸친 묶음이
+ * 통째로 안 가려집니다.
+ *
+ * 한 자리를 뺀 이유는 그것이 개인정보 원문이 될 수 없기 때문입니다. 2026-09-06
+ * 배포본 QA 에서 「8」 한 자리가 `[주민번호-1]` 의 원문이 되어 브라우저에 건너갔고,
+ * 그 뒤 그 기기에서는 8 이 든 글이 전부 누출 검산에 걸려 막혔습니다.
+ */
+export const MIN_DIGIT_RUN = 2
+
+/**
  * 묶음을 **실제로 가릴 자리**로 나눈다.
  *
  * 자릿수를 세는 것은 묶음 단위이지만, **가리는 것은 붙어 있는 조각 단위**입니다.
@@ -253,6 +266,10 @@ function groupBySentence(
  * 만드는 중에 확인했습니다.
  *
  * 사이에 글자나 한글이 있으면 다른 조각으로 봅니다. 구분자·공백뿐이면 한 조각입니다.
+ *
+ * ⚠️ **건너뛴 짧은 덩어리는 `between` 에 숫자로 남아 그 자리를 가릅니다** — 앞뒤가
+ * 구분자로만 이어져 있어도 두 조각이 됩니다. 그것이 의도입니다: 한 자리는 평문으로
+ * 남되 그 자리 하나뿐이고, 양옆의 진짜 번호는 그대로 가려집니다.
  */
 function toSpans(
   text: string,
@@ -261,11 +278,15 @@ function toSpans(
   kind: TokenKind,
 ): DigitSpan[] {
   const spans: DigitSpan[] = []
-  let start = runs[group[0]].start
-  let end = runs[group[0]].end
+  // 짧은 덩어리는 자기 자리를 갖지 않습니다 → 위 `MIN_DIGIT_RUN` (ADR-081)
+  const eligible = group.filter((i) => runs[i].value.length >= MIN_DIGIT_RUN)
+  if (eligible.length === 0) return spans
 
-  for (let k = 1; k < group.length; k += 1) {
-    const run = runs[group[k]]
+  let start = runs[eligible[0]].start
+  let end = runs[eligible[0]].end
+
+  for (let k = 1; k < eligible.length; k += 1) {
+    const run = runs[eligible[k]]
     const between = text.slice(end, run.start)
     if (/^[^0-9A-Za-z가-힣]*$/.test(between)) {
       end = run.end
