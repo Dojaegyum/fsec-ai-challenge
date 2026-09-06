@@ -76,6 +76,12 @@ export type SendResult =
       readonly mappings: PiiMapping[];
       /** 볼트를 확인한 채로 끝났나 — 부른 쪽이 다음 턴에 그대로 넘깁니다 */
       readonly vaultRead: boolean;
+      /**
+       * 서버 2차가 이번 발화에서 막 만든 대응표 — 원문 포함 → §3.9 `pii_mappings` · ADR-075.
+       * 부른 쪽(훅)이 `absorb` 로 봉해 맡깁니다. **이 응답 한 번뿐입니다** — 서버는
+       * 보관하지 않습니다. 없으면 빈 배열입니다
+       */
+      readonly fresh: PiiMapping[];
     }
   | { readonly ok: false; readonly stage: SendStage; readonly fail: LoadFail };
 
@@ -242,13 +248,28 @@ export async function sendUtterance(input: {
   );
   if (!said.ok) return { ok: false, stage: "message", fail: said.fail };
 
-  // ④ 화면에 그릴 때 원문으로 되돌립니다 — **종류별 부분 복원**입니다.
-  //    계좌는 `국민 ****7890`, 주민번호는 복원하지 않습니다 (§3.9)
+  const response = said.json as ChatResponse;
+
+  // ④ 서버 2차가 이번 발화에서 막 만든 대응표 — **이 응답 한 번뿐입니다** (ADR-075).
+  //    원문이 빈 것은 짝이 아닙니다. `kind` 는 서버 종류(`이름`)가 섞여 오는데 브라우저
+  //    1차는 자기 넷만 보므로(`FIRST_PASS_KINDS`) 문맥에 섞여도 가리거나 검산하지 않습니다
+  const fresh: PiiMapping[] = (response.pii_mappings ?? [])
+    .filter((one) => typeof one.original === "string" && one.original.length > 0)
+    .map((one) => ({
+      token: one.token,
+      kind: one.kind as PiiMapping["kind"],
+      seq: one.seq,
+      original: one.original,
+    }));
+
+  // ⑤ 화면에 그릴 때 원문으로 되돌립니다 (ADR-034). **방금 받은 대응표도 합칩니다** —
+  //    비서가 「[이름-1]님」이라고 답했으면 새로고침 전에도 이름으로 보여야 합니다
   return {
     ok: true,
-    turn: toTurn(said.json as ChatResponse, out.mappings),
+    turn: toTurn(response, mergeContext(out.mappings, fresh)),
     mappings: out.mappings,
     vaultRead: out.vaultRead,
+    fresh,
   };
 }
 
@@ -592,6 +613,46 @@ export function useChatSend(
     };
   }, [caseToken, store]);
 
+  /**
+   * 서버가 만든 대응표를 봉해 맡기고, 화면·발화 문맥에 합칩니다 → ChatSend.absorb.
+   * 전사 폴링 응답(ADR-062)과 챗 응답(ADR-075)이 **같은 길**로 들어옵니다 —
+   * 그래서 `send` 보다 앞에 섭니다
+   */
+  const absorb = useCallback(
+    async (fresh: readonly PiiMapping[]): Promise<boolean> => {
+      // 원문이 빈 것은 짝이 아닙니다 — 빈칸을 합치면 복원 목록이 어지럽습니다
+      const usable = fresh.filter((one) => (one.original ?? "").length > 0);
+      if (!caseToken || usable.length === 0) return false;
+
+      // **화면 먼저** 합칩니다 — 맡기기가 실패해도 이번 세션에서는 보여야 합니다.
+      // 기회가 한 번뿐이라(서버가 보관하지 않습니다) 버리는 쪽이 더 나쁩니다
+      setMappings((prev) => mergeContext(prev, usable));
+      setRestorable((prev) => {
+        const taken = new Set(prev.map((m) => m.token));
+        return [
+          ...prev,
+          ...usable
+            .filter((m) => !taken.has(m.token))
+            .map((m) => ({ token: m.token, original: m.original })),
+        ];
+      });
+
+      // 봉해서 맡깁니다 — 진술의 `screenAndSeal` 과 같은 길입니다
+      try {
+        const session = await loadOrCreateKey(store, caseToken, createSessionKey);
+        const entries = await sealAll(session, [...usable]);
+        const kept = await postJson(
+          `/api/cases/${encodeURIComponent(caseToken)}/vault`,
+          { entries },
+        );
+        return kept.ok;
+      } catch {
+        return false;
+      }
+    },
+    [caseToken, store],
+  );
+
   /** 보냈나 — **부른 쪽이 입력칸을 비울지 정하는 데 씁니다.** 실패했는데 비우면
    *  사용자가 방금 쓴 글을 통째로 다시 타이핑해야 합니다 */
   const send = useCallback(
@@ -640,6 +701,10 @@ export function useChatSend(
       // 여기서 다시 물어봤을 수 있습니다 — 확인했으면 다음 턴은 그냥 이어 씁니다
       setVaultRead(result.vaultRead);
       setLines((prev) => [...prev, { who: "ai", ...result.turn }]);
+      // 서버 2차가 막 만든 대응표는 **이 응답 한 번뿐**입니다 — 전사 경로와 같은
+      // `absorb` 로 봉해 맡기고 복원 목록에 합칩니다 (ADR-075). 안 하면 새로고침 뒤
+      // 내 말풍선의 이름이 `[이름-1]` 로 굳습니다. 맡기기가 실패해도 화면에는 합쳐집니다
+      if (result.fresh.length > 0) await absorb(result.fresh);
       // 「지급정지부터 하세요」라고 답했으면 그 단계의 작업 자리가 열려야 합니다.
       // **비어 있어도 부릅니다** — 「감사합니다」 같은 답에서는 비고, 그때
       // 패널을 그대로 두는 것이 부르는 쪽의 규칙입니다(`applySignal`)
@@ -656,7 +721,7 @@ export function useChatSend(
       if (confirmRef.current === null) setQuestion(result.turn.question);
       return true;
     },
-    [caseToken, mappings, onReferenced, sending, store, vaultRead],
+    [absorb, caseToken, mappings, onReferenced, sending, store, vaultRead],
   );
 
   /** 답 하나를 보내고 화면 상태를 옮깁니다 — 세 입구(`answer`·`skip`·`resolve`)가 함께 씁니다 */
@@ -711,42 +776,6 @@ export function useChatSend(
       if (result.response.plan_regenerated) onPlanChanged?.();
     },
     [asking, caseToken, holdConfirm, mappings, onPlanChanged, question, store, vaultRead],
-  );
-
-  /** 전사가 만든 대응표를 봉해 맡기고, 화면·발화 문맥에 합칩니다 → ChatSend.absorb */
-  const absorb = useCallback(
-    async (fresh: readonly PiiMapping[]): Promise<boolean> => {
-      // 원문이 빈 것은 짝이 아닙니다 — 빈칸을 합치면 복원 목록이 어지럽습니다
-      const usable = fresh.filter((one) => (one.original ?? "").length > 0);
-      if (!caseToken || usable.length === 0) return false;
-
-      // **화면 먼저** 합칩니다 — 맡기기가 실패해도 이번 세션에서는 보여야 합니다.
-      // 기회가 한 번뿐이라(서버가 보관하지 않습니다) 버리는 쪽이 더 나쁩니다
-      setMappings((prev) => mergeContext(prev, usable));
-      setRestorable((prev) => {
-        const taken = new Set(prev.map((m) => m.token));
-        return [
-          ...prev,
-          ...usable
-            .filter((m) => !taken.has(m.token))
-            .map((m) => ({ token: m.token, original: m.original })),
-        ];
-      });
-
-      // 봉해서 맡깁니다 — 진술의 `screenAndSeal` 과 같은 길입니다
-      try {
-        const session = await loadOrCreateKey(store, caseToken, createSessionKey);
-        const entries = await sealAll(session, [...usable]);
-        const kept = await postJson(
-          `/api/cases/${encodeURIComponent(caseToken)}/vault`,
-          { entries },
-        );
-        return kept.ok;
-      } catch {
-        return false;
-      }
-    },
-    [caseToken, store],
   );
 
   const ask = useMemo<SlotAsk>(

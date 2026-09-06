@@ -160,6 +160,20 @@ export async function POST(
         ...turn.body,
         referenced_steps: turn.referencedSteps,
         referenced_deadlines: turn.referencedDeadlines,
+        // **토큰화가 이 요청에서 막 일어났을 때만** 원문 포함 대응표를 건넵니다 →
+        // §3.9 `pii_mappings` · ADR-075. 전사 라우트(§3.3 · ADR-062)와 같은 모양이라
+        // 브라우저가 같은 `absorb` 로 봉해 볼트에 맡깁니다. 서버는 보관하지 않으므로
+        // 이 한 번이 짝의 유일한 생존 기회입니다. 없으면 칸 자체를 빼는 것도 §3.3 과 같습니다
+        ...(turn.freshMappings.length > 0
+          ? {
+              pii_mappings: turn.freshMappings.map((one) => ({
+                token: one.token,
+                kind: one.kind,
+                seq: one.seq,
+                original: one.original ?? '',
+              })),
+            }
+          : {}),
       },
     }
   })

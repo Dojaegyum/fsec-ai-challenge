@@ -33,7 +33,7 @@ import { KbCitationMissingError, LlmBadRequestError, LlmError } from '@/lib/erro
 import { newUlid } from '@/lib/ids'
 
 import type { Citation, NextQuestion, PublishInput } from '@/modules/chat-publisher'
-import type { CaseContext, SettledOutcome } from '@/modules/chat-receiver'
+import type { CaseContext, FreshMapping, SettledOutcome } from '@/modules/chat-receiver'
 import { readIssuedLedger } from '@/modules/pii-tokenizer'
 import type { NextQuestion as SlotQuestion } from '@/modules/slot-checker'
 
@@ -45,6 +45,15 @@ export interface TurnResult {
   readonly body: Record<string, unknown>
   readonly referencedSteps: readonly string[]
   readonly referencedDeadlines: readonly string[]
+  /**
+   * 서버 2차가 이번 발화에서 막 만든 대응표 — 원문 포함 → ADR-075 · §3.9 `pii_mappings`.
+   *
+   * **`body` 에 섞지 않습니다.** `body` 는 `chat-publisher` 의 송출 검사를 지난 것이고
+   * 그 검사는 모델이 쓴 글을 보는 자리입니다 — 이 값은 원문을 담는 것이 목적이라
+   * 그 밖에 두고, 싣는 모양은 라우트가 정합니다(전사 라우트와 같은 규칙).
+   * 서버는 보관하지 않습니다 — 이 응답 한 번이 짝의 유일한 생존 기회입니다
+   */
+  readonly freshMappings: readonly FreshMapping[]
   /**
    * 응답 헤더 넷에 실릴 값 → 08-14-api.md §1.1.
    *
@@ -208,6 +217,8 @@ export async function chatTurn(
     // **이력과 라이브 턴이 서로 다른 것을 가리킬 수 있습니다** (ADR-065)
     referencedSteps,
     referencedDeadlines,
+    // 리시버가 낸 것을 **그대로** 올립니다 — 저장은 위 `messages.write` 에 없습니다
+    freshMappings: outcome.freshMappings,
     telemetry: {
       piiTokenCounts: outcome.piiCounts,
       // **`publish` 를 지났다는 것이 곧 「검사했고 0 건」입니다.** 잔여가

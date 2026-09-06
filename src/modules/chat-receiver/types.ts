@@ -87,7 +87,31 @@ export interface PiiTokenizer {
      * 챗 응답의 그 헤더가 언제나 `none` 이었습니다 → `TurnOutcome.piiCounts`
      */
     counts: Readonly<Record<string, number>>
+    /**
+     * 이번 요청에서 **서버가 새로 만든** 대응표 — 원문 포함.
+     *
+     * ⚠️ **2026-09-06 까지 이 칸이 없어서 그 자리에서 버려졌습니다.** 서버는 짝을
+     * 보관하지 않으므로(불변 규칙 3) 여기서 흘리면 어디에도 남지 않고, 새로고침
+     * 뒤 내 말풍선이 `[이름-1]` 로 굳었습니다 → ADR-075. 흐름이 응답에 실어
+     * 브라우저가 봉해 맡깁니다 — 전사 경로(ADR-062)와 같은 길입니다
+     */
+    added: readonly FreshMapping[]
   }>
+}
+
+/**
+ * 서버가 이번 요청에서 막 만든 대응표 한 줄 — **원문이 있습니다.**
+ *
+ * `IssuedToken`(장부 · 원문 없음)과 반대 방향입니다. 이 값은 저장하지 않고
+ * 응답에 한 번 실어 브라우저에 건넵니다 → ADR-075. `pii-tokenizer` 의
+ * `TokenMapping` 과 모양이 같아 그대로 받습니다(`original` 은 거기서 선택 항목이라
+ * 여기서도 선택 — 라우트가 빈 문자열로 채우고 브라우저가 빈 것을 거릅니다).
+ */
+export interface FreshMapping {
+  readonly token: string
+  readonly kind: string
+  readonly seq: number
+  readonly original?: string
 }
 
 /**
@@ -288,6 +312,13 @@ export interface TurnOutcome {
    * **건수만입니다. 값도 토큰도 담지 않습니다** (불변 규칙 2 · §10.1).
    */
   readonly piiCounts: Readonly<Record<string, number>>
+  /**
+   * 서버가 이번 발화에서 막 만든 대응표 — 원문 포함 → ADR-075.
+   *
+   * **저장하지 않습니다.** 부르는 쪽(`flows/chat-turn.ts`)이 응답에 실어 브라우저에
+   * 건네고, 브라우저가 자기 열쇠로 봉해 볼트에 맡깁니다. 없으면 빈 배열입니다
+   */
+  readonly freshMappings: readonly FreshMapping[]
   /** 모델을 몇 번 불렀나. 1 또는 2입니다 */
   readonly attempts: number
 }

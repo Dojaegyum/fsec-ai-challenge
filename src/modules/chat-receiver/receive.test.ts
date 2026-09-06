@@ -97,9 +97,21 @@ function receiver(over: {
       ctx?: { allowedTerms?: readonly string[]; mappings?: readonly IssuedToken[] },
     ) => {
       void ctx
-      const masked = text.replace(/110-234-567890/g, '[계좌-1]')
-      const counts: Record<string, number> = masked === text ? {} : { account: 1 }
-      return { masked, counts }
+      // 서버 2차가 이름을 집은 척합니다 — 막 만든 대응표는 **원문 포함**으로 `added` 에 나옵니다
+      const masked = text
+        .replace(/110-234-567890/g, '[계좌-1]')
+        .replace(/김민수/g, '[이름-1]')
+      const counts: Record<string, number> = {}
+      const added: { token: string; kind: string; seq: number; original: string }[] = []
+      if (text.includes('110-234-567890')) {
+        counts.account = 1
+        added.push({ token: '[계좌-1]', kind: '계좌', seq: 1, original: '110-234-567890' })
+      }
+      if (text.includes('김민수')) {
+        counts.name = 1
+        added.push({ token: '[이름-1]', kind: '이름', seq: 1, original: '김민수' })
+      }
+      return { masked, counts, added }
     },
   )
   const kbFind = vi.fn(async () => {
@@ -401,5 +413,38 @@ describe('쓰인 이름표를 토큰화에 이어 넘긴다', () => {
     await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
 
     expect(tokenize.mock.calls[0][1]?.mappings).toEqual([])
+  })
+})
+
+/**
+ * ⚠️ **서버가 막 만든 대응표가 이 자리에서 버려지고 있었습니다.**
+ *
+ * 토큰화 결과에서 `masked` 와 `counts` 만 받았습니다. 2차(NER)가 이름에 붙인
+ * `[이름-1]` 의 짝은 서버가 보관하지 않으므로(불변 규칙 3), 여기서 흘리면
+ * **어디에도 남지 않습니다** — 새로고침 뒤 내 말풍선이 `[이름-1]` 로 굳습니다.
+ * 전사 경로는 ADR-062 가 응답에 실어 브라우저가 봉하게 했고, 챗도 같은 길입니다.
+ */
+describe('서버가 막 만든 대응표를 그대로 돌려준다 — 보관하지 않는다 (ADR-062 의 챗 경로)', () => {
+  it('이번 발화에서 만든 것이 원문 포함으로 freshMappings 에 나온다', async () => {
+    const { chat } = receiver()
+
+    const turn = await chat.receive({
+      caseContext: CTX,
+      utterance: '제 이름은 김민수입니다',
+      kbVersion: '2026.08.1',
+    })
+
+    expect(turn.utteranceMasked).toBe('제 이름은 [이름-1]입니다')
+    expect(turn.freshMappings).toEqual([
+      { token: '[이름-1]', kind: '이름', seq: 1, original: '김민수' },
+    ])
+  })
+
+  it('가린 것이 없으면 빈 배열이다 — 칸을 빼지 않는다', async () => {
+    const { chat } = receiver()
+
+    const turn = await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
+
+    expect(turn.freshMappings).toEqual([])
   })
 })

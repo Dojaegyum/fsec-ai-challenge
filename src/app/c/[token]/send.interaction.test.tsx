@@ -385,3 +385,70 @@ describe("새로고침해도 마지막 언급을 다시 잡는다 — §3.12 ref
     expect(onReferenced).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * ⚠️ **챗에 적은 이름이 새로고침 뒤 `[이름-1]` 로 남았습니다.**
+ *
+ * 계좌는 브라우저가 1차에서 가리며 짝을 봉해 볼트에 맡기지만, 이름은 서버 2차(NER)가
+ * 가리고 그 짝은 서버가 보관하지 않습니다. 전사 경로는 ADR-062 가 응답에 실어
+ * `absorb` 로 봉하게 했는데 **챗 응답은 그 칸이 없어** 짝이 그 자리에서 사라졌습니다.
+ * 챗 응답의 대응표도 같은 길로 갑니다 — ① 봉해 볼트에 ② 복원 목록에.
+ */
+describe("챗 응답이 실어 온 대응표도 이 기기 것으로 만든다 — ADR-062 의 챗 경로", () => {
+  const NAME = "김민수";
+  const FRESH = [{ token: "[이름-1]", kind: "이름", seq: 1, original: NAME }];
+
+  /** 서버 대역 — 발화 응답에 **원문 포함 대응표**가 한 번 실려 옵니다 (§3.9) */
+  function stubNamedServer(calls: Call[]) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const body = typeof init?.body === "string" ? init.body : "";
+        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (url.includes("/vault") && init?.method === "POST") return json({ stored: 1 });
+        if (url.includes("/vault")) return json({ entries: [] });
+        if (url.includes("/messages") && init?.method === "POST") {
+          return json({
+            message_id: "01J8XKRE",
+            reply: "[이름-1]님, 확인했습니다.",
+            citations: [],
+            referenced_steps: [],
+            next_question: null,
+            pii_mappings: FRESH,
+          });
+        }
+        return json({ messages: [], truncated: false });
+      }),
+    );
+  }
+
+  it("봉해서 볼트에 맡긴다 — 이름표는 본문에 있고 원문은 없다", async () => {
+    const calls: Call[] = [];
+    stubNamedServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().send(`제 이름은 ${NAME}입니다`);
+    });
+
+    const vaulted = calls.filter((one) => one.url.includes("/vault"));
+    expect(vaulted).toHaveLength(1);
+    expect(vaulted[0]?.body).toContain("[이름-1]");
+    expect(vaulted[0]?.body).not.toContain(NAME);
+  });
+
+  it("복원 목록에 들어가고, 비서 답이 원문으로 그려진다", async () => {
+    const calls: Call[] = [];
+    stubNamedServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().send(`제 이름은 ${NAME}입니다`);
+    });
+
+    expect(hookNow().restorable.map((m) => m.token)).toContain("[이름-1]");
+    const last = hookNow().lines.at(-1);
+    expect(last?.who).toBe("ai");
+    expect(last?.who === "ai" && last.reply).toContain(NAME);
+  });
+});

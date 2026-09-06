@@ -79,7 +79,7 @@ export function createChatReceiver(deps: {
       // **엉뚱한 계좌가 그려집니다.** 원문은 안 옵니다(서버는 볼트를 못 엽니다)
       // **건수를 함께 받습니다** — 계측 헤더가 이 값으로 섭니다(§1.1).
       // 버리면 챗 응답이 「토큰화한 것이 없다」로 나갑니다
-      const { masked, counts: piiCounts } = await tokenizer.tokenize(input.utterance, {
+      const { masked, counts: piiCounts, added } = await tokenizer.tokenize(input.utterance, {
         allowedTerms,
         mappings: input.issuedTokens ?? [],
       })
@@ -120,6 +120,10 @@ export function createChatReceiver(deps: {
         kbContextRefs: contextRefs(groups),
         promptMasked: prompt.user,
         utteranceMasked: masked,
+        // **막 만든 대응표는 여기서 버리지 않습니다** → ADR-075. 서버는 짝을 보관하지
+        // 않으므로(불변 규칙 3) 이 자리에서 흘리면 어디에도 남지 않습니다 — 2026-09-06
+        // 까지 그랬고, 챗에 적은 이름이 새로고침 뒤 `[이름-1]` 로 굳었습니다
+        freshMappings: added,
         counts: {
           applied: prompt.counts.applied,
           reference: prompt.counts.reference,
