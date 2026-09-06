@@ -687,6 +687,26 @@ export function useChatSend(
    * 전사 폴링 응답(ADR-062)과 챗 응답(ADR-075)이 **같은 길**로 들어옵니다 —
    * 그래서 `send` 보다 앞에 섭니다
    */
+  /**
+   * **이 기기가 방금 가린 값도 복원 목록에 합칩니다.** 발화·문항 답을 보낼 때 1차가 새로 가린
+   * 계좌·전화는 `screenAndSeal` 이 볼트에 봉해 맡기지만, 그 자리에서는 `mappings`(다음 가림의
+   * 문맥)만 갱신되고 `restorable`(화면이 되돌릴 때 쓰는 것)은 그대로였습니다. 그래서 새로고침
+   * 전에는 기재 안내(S-10)와 되묻기 카드가 `[계좌-1]` 을 못 풀고 「이 기기에서는 값이 가려져
+   * 보입니다」를 띄웠습니다 — 같은 기기인데도. 배포본 점검 2026-09-06 에서 두 사건 재현.
+   * 대역(`isReserved`)과 원문 없는 것은 넣지 않습니다 — `absorb` 와 같은 기준입니다.
+   */
+  const keepRestorable = useCallback((next: readonly PiiMapping[]) => {
+    setRestorable((prev) => {
+      const taken = new Set(prev.map((m) => m.token));
+      const added = next.filter(
+        (m) => !taken.has(m.token) && (m.original ?? "").length > 0 && !isReserved(m),
+      );
+      return added.length === 0
+        ? prev
+        : [...prev, ...added.map((m) => ({ token: m.token, original: m.original }))];
+    });
+  }, []);
+
   const absorb = useCallback(
     async (fresh: readonly PiiMapping[]): Promise<boolean> => {
       // 원문이 빈 것은 짝이 아닙니다 — 빈칸을 합치면 복원 목록이 어지럽습니다
@@ -767,6 +787,7 @@ export function useChatSend(
         return false;
       }
       setMappings(result.mappings);
+      keepRestorable(result.mappings);
       // 여기서 다시 물어봤을 수 있습니다 — 확인했으면 다음 턴은 그냥 이어 씁니다
       setVaultRead(result.vaultRead);
       setLines((prev) => [...prev, { who: "ai", ...result.turn }]);
@@ -802,7 +823,7 @@ export function useChatSend(
         moveQuestion(spoken, "local");
       return true;
     },
-    [absorb, caseToken, mappings, moveQuestion, onReferenced, sending, store, vaultRead],
+    [absorb, caseToken, keepRestorable, mappings, moveQuestion, onReferenced, sending, store, vaultRead],
   );
 
   /** 답 하나를 보내고 화면 상태를 옮깁니다 — 네 입구(`answer`·`skip`·`resolve`·`confirmAnswer`)가 함께 씁니다 */
@@ -848,6 +869,7 @@ export function useChatSend(
         return;
       }
       setMappings(result.mappings);
+      keepRestorable(result.mappings);
       setVaultRead(result.vaultRead);
 
       // 되묻기가 오면 **질문은 그대로 두고** 카드를 겹칩니다 — 아직 답한 것이
@@ -868,6 +890,7 @@ export function useChatSend(
       asking,
       caseToken,
       holdConfirm,
+      keepRestorable,
       mappings,
       moveQuestion,
       onPlanChanged,

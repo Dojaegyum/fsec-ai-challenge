@@ -754,3 +754,37 @@ describe("같은 이름을 다시 말하면 이번엔 브라우저가 가려 보
     expect(calls.filter((one) => one.url.includes("/vault"))).toHaveLength(1);
   });
 });
+
+describe("이 기기가 1차에서 가린 값은 보내자마자 복원 목록에 있다 — 배포본 점검 2026-09-06", () => {
+  it("발화 속 계좌번호 → 볼트에 봉해 맡기고, restorable 에도 바로 합쳐진다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().send("받는 계좌는 국민은행 110-123-456789 예요");
+    });
+
+    const vaulted = calls.filter((one) => one.url.includes("/vault"));
+    expect(vaulted.length).toBeGreaterThanOrEqual(1);
+    expect(vaulted[0]?.body).not.toContain("110-123-456789");
+    const said = calls.find((one) => one.url.includes("/messages"));
+    expect(said?.body).not.toContain("110-123-456789");
+    // 새로고침 없이 — 기재 안내·되묻기 카드가 이 목록으로 되돌립니다
+    const one = hookNow().restorable.find((m) => /^\[계좌-\d+\]$/.test(m.token));
+    expect(one?.original).toBe("110-123-456789");
+  });
+
+  it("문항 답 속 계좌번호도 같다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.answer("352-0912-3456-73");
+    });
+
+    const tokens = hookNow().restorable.map((m) => m.token);
+    expect(tokens.some((t) => /^\[계좌-\d+\]$/.test(t))).toBe(true);
+  });
+});
