@@ -49,7 +49,7 @@
 | --- | --- |
 | 연결 실패 · 타임아웃 (`AbortSignal.timeout`) | 팟이 작업을 돌려 보고 `status: failed` 라고 답한 것 |
 | 5xx — RunPod 프록시가 팟이 없을 때 내는 502·503·504 포함 | 맡기기의 4xx(413 · 415 · 422 …) — 요청 자체가 거절된 것 |
-| 이름 탐지 서비스에 못 닿음 · 타임아웃 · 5xx | 파일 주소를 못 얻음(`read_url_failed`) · 글 파일을 못 읽음(`text_read_failed`) |
+| 이름 탐지 서비스에 못 닿음 · 타임아웃 · 5xx · 저장소 서명 주소 요청에 못 닿음 · 5xx (`read_url_failed` 도 같은 규칙 — 2026-09-07 구현 검토에서 보탬) | 저장소의 4xx(`read_url_failed`) · 글 파일을 못 읽음(`text_read_failed`) |
 | | 묻기의 404 는 그대로 **`missing`** — ADR-078 의 다시 맡기기 |
 
 상태 코드를 들고 있는 자리는 어댑터(`lib/inference.ts` · `lib/ner.ts`)뿐이므로 **「일시적인가」는 어댑터가 표시**하고,

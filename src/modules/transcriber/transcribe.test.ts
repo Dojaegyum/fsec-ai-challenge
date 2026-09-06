@@ -843,4 +843,20 @@ describe('닿지 못한 것은 detail.transient 로 올린다 — ADR-091 §1', 
       .catch((e: unknown) => e)) as IngestError
     expect(thrown.detail).toMatchObject({ reason: 'poll_failed', transient: true })
   })
+
+  it('파일 주소 요청이 TransientError 면 read_url_failed 에 transient: true', async () => {
+    const t = createTranscriber({
+      media: {
+        readUrl: async () => {
+          throw new TransientError('저장소에 닿지 못했습니다')
+        },
+        readText: async () => '',
+      },
+      stt: { submit: async () => 'j1', poll: async () => ({ status: 'running', percent: 0 }) },
+      ocr: { submit: async () => 'j1', poll: async () => ({ status: 'running', percent: 0 }) },
+    } as never)
+
+    const thrown = (await t.start({ media, jobId: 'j1' }).catch((e: unknown) => e)) as IngestError
+    expect(thrown.detail).toMatchObject({ reason: 'read_url_failed', transient: true })
+  })
 })

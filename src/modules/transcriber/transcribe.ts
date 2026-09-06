@@ -411,6 +411,7 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
           kind: media.kind,
           phase,
           reason: 'read_url_failed',
+          transient: isTransient(error),
         })
       }
 
