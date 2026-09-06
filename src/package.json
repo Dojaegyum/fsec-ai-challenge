@@ -18,6 +18,7 @@
     "migrate": "tsx --conditions=react-server scripts/migrate.ts",
     "probe:llm": "tsx --conditions=react-server scripts/probe-llm.ts",
     "probe:org": "tsx --conditions=react-server scripts/probe-org-repair.ts",
+    "probe:select": "tsx --conditions=react-server scripts/probe-select.ts",
     "smoke": "playwright test"
   },
   "dependencies": {

@@ -59,3 +59,17 @@ describe('사람이 읽는 한 화면', () => {
     expect(text).toMatch(/붙음 \d+ \/ \d+/)
   })
 })
+
+describe('발화 자료 선별기는 모델 이름이 있어야 붙은 것이다 — ADR-089', () => {
+  it('열쇠만 있고 모델이 없으면 안 붙었고, 챗은 그대로 돈다고 말한다', () => {
+    const row = rowOf(reportOf({ XAI_API_KEY: 'k' }), '발화 자료 선별')
+    expect(row.configured).toBe(false)
+    expect(row.missing).toEqual(['LLM_SELECT_MODEL'])
+  })
+
+  it('모델 이름과 열쇠가 있으면 붙었다', () => {
+    expect(
+      rowOf(reportOf({ XAI_API_KEY: 'k', LLM_SELECT_MODEL: 'grok-fast' }), '발화 자료 선별').configured,
+    ).toBe(true)
+  })
+})

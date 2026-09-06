@@ -15,8 +15,10 @@ import type {
   CitationOutcome,
   IssuedToken,
   KbEntry,
+  KbSelectedEntry,
   ModelReply,
   PromptSource,
+  SelectorSource,
 } from './types'
 
 const TODAY = '2026-08-20'
@@ -339,7 +341,7 @@ describe('저장할 재료를 함께 돌려준다 — 저장은 하지 않는다
       kbVersion: '2026.08.1',
     })
 
-    expect(turn.counts).toEqual({ applied: 1, reference: 1, transcriptLines: 1 })
+    expect(turn.counts).toEqual({ applied: 1, reference: 1, selected: 0, transcriptLines: 1 })
   })
 
   it('발급한 참조를 그대로 넘긴다 — 인용을 채우는 것은 chat-publisher', async () => {
@@ -446,5 +448,137 @@ describe('서버가 막 만든 대응표를 그대로 돌려준다 — 보관하
     const turn = await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
 
     expect(turn.freshMappings).toEqual([])
+  })
+})
+
+describe('선별기 — 두 묶음 밖의 자료를 발화에 맞춰 (ADR-089 · §2.6)', () => {
+  const PICKED: KbSelectedEntry[] = [
+    {
+      kind: 'kb',
+      label: '카드사 지급정지 신청',
+      body: '카드사 콜센터에 지급정지를 요청합니다.',
+      kbEntryId: 'card-freeze',
+      kbVersion: '2026.08.1',
+    },
+    { kind: 'org', label: 'KB국민은행 연락처', body: '신고 전화: 1588-9999' },
+  ]
+
+  function withSelector(
+    over: { entries?: KbSelectedEntry[]; throws?: boolean; ms?: number; skipped?: string } = {},
+  ) {
+    const prompts = fakePrompts()
+    const llm = { complete: vi.fn(async () => PASSING_REPLY) }
+    const select = vi.fn<SelectorSource['select']>(async () => {
+      if (over.throws) throw new Error('풀을 못 읽었습니다')
+      const entries = over.entries ?? []
+      return {
+        entries,
+        stats: {
+          pool: 100,
+          groups: 2,
+          rounds: 1,
+          ms: over.ms ?? 1_200,
+          picked: entries.map((one) => one.label),
+          calls: [{ model: 'fast', tokenIn: 900, tokenOut: 20 }],
+          ...(over.skipped ? { skipped: over.skipped } : {}),
+        },
+      }
+    })
+    const chat = createChatReceiver({
+      tokenizer: {
+        tokenize: async (text: string) => ({
+          masked: text.replace(/110-234-567890/g, '[계좌-1]'),
+          counts: {},
+          added: [],
+        }),
+      },
+      orgTerms: { list: async (): Promise<readonly string[]> => [] },
+      kb: { find: async () => ({ applied: APPLIED, reference: REFERENCE }) },
+      prompts,
+      llm,
+      citations: { check: () => ({ kind: 'pass' as const }) },
+      retry: { decide: () => ({ retry: false }) },
+      clock: { today: () => TODAY, todayLabel: () => '2026년 8월 20일', nowMs: () => 0 },
+      selector: { select },
+    })
+    return { chat, prompts, llm, select }
+  }
+
+  it('토큰화한 대화만 보고, 두 묶음의 절차는 제외 목록으로 넘긴다', async () => {
+    const { chat, select } = withSelector()
+
+    await chat.receive({
+      caseContext: { ...CTX, history: [{ speaker: 'assistant', text: '이전 답변' }] },
+      utterance: '110-234-567890 은행에 전화했는데 안 받아요',
+      kbVersion: '2026.08.1',
+    })
+
+    expect(select).toHaveBeenCalledTimes(1)
+    const input = select.mock.calls[0]![0]
+    expect(input.history.at(-1)).toEqual({
+      speaker: 'user',
+      text: '[계좌-1] 은행에 전화했는데 안 받아요',
+    })
+    expect(input.kbVersion).toBe('2026.08.1')
+    expect(input.asOf).toBe(TODAY)
+    expect([...input.exclude].sort()).toEqual(['kb:easypay-freeze', 'kb:relief-application'])
+    expect(input.orgId).toBe('kb-bank')
+    expect(input.channelId).toBe('CH-bank')
+  })
+
+  it('고른 것이 프롬프트의 선별 블록으로 가고, 절차는 문맥 참조에 selected 로 남는다', async () => {
+    const { chat, prompts } = withSelector({ entries: PICKED })
+
+    const turn = await chat.receive({ caseContext: CTX, utterance: '카드로 보냈으면요?', kbVersion: '2026.08.1' })
+
+    const built = prompts.seen[0] as { kbSelected?: KbSelectedEntry[] }
+    expect(built.kbSelected).toEqual(PICKED)
+    expect(turn.counts.selected).toBe(2)
+    expect(turn.selection).toMatchObject({ pool: 100, groups: 2, rounds: 1, ms: 1_200 })
+    expect(turn.kbContextRefs).toContainEqual({
+      kbEntryId: 'card-freeze',
+      kbVersion: '2026.08.1',
+      group: 'selected',
+    })
+    // 기관 연락처는 KB 항목이 아니라 문맥 참조에 안 남는다
+    expect(turn.kbContextRefs.filter((one) => one.group === 'selected')).toHaveLength(1)
+  })
+
+  it('선별기가 던져도 답변은 나간다 — 빈 선택 · skipped=error (ADR-089 ④)', async () => {
+    const { chat, prompts, llm } = withSelector({ throws: true })
+
+    const turn = await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
+
+    expect(llm.complete).toHaveBeenCalledTimes(1)
+    expect((prompts.seen[0] as { kbSelected?: unknown[] }).kbSelected).toEqual([])
+    expect(turn.selection?.skipped).toBe('error')
+    expect(turn.counts.selected).toBe(0)
+  })
+
+  it('답변 예산은 90초에서 선별에 쓴 시간을 뺀 값이다', async () => {
+    const { chat, llm } = withSelector({ ms: 4_200 })
+
+    await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
+
+    expect(llm.complete).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 90_000 - 4_200 })
+  })
+
+  it('선별이 예산을 다 먹어도 답변은 20초는 기다린다', async () => {
+    const { chat, llm } = withSelector({ ms: 80_000 })
+
+    await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
+
+    expect(llm.complete).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 20_000 })
+  })
+
+  it('선별기가 없으면 지금까지와 같다 — selection 은 null, 예산은 전부', async () => {
+    const { chat, llm, prompts } = receiver()
+
+    const turn = await chat.receive({ caseContext: CTX, utterance: '안녕', kbVersion: '2026.08.1' })
+
+    expect(turn.selection).toBe(null)
+    expect(turn.counts.selected).toBe(0)
+    expect((prompts.seen[0] as { kbSelected?: unknown[] }).kbSelected).toEqual([])
+    expect(llm.complete).toHaveBeenCalledWith(expect.anything(), { timeoutMs: 90_000 })
   })
 })

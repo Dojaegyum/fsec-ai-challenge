@@ -16,6 +16,7 @@ import type {
   HistoryTurn,
   IssuedRef,
   KbEntryForPrompt,
+  KbSelectedForPrompt,
   PromptBlock,
   PromptBuilder,
   PromptInput,
@@ -43,6 +44,7 @@ export function createPromptBuilder(
       const applied = kbBlock('kb_applied', input.kbApplied, issued)
       const talk = caseTalkBlock(input.caseTalk, issued)
       const state = caseStateBlock(input.caseState, issued)
+      const selected = selectedBlock(input.kbSelected ?? [], issued)
       const history = historyBlock(input.history)
 
       const sections: string[] = ['# 5. 답변에 필요한 절차·사건 정보·대화']
@@ -53,6 +55,8 @@ export function createPromptBuilder(
       addSection(sections, '## 적용 절차', applied, renderer)
       addSection(sections, '## 사건 대화', talk, renderer)
       addSection(sections, '## 사건 정보', state, renderer)
+      // 블록 6 — 이번 말에 맞춰 고른 자료. 매 턴 바뀌므로 대화 내역 바로 앞 → §2.6 · ADR-089
+      addSection(sections, '## 선별 자료', selected, renderer)
 
       // 날짜는 블록이 아니라 한 줄이다. 사건 정보가 비어도 넣는다 —
       // 오늘이 며칠인지는 언제나 알아야 한다
@@ -69,6 +73,7 @@ export function createPromptBuilder(
         counts: {
           applied: input.kbApplied.length,
           reference: input.kbReference.length,
+          selected: input.kbSelected?.length ?? 0,
           talkLines: input.caseTalk.length,
           historyTurns: input.history.length,
         },
@@ -117,6 +122,35 @@ function kbBlock(
   // kb_entry_id·kb_version 을 태그에 넣지 않는다. 모델이 되받지 않으므로
   // 줄 필요가 없고, 주면 옮겨 적으려다 형식이 틀린다 → §5
   return { tag, trusted: true, items }
+}
+
+/**
+ * 블록 6 — 선별 자료 → §2.6 · ADR-089 ⑤.
+ *
+ * 절차는 `kb-` 번호를 이어서 받고(참조 규칙이 종류로 갈리므로), 기관은 `org-`, 조문은 `law-` 다.
+ * 절차의 인용에는 `kb_entry_id`·`kb_version` 이 실려야 응답의 인용 칸이 채워진다.
+ */
+function selectedBlock(
+  entries: readonly KbSelectedForPrompt[],
+  issued: IssuedRef[],
+): PromptBlock | null {
+  if (entries.length === 0) return null
+  const items: PromptItem[] = entries.map((entry) => {
+    const prefix = entry.kind === 'kb' ? 'kb-' : entry.kind === 'org' ? 'org-' : 'law-'
+    const ref = `${prefix}${countOf(issued, prefix) + 1}`
+    issued.push({
+      ref,
+      label: entry.label,
+      ...(entry.kbEntryId ? { kbEntryId: entry.kbEntryId } : {}),
+      ...(entry.kbVersion ? { kbVersion: entry.kbVersion } : {}),
+    })
+    return {
+      tag: 'entry',
+      attrs: { ref, label: entry.label, kind: entry.kind },
+      text: entry.body,
+    }
+  })
+  return { tag: 'kb_selected', trusted: true, items }
 }
 
 function caseStateBlock(

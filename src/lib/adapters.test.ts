@@ -12,7 +12,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { KbRow } from '@/modules/kb-finder'
 
-import { asKbSource, kbRowToPromptEntry } from './adapters'
+import { asKbSource, asSelectorSource, kbRowToPromptEntry, selectedEntryOf } from './adapters'
+import type { PoolEntry } from './db-selector'
 
 const SUMMARY =
   '전화로 신청했으면 신청한 날부터 3영업일 안에 서류를 따로 내야 신청이 유지됩니다.'
@@ -171,5 +172,141 @@ describe('asKbSource 는 묶음에 따라 다르게 옮긴다', () => {
     expect(groups.applied[0]!.body).toContain('할 일:')
     expect(groups.reference[0]!.body).toBe(`${SUMMARY}\n주의: ${CAVEAT}`)
     expect(groups.reference[0]!.channelId).toBe('CH-easypay')
+  })
+})
+
+describe('선별기가 고른 것 → 프롬프트 항목 (§2.6 · ADR-089 ⑤)', () => {
+  const LAW: PoolEntry = {
+    kind: 'law',
+    law: {
+      snapshotId: 'S1',
+      sourceKey: 'law:011359:3',
+      fetchedAt: '2026-09-06',
+      content: '  피해자는 금융회사에 지급정지를 신청할 수 있다.  ',
+      meta: { 법령명: '통신사기피해환급법', 조문제목: '지급정지' },
+    },
+  }
+  const ORG: PoolEntry = {
+    kind: 'org',
+    org: {
+      orgId: 'kb-bank',
+      channelId: 'CH-bank',
+      name: 'KB국민은행',
+      contact: {
+        report_tel: '1588-9999',
+        report_hours: '24시간',
+        submit: [{ how: 'branch', text: '가까운 영업점에 서면으로 제출합니다' }],
+        caution: '앱의 「사고신고」는 피해구제 신청이 아닙니다',
+      },
+    },
+  }
+
+  it('절차는 적용 절차와 같은 다섯 줄이고 식별자·버전이 실린다', () => {
+    const one = selectedEntryOf({ kind: 'kb', row: row({ summary: SUMMARY, steps: STEPS, caveat: CAVEAT }) })
+    expect(one.kind).toBe('kb')
+    expect(one.kbEntryId).toBe('common-relief-documents')
+    expect(one.kbVersion).toBe('2026.09.4')
+    expect(one.body).toBe(kbRowToPromptEntry(row({ summary: SUMMARY, steps: STEPS, caveat: CAVEAT }), 'applied').body)
+  })
+
+  it('기관은 연락처 넷 — 신고 전화 · 운영 시간 · 제출 · 주의', () => {
+    const one = selectedEntryOf(ORG)
+    expect(one).toEqual({
+      kind: 'org',
+      label: 'KB국민은행 연락처',
+      body: [
+        '신고 전화: 1588-9999',
+        '운영 시간: 24시간',
+        '제출: 1) 가까운 영업점에 서면으로 제출합니다',
+        '주의: 앱의 「사고신고」는 피해구제 신청이 아닙니다',
+      ].join('\n'),
+    })
+  })
+
+  it('조문은 원문 그대로에 가져온 날 한 줄 — 라벨은 법령명 제n조(제목)', () => {
+    const one = selectedEntryOf(LAW)
+    expect(one).toEqual({
+      kind: 'law',
+      label: '통신사기피해환급법 제3조(지급정지)',
+      body: '피해자는 금융회사에 지급정지를 신청할 수 있다.\n가져온 날: 2026-09-06',
+    })
+  })
+
+  it('긴 조문은 1,500자에서 자르고 잘렸다고 적는다', () => {
+    const one = selectedEntryOf({ ...LAW, law: { ...LAW.law, content: '가'.repeat(2_000) } })
+    expect(one.body.startsWith('가'.repeat(1_500))).toBe(true)
+    expect(one.body).toContain('(이하 생략)')
+    expect(one.body).not.toContain('가'.repeat(1_501))
+  })
+
+  it('가지번호가 있으면 제n조의m', () => {
+    const one = selectedEntryOf({ ...LAW, law: { ...LAW.law, sourceKey: 'law:011359:13:4', meta: {} } })
+    expect(one.label).toBe('제13조의4')
+  })
+})
+
+describe('asSelectorSource — 풀을 읽고 고르게 하고 본문을 옮긴다', () => {
+  const pool = {
+    load: async () => ({
+      candidates: [
+        { key: 'kb:card', kind: 'kb' as const, tag: '카드', preview: '…' },
+        { key: 'org:kb-bank', kind: 'org' as const, tag: 'KB국민은행', preview: '…' },
+      ],
+      entries: new Map<string, PoolEntry>([
+        ['kb:card', { kind: 'kb', row: row({ summary: '카드사에 지급정지를 요청합니다.' }, { kbEntryId: 'card', title: '카드 지급정지' }) }],
+        ['org:kb-bank', { kind: 'org', org: { orgId: 'kb-bank', channelId: 'CH-bank', name: 'KB국민은행', contact: { report_tel: '1588-9999' } } }],
+      ]),
+    }),
+  }
+
+  it('고른 순서대로 본문을 옮기고 통계에 열쇠를 남긴다', async () => {
+    const source = asSelectorSource(
+      {
+        select: async (input) => ({
+          picked: [input.candidates[1]!, input.candidates[0]!],
+          stats: { pool: 2, groups: 1, rounds: 0, ms: 300, calls: [{ model: 'fast', tokenIn: 10, tokenOut: 2 }] },
+        }),
+      },
+      pool,
+    )
+    const out = await source.select({ history: [], kbVersion: '2026.09.4', asOf: '2026-09-06', exclude: new Set(), orgId: null, channelId: null })
+
+    expect(out.entries.map((one) => one.label)).toEqual(['KB국민은행 연락처', '카드 지급정지'])
+    expect(out.entries[1]).toMatchObject({ kind: 'kb', kbEntryId: 'card', kbVersion: '2026.09.4' })
+    expect(out.stats).toEqual({
+      pool: 2,
+      groups: 1,
+      rounds: 0,
+      ms: 300,
+      picked: ['org:kb-bank', 'kb:card'],
+      calls: [{ model: 'fast', tokenIn: 10, tokenOut: 2 }],
+    })
+  })
+
+  it('풀 읽기가 실패하면 빈 선택 · skipped=error — 던지지 않는다', async () => {
+    const source = asSelectorSource(
+      { select: async () => { throw new Error('불려서는 안 됩니다') } },
+      { load: async () => { throw new Error('DB 다운') } },
+    )
+    const out = await source.select({ history: [], kbVersion: '2026.09.4', asOf: '2026-09-06', exclude: new Set(), orgId: null, channelId: null })
+    expect(out.entries).toEqual([])
+    expect(out.stats.skipped).toBe('error')
+  })
+  it('이 사건의 기관·유형에는 후보 이름 뒤에 표시를 붙인다 — 선별기가 그것을 우선하게', async () => {
+    let seen: readonly { key: string; tag: string }[] = []
+    const source = asSelectorSource(
+      {
+        select: async (input) => {
+          seen = input.candidates
+          return { picked: [], stats: { pool: 2, groups: 1, rounds: 0, ms: 1, calls: [] } }
+        },
+      },
+      pool,
+    )
+    await source.select({ history: [], kbVersion: '2026.09.4', asOf: '2026-09-06', exclude: new Set(), orgId: 'kb-bank', channelId: 'CH-card' })
+
+    expect(seen.find((one) => one.key === 'org:kb-bank')?.tag).toBe('KB국민은행 (이 사건의 기관)')
+    // 카드 절차 행은 channelId 가 없어(공통) 유형 표시가 안 붙는다
+    expect(seen.find((one) => one.key === 'kb:card')?.tag).toBe('카드')
   })
 })

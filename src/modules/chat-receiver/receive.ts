@@ -28,6 +28,8 @@ import type {
   PiiTokenizer,
   PromptSource,
   RetryJudge,
+  SelectionStats,
+  SelectorSource,
   SettledOutcome,
   TurnInput,
   TurnOutcome,
@@ -41,6 +43,11 @@ import type {
  * 11-chat-context.md 「TODO」. 형식 실수를 감안한 값입니다.
  */
 const MAX_ATTEMPTS = 2
+
+/** 답변 모델의 예산. `lib/llm.ts` 의 상한과 같다 — 선별에 쓴 시간을 여기서 뺀다(ADR-089 ④) */
+const ANSWER_BUDGET_MS = 90_000
+/** 선별이 예산을 다 먹어도 답변은 이만큼은 기다린다 */
+const ANSWER_BUDGET_FLOOR_MS = 20_000
 
 export function createChatReceiver(deps: {
   tokenizer: PiiTokenizer
@@ -58,8 +65,10 @@ export function createChatReceiver(deps: {
   citations: CitationSource
   retry: RetryJudge
   clock: Clock
+  /** 없으면 두 묶음만으로 간다 — 지금까지와 같다 */
+  selector?: SelectorSource
 }): ChatReceiver {
-  const { tokenizer, orgTerms, kb, prompts, llm, citations, retry, clock } = deps
+  const { tokenizer, orgTerms, kb, prompts, llm, citations, retry, clock, selector } = deps
 
   return {
     async receive(input: TurnInput): Promise<TurnOutcome> {
@@ -94,9 +103,29 @@ export function createChatReceiver(deps: {
       })
 
       // 3. 이번 발화는 대화 이력의 마지막 턴입니다 → §3.1
+      // 두 묶음 밖의 자료 — 발화를 보고 고른다. **토큰화 뒤**라야 한다(불변 규칙 2).
+      // 실패는 빈 선택으로 오고, 여기서도 던지지 않는다 — 선별이 답변을 막지 않는다(ADR-089 ④)
+      const selection = selector
+        ? await selector
+            .select({
+              history: [...ctx.history, { speaker: 'user', text: masked }],
+              kbVersion: input.kbVersion,
+              asOf: clock.today(),
+              exclude: new Set(
+                [...groups.applied, ...groups.reference].map((one) => `kb:${one.kbEntryId}`),
+              ),
+              orgId: ctx.orgId,
+              channelId: ctx.channelId,
+            })
+            .catch((): { entries: readonly never[]; stats: SelectionStats } => ({
+              entries: [],
+              stats: { pool: 0, groups: 0, rounds: 0, ms: 0, picked: [], calls: [], skipped: 'error' },
+            }))
+        : null
       const prompt = prompts.build({
         kbApplied: groups.applied,
         kbReference: groups.reference,
+        kbSelected: selection?.entries ?? [],
         caseTalk: ctx.caseTalk,
         caseState: ctx.caseState,
         history: [...ctx.history, { speaker: 'user', text: masked }],
@@ -107,17 +136,23 @@ export function createChatReceiver(deps: {
         prompt.counts.applied === 0 && prompt.counts.reference === 0
 
       // 4·5. 모델 1회 → 인용 검증. 형식을 어겼을 때만 한 번 더
+      // 답변 예산은 선별에 쓴 시간을 뺀 값 → ADR-089 ④. 바닥은 두어 아예 못 부르는 일은 없게
+      const budgetMs = Math.max(
+        ANSWER_BUDGET_MS - (selection?.stats.ms ?? 0),
+        ANSWER_BUDGET_FLOOR_MS,
+      )
       const { reply, outcome, attempts } = await ask(
         { llm, citations, retry, clock },
         prompt,
         kbResultEmpty,
+        budgetMs,
       )
 
       return {
         outcome,
         reply,
         issued: prompt.issued,
-        kbContextRefs: contextRefs(groups),
+        kbContextRefs: contextRefs(groups, selection?.entries ?? []),
         promptMasked: prompt.user,
         utteranceMasked: masked,
         // **막 만든 대응표는 여기서 버리지 않습니다** → ADR-075. 서버는 짝을 보관하지
@@ -127,8 +162,10 @@ export function createChatReceiver(deps: {
         counts: {
           applied: prompt.counts.applied,
           reference: prompt.counts.reference,
+          selected: selection?.entries.length ?? 0,
           transcriptLines: ctx.caseTalk.length,
         },
+        selection: selection?.stats ?? null,
         piiCounts,
         attempts,
       }
@@ -154,6 +191,7 @@ async function ask(
   },
   prompt: { system: string; user: string; issued: readonly { ref: string }[] },
   kbResultEmpty: boolean,
+  budgetMs: number,
 ): Promise<{ reply: ModelReply; outcome: SettledOutcome; attempts: number }> {
   const { llm, citations, retry, clock } = deps
   const issued = prompt.issued.map((one) => one.ref)
@@ -165,7 +203,10 @@ async function ask(
   while (attempts < MAX_ATTEMPTS) {
     attempts += 1
 
-    const reply = await llm.complete({ system: prompt.system, user: prompt.user })
+    const reply = await llm.complete(
+      { system: prompt.system, user: prompt.user },
+      { timeoutMs: budgetMs },
+    )
     const outcome = citations.check({ reply, issued, kbResultEmpty })
 
     if (outcome.kind !== 'retry') {
@@ -203,10 +244,13 @@ async function ask(
  * 완전히 되살릴 수 있고, 매 턴 넣으므로 본문을 저장하면 중복이 대화 길이에
  * 비례해 늘어납니다.
  */
-function contextRefs(groups: {
-  applied: readonly { kbEntryId: string; kbVersion: string }[]
-  reference: readonly { kbEntryId: string; kbVersion: string }[]
-}): readonly KbContextRef[] {
+function contextRefs(
+  groups: {
+    applied: readonly { kbEntryId: string; kbVersion: string }[]
+    reference: readonly { kbEntryId: string; kbVersion: string }[]
+  },
+  selected: readonly { kbEntryId?: string; kbVersion?: string }[],
+): readonly KbContextRef[] {
   return [
     ...groups.applied.map((one) => ({
       kbEntryId: one.kbEntryId,
@@ -218,5 +262,14 @@ function contextRefs(groups: {
       kbVersion: one.kbVersion,
       group: 'reference' as const,
     })),
+    ...selected
+      .filter((one): one is { kbEntryId: string; kbVersion: string } =>
+        typeof one.kbEntryId === 'string' && typeof one.kbVersion === 'string',
+      )
+      .map((one) => ({
+        kbEntryId: one.kbEntryId,
+        kbVersion: one.kbVersion,
+        group: 'selected' as const,
+      })),
   ]
 }

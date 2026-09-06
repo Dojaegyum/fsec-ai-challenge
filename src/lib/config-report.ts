@@ -50,6 +50,10 @@ export function configReport(container: Container): readonly PortStatus[] {
     row('언어모델', has(env, 'XAI_API_KEY') || has(env, 'LLM_API_KEY'),
       ['XAI_API_KEY 또는 LLM_API_KEY'],
       '챗이 답하지 못합니다'),
+    // 선별기(ADR-089)는 있으면 좋은 것이라 비어도 챗은 돕니다 — 다만 발화에 맞춘 다른 절차·연락처·조문이
+    // 안 들어오는 것을 운영자가 알아야 「왜 연락처를 안 주나」를 코드에서 찾지 않습니다
+    row('발화 자료 선별', ports.selectLlm !== null, ['LLM_SELECT_MODEL'],
+      '사건 조건으로 고른 절차만 프롬프트에 갑니다. 다른 절차·기관 연락처·법령 조문은 발화에 맞춰 안 들어옵니다. **챗은 그대로 돕니다**'),
     // 「관리자 계정」 줄은 2026-09-04 에 지웠습니다 — 화면을 만들지 않기로 해서(ADR-068)
     // 없는 것이 정상인데 「없음」으로 뜨면 운영자가 찾습니다
     // 5단계 전에는 「밖에서 부를 수 있습니다」였습니다. 문지기(proxy.ts)가

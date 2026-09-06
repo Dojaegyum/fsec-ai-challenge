@@ -14,7 +14,16 @@ import { AppError } from './errors'
 
 import type { AuditEvent, AuditLogger } from '@/modules/audit-logger'
 import type { AuditSink } from '@/modules/case-purger'
-import type { KbEntry, KbSource, RetryJudge } from '@/modules/chat-receiver'
+import type {
+  KbEntry,
+  KbSelectedEntry,
+  KbSource,
+  RetryJudge,
+  SelectorSource,
+} from '@/modules/chat-receiver'
+import type { KbSelector, SelectorCandidate } from '@/modules/kb-selector'
+
+import type { PoolEntry, SelectorPool } from './db-selector'
 import type { KbFinder, KbRow } from '@/modules/kb-finder'
 import type { KbStep } from '@/modules/planner'
 import type { RetryChecker } from '@/modules/retry-checker'
@@ -187,4 +196,121 @@ export function kbRowToPlanStep(row: KbRow): KbStep {
     effectiveFrom: row.effectiveFrom,
     body: (row.body ?? {}) as KbStep['body'],
   }
+}
+
+/** 조문 원문의 상한 — 넘으면 앞부분만 (ADR-089 ⑤) */
+const LAW_BODY_CHARS = 1_500
+
+/**
+ * 선별기가 고른 것 → 프롬프트에 넣을 모양 (§2.6 · ADR-089 ⑤).
+ *
+ * 절차는 적용 절차와 같은 다섯 줄, 기관은 연락처 넷, 조문은 원문 그대로에 가져온 날 한 줄.
+ * **글을 고쳐 쓰지 않습니다** — 요약하거나 풀어 쓰는 것은 답변 모델의 일이고, 그것도 인용 안에서만입니다.
+ */
+export function selectedEntryOf(entry: PoolEntry): KbSelectedEntry {
+  if (entry.kind === 'kb') {
+    const one = kbRowToPromptEntry(entry.row, 'applied')
+    return {
+      kind: 'kb',
+      label: one.label,
+      body: one.body,
+      kbEntryId: one.kbEntryId,
+      kbVersion: one.kbVersion,
+    }
+  }
+  if (entry.kind === 'org') {
+    const contact = entry.org.contact
+    const lines: string[] = []
+    const tel = text(contact.report_tel)
+    if (tel) lines.push(`신고 전화: ${tel}`)
+    const hours = text(contact.report_hours)
+    if (hours) lines.push(`운영 시간: ${hours}`)
+    const submit = Array.isArray(contact.submit)
+      ? contact.submit
+          .map((one) => text((one as { text?: unknown } | null)?.text))
+          .filter((one): one is string => one !== null)
+      : []
+    if (submit.length > 0) {
+      lines.push(`제출: ${submit.map((one, index) => `${index + 1}) ${one}`).join(' ')}`)
+    }
+    const caution = text(contact.caution)
+    if (caution) lines.push(`주의: ${caution}`)
+    return { kind: 'org', label: `${entry.org.name} 연락처`, body: lines.join('\n') }
+  }
+  const content = entry.law.content.trim()
+  const clipped =
+    content.length > LAW_BODY_CHARS ? `${content.slice(0, LAW_BODY_CHARS)} (이하 생략)` : content
+  const name = text(entry.law.meta.법령명)
+  const title = text(entry.law.meta.조문제목)
+  const matched = /^law:\d+:(\d+)(?::(\d+))?$/.exec(entry.law.sourceKey)
+  const article = matched ? `제${matched[1]}조${matched[2] ? `의${matched[2]}` : ''}` : entry.law.sourceKey
+  const label = `${name ? `${name} ` : ''}${article}${title ? `(${title})` : ''}`
+  return {
+    kind: 'law',
+    label,
+    body: `${clipped}\n가져온 날: ${entry.law.fetchedAt}`,
+  }
+}
+
+/**
+ * `kb-selector` + 후보 풀 → `chat-receiver` 가 보는 `SelectorSource`.
+ *
+ * 풀을 읽고, 고르게 하고, 고른 것의 본문을 옮깁니다. **던지지 않습니다** — 풀 읽기가 실패해도
+ * 빈 선택으로 돌려주고 답변은 그대로 갑니다(ADR-089 ④).
+ */
+export function asSelectorSource(selector: KbSelector, pool: SelectorPool): SelectorSource {
+  return {
+    async select(input) {
+      let snapshot
+      try {
+        snapshot = await pool.load({ kbVersion: input.kbVersion, asOf: input.asOf })
+      } catch {
+        return {
+          entries: [],
+          stats: { pool: 0, groups: 0, rounds: 0, ms: 0, picked: [], calls: [], skipped: 'error' },
+        }
+      }
+      const result = await selector.select({
+        history: input.history,
+        candidates: snapshot.candidates.map((one) => markForCase(one, snapshot.entries.get(one.key), input)),
+        exclude: input.exclude,
+      })
+      const entries: KbSelectedEntry[] = []
+      for (const picked of result.picked) {
+        const entry = snapshot.entries.get(picked.key)
+        if (entry) entries.push(selectedEntryOf(entry))
+      }
+      return {
+        entries,
+        stats: {
+          pool: result.stats.pool,
+          groups: result.stats.groups,
+          rounds: result.stats.rounds,
+          ms: result.stats.ms,
+          picked: result.picked.map((one) => one.key),
+          calls: result.stats.calls,
+          ...(result.stats.skipped ? { skipped: result.stats.skipped } : {}),
+        },
+      }
+    },
+  }
+}
+
+/** 후보 목록에서 이 사건의 기관·유형을 알아볼 수 있게 이름 뒤에 표시를 붙인다 (ADR-089 ③) */
+export const CASE_ORG_MARK = ' (이 사건의 기관)'
+export const CASE_CHANNEL_MARK = ' (이 사건의 유형)'
+
+function markForCase(
+  candidate: SelectorCandidate,
+  entry: PoolEntry | undefined,
+  input: { orgId: string | null; channelId: string | null },
+): SelectorCandidate {
+  if (!entry) return candidate
+  if (entry.kind === 'org' && input.orgId !== null && entry.org.orgId === input.orgId) {
+    return { ...candidate, tag: `${candidate.tag}${CASE_ORG_MARK}` }
+  }
+  if (entry.kind === 'kb' && input.channelId !== null && entry.row.channelId === input.channelId) {
+    return { ...candidate, tag: `${candidate.tag}${CASE_CHANNEL_MARK}` }
+  }
+  return candidate
 }

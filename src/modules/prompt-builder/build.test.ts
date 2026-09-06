@@ -290,6 +290,7 @@ describe('감사 로그용 건수', () => {
     expect(counts).toEqual({
       applied: 2,
       reference: 1,
+      selected: 0,
       talkLines: 2,
       historyTurns: 1,
     })
@@ -321,5 +322,75 @@ describe('시스템 메시지는 고정이다', () => {
     const b = builder.build(input({ history: [{ speaker: 'user', text: '네' }] }))
     expect(a.system).toBe(b.system)
     expect(a.system).toBe(SYSTEM_PROMPT)
+  })
+})
+
+describe('선별 자료 — 블록 6 (§2.6 · ADR-089)', () => {
+  const SELECTED = [
+    {
+      kind: 'kb' as const,
+      label: '카드사 지급정지 신청',
+      body: '카드사 콜센터에 지급정지를 요청합니다.',
+      kbEntryId: 'card-freeze',
+      kbVersion: '2026.09.4',
+    },
+    { kind: 'org' as const, label: 'KB국민은행 연락처', body: '신고 전화: 1588-9999\n운영 시간: 24시간' },
+    {
+      kind: 'law' as const,
+      label: '통신사기피해환급법 제3조(지급정지)',
+      body: '피해자는 금융회사에 지급정지를 신청할 수 있다.\n가져온 날: 2026-09-06',
+    },
+  ]
+
+  it('사건 정보 다음, 날짜 앞에 온다 — 매 턴 바뀌는 것은 뒤로', () => {
+    const { user } = builder.build(
+      input({
+        kbApplied: APPLIED,
+        caseState: [{ label: '송금액', value: '3,000,000원' }],
+        kbSelected: SELECTED,
+        history: [{ speaker: 'user', text: '카드로 보냈으면요?' }],
+      }),
+    )
+    const at = (mark: string) => user.indexOf(mark)
+    expect(at('## 사건 정보')).toBeLessThan(at('## 선별 자료'))
+    expect(at('## 선별 자료')).toBeLessThan(at('현재 날짜'))
+    expect(at('현재 날짜')).toBeLessThan(at('## [대화 내역]'))
+  })
+
+  it('절차는 kb- 번호를 이어 받고, 기관은 org-, 조문은 law- 다', () => {
+    const { issued } = builder.build(input({ kbApplied: APPLIED, kbSelected: SELECTED }))
+    expect(issued.map((one) => one.ref)).toEqual(['kb-1', 'kb-2', 'kb-3', 'org-1', 'law-1'])
+    expect(issued[2]).toEqual({
+      ref: 'kb-3',
+      label: '카드사 지급정지 신청',
+      kbEntryId: 'card-freeze',
+      kbVersion: '2026.09.4',
+    })
+    // 기관·조문은 KB 항목이 아니라 식별자·버전이 없다
+    expect(issued[3]).toEqual({ ref: 'org-1', label: 'KB국민은행 연락처' })
+    expect(issued[4]).toEqual({ ref: 'law-1', label: '통신사기피해환급법 제3조(지급정지)' })
+  })
+
+  it('믿을 것으로 표시되고, 종류가 속성으로 붙는다', () => {
+    const { user } = builder.build(input({ kbSelected: SELECTED }))
+    expect(user).toContain('<kb_selected trusted="true">')
+    expect(user).toContain('kind="org"')
+    expect(user).toContain('kind="law"')
+    expect(user).toContain('가져온 날: 2026-09-06')
+  })
+
+  it('없으면 블록 자체가 없고 건수는 0', () => {
+    const { user, counts } = builder.build(input({ kbApplied: APPLIED }))
+    expect(user).not.toContain('## 선별 자료')
+    expect(counts.selected).toBe(0)
+    expect(builder.build(input({ kbSelected: SELECTED })).counts.selected).toBe(3)
+  })
+
+  it('시스템 지시문이 선별 자료를 믿을 것으로 두고, 쓰는 규칙 셋을 건다', () => {
+    expect(SYSTEM_PROMPT).toContain('<kb_selected>')
+    expect(SYSTEM_PROMPT).toContain('org-   기관 연락처')
+    expect(SYSTEM_PROMPT).toContain('law-   법령 조문 원문')
+    expect(SYSTEM_PROMPT).toContain('연락처는 사용자가 전화가 안 된다거나 막혔다고 말했을 때만')
+    expect(SYSTEM_PROMPT).toContain('조문은 그대로 인용한다')
   })
 })
