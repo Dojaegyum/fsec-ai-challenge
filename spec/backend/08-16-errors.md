@@ -236,6 +236,12 @@ export class RateLimitedError extends AppError {
 | `StoreError` | ✓ | 커넥션 일시 실패. 최대 2회 |
 | `RateLimitedError` | ✗ | **서버가 재시도하면 제한의 뜻이 없어집니다.** 기다렸다가 사용자가 누릅니다 |
 
+> 2026-09-07 — **`IngestError` 와 `PiiTokenizerUnavailableError` 의 `detail.transient`** ([ADR-091](../../decisions/091-evidence-retrying-not-failed.md)).
+> 어댑터가 「닿지 못함」(연결 실패 · 타임아웃 · 5xx)을 `TransientError` 로 던지면 모듈이 이 표시로 옮깁니다. 자료 읽기 흐름은
+> 이 표시가 있을 때 **오류 응답 대신 `processing` + `progress.retrying`** 으로 답해 셸의 폴링이 재시도가 되게 합니다 —
+> §3.1 「오류 응답은 스스로 다시 부르지 않는다」는 그대로입니다(오류를 내지 않으므로). 위 표의 재시도 횟수는 **최종적** 실패에
+> 대한 것이고, 일시적 실패의 다시 맡기기는 횟수 상한이 없습니다.
+
 ### 2.1 대기 간격과 전체 예산
 
 > 2026-08-16 확정.
