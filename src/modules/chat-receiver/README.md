@@ -116,9 +116,11 @@ chatPublisher.publish({ kind: ..., reply: ..., citations: ... })
 
 - ⬜ **재시도 1회가 맞는지 근거가 없습니다.** 형식 실수를 감안한 값입니다 →
   [11-chat-context.md](../../../spec/backend/08-16-chat-context.md) 「TODO(실측 필요)」.
-- ⬜ **`KbRow` 와 `KbEntry` 사이에 변환이 필요합니다.** `kb-finder` 는 표의 행을 그대로
-  돌려주고(`title`·`body`는 JSONB), 프롬프트는 문자열 두 개(`label`·`body`)를 받습니다.
-  **누가 옮기는지 정하지 않았습니다** — 지금은 부른 쪽입니다.
+- ✅ ~~**`KbRow` 와 `KbEntry` 사이에 변환이 필요합니다.** 누가 옮기는지 정하지 않았습니다~~ →
+  **정했습니다**(2026-09-06 · [11-chat-context.md §2.5](../../../spec/backend/08-16-chat-context.md) ·
+  [ADR-080](../../../decisions/080-kb-entry-fields-to-prompt.md)). 옮기는 것은 부르는 쪽(`src/lib/adapters.ts`)이고,
+  적용 절차는 `summary`·`steps`·`required_artifact`·`caveat`·`legal_basis` 를, 참고 절차는 `summary` 만 받습니다.
+  그 전까지는 `summary` 한 칸만 가서 서류·수수료·자율배상 수치를 챗이 「자료에 없다」고 했습니다.
 
 ## 판단이 필요했던 자리
 
