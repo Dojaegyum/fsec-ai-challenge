@@ -207,12 +207,19 @@ describe('한 건의 거절·연속 실패·예산이 나머지를 막지 않는
     })
   })
 
-  it('45초 예산을 넘기면 남은 건을 skipped 로 세고 멈춘다', async () => {
+  it('45초 예산을 넘기면 남은 건을 skipped 로 세고 멈춘다 — 두 번째 건은 묻지도 않는다', async () => {
     expect(RESUBMIT_BUDGET_MS).toBe(45_000)
 
+    // 예산 판정은 **건을 시작하기 전에** 합니다 — 넘긴 뒤에 다음 건의 collect(십수 초)를
+    // 걸어 놓고 멈추면 그 한 건이 함수 상한(60초)을 넘겨 건수 응답까지 잃습니다.
+    // 그래서 두 번째 건은 `started`(다시 맡기기)뿐 아니라 `asked`(묻기)에도 없어야 합니다
+    const asked: string[] = []
     const h = harness({
       rows: [row('E1'), row('E2'), row('E3')],
-      collect: async () => ({ status: 'missing' }),
+      collect: async (id) => {
+        asked.push(id)
+        return { status: 'missing' }
+      },
     })
 
     let calls = 0
@@ -223,7 +230,8 @@ describe('한 건의 거절·연속 실패·예산이 나머지를 막지 않는
 
     const report = await resubmitEvidence(h.container, { now })
 
-    expect(h.started).toHaveLength(1)
+    expect(asked).toEqual(['E1'])
+    expect(h.started).toEqual(['E1'])
     expect(report).toEqual({
       scanned: 3,
       resubmitted: 1,
@@ -232,5 +240,24 @@ describe('한 건의 거절·연속 실패·예산이 나머지를 막지 않는
       failed: 0,
       skipped: 2,
     })
+  })
+
+  it('첫 건은 예산이 이미 다 됐어도 한 번은 시도한다', async () => {
+    // 예산이 0 이라고 한 건도 안 보면 감시자가 몇 번을 불러도 진도가 안 납니다
+    const asked: string[] = []
+    const h = harness({
+      rows: [row('E1'), row('E2')],
+      collect: async (id) => {
+        asked.push(id)
+        return { status: 'missing' }
+      },
+    })
+
+    const report = await resubmitEvidence(h.container, { now: () => 999_999, budgetMs: 0 })
+
+    expect(asked).toEqual(['E1'])
+    expect(h.started).toEqual(['E1'])
+    expect(report.resubmitted).toBe(1)
+    expect(report.skipped).toBe(1)
   })
 })

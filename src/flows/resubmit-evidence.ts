@@ -15,6 +15,7 @@
  * Vercel 이 함수를 죽여 **건수 응답 자체를 못 받습니다** — 아래 두 가드가 그걸 막습니다.
  *
  * 1. **시간 예산** — `RESUBMIT_BUDGET_MS` 를 넘기면 남은 건은 손대지 않고 `skipped` 로 셉니다.
+ *    판정은 **건을 시작하기 전에** 합니다(첫 건은 예외 — 반드시 한 번은 시도합니다).
  * 2. **연속 닿지 못함 중단** — `RESUBMIT_UNREACHABLE_STOP` 번 연달아 다시 맡기기도 닿지 못하면,
  *    팟이 그새 살아났을 리 없다고 보고 나머지를 `skipped` 로 남깁니다. 다음 호출(감시자가 다시
  *    부르거나 사람이 다시 부름)이 처음부터 다시 봅니다.
@@ -96,6 +97,15 @@ export async function resubmitEvidence(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
 
+    // **예산은 그 건을 시작하기 전에 봅니다.** 처리가 끝난 뒤에 보면 이미 상한을 넘긴 채로
+    // 다음 건의 `collect`(십수 초)를 걸어 놓고 나서야 멈추게 됩니다 — 그 한 건이 함수 상한
+    // (60초)을 넘겨 건수 응답 자체를 잃습니다. `i > 0` 이라 **첫 건은 반드시 한 번 시도**합니다
+    // (예산이 이미 0 이어도 한 건은 봐야 다음 호출이 진도를 냅니다)
+    if (i > 0 && now() - startedAt >= budgetMs) {
+      report.skipped += rows.length - i
+      break
+    }
+
     let known = false
     // 묻기가 최종적으로 거절된 것(4xx) — 이 건만 실패로 세고 다음 건을 봅니다
     let rejected = false
@@ -150,10 +160,10 @@ export async function resubmitEvidence(
     const remaining = rows.length - (i + 1)
     if (remaining === 0) break
 
-    // **연속 닿지 못함이거나 예산을 다 썼으면 나머지는 다음 호출로 미룹니다.** 여기서 멈추지
-    // 않으면 20건 전부가 죽은 팟에 한 건씩 타임아웃을 물고, 함수 상한(60초)에 걸려 건수
-    // 응답조차 못 받습니다
-    if (consecutiveUnreachable >= RESUBMIT_UNREACHABLE_STOP || now() - startedAt >= budgetMs) {
+    // **연속 닿지 못했으면 나머지는 다음 호출로 미룹니다.** 여기서 멈추지 않으면 20건 전부가
+    // 죽은 팟에 한 건씩 타임아웃을 물고, 함수 상한(60초)에 걸려 건수 응답조차 못 받습니다.
+    // (예산은 위에서 — 다음 건을 시작하기 전에 봅니다)
+    if (consecutiveUnreachable >= RESUBMIT_UNREACHABLE_STOP) {
       report.skipped += remaining
       break
     }
