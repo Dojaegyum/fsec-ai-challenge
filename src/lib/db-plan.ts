@@ -20,7 +20,7 @@ import 'server-only'
 
 import { foldChannels } from './channels'
 import { seoulIso } from './clock'
-import type { Sql } from './db'
+import { upsertSlot, type Sql } from './db'
 
 import type { OpenedCase, Track } from '@/modules/case-intake'
 import type { PlanResult } from '@/modules/planner'
@@ -28,6 +28,7 @@ import type { SlotKey, SlotState, SlotTier } from '@/modules/slot-checker'
 
 import type {
   CasePlanStore,
+  OpenSlot,
   RequiredArtifact,
   StoredArtifact,
   StoredSlot,
@@ -324,7 +325,7 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
      * 에러 봉투에 `case_id` 를 담을 칸이 없어(10-errors.md §3) 사용자가 자기
      * 사건을 다시 찾을 방법이 없습니다. 하나의 트랜잭션이라야 합니다.
      */
-    async openCase(row: OpenedCase, result: PlanResult) {
+    async openCase(row: OpenedCase, result: PlanResult, slots: readonly OpenSlot[] = []) {
       await sql.begin(async (tx) => {
         await tx`
           INSERT INTO "case" (case_id, link_token, track, status, opened_at, purge_after)
@@ -332,6 +333,11 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
                   ${row.openedAt}, ${row.purgeAfter})
         `
         await apply(row.caseId, result, tx as unknown as Sql)
+        // 시작 화면에서 이미 답한 것 → ADR-076. **같은 트랜잭션입니다** — 뒤에 따로 쓰면
+        // 그 사이의 실패가 「답했는데 다시 묻는」 사건을 남깁니다
+        for (const one of slots) {
+          await upsertSlot(tx as unknown as Sql, { caseId: row.caseId, ...one })
+        }
       })
       return readSteps(row.caseId)
     },

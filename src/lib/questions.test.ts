@@ -15,6 +15,7 @@ import {
   channelForOption,
   createQuestionSource,
   questionsConfigured,
+  transferredAnswer,
 } from './questions'
 
 import { createSlotChecker, type SlotKey } from '@/modules/slot-checker'
@@ -231,6 +232,15 @@ describe('되묻기 문구 — 값을 사람이 읽는 모양으로 (ADR-069)', 
   it('되묻지 않는 슬롯은 문구가 없다', () => {
     expect(source.confirmFor?.('org_name', '국민은행')).toBeUndefined()
     expect(source.confirmFor?.('transferred', 'true')).toBeUndefined()
+  })
+})
+
+describe('시작 화면의 답을 문진의 값으로 — ADR-076', () => {
+  it('「내 돈이 나갔어요」는 송금 여부 문항의 첫 선택지와 같은 글자다', () => {
+    // 길이 둘(시작 화면 · 문진)이 같은 값을 남겨야 사건 파일 카드가 같은 것을 그립니다
+    const options = source.formFor('transferred')?.options ?? []
+    expect(transferredAnswer(true)).toBe(options[0])
+    expect(transferredAnswer(false)).toBe(options[1])
   })
 })
 

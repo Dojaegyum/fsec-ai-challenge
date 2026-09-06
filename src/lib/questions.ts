@@ -75,6 +75,16 @@ const CHANNEL_CHOICES: readonly { readonly label: string; readonly value: Channe
 const CHANNEL_OPTIONS: readonly string[] = CHANNEL_CHOICES.map((one) => one.label)
 
 /**
+ * 송금 여부 문항의 두 선택지.
+ *
+ * **글자가 곧 값입니다** — `case_slot.value_masked` 에 이 글자가 그대로 남고, 사건 파일 카드와
+ * 챗의 사건 정보가 그것을 읽습니다. `/start` 의 Q1 답도 같은 글자로 저장돼야 길이 둘이어도
+ * 값은 하나입니다 → ADR-076 · `transferredAnswer`
+ */
+const TRANSFERRED_YES = '네, 돈이 나갔어요'
+const TRANSFERRED_NO = '아니요, 나가지는 않았어요'
+
+/**
  * 슬롯별 질문 한 문항.
  *
  * **여기 없는 슬롯은 묻지 않습니다.** `counterpart_account`·`freeze_requested_at`
@@ -89,7 +99,7 @@ const FORMS: Partial<Record<SlotKey, QuestionForm>> = {
   transferred: {
     text: '돈이 실제로 빠져나갔나요?',
     input: 'buttons',
-    options: ['네, 돈이 나갔어요', '아니요, 나가지는 않았어요'],
+    options: [TRANSFERRED_YES, TRANSFERRED_NO],
   },
   channel: {
     text: '어떤 방법으로 보내셨나요?',
@@ -249,6 +259,17 @@ export function shownValue(slotKey: SlotKey, value: string): string {
  */
 export function channelForOption(option: string): ChannelId | undefined {
   return CHANNEL_CHOICES.find((one) => one.label === option)?.value
+}
+
+/**
+ * 시작 화면의 답을 송금 여부 슬롯의 값으로 옮깁니다 → ADR-076.
+ *
+ * `/start` 의 Q1 「내 돈이 나갔어요」는 곧 「돈이 실제로 빠져나갔나요?」의 답입니다. 사건을 열 때
+ * 그 답을 함께 저장하는데, **문진에서 그 버튼을 눌렀을 때와 같은 글자**여야 합니다 — 다르면
+ * 사건 파일 카드가 같은 사실을 두 모양으로 그립니다.
+ */
+export function transferredAnswer(yes: boolean): string {
+  return yes ? TRANSFERRED_YES : TRANSFERRED_NO
 }
 
 /** 문진 문구가 실제로 붙어 있는가. 설정 현황에 씁니다 */

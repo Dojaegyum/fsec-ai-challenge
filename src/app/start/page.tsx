@@ -12,7 +12,7 @@ import { kindOf, uploadFile } from "@/app/c/[token]/upload";
 import { screenName } from "@/modules/file-sender";
 import { saveEmail } from "./contact";
 import { loadMockEvidence } from "./mock";
-import { openCase, trackOf } from "./open";
+import { openCase, openingOf } from "./open";
 
 /**
  * S-05 동의 · 선택 제공 — `/start` (시안 2c + 발급 1a 확정본)
@@ -77,6 +77,10 @@ import { openCase, trackOf } from "./open";
  *    결정입니다** (2026-09-01 · ADR-060 · `open.ts` 의 `trackOf`). 계약에 값이
  *    늘지 않습니다. `track` 은 고른 뒤 바꾸지 않고 되짚기는 **새 사건**입니다 (ADR-066).
  *    첫 선택지(`frozen_account`)의 KB 도 2026-09-04 에 생겼습니다 — 빈 플랜이 아닙니다
+ *  · ✅ ~~Q1 「내 돈이 나갔어요」를 골라도 사건 화면이 「돈이 실제로 빠져나갔나요?」를 다시
+ *    물었습니다~~ → **답이 함께 갑니다** (2026-09-06 · ADR-076 · `open.ts` 의 `openingOf`).
+ *    §3.1 에 `transferred: true` 로 실려 사건과 같은 트랜잭션에 저장되고, 첫 문항은
+ *    송금 수단부터입니다. 「잘 모르겠어요」는 안 보냅니다 — 그건 문진이 물을 자리입니다
  *  · ⬜ **전사·판독 서버가 어느 나라에 있는지 코드로 확인할 수 없습니다.**
  *    `TRANSCRIBER_URL`·`NER_URL` 은 배포 환경변수에만 있습니다(ADR-059). 그래서
  *    4항이 「국외일 수 있음」으로 적혀 있습니다 — **덮지 않는 쪽**입니다. 확정
@@ -865,7 +869,8 @@ export default function Start() {
     if (opening) return;
     setOpening(true);
     setFail(null);
-    const made = await openCase(trackOf(q1));
+    // Q1 「내 돈이 나갔어요」는 송금 여부의 답이기도 해서 함께 실어 보냅니다 → ADR-076
+    const made = await openCase(openingOf(q1));
     setOpening(false);
     if (!made.ok) {
       setFail(made.fail);

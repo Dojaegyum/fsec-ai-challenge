@@ -367,6 +367,42 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
     })
   })
 
+  describe('사건을 열 때 아는 슬롯은 사건과 함께 들어간다 — ADR-076', () => {
+    it('송금 여부가 사건과 같은 트랜잭션으로 저장돼 곧바로 읽힌다', async () => {
+      const id = newUlid()
+      try {
+        await plans.openCase(
+          {
+            caseId: id,
+            linkToken: newLinkToken(),
+            track: 'victim',
+            status: 'intake',
+            openedAt: OPENED_AT,
+            purgeAfter: PURGE_AFTER,
+          },
+          { upsert: [], preserved: [], skipped: [] },
+          [
+            {
+              slotKey: 'transferred',
+              tier: 'T1',
+              valueType: 'bool',
+              state: 'confirmed',
+              valueMasked: '네, 돈이 나갔어요',
+              source: 'user',
+            },
+          ],
+        )
+
+        const row = (await slotReader.read(id)).find((one) => one.slotKey === 'transferred')
+        expect(row?.state).toBe('confirmed')
+        expect(row?.valueMasked).toBe('네, 돈이 나갔어요')
+      } finally {
+        // 슬롯은 `ON DELETE CASCADE` 로 따라 지워집니다
+        await sql`DELETE FROM "case" WHERE case_id = ${id}`
+      }
+    })
+  })
+
   describe('증거 상태는 뒷걸음치지 않는다', () => {
     const evidenceId = newUlid()
 

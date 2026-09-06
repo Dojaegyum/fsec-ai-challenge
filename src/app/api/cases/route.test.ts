@@ -19,7 +19,7 @@ import { TELEMETRY_HEADER_NAMES } from '@/lib/telemetry'
 import type { CaseStore, OpenedCase } from '@/modules/case-intake'
 import type { KbRow, KbStore } from '@/modules/kb-finder'
 
-import type { CasePlanStore, StoredStep } from '@/flows/regenerate-plan'
+import type { CasePlanStore, OpenSlot, StoredStep } from '@/flows/regenerate-plan'
 
 import { POST } from './route'
 
@@ -69,12 +69,12 @@ function caseStoreOf() {
   return { store, rows }
 }
 
-/** 사건과 플랜이 함께 저장됐는지 보려고 들여다봅니다 → ADR-046 */
-const opened: { caseId: string; steps: number }[] = []
+/** 사건과 플랜이 함께 저장됐는지 보려고 들여다봅니다 → ADR-046. 시작 화면의 답도 같은 자리에 옵니다 → ADR-076 */
+const opened: { caseId: string; steps: number; slots: readonly OpenSlot[] }[] = []
 
 const casePlan: CasePlanStore = {
-  async openCase(row, result) {
-    opened.push({ caseId: row.caseId, steps: result.upsert.length })
+  async openCase(row, result, slots = []) {
+    opened.push({ caseId: row.caseId, steps: result.upsert.length, slots })
     return casePlan.applyPlan(row.caseId, result)
   },
   async readCase() {
@@ -364,6 +364,47 @@ describe('사건을 만든다 — §3.1', () => {
 
     expect(res.status).toBe(201)
     expect(body.track).toBe('frozen_account')
+  })
+})
+
+describe('시작 화면의 답이 사건과 함께 저장된다 — ADR-076', () => {
+  it('transferred: true 면 송금 여부 슬롯이 사건과 한 번에 들어간다', async () => {
+    const before = opened.length
+    const res = await POST(ask({ track: 'victim', transferred: true }))
+
+    expect(res.status).toBe(201)
+    const last = opened[before]
+    expect(last?.slots).toHaveLength(1)
+    expect(last?.slots[0]).toMatchObject({
+      slotKey: 'transferred',
+      tier: 'T1',
+      valueType: 'bool',
+      state: 'confirmed',
+      source: 'user',
+    })
+    // 문진에서 그 버튼을 눌렀을 때와 같은 글자 — 사건 파일 카드가 그대로 그립니다
+    expect(last?.slots[0]?.valueMasked).toBe('네, 돈이 나갔어요')
+  })
+
+  it('안 보내면 슬롯 없이 열린다 — 「잘 모르겠어요」는 문진이 묻는다', async () => {
+    const before = opened.length
+    await POST(ask({ track: 'victim' }))
+
+    expect(opened[before]?.slots).toEqual([])
+  })
+
+  it('참·거짓이 아니면 400 이다', async () => {
+    // 문구는 봉투가 고정합니다(「요청 형식이 올바르지 않습니다」) — 어느 칸인지는
+    // 감사 로그의 `detail.param` 에만 남습니다 → 08-16-errors.md §3
+    const res = await POST(ask({ track: 'victim', transferred: 'yes' }))
+
+    expect(res.status).toBe(400)
+  })
+
+  it('통장묶기 갈래에는 그 문항이 없어 400 이다 — ADR-071', async () => {
+    const res = await POST(ask({ track: 'frozen_account', transferred: true }))
+
+    expect(res.status).toBe(400)
   })
 })
 

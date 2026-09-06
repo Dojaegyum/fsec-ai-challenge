@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { openCase, trackOf } from "./open";
+import { openCase, openingOf, trackOf } from "./open";
 
 const RESPONSE = {
   case_id: "01J8XKQZ3M7N2P4R6T8V0W2Y4A",
@@ -41,7 +41,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("주소에 실리는 것은 link_token 이다", () => {
   it("case_id 를 집지 않는다 → ADR-039", async () => {
     spyFetch(json(RESPONSE));
-    const made = await openCase("victim");
+    const made = await openCase({ track: "victim" });
 
     expect(made.ok).toBe(true);
     if (!made.ok) return;
@@ -52,7 +52,7 @@ describe("주소에 실리는 것은 link_token 이다", () => {
 
   it("주소를 못 받으면 그대로 넘어가지 않는다", async () => {
     spyFetch(json({ ...RESPONSE, link_token: undefined }));
-    const made = await openCase("victim");
+    const made = await openCase({ track: "victim" });
 
     // 이걸 흘려보내면 다음 요청을 아예 못 보냅니다 — §3.2 부터 경로가 `{case_token}` 입니다
     expect(made.ok).toBe(false);
@@ -63,7 +63,7 @@ describe("주소에 실리는 것은 link_token 이다", () => {
 describe("track 은 계약의 둘만 나간다", () => {
   it("고른 대로 실려 나간다", async () => {
     const calls = spyFetch(json(RESPONSE));
-    await openCase("frozen_account");
+    await openCase({ track: "frozen_account" });
     expect(calls[0]?.url).toBe("/api/cases");
     expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ track: "frozen_account" });
   });
@@ -82,12 +82,30 @@ describe("track 은 계약의 둘만 나간다", () => {
   });
 });
 
+describe("Q1 의 답은 곧 첫 문항의 답이다 — ADR-076", () => {
+  it("「내 돈이 나갔어요」는 transferred: true 를 함께 보낸다", async () => {
+    // 같은 것을 사건 화면에서 다시 묻지 않으려면 **이 요청에 실려야** 합니다 —
+    // 뒤에 §3.5 를 한 번 더 부르면 그 사이에 첫 문항이 「돈이 나갔나요」로 뜹니다
+    const calls = spyFetch(json(RESPONSE));
+    await openCase(openingOf(0));
+    expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ track: "victim", transferred: true });
+  });
+
+  it("「잘 모르겠어요」는 track 만 — 송금 여부는 문진이 묻는다", () => {
+    expect(openingOf(2)).toEqual({ track: "victim" });
+  });
+
+  it("「내 계좌가 묶였어요」도 track 만 — 명의인에게 그 문항은 없다 (ADR-071)", () => {
+    expect(openingOf(1)).toEqual({ track: "frozen_account" });
+  });
+});
+
 describe("못 만들었을 때", () => {
   it("서버 문구를 그대로 쓰고 자동으로 다시 부르지 않는다", async () => {
     const calls = spyFetch(
       json({ error: { code: "RATE_LIMITED", message: "잠시 뒤 다시 시도해 주세요.", retryable: true } }, 429),
     );
-    const made = await openCase("victim");
+    const made = await openCase({ track: "victim" });
 
     expect(calls).toHaveLength(1);
     expect(made.ok).toBe(false);
@@ -98,7 +116,7 @@ describe("못 만들었을 때", () => {
 
   it("서버가 retryable 을 안 말하면 화면도 모르는 채로 둔다", async () => {
     spyFetch(json({ error: { code: "BAD_REQUEST", message: "track 값이 목록 밖입니다" } }, 400));
-    const made = await openCase("victim");
+    const made = await openCase({ track: "victim" });
 
     expect(made.ok).toBe(false);
     expect(!made.ok && "retryable" in made.fail).toBe(false);
