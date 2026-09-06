@@ -158,8 +158,12 @@ export async function POST(
     after(turn.deferred)
 
     // **계측 넷을 여기서 채웁니다** → §1.1. 안 채우면 넷 다 「없음」으로 나가는데,
-    // 이 경로가 **이 제품의 유일한 외부 모델 호출**입니다 — 개인정보 보호가
-    // 작동한다는 것을 응답이 증명해야 하는 자리가 바로 여기입니다
+    // 답변 생성이 **응답 경로의 유일한 외부 모델 호출**입니다 — 개인정보 보호가
+    // 작동한다는 것을 응답이 증명해야 하는 자리가 바로 여기입니다.
+    //
+    // 위 `after` 로 미룬 슬롯 추출(ADR-087)도 모델을 한 번 부르지만 **응답 뒤**라
+    // 이 계측에 안 셉니다 — 헤더는 이미 나간 뒤이고, 그 호출의 토큰·잔여는 이 응답이
+    // 증명할 수 있는 것이 아닙니다. 세려면 감사 쪽(`llm.called`)에 따로 남길 일입니다
     ctx.telemetry.addTokenCounts(turn.telemetry.piiTokenCounts)
     ctx.telemetry.setEgressResidual(turn.telemetry.piiEgressResidual)
     ctx.telemetry.useKbVersion(turn.telemetry.kbVersion)

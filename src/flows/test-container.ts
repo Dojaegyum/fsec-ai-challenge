@@ -32,15 +32,22 @@ export interface SlotExtractionFake {
   readonly wrote: SlotWriteInput[]
   /** 추출기에 실제로 간 사용자 프롬프트 — 「모델이 무엇을 봤나」를 봅니다 */
   readonly prompts: string[]
+  /** `slots.read` 를 몇 번 불렀나 — 모델 호출 앞뒤로 **두 번**이 계약입니다(ADR-087) */
+  readonly reads: () => number
 }
 
 export function fakeSlotContainer(base: {
-  readonly already?: readonly AlreadySlot[]
+  /**
+   * 이미 적혀 있는 슬롯. **함수로 주면 읽을 때마다 다르게 답합니다** — 모델을 부르는
+   * 동안 사용자가 「맞아요」를 눌러 상태가 바뀌는 자리를 세웁니다(인자는 1부터 세는 읽기 횟수)
+   */
+  readonly already?: readonly AlreadySlot[] | ((read: number) => readonly AlreadySlot[])
   /** 모델이 낼 것. 객체를 주면 JSON 으로 싸서 냅니다 */
   readonly reply: (maskedText: string) => unknown
 }): SlotExtractionFake {
   const wrote: SlotWriteInput[] = []
   const prompts: string[] = []
+  let reads = 0
 
   const llm = {
     async completeText(prompt: { system: string; user: string }) {
@@ -53,6 +60,8 @@ export function fakeSlotContainer(base: {
 
   const slots = {
     async read() {
+      reads += 1
+      if (typeof base.already === 'function') return base.already(reads)
       return base.already ?? []
     },
   }
@@ -70,5 +79,6 @@ export function fakeSlotContainer(base: {
     container: { ports: { llm }, slots, slotWrite } as unknown as Container,
     wrote,
     prompts,
+    reads: () => reads,
   }
 }

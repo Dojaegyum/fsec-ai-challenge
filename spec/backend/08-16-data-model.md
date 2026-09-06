@@ -310,7 +310,7 @@ CREATE TABLE case_slot (
   state        TEXT          NOT NULL DEFAULT 'empty'
                CHECK (state IN ('empty','extracted','pii_pending','confirmed','unknown')),
   source       TEXT          NULL CHECK (source IN ('auto','user','system')),
-  source_ref   CHAR(26)      NULL,       -- 어느 evidence 에서 나왔는가
+  source_ref   CHAR(26)      NULL,       -- 어느 자료(evidence_id) 또는 진술(message_id)에서 나왔는가 (ADR-087)
   confidence   NUMERIC(3,2)  NULL,
   created_at   TIMESTAMPTZ(3) NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ(3) NOT NULL DEFAULT now(),

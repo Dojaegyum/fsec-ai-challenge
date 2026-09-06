@@ -107,6 +107,31 @@ describe('진술에서 뽑은 값도 확인 전으로 둔다 — ADR-087', () =>
     expect(fake.wrote.map((one) => one.slotKey)).toEqual(['counterpart_account'])
   })
 
+  /**
+   * ⚠️ **미룬 쓰기가 방금 받은 확인을 되돌릴 수 있습니다.**
+   *
+   * 슬롯 쓰기는 `state = EXCLUDED.state` 로 덮어씁니다(`lib/db.ts`). 챗 응답에 그 슬롯의
+   * 확인 문항이 함께 실려 나가면, 사용자의 「맞아요」(§3.5 `PATCH /slots`)가 **모델이 답하는
+   * 몇 초 사이에** 도착합니다. 부르기 전에 뜬 그물만 들고 있으면 그 뒤에 적어 `confirmed` 를
+   * `extracted` 로 — 그것도 **다른 값으로** — 되돌립니다. 그래서 **부른 뒤에 한 번 더 읽습니다.**
+   */
+  it('모델을 부르는 동안 확정된 값은 덮지 않는다 — 부르기 전후로 두 번 읽는다', async () => {
+    const fake = fakeSlotContainer({
+      already: (read) =>
+        read === 1
+          ? // 부르기 전: 아직 확인 전이라 추출기의 `known` 에도 안 들어갑니다
+            [{ slotKey: 'amount', state: 'extracted', valueMasked: '3000000' }]
+          : // 부른 뒤: 그 사이에 「맞아요」가 도착했습니다
+            [{ slotKey: 'amount', state: 'confirmed', valueMasked: '3000000' }],
+      reply: () => ({ slots: [{ slot_key: 'amount', value: '32,000,000원', confidence: 0.95 }] }),
+    })
+
+    await said(fake.container)
+
+    expect(fake.reads()).toBe(2)
+    expect(fake.wrote).toEqual([])
+  })
+
   it('확신이 낮으면 버린다 — 임계값 0.7 (ADR-069 ③)', async () => {
     const fake = fakeSlotContainer({
       reply: () => ({ slots: [{ slot_key: 'amount', value: '300만원', confidence: 0.4 }] }),

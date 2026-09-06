@@ -29,7 +29,7 @@
  * | `transferred`·`channel` | 안 받습니다. T1 은 분기를 정하는 값이라 사람의 답으로만 — `channel` 은 `case_channel` 을 함께 적어야 해서 슬롯만 채우면 오히려 갈래가 빗나갑니다 |
  * | 확신도 | `CONFIDENCE_MIN` 미만은 버립니다 — 08-14-slot-tiering.md 의 「임계값 미정」을 여기서 정했습니다 |
  * | 모양 | `lib/extracted-value.ts` 가 못 다듬으면 버립니다 — 「어제」·「삼천만 원쯤」은 사람에게 묻습니다 |
- * | 이미 확정된 슬롯 | 덮지 않습니다 — `repairOrgs` 와 같은 그물. `unknown`(모름)은 채웁니다 |
+ * | 이미 확정된 슬롯 | 덮지 않습니다 — `repairOrgs` 와 같은 그물. `unknown`(모름)은 채웁니다. **모델을 부른 뒤 한 번 더 읽어** 그 사이에 도착한 「맞아요」도 지킵니다 |
  *
  * ## 실패해도 진행한다
  *
@@ -83,10 +83,8 @@ export async function extractSlotsFrom(
     // 되묻기에 「네」 한 마디로 답한 턴에까지 모델을 부르지 않습니다
     if (input.text.trim().length === 0) return
 
-    const already = await container.slots.read(input.caseId)
-    const confirmed = new Set(
-      already.filter((one) => one.state === 'confirmed').map((one) => one.slotKey),
-    )
+    // 부르기 **전**의 그물 — 추출기에 「이건 이미 안다」고 알려 주는 데만 씁니다
+    const known = await confirmedKeys(input.caseId, container)
 
     const extractor = createSlotExtractor({
       llm: { complete: (prompt) => container.ports.llm.completeText(prompt) },
@@ -94,8 +92,17 @@ export async function extractSlotsFrom(
     const result = await extractor.extract({
       maskedText: `${input.sourceLabel}\n${input.text}`,
       evidenceId: input.sourceRef,
-      known: [...confirmed].filter(isConfirmable),
+      known: [...known].filter(isConfirmable),
     })
+
+    // ⚠️ **적기 직전에 한 번 더 읽습니다.** 위 그물은 모델을 부르기 전의 것이라
+    // 몇 초 낡았습니다 — 그 사이에 사용자의 「맞아요」가 도착할 수 있습니다.
+    //
+    // 챗 경로에서 실제로 겹치는 자리입니다(ADR-087): 같은 응답이 그 슬롯의 확인 문항을
+    // 싣고 나가고, 사용자가 누른 §3.5 `PATCH /slots` 가 이 미룬 쓰기보다 먼저 도착합니다.
+    // 쓰기는 `state = EXCLUDED.state` 로 덮으므로(`lib/db.ts`), 낡은 그물로 적으면
+    // **방금 확정한 값을 다른 값의 `extracted` 로 되돌립니다.**
+    const confirmed = await confirmedKeys(input.caseId, container)
 
     for (const one of result.slots) {
       if (!isConfirmable(one.slotKey)) continue
@@ -117,8 +124,23 @@ export async function extractSlotsFrom(
         confidence: one.confidence,
       })
     }
-  } catch {
+  } catch (error) {
     // 여기서 던지면 부르는 쪽이 하던 일을 통째로 잃습니다 — 자료 쪽은 **전사 결과**를,
-    // 챗 쪽은 이미 사용자에게 나간 응답 뒤의 흐름을. `repairOrgs` 와 같은 이유로 삼킵니다
+    // 챗 쪽은 이미 사용자에게 나간 응답 뒤의 흐름을. `repairOrgs` 와 같은 이유로 삼킵니다.
+    //
+    // **삼키되 조용히는 아닙니다.** 응답 뒤(`after()`)에 도는 일이라 실패해도 사용자에게
+    // 보이는 자리가 없어, 한 줄도 안 남기면 「원래 안 뽑히는 것」과 구분이 안 됩니다.
+    // **값도 이름도 적지 않습니다** — 남기는 것은 어느 자료·발화였나와 예외의 종류뿐입니다
+    // (불변 규칙 2·3 · 09-data-model.md §10.1)
+    console.warn('[extract-slots] 추출 실패', {
+      sourceRef: input.sourceRef,
+      error: error instanceof Error ? error.name : 'unknown',
+    })
   }
+}
+
+/** 지금 `confirmed` 인 슬롯 이름들. **덮지 않을 것의 그물**입니다 */
+async function confirmedKeys(caseId: string, container: Container): Promise<Set<string>> {
+  const already = await container.slots.read(caseId)
+  return new Set(already.filter((one) => one.state === 'confirmed').map((one) => one.slotKey))
 }
