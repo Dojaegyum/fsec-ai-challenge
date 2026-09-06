@@ -115,6 +115,13 @@ def api(method: str, path: str, body: dict | None = None) -> dict | list | None:
             return json.loads(raw) if raw else None
     except urllib.error.HTTPError as e:
         die(f"RunPod {method} {path} → HTTP {e.code} {e.read().decode(errors='replace')[:300]}")
+    # HTTPError 는 URLError 의 하위 클래스라 이 갈래보다 위에 있어야 한다 — 순서를 바꾸면 위가 안 잡힌다.
+    # 연결 실패·DNS·타임아웃은 urlopen 이 그냥 URLError/TimeoutError 로 던지는데, 그대로 두면 감시자가
+    # 못 잡는 예외가 새 나간다 — PodError 로 감싸 "닿지 못했다"를 구분한다(검토 반영).
+    except (urllib.error.URLError, TimeoutError) as e:
+        die(f"RunPod {method} {path} → 닿지 못했습니다 ({e.reason if hasattr(e, 'reason') else e})")
+    except ValueError:
+        die(f"RunPod {method} {path} → 응답을 읽지 못했습니다")
 
 
 def proxy_url(pod_id: str) -> str:
@@ -241,21 +248,26 @@ def provision(pod_id: str) -> None:
     ip, port = wait_ssh(pod_id)
     base = ssh_base(ip, port)
     print(f"▸ {ip}:{port} 로 꾸러미를 올립니다")
-    # 로컬에서 tar → 팟에서 풀기. `--no-same-owner` 가 없으면 Windows 쪽 uid 로 실패합니다 (runpod-bench.md)
-    tar = subprocess.Popen(
-        ["tar", "czf", "-", "--exclude=__pycache__", "--exclude=.venv", "--exclude=.work",
-         "-C", str(ROOT / "services"), "transcriber"],
-        stdout=subprocess.PIPE,
-    )
-    subprocess.run(base + ["mkdir -p /opt/finally && tar xzf - --no-same-owner -C /opt/finally"],
-                   stdin=tar.stdout, check=True)
-    tar.wait()
-    provision_script = (ROOT / "deploy" / "runpod-provision.sh").read_bytes()
-    subprocess.run(base + ["cat > /opt/finally/provision.sh"], input=provision_script, check=True)
-    # 토큰은 명령줄이 아니라 stdin 으로 — 팟의 프로세스 목록에 안 남습니다
-    subprocess.run(base + ["umask 077 && cat > /opt/finally/token"], input=token.encode(), check=True)
-    print("▸ 팟 안에서 provision.sh 를 돌립니다 (모델 내려받기 포함 · 10분쯤)")
-    subprocess.run(base + ["bash /opt/finally/provision.sh"], check=True)
+    # ssh·tar·provision.sh 중 하나라도 실패하면(CalledProcessError·타임아웃·OSError) PodError 로 감싼다 —
+    # 감시자가 예상 못 한 예외로 죽지 않고 이 회차만 실패로 보고 다음 회차로 넘어가게 한다(검토 반영)
+    try:
+        # 로컬에서 tar → 팟에서 풀기. `--no-same-owner` 가 없으면 Windows 쪽 uid 로 실패합니다 (runpod-bench.md)
+        tar = subprocess.Popen(
+            ["tar", "czf", "-", "--exclude=__pycache__", "--exclude=.venv", "--exclude=.work",
+             "-C", str(ROOT / "services"), "transcriber"],
+            stdout=subprocess.PIPE,
+        )
+        subprocess.run(base + ["mkdir -p /opt/finally && tar xzf - --no-same-owner -C /opt/finally"],
+                       stdin=tar.stdout, check=True)
+        tar.wait()
+        provision_script = (ROOT / "deploy" / "runpod-provision.sh").read_bytes()
+        subprocess.run(base + ["cat > /opt/finally/provision.sh"], input=provision_script, check=True)
+        # 토큰은 명령줄이 아니라 stdin 으로 — 팟의 프로세스 목록에 안 남습니다
+        subprocess.run(base + ["umask 077 && cat > /opt/finally/token"], input=token.encode(), check=True)
+        print("▸ 팟 안에서 provision.sh 를 돌립니다 (모델 내려받기 포함 · 10분쯤)")
+        subprocess.run(base + ["bash /opt/finally/provision.sh"], check=True)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+        die(f"팟 {pod_id} 채우기 실패 — {type(e).__name__}: {str(e)[:200]}")
 
 
 def terminate(pod_id: str) -> None:
