@@ -29,6 +29,7 @@ import { nextStep, screenName } from "@/modules/file-sender";
 import type { RailFile, SendState } from "@/modules/file-sender";
 
 import { postJson } from "./load";
+import { apiHeaders } from "./session-id";
 import type { LoadFail } from "./load";
 
 /**
@@ -122,7 +123,9 @@ export async function uploadFile(input: {
     }
 
     if (step.do === "put-file") {
-      // **우리 서버를 안 거칩니다** — 객체 저장소로 곧장 갑니다 (§3.2)
+      // **우리 서버를 안 거칩니다** — 객체 저장소로 곧장 갑니다 (§3.2).
+      // 그래서 `X-Session-Id` 도 안 붙습니다 — 서명된 주소라 계약에 없는 헤더를
+      // 얹을 이유가 없고, 속도 제한을 세는 것은 우리 라우트뿐입니다 (§1.3)
       let put: Response;
       try {
         put = await fetch(step.url, {
@@ -313,7 +316,7 @@ async function fetchEvidenceList(
   try {
     res = await fetch(`/api/cases/${encodeURIComponent(caseToken)}/evidence`, {
       signal,
-      headers: { accept: "application/json" },
+      headers: apiHeaders({ accept: "application/json" }),
     });
   } catch {
     return [];

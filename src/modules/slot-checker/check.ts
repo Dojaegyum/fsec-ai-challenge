@@ -180,6 +180,9 @@ export function createSlotChecker(deps: {
       const stateOf = (key: SlotKey): SlotState => known.get(key) ?? 'empty'
       const values = new Map(input.slots.map((one) => [one.slotKey, one.valueMasked ?? null]))
       const valueOf = (key: SlotKey): string | null => values.get(key) ?? null
+      // 되묻는 값의 출처 — 답이 이것을 되돌려 줘야 「본 값」과 「지금 값」을 견줄 수 있습니다
+      const refs = new Map(input.slots.map((one) => [one.slotKey, one.sourceRef ?? null]))
+      const refOf = (key: SlotKey): string | null => refs.get(key) ?? null
 
       // 갈래마다 묻는 것이 다릅니다 → ADR-071. 통장묶기 명의인에게 T1 은 없습니다(빈 목록은 곧 충족)
       const track: Track = input.track ?? 'victim'
@@ -191,7 +194,14 @@ export function createSlotChecker(deps: {
       return {
         t1,
         t2,
-        nextQuestion: pickQuestion(stateOf, valueOf, questions, input.orgCandidates ?? [], track),
+        nextQuestion: pickQuestion(
+          stateOf,
+          valueOf,
+          refOf,
+          questions,
+          input.orgCandidates ?? [],
+          track,
+        ),
         // 「모름」으로 확정된 경우도 여기 포함된다.
         // 낫게 안내하지 못할 바에 넓게 안내한다 → 08-14-slot-tiering.md
         needsSupersetPlan: t1 !== 'satisfied',
@@ -233,6 +243,7 @@ function tierStatus(
 function pickQuestion(
   stateOf: (key: SlotKey) => SlotState,
   valueOf: (key: SlotKey) => string | null,
+  refOf: (key: SlotKey) => string | null,
   questions: QuestionSource,
   orgCandidates: readonly string[],
   track: Track = 'victim',
@@ -246,7 +257,11 @@ function pickQuestion(
     const value = valueOf(slotKey)
     if (value === null || !questions.confirmFor) return null
     const form = questions.confirmFor(slotKey, value)
-    return form ? withUnknownOption({ slotKey, ...form }) : null
+    if (!form) return null
+    // **물은 값의 출처를 함께 냅니다** — 답이 돌아올 때 그 값이 아직 그대로인지
+    // 서버가 견줍니다(§3.5). 없으면(옛 자료) 안 싣고, 그때는 지금까지대로 확정됩니다
+    const ref = refOf(slotKey)
+    return withUnknownOption({ slotKey, ...form, ...(ref === null ? {} : { heldRef: ref }) })
   }
   // **확정되지 않은 기관은 다시 묻는다** → 08-16-data-model.md §11.4.4 ①
   // *"못 찾으면 되묻는 편이 안전합니다"*.

@@ -73,6 +73,13 @@ export interface SlotSnapshot {
    * 보여줘야 하기 때문입니다(ADR-069). 없으면 되묻지 않고 채워진 것으로만 셉니다
    */
   readonly valueMasked?: string | null
+  /**
+   * 그 값이 어디서 왔나 — `case_slot.source_ref`(자료 번호 또는 발화 번호).
+   *
+   * **되묻기 문항에 그대로 실립니다**(`NextQuestion.heldRef`). 개인정보가 아니라
+   * 우리가 발급한 식별자입니다 → 09-data-model.md §5.1.
+   */
+  readonly sourceRef?: string | null
 }
 
 /**
@@ -96,6 +103,15 @@ export interface NextQuestion {
   readonly input: 'buttons' | 'text' | 'date' | 'amount' | 'confirm'
   /** `input` 이 `'buttons'`·`'confirm'` 일 때 필수. **「모름」 선택지가 반드시 들어갑니다** */
   readonly options?: readonly string[]
+  /**
+   * **지금 물은 값의 출처** — `input` 이 `'confirm'` 일 때만. 슬롯의 `source_ref` 입니다.
+   *
+   * 답(§3.5 `action: "confirm"`)이 이 값을 되돌려 주고, 서버는 슬롯의 `source_ref` 가
+   * 그대로일 때만 확정합니다. **사용자가 본 값과 지금 값이 같은가**를 그것으로 봅니다 —
+   * 되묻기가 떠 있는 동안 미룬 추출(ADR-086)이 그 칸을 덮을 수 있기 때문입니다.
+   * 값이 아니라 자료·발화의 번호라 개인정보가 아닙니다.
+   */
+  readonly heldRef?: string
 }
 
 /** 질문 문구와 선택지를 빼면 남는 것 */

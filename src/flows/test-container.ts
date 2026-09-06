@@ -14,11 +14,16 @@
 import type { Container } from '@/lib/container'
 import type { SlotWriteInput } from '@/lib/db'
 
-/** 이미 적혀 있는 슬롯 — 흐름이 읽는 것은 `slotKey`·`state` 둘뿐입니다 */
+/** 이미 적혀 있는 슬롯 — 흐름이 읽는 것은 `slotKey`·`state`·`source` 셋입니다 */
 export interface AlreadySlot {
   readonly slotKey: string
   readonly state: string
   readonly valueMasked: string | null
+  /**
+   * 누가 적었나. **`empty` + `user` 는 사용자가 거절한 값**이라 다시 뽑지 않습니다
+   * (`extract-slots.ts` 의 `protectedKeys`). 안 주면 자동으로 봅니다
+   */
+  readonly source?: 'auto' | 'user' | 'system'
 }
 
 export interface SlotExtractionFake {

@@ -97,6 +97,22 @@ export function isTokenShaped(value: string): boolean {
   return isUlid(value)
 }
 
+/**
+ * 브라우저가 만든 **탭 하나의 세션 식별자**인가 → 08-14-api.md §1 §1.3.
+ *
+ * 브라우저는 `crypto.randomUUID()` 로 만들어 보냅니다(`app/c/[token]/session-id.ts`).
+ * **우리가 발급하는 값이 아니라 모양만 볼 수 있습니다** — 그래서 이 검사는
+ * 「우리 클라이언트가 보낸 것 같은가」까지이고, 그 이상을 뜻하지 않습니다.
+ *
+ * ⚠️ **모양이 아니면 속도 제한이 IP 로 떨어집니다**(`lib/request.ts` 의 `sessionIdOf`).
+ * 거절하지 않는 이유는 §1.3 의 *"제한이 정상 사용을 막으면 안 됩니다"* 입니다.
+ * 길이·자리만 봅니다 — 판(version)·변형(variant) 비트까지 요구하면 우리가 안 만든
+ * UUID 를 쓰는 클라이언트가 조용히 IP 통에 들어갑니다.
+ */
+export function isUuidShaped(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+}
+
 /** `case-intake` 의 `IdSource` · `audit-logger` 의 `newId` 자리에 그대로 들어갑니다 */
 export const ulidSource = { next: () => newUlid() }
 

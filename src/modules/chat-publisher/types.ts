@@ -30,6 +30,8 @@ export interface NextQuestion {
   /** `confirm` 은 자료에서 뽑힌 값의 되묻기 — 답이 뜻으로 갑니다 (ADR-082) */
   readonly input: 'buttons' | 'text' | 'date' | 'amount' | 'confirm'
   readonly options?: readonly string[]
+  /** 되묻는 값의 출처. 답이 그대로 되돌려 줍니다 → §3.5 (ADR-082 × ADR-087) */
+  readonly held_ref?: string
 }
 
 /**

@@ -258,9 +258,16 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
 
     async readSlots(caseId) {
       const rows = await sql<
-        { slot_key: SlotKey; tier: SlotTier; state: SlotState; value_masked: string | null }[]
+        {
+          slot_key: SlotKey
+          tier: SlotTier
+          state: SlotState
+          value_masked: string | null
+          source_ref: string | null
+        }[]
       >`
-        SELECT slot_key, tier, state, value_masked FROM case_slot WHERE case_id = ${caseId}
+        SELECT slot_key, tier, state, value_masked, source_ref
+        FROM case_slot WHERE case_id = ${caseId}
       `
       return rows.map((one) => ({
         slotKey: one.slot_key,
@@ -268,6 +275,9 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
         state: one.state,
         // 되묻기에 보여줄 값 — 토큰화된 것이라 여기서 나가도 경계를 안 넘습니다(ADR-069)
         valueMasked: one.value_masked,
+        // 그 값의 출처 — 되묻기 문항이 싣고 답이 되돌려 줍니다(§3.5 `held_ref`).
+        // 우리가 발급한 번호라 개인정보가 아닙니다
+        sourceRef: one.source_ref,
       })) satisfies readonly StoredSlot[]
     },
 

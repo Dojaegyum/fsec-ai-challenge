@@ -132,6 +132,54 @@ describe('진술에서 뽑은 값도 확인 전으로 둔다 — ADR-087', () =>
     expect(fake.wrote).toEqual([])
   })
 
+  /**
+   * ⚠️ **거절한 값이 되살아나던 자리.**
+   *
+   * 「아니에요, 다시 적을게요」는 슬롯을 `state: 'empty'` · `source: 'user'` 로 비웁니다
+   * (`answer-slot.ts` 의 `rejectHeld`). 그런데 아래 그물이 `confirmed` 만 보고 있어서,
+   * 다음 발화나 두 번째 자료의 추출이 **같은 값을 다시 `extracted` 로** 적었고 같은
+   * 되묻기가 다시 떴습니다 — 사용자가 아니라고 말한 값을 계속 다시 묻는 것입니다.
+   *
+   * 그 조합을 만드는 자리는 거절 하나뿐입니다(`grep "state: 'empty'"` — 나머지 한 곳은
+   * 아무것도 안 쓰고 돌아갑니다).
+   */
+  it('사용자가 거절한 값은 다시 뽑지 않는다 — empty + user', async () => {
+    const fake = fakeSlotContainer({
+      already: [{ slotKey: 'amount', state: 'empty', valueMasked: null, source: 'user' }],
+      reply: () => ({ slots: [{ slot_key: 'amount', value: '300만원', confidence: 0.9 }] }),
+    })
+
+    await said(fake.container)
+
+    expect(fake.wrote).toEqual([])
+  })
+
+  it('자동으로 비워진 것은 그대로 채운다 — 거절이 아닙니다', async () => {
+    const fake = fakeSlotContainer({
+      already: [{ slotKey: 'amount', state: 'empty', valueMasked: null, source: 'auto' }],
+      reply: () => ({ slots: [{ slot_key: 'amount', value: '300만원', confidence: 0.9 }] }),
+    })
+
+    await said(fake.container)
+
+    expect(fake.wrote.map((one) => one.slotKey)).toEqual(['amount'])
+  })
+
+  it('모델을 부르는 동안 거절이 도착해도 안 덮는다 — 부른 뒤 그물이 봅니다', async () => {
+    const fake = fakeSlotContainer({
+      already: (read) =>
+        read === 1
+          ? [{ slotKey: 'amount', state: 'extracted', valueMasked: '3000000', source: 'auto' }]
+          : // 그 사이에 「아니에요, 다시 적을게요」가 도착했습니다
+            [{ slotKey: 'amount', state: 'empty', valueMasked: null, source: 'user' }],
+      reply: () => ({ slots: [{ slot_key: 'amount', value: '32,000,000원', confidence: 0.95 }] }),
+    })
+
+    await said(fake.container)
+
+    expect(fake.wrote).toEqual([])
+  })
+
   it('확신이 낮으면 버린다 — 임계값 0.7 (ADR-069 ③)', async () => {
     const fake = fakeSlotContainer({
       reply: () => ({ slots: [{ slot_key: 'amount', value: '300만원', confidence: 0.4 }] }),

@@ -36,6 +36,8 @@ import type { PlanStep } from "@/modules/plan-viewer";
 import { decidePoll, type PollVerdict } from "@/modules/poll-checker";
 import type { PiiToken, RawLine } from "@/modules/transcript-viewer";
 
+import { apiHeaders } from "./session-id";
+
 /** 화면 셋이 나눠 쓰는 한 응답 → §3.10 */
 export interface CaseBundle {
   /** `case-opener` 가 첫 화면을 고르는 데 쓰는 부분 */
@@ -175,7 +177,10 @@ export async function sendJson(
     res = await fetch(url, {
       method,
       signal,
-      headers: { "content-type": "application/json", accept: "application/json" },
+      headers: apiHeaders({
+        "content-type": "application/json",
+        accept: "application/json",
+      }),
       body: JSON.stringify(body),
     });
   } catch {
@@ -270,7 +275,7 @@ export async function fetchCaseBundle(
   try {
     res = await fetch(`/api/cases/${encodeURIComponent(token)}`, {
       signal,
-      headers: { accept: "application/json" },
+      headers: apiHeaders({ accept: "application/json" }),
     });
   } catch (cause) {
     if (signal?.aborted) return null;
@@ -420,7 +425,7 @@ export async function fetchEvidence(
   try {
     res = await fetch(
       `/api/cases/${encodeURIComponent(caseToken)}/evidence/${encodeURIComponent(evidenceId)}`,
-      { signal, headers: { accept: "application/json" } },
+      { signal, headers: apiHeaders({ accept: "application/json" }) },
     );
   } catch {
     if (signal?.aborted) return null;

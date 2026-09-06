@@ -30,6 +30,10 @@ import { TELEMETRY_HEADER_NAMES } from './telemetry'
 
 const CASE_ID = '01J8XKQZ3M7N2P4R6T8V0W2Y4A'
 
+/** 브라우저가 탭마다 만드는 값 — `crypto.randomUUID()` 모양 (§1.3) */
+const SESSION = '3f1a7c62-9b0e-4d2a-8f55-1c9e0b7a4d31'
+const SESSION_B = '9d4e21af-77c3-4b18-a0d6-2e5f8c31b7a0'
+
 /** 관리자 계정이 설정된 서버 */
 const ADMIN_ENV = readEnv({
   ADMIN_USERNAME: 'operator',
@@ -135,7 +139,7 @@ describe('상태 코드', () => {
 
 describe('속도 제한 — §1.3', () => {
   it('조회는 적지 않아도 걸린다', async () => {
-    const headers = { 'X-Session-Id': 'sess-1' }
+    const headers = { 'X-Session-Id': SESSION }
     for (let i = 0; i < RATE_RULES.read.limit; i += 1) {
       const res = await handleRoute(get('http://x/api/cases/x/plan', headers), async () => ({ body: {} }), { container })
       expect(res.status).toBe(200)
@@ -153,7 +157,7 @@ describe('속도 제한 — §1.3', () => {
   })
 
   it('429 에 남은 창 시간이 붙는다 — §3.1', async () => {
-    const headers = { 'X-Session-Id': 'sess-2' }
+    const headers = { 'X-Session-Id': SESSION }
     let last: Response | undefined
     for (let i = 0; i <= RATE_RULES.read.limit; i += 1) {
       last = await handleRoute(
@@ -170,11 +174,11 @@ describe('속도 제한 — §1.3', () => {
 
   it('세션이 다르면 서로 안 센다', async () => {
     for (let i = 0; i < RATE_RULES.read.limit; i += 1) {
-      await handleRoute(get('http://x/api/cases/x/plan', { 'X-Session-Id': 'sess-a' }), async () => ({ body: {} }), { container })
+      await handleRoute(get('http://x/api/cases/x/plan', { 'X-Session-Id': SESSION }), async () => ({ body: {} }), { container })
     }
 
     const other = await handleRoute(
-      get('http://x/api/cases/x/plan', { 'X-Session-Id': 'sess-b' }),
+      get('http://x/api/cases/x/plan', { 'X-Session-Id': SESSION_B }),
       async () => ({ body: {} }),
       { container },
     )
@@ -418,8 +422,15 @@ describe('서버 쪽 실패는 운영자가 볼 수 있게 남는다', () => {
 
 describe('요청에서 읽는 것들 — §1', () => {
   it('세션 식별자를 읽는다', () => {
-    expect(sessionIdOf(get('http://x/', { 'X-Session-Id': 'sess-1' }))).toBe('sess-1')
+    expect(sessionIdOf(get('http://x/', { 'X-Session-Id': SESSION }))).toBe(SESSION)
     expect(sessionIdOf(get())).toBeNull()
+  })
+
+  it('**UUID 모양이 아니면 없는 것으로 봅니다** — 헤더는 클라이언트가 아무 값이나 넣습니다', () => {
+    expect(sessionIdOf(get('http://x/', { 'X-Session-Id': 'sess-1' }))).toBeNull()
+    expect(sessionIdOf(get('http://x/', { 'X-Session-Id': 'ip:203.0.113.9' }))).toBeNull()
+    // 36자이지만 자리가 틀린 것
+    expect(sessionIdOf(get('http://x/', { 'X-Session-Id': 'x'.repeat(36) }))).toBeNull()
   })
 
   it('X-Forwarded-For 의 첫 칸이 발신자다', () => {
@@ -501,6 +512,82 @@ describe('경로 파라미터 — Next 16 은 Promise 다', () => {
     await expect(
       ulidParamOf({ params: Promise.resolve({ step_id: 'nope' }) }, 'step_id'),
     ).rejects.toThrow()
+  })
+})
+
+describe('제한을 무엇으로 세나 — §1.3', () => {
+  /**
+   * 껍데기가 어느 주체로 셌는지 그대로 받아 적습니다.
+   *
+   * 값이 아니라 **어느 통에 넣었나**가 계약이라, 300번을 채워 429 를 보는 것보다
+   * 키를 직접 보는 편이 정확합니다 — 갈래마다 한도가 다르기도 합니다.
+   */
+  function watch(): { bucket: string; subject: string }[] {
+    const seen: { bucket: string; subject: string }[] = []
+    vi.spyOn(container.rateLimiter, 'check').mockImplementation(async (bucket, subject) => {
+      seen.push({ bucket, subject })
+    })
+    return seen
+  }
+
+  it('조회는 세션당이다 — 헤더가 있으면 그 값으로 센다', async () => {
+    const seen = watch()
+
+    await handleRoute(
+      get('http://x/api/cases/x/plan', { 'X-Session-Id': SESSION, 'x-forwarded-for': '203.0.113.7' }),
+      async () => ({ body: { ok: true } }),
+      { container },
+    )
+
+    expect(seen).toEqual([{ bucket: 'read', subject: `s:${SESSION}` }])
+  })
+
+  it('헤더가 없으면 IP 로 떨어진다 — 400 으로 막지 않습니다', async () => {
+    const seen = watch()
+
+    await handleRoute(
+      get('http://x/api/cases/x/plan', { 'x-forwarded-for': '203.0.113.7' }),
+      async () => ({ body: { ok: true } }),
+      { container },
+    )
+
+    expect(seen).toEqual([{ bucket: 'read', subject: 'ip:203.0.113.7' }])
+  })
+
+  /**
+   * ⚠️ **이 둘은 헤더가 있어도 IP 입니다.**
+   *
+   * 세션 식별자는 **클라이언트가 고르는 값**이라, 이 둘을 세션으로 세면 매 요청마다
+   * 새 UUID 를 만들어 한도를 통째로 비켜 갈 수 있습니다 — 열거 방어(ADR-039 ④)와
+   * 사건 생성 상한이 둘 다 무의미해집니다.
+   */
+  it('**열거 방어(404)는 헤더가 있어도 IP 로 센다**', async () => {
+    const seen = watch()
+
+    await handleRoute(
+      get('http://x/api/cases/x', { 'X-Session-Id': SESSION, 'x-forwarded-for': '203.0.113.8' }),
+      async () => {
+        throw new CaseNotFoundError('그 주소로 열리는 사건이 없습니다')
+      },
+      { container },
+    )
+
+    // 앞의 `read` 는 세션당이 맞습니다 — 404 를 센 자리만 봅니다
+    expect(seen.filter((one) => one.bucket === 'notFound')).toEqual([
+      { bucket: 'notFound', subject: 'ip:203.0.113.8' },
+    ])
+  })
+
+  it('**사건 생성도 헤더가 있어도 IP 로 센다**', async () => {
+    const seen = watch()
+
+    await handleRoute(
+      get('http://x/api/cases', { 'X-Session-Id': SESSION, 'x-forwarded-for': '203.0.113.8' }),
+      async () => ({ body: { ok: true }, status: 201 }),
+      { container, rate: 'caseCreate' },
+    )
+
+    expect(seen).toEqual([{ bucket: 'caseCreate', subject: 'ip:203.0.113.8' }])
   })
 })
 

@@ -47,6 +47,17 @@ const AMOUNT: NextQuestion = {
   input: "amount",
 };
 
+/**
+ * 자료에서 뽑힌 값의 되묻기 — **그 값의 출처가 실려 옵니다** (§3.4 `held_ref`).
+ */
+const HELD: NextQuestion = {
+  slot_key: "amount",
+  text: "올린 자료에서 찾은 보낸 금액입니다: 32,000,000원. 맞나요?",
+  input: "confirm",
+  options: ["맞아요", "아니에요, 다시 적을게요", "모름·기억 안 남"],
+  held_ref: "01J8XKQZ3M7N2P4R6T8V0W2Y4B",
+};
+
 const CARD = {
   found: [{ kind: "이름", text: "[이름-1]" }],
   text: "여기에 개인정보가 들어 있는 것 같습니다.",
@@ -66,6 +77,8 @@ const json = (body: unknown, status = 200) =>
 interface Call {
   readonly url: string;
   readonly body: string;
+  /** 실린 헤더 — 속도 제한이 세는 단위가 붙었나 (§1.3) */
+  readonly headers: Record<string, string>;
 }
 
 /**
@@ -80,7 +93,10 @@ function stubServer(calls: Call[]) {
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const body = typeof init?.body === "string" ? init.body : "";
-      if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      if (init?.method !== undefined && init.method !== "GET") {
+        calls.push({ url, body, headers });
+      }
 
       if (url.includes("/vault")) return json({ entries: [] });
       if (url.includes("/slots/")) {
@@ -120,8 +136,12 @@ let root: Root;
 const seen: { now: ChatSend | null } = { now: null };
 const hookNow = () => seen.now as ChatSend;
 
-function Probe() {
-  const now = useChatSend(TOKEN, ORG);
+/**
+ * `question` 은 **셸이 번들에서 내려주는 첫 문항**입니다(`page.tsx` 의 `bundle.question`).
+ * 다시 그리며 바꿀 수 있게 속성으로 받습니다 — 번들이 갱신되는 자리를 세웁니다.
+ */
+function Probe({ question = ORG }: { question?: NextQuestion | null }) {
+  const now = useChatSend(TOKEN, question);
   // 렌더 중에 바깥을 건드리지 않습니다 — `act()` 가 효과까지 흘려보내므로
   // 시험이 읽는 시점에는 언제나 최신입니다
   useEffect(() => {
@@ -143,12 +163,19 @@ afterEach(() => {
 });
 
 /** 훅을 마운트하고 첫 로드(볼트·이력)가 끝날 때까지 기다립니다 */
-async function mount(): Promise<void> {
+async function mount(question: NextQuestion | null = ORG): Promise<void> {
   await act(async () => {
-    root.render(<Probe />);
+    root.render(<Probe question={question} />);
   });
   await act(async () => {
     await Promise.resolve();
+  });
+}
+
+/** 번들이 갱신돼 셸이 새 문항을 내려주는 자리 — 같은 훅을 다시 그립니다 */
+async function rerender(question: NextQuestion | null): Promise<void> {
+  await act(async () => {
+    root.render(<Probe question={question} />);
   });
 }
 
@@ -282,6 +309,167 @@ describe("되묻기의 답 — confirmAnswer 는 뜻만 보낸다 (ADR-082)", ()
 });
 
 /**
+ * 셸이 번들을 다시 읽어 **새 문항**을 들고 오면 챗에도 떠야 합니다 — §3.3 · ADR-086.
+ *
+ * ⚠️ **8초 뒤 후속 읽기가 뽑아 온 되묻기가 챗에 안 나타났습니다.** 판독이 끝난 뒤 기관
+ * 보정·슬롯 추출은 응답 뒤에 돌고(ADR-086), 그 결과는 다음 번들 조회에서 옵니다. 그런데
+ * 훅이 셸의 문항을 `useState` **초기값으로만** 써서, 번들이 갱신돼도 챗의 문항은 옛것
+ * 그대로였습니다 — 왼쪽 사건 파일 카드의 「확인 중」 표시만 바뀌어 화면이 어긋났습니다.
+ */
+describe("번들이 새 문항을 들고 오면 챗에 뜬다 — ADR-086", () => {
+  it("문항이 없던 자리에 새 되묻기가 뜬다", async () => {
+    stubServer([]);
+    await mount(null);
+
+    expect(hookNow().ask.question).toBeNull();
+
+    // 8초 뒤 후속 읽기 — 미룬 추출이 금액을 뽑아 되묻기가 생겼습니다
+    await rerender(HELD);
+
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+    expect(hookNow().ask.question?.held_ref).toBe(HELD.held_ref);
+  });
+
+  /**
+   * **로컬이 더 새로우면 덮지 않습니다.** 답이 오가는 사이에 출발한 번들은 그 답을
+   * 아직 모릅니다 — 그것으로 덮으면 방금 답한 문항이 화면에 되살아납니다.
+   */
+  it("이미 답한 문항을 들고 온 번들은 무시한다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(ORG);
+
+    // 「모름」으로 답했고 서버가 다음 문항을 내려줬습니다
+    await act(async () => {
+      await hookNow().ask.skip();
+    });
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+
+    // 그 답을 아직 모르는 번들이 도착합니다(같은 문항의 새 객체)
+    await rerender({ ...ORG });
+
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+  });
+
+  it("답한 직후라도 **새** 문항은 그대로 뜬다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(ORG);
+
+    await act(async () => {
+      await hookNow().ask.skip();
+    });
+    await rerender(HELD);
+
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+    expect(hookNow().ask.question?.input).toBe("confirm");
+  });
+
+  /** 번들이 「물을 것 없음」을 들고 와도 화면의 문항을 지우지 않습니다 — 지우는 것은 답의 응답입니다 */
+  it("번들의 null 로는 문항을 지우지 않는다", async () => {
+    stubServer([]);
+    await mount(ORG);
+
+    await rerender(null);
+
+    expect(hookNow().ask.question?.slot_key).toBe("org_name");
+  });
+});
+
+/**
+ * 되묻기의 「맞아요」는 **내가 본 값**에만 붙습니다 — ADR-082 × ADR-087.
+ *
+ * 답에 값이 안 실리므로 서버는 지금 DB 값을 닫습니다. 되묻기가 떠 있는 동안 미룬
+ * 추출(ADR-086)이 그 칸을 덮으면 **본 적 없는 값이 확정**됩니다 — 문항이 실어 준
+ * 출처를 그대로 되돌려 주면 서버가 그 어긋남을 봅니다.
+ */
+describe("되묻기의 답이 물었던 값의 출처를 되돌려 준다 — §3.5 held_ref", () => {
+  it("「맞아요」에 held_ref 가 실린다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(HELD);
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(JSON.parse(patched[0]!.body)).toEqual({
+      action: "confirm",
+      held_ref: HELD.held_ref,
+    });
+  });
+
+  it("「아니에요」는 지금까지대로 뜻만 보낸다 — 비우는 데는 짝이 필요 없습니다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(HELD);
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("reject");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(JSON.parse(patched[0]!.body)).toEqual({ action: "reject" });
+  });
+
+  it("출처가 없는 문항에는 안 싣는다 — 옛 서버가 낸 문항", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount({ ...HELD, held_ref: undefined });
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(JSON.parse(patched[0]!.body)).toEqual({ action: "confirm" });
+  });
+});
+
+/**
+ * 속도 제한이 **세션당**으로 서려면 브라우저가 그 값을 보내야 합니다 — §1.3.
+ *
+ * ⚠️ 2026-09-06 까지 이 헤더를 **어디서도 안 보냈습니다.** 서버는 없으면 IP 로 세는데
+ * (`lib/request.ts`), ADR-085 로 카운터가 공유 저장소가 되면서 그 합산이 진짜로
+ * 걸리기 시작했습니다 — 같은 NAT 뒤의 사용자 둘이면 판독 폴링만으로 300회를 넘겨
+ * 사건 화면이 「불러오지 못했습니다」가 됩니다.
+ */
+describe("모든 요청에 이 탭의 세션 식별자가 실린다 — §1.3", () => {
+  it("슬롯 답에 X-Session-Id 가 붙는다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(patched[0]?.headers["X-Session-Id"]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it("발화도 같은 값으로 나간다 — 한 탭이 한 통입니다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+    await act(async () => {
+      await hookNow().send("이게 무슨 뜻이에요?");
+    });
+
+    const ids = calls.map((one) => one.headers["X-Session-Id"]);
+    expect(ids.length).toBeGreaterThan(1);
+    expect(new Set(ids).size).toBe(1);
+  });
+});
+
+/**
  * ⚠️ **전사가 만든 대응표가 그 자리에서 버려지고 있었습니다** (ADR-062).
  *
  * 서버는 토큰화한 그 폴링 응답에만 원문 포함 대응표를 실어 보냅니다 — 보관하지
@@ -316,7 +504,9 @@ describe("전사가 만든 대응표를 이 기기 것으로 만든다 — absor
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         const body = typeof init?.body === "string" ? init.body : "";
-        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (init?.method !== undefined && init.method !== "GET") {
+          calls.push({ url, body, headers: (init.headers ?? {}) as Record<string, string> });
+        }
         if (url.includes("/vault") && init?.method === "POST")
           return json({ error: { message: "잠시 뒤에", retryable: true } }, 503);
         if (url.includes("/vault")) return json({ entries: [] });
@@ -453,7 +643,9 @@ describe("챗 응답이 실어 온 대응표도 이 기기 것으로 만든다 �
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         const body = typeof init?.body === "string" ? init.body : "";
-        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (init?.method !== undefined && init.method !== "GET") {
+          calls.push({ url, body, headers: (init.headers ?? {}) as Record<string, string> });
+        }
         if (url.includes("/vault") && init?.method === "POST") return json({ stored: 1 });
         if (url.includes("/vault")) return json({ entries: [] });
         if (url.includes("/messages") && init?.method === "POST") {
@@ -518,7 +710,9 @@ describe("같은 이름을 다시 말하면 이번엔 브라우저가 가려 보
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         const body = typeof init?.body === "string" ? init.body : "";
-        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (init?.method !== undefined && init.method !== "GET") {
+          calls.push({ url, body, headers: (init.headers ?? {}) as Record<string, string> });
+        }
         if (url.includes("/vault") && init?.method === "POST") return json({ stored: 1 });
         if (url.includes("/vault")) return json({ entries: [] });
         if (url.includes("/messages") && init?.method === "POST") {
