@@ -99,6 +99,11 @@ LLM_MODEL      gemini-3-flash-preview,gemini-3.6-flash,gemini-3.7-flash
 LLM_API_KEY    (그 제공자의 열쇠)
 ```
 
+**발화 자료 선별기는 따로 켭니다** — `vercel-env` 의 `select_model` 에 빠른 모델 이름
+(xAI 면 `grok-4.20-0309-non-reasoning` · 2026-09-06 모델 목록에서 확인)을 넣으면
+`LLM_SELECT_MODEL` 이 서고, 답변 모델과 같은 제공자·열쇠로 갑니다. 비어 있으면 선별
+없이 예전과 같습니다. 끄려면 `clear_select` ✓ (근거 [ADR-089](../decisions/089-kb-selector.md)).
+
 **`LLM_MODEL` 은 쉼표로 여럿을 적을 수 있습니다.** 앞엣것이 막히면 뒤엣것으로
 넘어갑니다 — 무료 한도에서 필요합니다.
 

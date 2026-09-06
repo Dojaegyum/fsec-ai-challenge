@@ -63,6 +63,18 @@ on:
         description: "LAW_API_OC — 국가법령정보 Open API 사용자 ID (법령 수집 크론). 비우면 안 건드림"
         required: false
         default: ""
+      select_model:
+        description: "LLM_SELECT_MODEL — 발화 자료 선별기의 빠른 모델(예: grok-4.20-0309-non-reasoning). 답변 모델과 같은 제공자·열쇠를 씁니다. 비우면 안 건드림 (ADR-089)"
+        required: false
+        default: ""
+      select_timeout_ms:
+        description: "LLM_SELECT_TIMEOUT_MS — 선별 전체의 상한(ms). 비우면 안 건드림(코드 기본 10000)"
+        required: false
+        default: ""
+      clear_select:
+        description: "선별기를 끈다 — LLM_SELECT_MODEL·LLM_SELECT_TIMEOUT_MS 를 지운다. 챗은 선별 없이 예전과 같이 돈다"
+        type: boolean
+        default: false
       set_admin_password_hash:
         description: "ADMIN_PASSWORD_HASH 를 저장소 시크릿 ADMIN_PASSWORD_HASH 에서 넣는다 (KB 검수 큐 /admin/kb 의 문 · `npm run admin:hash` 로 만든 값 · ADR-088)"
         type: boolean
@@ -118,6 +130,9 @@ jobs:
           IN_NER_TIMEOUT_MS: ${{ inputs.ner_timeout_ms }}
           IN_DEMO_MOCK: ${{ inputs.demo_mock }}
           IN_LAW_API_OC: ${{ inputs.law_api_oc }}
+          IN_SELECT_MODEL: ${{ inputs.select_model }}
+          IN_SELECT_TIMEOUT_MS: ${{ inputs.select_timeout_ms }}
+          CLEAR_SELECT: ${{ inputs.clear_select }}
           SET_MAILER_KEY: ${{ inputs.set_mailer_key }}
           SET_NER_TOKEN: ${{ inputs.set_ner_token }}
           SET_ADMIN_PASSWORD_HASH: ${{ inputs.set_admin_password_hash }}
@@ -153,6 +168,8 @@ jobs:
           put NER_TIMEOUT_MS "$IN_NER_TIMEOUT_MS"
           put NEXT_PUBLIC_DEMO_MOCK "$IN_DEMO_MOCK"
           put LAW_API_OC     "$IN_LAW_API_OC"
+          put LLM_SELECT_MODEL "$IN_SELECT_MODEL"
+          put LLM_SELECT_TIMEOUT_MS "$IN_SELECT_TIMEOUT_MS"
           if [ "$SET_MAILER_KEY" = "true" ]; then
             if [ -z "$SECRET_MAILER_API_KEY" ]; then echo "::error::저장소 시크릿 MAILER_API_KEY 가 없습니다"; exit 1; fi
             put MAILER_API_KEY "$SECRET_MAILER_API_KEY"
@@ -172,6 +189,20 @@ jobs:
             if [ -n "$IN_NER_URL" ]; then echo "::error::clear_ner 와 ner_url 을 함께 줬습니다 — 하나만"; exit 1; fi
             list=$(curl -sS "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env$teamq" -H "Authorization: Bearer $VERCEL_TOKEN")
             for name in NER_URL NER_TIMEOUT_MS; do
+              for id in $(echo "$list" | jq -r --arg n "$name" '.envs[] | select(.key==$n) | .id'); do
+                code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+                  "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id$teamq" \
+                  -H "Authorization: Bearer $VERCEL_TOKEN")
+                if [ "$code" != "200" ]; then echo "::error::$name 삭제 — HTTP $code"; exit 1; fi
+                echo "  ✗ $name 지움"
+                done_names="$done_names -$name"
+              done
+            done
+          fi
+          if [ "$CLEAR_SELECT" = "true" ]; then
+            if [ -n "$IN_SELECT_MODEL" ]; then echo "::error::clear_select 와 select_model 을 함께 줬습니다 — 하나만"; exit 1; fi
+            list=$(curl -sS "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env$teamq" -H "Authorization: Bearer $VERCEL_TOKEN")
+            for name in LLM_SELECT_MODEL LLM_SELECT_TIMEOUT_MS; do
               for id in $(echo "$list" | jq -r --arg n "$name" '.envs[] | select(.key==$n) | .id'); do
                 code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
                   "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$id$teamq" \
