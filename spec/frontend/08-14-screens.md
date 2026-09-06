@@ -799,7 +799,7 @@ side    plan.steps 에 지금 할 단계가 있으면  → 'work'
 
 > 2026-09-06 신설 → [ADR-081](../../decisions/081-kb-review-screen.md). **피해자 화면이 아니라 팀이 쓰는 화면**입니다.
 > 시안은 [핸드오프 09-06-s12-kb-review](../../assets/artifacts/handoff/09-06-s12-kb-review/README.md).
-> **아직 구현되지 않았습니다.**
+> **2026-09-06 구현** — 화면 커밋 `999f852`(`src/app/admin/kb/`), 구현 계획은 [09-06-kb-review-screen](../../docs/plans/09-06-kb-review-screen.md).
 
 **수집기가 큐에 올린 조문 변경을 사람이 보고 판단을 남기는 자리입니다.** 승인은 「봤고 반영해도 된다」는
 표시이고, 반영은 `src/kb/*.json` 을 고쳐 릴리스하는 별도 단계입니다 ([RFC-002](../../rfc/002-kb-authoring.md)).

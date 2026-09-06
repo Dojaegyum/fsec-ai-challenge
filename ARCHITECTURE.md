@@ -9,6 +9,7 @@ flowchart TB
     subgraph B["브라우저"]
         UI["화면<br/>챗 · 절차 · 자료함"] --> MASK["1차 가림<br/>정규식"]
         REST["원문 복원<br/>브라우저에서만"]
+        TEAM["팀 화면<br/>KB 검수"]
     end
 
     subgraph V["Vercel 서버 · 서울"]
@@ -24,6 +25,7 @@ flowchart TB
     GROK["Grok<br/>언어모델"]
 
     MASK --> API
+    TEAM -- "세션 쿠키" --> API
     UI -- "파일은 직접" --> BLOB
     CORE --> PG
     CORE --> KV
@@ -243,7 +245,7 @@ flowchart LR
     LAW["법령 API<br/>조문 단위"] --> COL["법령 수집<br/>KST 04:00"]
     COL --> SNAP[("원문 보관")]
     SNAP --> CHG[("검수 대기")]
-    CHG --> REV["사람 검수<br/>명령줄"]
+    CHG --> REV["사람 검수<br/>명령줄 · 화면"]
     REV --> FILE["매뉴얼 고침<br/>사람이"]
     FILE --> KB[("매뉴얼<br/>릴리스")]
 
@@ -269,7 +271,7 @@ flowchart LR
 | 그림 | 모듈 | 하는 일 |
 | --- | --- | --- |
 | 법령 수집 | `kb-collector` | `src/lib/law-fetcher.ts`가 국가법령정보 API에서 조문 단위로 가져와 `source_snapshot`에 보관. 등록 소스는 통신사기피해환급법과 시행령 둘 |
-| 사람 검수 | `kb-reviewer` | `npm run kb:review`로 `source_change`의 변경분을 승인 · 반려 · 보류. 승인이 매뉴얼 반영은 아니다 |
+| 사람 검수 | `kb-reviewer` | `npm run kb:review` **또는 화면 `/admin/kb`(S-12)** 로 `source_change`의 변경분을 승인 · 반려 · 보류. 조문과 매뉴얼은 `link.ts` 가 `legal_basis` 글에서 규칙으로 잇는다(추정). 승인이 매뉴얼 반영은 아니다 |
 | 매뉴얼 고침 | 사람 + `npm run kb:load` | `src/kb/*.json`을 고치고 적재한다. `kb_entry`에 쓰는 길은 이것 하나. 앱이 인용하는 릴리스는 `KB_VERSION`이 고정 |
 | 기한 알림 | `reminder-sender` | 다가온 기한 · 미확인 단계를 이메일을 준 사람에게만 보낸다. 기한 · 단계 제목 · 사건 링크만 실린다 |
 | 사건 파기 | `case-purger` | 180일 지난 사건을 Postgres · Storage · 보관소에서 지우고 삭제를 확인한다 |
@@ -317,14 +319,14 @@ flowchart LR
 
 | 무엇 | 어디 | 어디서 도나 |
 | --- | --- | --- |
-| 화면 | `src/app/page.tsx`(랜딩) · `src/app/start/`(진입 · 동의 · 첫 문항) · `src/app/c/[token]/`(사건 화면 셸) | 브라우저 |
-| 문지기 | `src/proxy.ts` — `/api/admin/*` 401 · `/api/cron/*` Bearer 확인 | 서버 · 라우트 앞 |
-| API 진입점 | `src/app/api/**/route.ts` — 사건 13 + 크론 3 · 전부 `handleRoute` 경유 | 서버 |
+| 화면 | `src/app/page.tsx`(랜딩) · `src/app/start/`(진입 · 동의 · 첫 문항) · `src/app/c/[token]/`(사건 화면 셸) · **`src/app/admin/kb/`(KB 검수 큐 — 팀용 · 피해자 화면에서 링크하지 않음)** | 브라우저 |
+| 문지기 | `src/proxy.ts` — `/api/admin/*` 401 · `/api/cron/*` Bearer 확인. **`/api/admin-login` 만 밖** — 비밀번호를 대조해 세션 쿠키를 굽는다 | 서버 · 라우트 앞 |
+| API 진입점 | `src/app/api/**/route.ts` — 사건 13 + 크론 3 + **관리자 7**(로그인 · 로그아웃 · 검수 큐 5) · 전부 `handleRoute` 경유 | 서버 |
 | 흐름 | `src/flows/` — 라우트 하나가 모듈 여럿을 순서대로 부르는 자리 | 서버 |
 | 도메인 모듈 | `src/modules/{이름}/` — 층 1 · 2 · 3 · 4는 서버, 층 C는 브라우저 | 서버 / 브라우저 |
 | 자원 접근 구현 | `src/lib/` — `db` · `storage` · `llm` · `inference` · `ner` · `mailer` · `holidays` · `rate-limit` · `law-fetcher` | 서버 |
 | 조립 | `src/lib/container.ts`(포트에 구현 주입) · `src/lib/wire.ts`(프로세스당 하나) | 서버 |
-| 명령줄 | `src/scripts/` — `npm run migrate` · `kb:load` · `kb:collect` · `kb:review` · `config:report` · `probe:llm` (`server-only` 때문에 `npm run`으로만) | 소유자 기기 |
+| 명령줄 | `src/scripts/` — `npm run migrate` · `kb:load` · `kb:collect` · `kb:review` · **`admin:hash`** · `config:report` · `probe:llm` (`server-only` 때문에 `npm run`으로만) | 소유자 기기 |
 | 매뉴얼 원본 | `src/kb/*.json` — 공통 · 경유 유형별 8 · 통장묶기 · 기관 · 공공기관 | 적재기가 읽음 |
 | 마이그레이션 | `src/migrations/0001`~`0010` | `npm run migrate` |
 | 스모크 | `src/smoke/smoke.spec.ts` — 배포 뒤 실제 주소에서 한 바퀴 | GitHub Actions |
@@ -339,7 +341,7 @@ flowchart LR
 [ADR-056](decisions/056-transcript-org-normalization.md) · [ADR-064](decisions/064-doc-filler-retired.md) · [ADR-067](decisions/067-pii-confirm-server-masks.md) ·
 [ADR-068](decisions/068-no-admin-screen.md) · [ADR-069](decisions/069-evidence-slot-extraction.md) · [ADR-072](decisions/072-law-collection-wired.md) ·
 [ADR-077](decisions/077-upload-is-not-proof.md) · [ADR-078](decisions/078-shell-polls-all-processing-evidence.md) · [ADR-079](decisions/079-known-name-reuse.md) ·
-[RFC-002](rfc/002-kb-authoring.md) · [기한 계산 규칙](spec/common/08-16-deadline-rules.md)
+[ADR-081](decisions/081-kb-review-screen.md) · [RFC-002](rfc/002-kb-authoring.md) · [기한 계산 규칙](spec/common/08-16-deadline-rules.md)
 
 ## 5. 데이터 흐름
 
@@ -467,7 +469,7 @@ main 에 src/** 가 푸시됨
 ```
 
 - 환경은 Production 하나. PR 미리보기는 만들지 않는다. 환경변수만 바꿨을 때는 Actions 탭에서 `deploy`를 다시 건다.
-- 환경변수 이름의 정본은 [API 계약](spec/common/08-14-api.md) §1.2, 값은 Vercel 프로젝트 설정. 넣는 길은 소유자의 `vercel` CLI 또는 `vercel-env` 워크플로.
+- 환경변수 이름의 정본은 [API 계약](spec/common/08-14-api.md) §1.2, 값은 Vercel 프로젝트 설정. 넣는 길은 소유자의 `vercel` CLI 또는 `vercel-env` 워크플로. 관리자 비밀번호는 `ADMIN_PASSWORD_HASH`(scrypt) 하나이고 `npm run admin:hash`로 만들어 저장소 시크릿에 둔다 ([ADR-081](decisions/081-kb-review-screen.md)).
 - 시연 자료: 합성 자료 셋 [`assets/demo/09-01-mock-evidence/`](assets/demo/09-01-mock-evidence/). 시작 화면의 「Mock 파일로 실행」 칩이 한 번에 담고, 이후 사람이 고른 파일과 같은 길로 처리된다. 칩은 `NEXT_PUBLIC_DEMO_MOCK=1` 빌드에서만 보인다.
 
 | 워크플로 | 무엇을 보나 | 언제 |

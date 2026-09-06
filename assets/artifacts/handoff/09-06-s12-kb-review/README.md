@@ -6,7 +6,7 @@
 | 넘겨받은 날 | 2026-09-06 |
 | 캔버스 | [FinAlly KB 검수 큐](https://claude.ai/code/artifact/0d0ccdc8-1de4-46ad-a81a-66c3dc41d7fa) — Claude Code 안의 Claude Design 캔버스(아티팩트)입니다. 기존 화면들의 캔버스([FSEC 렌더 페이지 설계](https://claude.ai/design/p/4a2237c5-4584-4fac-aeaa-a256b3404f0b))와 **다른 캔버스**입니다 |
 | 아트보드 | 첫 페이지 「확정 — A 받은편지함 + 렌즈 전환」의 `Main` · 둘째 페이지 「탈락 방향 — B · C」의 `DirectionB` · `DirectionC` |
-| 상태 | **채택 — 미적용** (구현 계획은 [docs/plans](../../../../docs/plans/README.md)) |
+| 상태 | **적용됨** — 화면 커밋 `999f852` (2026-09-06 · 계획은 [docs/plans](../../../../docs/plans/README.md)) |
 | 근거 | [ADR-081](../../../../decisions/081-kb-review-screen.md) |
 
 ## 받은 그대로입니다
