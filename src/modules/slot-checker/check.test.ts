@@ -370,7 +370,7 @@ describe('증거에서 뽑힌 값을 되묻는다 — ADR-069', () => {
     formFor: questions.formFor,
     confirmFor(slotKey, value) {
       return {
-        input: 'buttons',
+        input: 'confirm',
         text: `${slotKey} 가 ${value} 맞나요?`,
         options: [CONFIRM_YES, CONFIRM_NO],
       }
@@ -387,7 +387,8 @@ describe('증거에서 뽑힌 값을 되묻는다 — ADR-069', () => {
       slots: [...t1Done, { slotKey: 'amount', tier: 'T2', state: 'extracted', valueMasked: '32000000' }],
     })
     expect(nextQuestion?.slotKey).toBe('amount')
-    expect(nextQuestion?.input).toBe('buttons')
+    // 되묻기는 제 `input` 을 갖습니다 — 답이 글자가 아니라 뜻으로 가기 때문입니다 (ADR-082)
+    expect(nextQuestion?.input).toBe('confirm')
     expect(nextQuestion?.text).toContain('32000000')
     expect(nextQuestion?.options?.slice(0, 2)).toEqual([CONFIRM_YES, CONFIRM_NO])
     expect(nextQuestion?.options).toContain('모름·기억 안 남')
@@ -461,7 +462,7 @@ describe('통장묶기 명의인의 문진 — ADR-071', () => {
       return questions.formFor(slotKey)
     },
     confirmFor(slotKey, value) {
-      return { input: 'buttons', text: `${slotKey} ${value} 맞나요?`, options: [CONFIRM_YES, CONFIRM_NO] }
+      return { input: 'confirm', text: `${slotKey} ${value} 맞나요?`, options: [CONFIRM_YES, CONFIRM_NO] }
     },
   }
   const checker = createSlotChecker({ questions: frozenQuestions })

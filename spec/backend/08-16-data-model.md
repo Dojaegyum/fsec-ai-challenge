@@ -539,8 +539,9 @@ CREATE INDEX idx_artifact_case ON artifact (case_id);
 | `verify_level` | 방식 | `plan_step.state` 결과 |
 | --- | --- | --- |
 | `L1` | 접수번호(`receipt_no`)를 **받아 적었나** — 오타·빈칸 거르개(`looksLikeReceiptNumber`) + 형식 정본이 있는 기관만 대조. 정본이 없으면 `verify_detail.reason: format_unchecked` 로 **통과** → [ADR-057](../../decisions/057-receipt-number-l1.md) | `done_verified` |
-| `L2` | 캡처·서류 업로드 (`sms_capture` · `receipt_doc` · `pii-tokenizer` 통과). **업로드 자체는 증빙이 아닙니다** ([ADR-077](../../decisions/077-upload-is-not-proof.md) · 2026-09-06 정정). 그 자료의 **판독 글**(`evidence.transcript_masked`)에 「접수번호」 자리와 번호(가린 이름표 포함)가 있거나 **공공기관**(`org_public`) 이름이 있으면 `passed` · `verify_detail.reason: receipt_number_found | org_name_found` | `done_verified` |
-| | 둘 다 없음(`no_receipt_marks`) · 읽기 실패·자료 없음(`unreadable`) · 통화 녹음(`not_a_document`) → `failed` — **올렸지만 확인 못 함** | **`unconfirmed`** |
+| `L2` | 캡처·서류 업로드 (`sms_capture` · `receipt_doc` · `pii-tokenizer` 통과). **업로드 자체는 증빙이 아닙니다** ([ADR-077](../../decisions/077-upload-is-not-proof.md) · 2026-09-06 정정). 그 자료의 **판독 글**(`evidence.transcript_masked`)에 「접수번호」 자리와 번호(가린 이름표 포함)가 있으면 `passed` · `verify_detail.reason: receipt_number_found` — **공공기관**(`org_public`) 이름만으로는 통과하지 않습니다 ([ADR-083](../../decisions/083-receipt-number-required-for-l2.md) · 2026-09-06 — 사기 문자에도 수사기관 이름은 거의 늘 들어 있습니다) | `done_verified` |
+| | 공공기관 이름만 있고 접수번호가 없음(`org_only`) → `failed` — **기관 이름은 보이지만 접수번호가 없다** | **`unconfirmed`** |
+| | 접수번호도 기관 이름도 없음(`no_receipt_marks`) · 읽기 실패·자료 없음(`unreadable`) · 통화 녹음(`not_a_document`) → `failed` — **올렸지만 확인 못 함** | **`unconfirmed`** |
 | | 아직 읽는 중 → `not_applicable` · `reading_pending`. 읽기가 끝나면 `flows/settle-artifacts.ts` 가 같은 규칙으로 `verify_result`·`verify_detail` 을 갱신하고 단계를 옮깁니다 | **`unconfirmed`** → 판정 뒤 바뀜 |
 | `L3` | 자기 신고 (`other`) — `verify_result: not_applicable` | **`unconfirmed`** |
 
@@ -1919,3 +1920,30 @@ grace   | step-4       | 2026-09-03 23:59:59+09:00 | relief_applied_at
 -- 볼트 (같은 Postgres · `case_vault` 스키마 → ADR-049)
 case_vault.restore_mapping (case_id, token) → ciphertext  -- AES-GCM. 서버는 키 없음
 ```
+
+---
+
+## 16. `rate_limit_window` — 속도 제한 창
+
+> 2026-09-06 신설 → [ADR-085](../../decisions/085-shared-rate-counter.md) · [0011](../../src/migrations/0011_rate_limit_window.sql).
+> [08](../common/08-14-api.md) §1.3 의 「세는 곳은 공유 저장소」가 무엇인지 정한 표입니다.
+
+**DDL 은 [0011](../../src/migrations/0011_rate_limit_window.sql) 그대로입니다** — §2.1(볼트)과 같은 이유로 여기에 다시 적지 않습니다.
+이 문서에는 칼럼의 뜻만 적습니다.
+
+| 칼럼 | 형 | 뜻 |
+| --- | --- | --- |
+| `key` | `TEXT` | `{갈래}:{대상의 지문}` — 예: `notFound:9f86d081884c7d65...`(32자). 기본키. 갈래는 §1.3 표에서 창으로 세는 여섯(`chat`·`slot`·`vault`·`caseCreate`·`read`·`notFound`), 대상은 사건 식별자·세션 식별자·IP 를 **SHA-256 앞 32자로 접은 것**입니다 → [ADR-085](../../decisions/085-shared-rate-counter.md). `X-Session-Id` 는 클라이언트가 아무 값이나 넣어서, 그대로 실으면 긴 헤더 하나가 색인 상한을 넘겨 삽입을 터뜨립니다 |
+| `count` | `INTEGER` | 이 창에서 몇 번째인가. **이번 것을 포함합니다** |
+| `reset_at` | `TIMESTAMPTZ` | 이 창이 끝나는 시각. **처음 친 시각 + 창 길이**이고 칠 때마다 뒤로 밀지 않습니다 — 밀면 상한에 걸린 사람이 영영 못 빠져나옵니다 |
+
+| | |
+| --- | --- |
+| 무엇에 쓰나 | §1.3 의 창으로 세는 여섯 갈래. **증가와 조회가 한 문장**입니다(`INSERT … ON CONFLICT (key) DO UPDATE … RETURNING`) — 읽고 나서 쓰면 동시에 들어온 요청이 같은 값을 읽어 상한을 넘습니다 |
+| 원문 PII | **없습니다.** IP·세션 식별자는 `key` 안에 **지문으로만** 들어갑니다. 오류 `detail`·감사 로그·경고 로그 어디에도 대상 값을 안 적습니다(§10.1). ⚠️ **지문은 익명화가 아닙니다** — 길이를 고정하려는 것이지 가리려는 것이 아니고, IPv4 는 공간이 좁아 되맞춰 볼 수 있습니다. 그래서 이 표도 파기 대상입니다(아래) |
+| 외래키 | **걸지 않습니다.** 사건과 이어지지 않습니다 — 사건이 아직 없는 시점(사건 생성·404)에도 세야 합니다 |
+| 파기 | **`purge` 크론이 하루 한 번** `reset_at` 이 지난 줄을 지웁니다 → [08](../common/08-14-api.md) §6.3 · §14 와 같은 바퀴. 사건 파기(§14)와 달리 사건과 무관하게 지워집니다. **창이 끝나는 것과 줄이 사라지는 것은 다릅니다** — 창은 1분·1시간이지만 줄은 다음 크론까지 남아, 한 IP 의 지문이 **최대 하루 가까이** 표에 있습니다 |
+| ERD | **§1 그림에 없습니다.** 관계가 하나도 없어 그릴 선이 없고, 사건 데이터도 KB 도 아닙니다 — 볼트 표(§2.1)와 같은 자리입니다 |
+
+**절 번호가 예시(§15) 뒤에 있는 이유**는 §13~§15 를 한 칸씩 미는 순간 코드와 문서 스무 곳의
+`§13`·`§14` 인용이 한꺼번에 어긋나기 때문입니다. 번호는 위치가 아니라 이름입니다.

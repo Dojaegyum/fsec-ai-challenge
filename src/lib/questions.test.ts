@@ -213,9 +213,16 @@ describe('slot-checker 와 함께', () => {
 describe('되묻기 문구 — 값을 사람이 읽는 모양으로 (ADR-069)', () => {
   it('금액은 쉼표와 원', () => {
     const form = source.confirmFor?.('amount', '32000000')
-    expect(form?.input).toBe('buttons')
     expect(form?.text).toContain('32,000,000원')
     expect(form?.options?.[0]).toBe('맞아요')
+  })
+
+  it('되묻기 문항은 input=confirm 이다 — 답은 글자가 아니라 뜻으로 간다 (ADR-082)', () => {
+    // 선택지 글자는 사람이 읽는 것이고, 자리(0·1)가 `action: confirm`·`reject` 로 갑니다.
+    // 그래서 **순서가 계약**입니다 — 글자가 가려져도 어긋나지 않습니다
+    const form = source.confirmFor?.('amount', '32000000')
+    expect(form?.input).toBe('confirm')
+    expect(form?.options?.slice(0, 2)).toEqual(['맞아요', '아니에요, 다시 적을게요'])
   })
 
   it('시각은 날짜와 시·분까지', () => {

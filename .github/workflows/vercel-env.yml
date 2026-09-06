@@ -64,11 +64,11 @@ on:
         required: false
         default: ""
       set_admin_password_hash:
-        description: "ADMIN_PASSWORD_HASH 를 저장소 시크릿 ADMIN_PASSWORD_HASH 에서 넣는다 (KB 검수 큐 /admin/kb 의 문 · `npm run admin:hash` 로 만든 값 · ADR-081)"
+        description: "ADMIN_PASSWORD_HASH 를 저장소 시크릿 ADMIN_PASSWORD_HASH 에서 넣는다 (KB 검수 큐 /admin/kb 의 문 · `npm run admin:hash` 로 만든 값 · ADR-087)"
         type: boolean
         default: false
       demo_mock:
-        description: "NEXT_PUBLIC_DEMO_MOCK — 시작 화면 「Mock 파일로 실행」 칩. 1 보임(대회 기간) · 0 숨김 · 비우면 안 건드림. 빌드에 구워지는 값이라 redeploy 와 함께"
+        description: "NEXT_PUBLIC_DEMO_MOCK — 시작 화면 「예시 자료로 체험하기」 칩. 1 보임(대회 기간) · 0 숨김 · 비우면 안 건드림. 빌드에 구워지는 값이라 redeploy 와 함께"
         required: false
         default: ""
       redeploy:

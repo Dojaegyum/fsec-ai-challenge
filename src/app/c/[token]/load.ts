@@ -518,6 +518,22 @@ export interface EvidenceReadHandlers {
  */
 const READS_PER_ROUND = 4;
 
+/**
+ * `done`·`failed` 를 본 뒤 **한 번 더** 읽기까지의 시간 → [ADR-086](../../../../decisions/086-defer-llm-work-after-read.md).
+ *
+ * ⚠️ **응답이 왔다고 서버 일이 다 끝난 것이 아닙니다.** 수거 요청은 마스킹·저장·부산물
+ * 판정까지만 기다리고 답하고, **기관명 보정과 슬롯 추출은 `after()` 로 응답 뒤에 돕니다.**
+ * 여기서 한 번 읽고 폴링을 멈추면 그 둘의 결과(기관 확정 · 되묻기 문항)를 이 화면이
+ * 영영 못 봅니다 — 사용자가 새로고침하거나 다른 일로 번들을 다시 읽을 때까지.
+ *
+ * 8초인 이유는 모델 호출 둘이 보통 그 안에 끝나기 때문입니다. 늦으면 그 판은 놓치되
+ * **다음 번들 조회가 어차피 집습니다** — 여기서 여러 번 되묻지 않는 이유입니다.
+ *
+ * 이 예약은 **화면을 떠나면 전부 걷히고, 바퀴가 다시 서는 중에는 걷지 않습니다** —
+ * 끝난 파일이 `wanted` 에서 빠지는 것이 바퀴를 다시 세우는 흔한 이유이기 때문입니다.
+ */
+export const SETTLE_FOLLOWUP_MS = 8_000;
+
 /** 더 물을 것이 없는 상태 — 끝났거나(done·failed·간격 없음) 조회가 끊긴 것(§3.1: 스스로 다시 안 부름) */
 function settled(state: EvidenceState | undefined): boolean {
   if (!state) return false;
@@ -561,6 +577,31 @@ export function useEvidenceReads(
   const dueAtRef = useRef<Record<string, number>>({});
   /** 서버가 준 간격 중 가장 짧은 것 — 바퀴 사이에 이만큼 쉽니다 */
   const gapRef = useRef<number | null>(null);
+  /**
+   * 번호 → `done` 뒤 한 번 더 읽을 예약 (ADR-086). **효과 밖에 둡니다.**
+   *
+   * ⚠️ 2026-09-06 첫 판은 이 예약을 바퀴 효과의 클로저 안에 두고 그 cleanup 에서 걷었는데,
+   * 실제 호출부에서는 **거의 항상 취소됐습니다.** `onSettled` 이 그 파일을 「처리중」에서
+   * 빼면 `wanted` 가 줄고, 그러면 효과가 다시 서며 방금 잡은 8초짜리를 걷습니다 — 다음
+   * 효과의 대상에는 그 번호가 없으니 다시 잡히지도 않습니다. 지금 보고 있는 파일일 때만
+   * 우연히 살아남았습니다. 그래서 예약은 바퀴의 수명이 아니라 **훅의 수명**에 답니다.
+   *
+   * 번호가 열쇠라 같은 번호에는 하나뿐입니다 — 「다시 확인」으로 `done` 을 두 번 봐도
+   * 두 번 예약하지 않습니다
+   */
+  const followUpsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  /** 화면을 떠났나 — 예약이 효과 밖에 있어서 클로저의 `alive` 로는 못 막습니다 */
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    unmountedRef.current = false;
+    const followUps = followUpsRef.current;
+    // **언마운트 때만** 걷습니다 — 바퀴가 다시 서는 것과 화면을 떠나는 것은 다릅니다
+    return () => {
+      unmountedRef.current = true;
+      for (const one of followUps.values()) clearTimeout(one);
+      followUps.clear();
+    };
+  }, []);
   // 배열 자체는 렌더마다 새 것일 수 있어 내용으로 열쇠를 만듭니다
   const wantedKey = wanted.join("\u0000");
 
@@ -609,7 +650,24 @@ export function useEvidenceReads(
             handlersRef.current.onProgress(id, read.progress.percent);
           }
           if (read.ingest_status === "done" || read.ingest_status === "failed") {
-            handlersRef.current.onSettled(id, read.ingest_status);
+            const status = read.ingest_status;
+            handlersRef.current.onSettled(id, status);
+            // **한 번 더 읽습니다** → ADR-086. 서버는 이 응답 뒤에도 기관명 보정과
+            // 슬롯 추출을 `after()` 로 돌고 있어서, 여기서 멈추면 그 결과를 못 봅니다.
+            // `onSettled` 은 페이지에서 멱등입니다(`uploads.mark` + `onPlanChanged`).
+            // 이 예약은 효과 밖(`followUpsRef`)에 답니다 — 방금 `onSettled` 이 이 번호를
+            // `wanted` 에서 빼 바퀴가 다시 서는 중일 수 있고, 그래도 살아야 합니다.
+            // 클로저의 `alive` 를 보지 않는 이유도 같습니다(그 효과는 이미 내려갔습니다)
+            if (!followUpsRef.current.has(id)) {
+              followUpsRef.current.set(
+                id,
+                setTimeout(() => {
+                  followUpsRef.current.delete(id);
+                  if (unmountedRef.current) return;
+                  handlersRef.current.onSettled(id, status);
+                }, SETTLE_FOLLOWUP_MS),
+              );
+            }
           }
           if (state.verdict.poll) {
             dueAtRef.current[id] = Date.now() + state.verdict.delayMs;
@@ -640,6 +698,8 @@ export function useEvidenceReads(
       alive = false;
       ac.abort();
       clearTimeout(timer);
+      // 후속 읽기 예약(ADR-086)은 **여기서 걷지 않습니다** — 화면을 떠난 것인지 바퀴가
+      // 다시 서는 것인지 여기서는 못 가립니다. 걷는 자리는 위의 언마운트 cleanup 뿐입니다
     };
     // `asked` 는 「다시 확인」 — 값이 오르면 바퀴를 처음부터 다시 돕니다
   }, [caseToken, wantedKey, asked]);

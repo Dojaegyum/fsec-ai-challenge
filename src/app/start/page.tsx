@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import type { LoadFail } from "@/app/c/[token]/load";
-import { kindOf, uploadFile } from "@/app/c/[token]/upload";
+import { kindOf, pendingKey, uploadFile } from "@/app/c/[token]/upload";
 import { screenName } from "@/modules/file-sender";
 import { saveEmail } from "./contact";
 import { loadMockEvidence } from "./mock";
@@ -189,16 +189,23 @@ export function UploadNote({
 }) {
   if (!done) {
     return (
-      <p className="mt-2.5 text-[13.5px] leading-[1.6] text-ink-3">
-        <span aria-hidden className="mr-1.5">
-          ◷
-        </span>
-        자료를 올리고 있습니다{" "}
-        <span data-numeric>
-          ({Math.max(sending, 1)}/{total})
-        </span>{" "}
-        — <b className="font-[620] text-ink-2">주소는 이미 유효합니다.</b> 지금 복사해 두세요.
-      </p>
+      <>
+        <p className="mt-2.5 text-[13.5px] leading-[1.6] text-ink-3">
+          <span aria-hidden className="mr-1.5">
+            ◷
+          </span>
+          자료를 올리고 있습니다{" "}
+          <span data-numeric>
+            ({Math.max(sending, 1)}/{total})
+          </span>{" "}
+          — <b className="font-[620] text-ink-2">주소는 이미 유효합니다.</b> 지금 복사해 두세요.
+        </p>
+        {/* **기다리지 않아도 된다고 말합니다** — 단추를 잠그는 대신(불변 규칙 5)
+            사건 화면이 남은 파일을 이어받습니다 (`useUploads` · ADR-078) */}
+        <p className="mt-1.5 text-[13px] leading-[1.6] text-ink-3">
+          지금 들어가셔도 자료함에 이어서 표시됩니다.
+        </p>
+      </>
     );
   }
 
@@ -280,7 +287,7 @@ export function EvidenceSlots({
               disabled={busy}
               className="shrink-0 rounded-full border border-hairline px-3 py-1 text-[12.5px] text-ink-2 transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/45%)] hover:text-ink-1 disabled:opacity-50"
             >
-              Mock 파일로 실행
+              예시 자료로 체험하기
             </button>
           ) : null}
         </span>
@@ -751,7 +758,7 @@ export function ConsentModal({
 
 export default function Start() {
   /**
-   * 시연 전용 게이트 — 「Mock 파일로 실행」 칩을 그리는 조건은 셋 중 하나입니다.
+   * 시연 전용 게이트 — 「예시 자료로 체험하기」 칩을 그리는 조건은 셋 중 하나입니다.
    *
    *   1. dev 빌드 — 늘 보입니다.
    *   2. 빌드 때 `NEXT_PUBLIC_DEMO_MOCK=1` — **대회 기간의 배포본**이 여기입니다
@@ -898,12 +905,23 @@ export default function Start() {
   const sendPicked = async (caseToken: string) => {
     if (picked.length === 0) return;
 
+    const key = pendingKey(caseToken);
     const failed: string[] = [];
     for (const [i, one] of picked.entries()) {
       setSending(i + 1);
+      // **아직 서버에 없는 수**를 남깁니다 — 사용자가 먼저 들어가도 사건 화면이
+      // 그만큼 목록을 다시 읽어 늦게 올라간 자료를 이어받습니다
+      // (불변 규칙 5 — 단추를 잠그지 않습니다 · ADR-078)
+      try {
+        sessionStorage.setItem(key, String(picked.length - i));
+      } catch {}
       const sent = await uploadFile({ caseToken, file: one.file });
       if (!sent.ok) failed.push(one.name);
     }
+    // 못 올린 것이 있어도 지웁니다 — 안 올라간 파일을 기다리며 헛돌게 두지 않습니다
+    try {
+      sessionStorage.removeItem(key);
+    } catch {}
     setSending(0);
     setNotSent(failed);
     setSentDone(true);

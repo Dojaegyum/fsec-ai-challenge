@@ -39,6 +39,20 @@ export interface PlanStep {
     after?: readonly string[];
   };
   /**
+   * 이 단계에 **이미 낸 부산물** — §3.6 `artifacts[]`. 없으면 빈 배열입니다.
+   *
+   * 화면이 쓰는 것은 마지막 줄의 `verify_reason` 하나입니다 — 판독이 끝나
+   * 서버가 다시 판정한 뒤(ADR-077) 패널이 그 이유로 안내를 고릅니다
+   * (`app/c/[token]/artifact.ts` 의 `noteOfStep`). 이유가 없으면 `null`
+   */
+  artifacts?: readonly {
+    artifact_id: string;
+    kind: string;
+    verify_level: string;
+    verify_result: string;
+    verify_reason: string | null;
+  }[];
+  /**
    * 이 단계를 **판정하는 부산물** — §3.6 `required_artifact`. 없으면 `null`.
    *
    * **완료는 사용자의 체크가 아니라 이것이 판정합니다** (불변 규칙 6 ·

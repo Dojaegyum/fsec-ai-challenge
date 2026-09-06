@@ -51,7 +51,7 @@ export function configReport(container: Container): readonly PortStatus[] {
       ['XAI_API_KEY 또는 LLM_API_KEY'],
       '챗이 답하지 못합니다'),
     // 「관리자 계정」 줄은 2026-09-04 에 지웠다가(ADR-068 — 화면을 안 만들기로) 2026-09-06 에
-    // 비밀번호 해시 하나로 되살렸습니다(ADR-081 — KB 검수 큐 화면). 비면 /admin/kb 로그인이
+    // 비밀번호 해시 하나로 되살렸습니다(ADR-087 — KB 검수 큐 화면). 비면 /admin/kb 로그인이
     // 전부 401 이라 검수를 아무도 못 하지만, 사건 진행은 그 값과 무관합니다
     row('관리자 비밀번호', has(env, 'ADMIN_PASSWORD_HASH'), ['ADMIN_PASSWORD_HASH'],
       '/admin/kb 로그인이 전부 401 입니다 — KB 검수 큐를 아무도 못 씁니다. **사건 진행은 그대로 돕니다**'),
@@ -102,9 +102,11 @@ export function configReport(container: Container): readonly PortStatus[] {
       ['(lib/questions.ts 의 문구 표가 비었습니다)'],
       '질문이 안 나갑니다. **사건 생성·플랜은 그대로 돕니다**'),
     // 세기는 셉니다. 다만 프로세스 하나 안에서만이라, 인스턴스가 여럿이면
-    // 실효 상한이 그 수만큼 늘어납니다 → rate-limit.ts
+    // 실효 상한이 그 수만큼 늘어납니다 → rate-limit.ts.
+    // **저장 위치는 더 이상 미정이 아닙니다**(ADR-085) — 비어 있다면 이유는
+    // 「어디에 셀지 안 정함」이 아니라 **DB 가 안 붙어서**입니다
     row('속도 제한 저장소', container.rateLimiter.storeKind === 'shared',
-      ['(정본 §1.3 TODO — 저장 위치 미정)'],
+      ['DATABASE_URL'],
       '프로세스 안에서만 셉니다. 인스턴스가 여럿이면 실효 상한이 그만큼 늘어납니다'),
   ]
 }

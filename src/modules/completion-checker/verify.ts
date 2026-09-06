@@ -3,7 +3,8 @@
  *
  * 정본: spec/backend/08-14-completion-hook.md · spec/backend/08-16-data-model.md §7
  *       spec/common/08-14-api.md §3.8
- * 근거: ADR-028 · ADR-057(L1 은 받아 적었나) · ADR-077(L2 는 판독 결과를 본다)
+ * 근거: ADR-028 · ADR-057(L1 은 받아 적었나) · ADR-077(L2 는 판독 결과를 본다) ·
+ *       ADR-083(L2 는 접수번호가 필수 — 기관 이름만으로는 완료가 아니다)
  *
  * **CLAUDE.md 불변 규칙 6** — 완료는 사용자의 체크가 아니라 부산물로 판정한다.
  * 체크리스트는 "체크는 됐는데 행위는 안 된 상태"를 막지 못하고, 은행·경찰 시스템 API 가
@@ -20,14 +21,26 @@
  *
  * | 판독 글에 | 판정 |
  * | --- | --- |
- * | 「접수번호」 자리와 번호(또는 가린 이름표) | `passed` · `done_verified` |
- * | 공공기관 이름(경찰·금감원 …) | `passed` · `done_verified` |
+ * | 「접수번호」 자리와 번호(또는 가린 이름표) | `passed` · `done_verified` (기관 이름 유무 무관) |
+ * | 공공기관 이름만(경찰·금감원 …) | `failed` · **`unconfirmed`** — `org_only`, 접수번호를 적는 길(L1) |
  * | 둘 다 없음 · 읽기 실패 · 통화 녹음 | `failed` · **`unconfirmed`** — 「올렸지만 확인 못 함」 |
  * | 아직 읽는 중 | `not_applicable` · `unconfirmed` — `reading_pending` 으로 두고 나중에 다시 |
  *
  * 경유 서비스(은행) 이름은 근거가 아니다 — 이체 캡처에도 있다. 공공기관만 본다.
+ *
+ * ## L2 는 접수번호가 필수다 (2026-09-06 · ADR-083)
+ *
+ * 위 표의 둘째 줄은 원래 `passed` 였다. 2026-09-06 QA 에서 「본 건은 수사기밀이므로
+ * 경찰에 신고하거나 타인에게 알리지 마십시오」가 적힌 **합성 사기 문자 캡처**가 112 신고
+ * 단계를 `passed` 로 닫았다 — 공공기관 사전의 별칭 「경찰」이 근거로 잡혔다. 사기 문자에는
+ * 수사기관 이름이 거의 늘 들어 있어 이 규칙은 구조적으로 뚫린다. 그래서 기관 이름만으로는
+ * 더 이상 통과시키지 않는다 — 접수번호가 없으면 통지문·확인원처럼 번호를 갖지 않는 서류라도
+ * 사용자가 접수번호를 적는 길(L1)로 돌려보낸다.
  */
 
+// 안내문 표는 **화면과 나눠 씁니다** — 판독이 끝난 뒤 화면이 같은 글자로
+// 갈아끼워야 합니다 (§3.6 `verify_reason` · `notes.ts` 머리말)
+import { L2_NOTES } from './notes'
 import type {
   ArtifactSubmission,
   CompletionChecker,
@@ -70,15 +83,6 @@ const NEXT_AFTER_L2: readonly NextOption[] = [
  * 없었다는 뜻이고, 사용자는 할 수 있는 것을 다 했다 → README.
  */
 const SELF_REPORT_NOTE = '완료로 기록되지 않습니다. 접수번호를 확인하시면 알려주세요'
-
-/** L2 가 완료로 기록하지 못했을 때의 말 → 08-14-api.md §3.8 「응답 200 — L2 확인 못 함」 */
-const L2_NOTES = {
-  reading_pending: '올린 자료를 읽는 중입니다. 접수번호나 기관명이 보이면 완료로 기록합니다',
-  unreadable: '올렸지만 읽지 못했습니다. 접수번호를 적어 주시면 확인합니다',
-  not_a_document:
-    '통화 녹음은 접수증이 아닙니다. 접수증이나 접수 문자 캡처를 올리거나 접수번호를 적어 주세요',
-  no_receipt_marks: '올렸지만 접수번호나 기관명을 찾지 못했습니다. 접수번호를 적어 주시면 확인합니다',
-} as const
 
 export function createCompletionChecker(deps: {
   receiptFormat: ReceiptNumberFormat
@@ -233,22 +237,23 @@ function verifyUpload(
   }
 
   const marks = findReceiptMarks(evidence.text, orgNames)
-  if (marks.receiptNumber || marks.orgName) {
+  if (marks.receiptNumber) {
     return {
       verifyLevel: 'L2',
       verifyResult: 'passed',
       stepState: 'done_verified',
       // **통과에도 이유를 남긴다** — 무엇을 보고 통과시켰는지가 나중에 셀 값이다
-      verifyDetail: { reason: marks.receiptNumber ? 'receipt_number_found' : 'org_name_found' },
+      verifyDetail: { reason: 'receipt_number_found' },
     }
   }
-
+  // 기관 이름만으로는 완료가 아니다 → ADR-083. 사기 문자에도 수사기관 이름은 늘 들어 있다
+  if (marks.orgName) return unconfirmed('org_only')
   return unconfirmed('no_receipt_marks')
 }
 
 /** 올렸지만 확인 못 함 — 이유를 말하고, 번호를 적는 길을 낸다 */
 function unconfirmed(
-  reason: 'unreadable' | 'not_a_document' | 'no_receipt_marks',
+  reason: 'unreadable' | 'not_a_document' | 'no_receipt_marks' | 'org_only',
 ): CompletionVerdict {
   return {
     verifyLevel: 'L2',

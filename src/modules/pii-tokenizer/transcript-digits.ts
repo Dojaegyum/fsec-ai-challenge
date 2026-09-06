@@ -245,6 +245,30 @@ function groupBySentence(
 }
 
 /**
+ * 자기 토큰을 갖는 **조각**의 최소 자릿수 → ADR-081.
+ *
+ * **재는 것은 이어 붙인 조각입니다** — 덩어리 하나가 아닙니다. `5-0-0-0 1-2-3-4`
+ * 처럼 한 자리씩 끊어 읽힌 열여섯 자리는 덩어리로는 전부 한 자리지만 조각으로는
+ * 16자리이고, **반드시 가려야 하는 것**입니다 — 실측 전사에 그대로 있습니다
+ * (`results-gpu.json` 조건 F · 상품권 핀번호).
+ *
+ * 한 자리 조각을 뺀 이유는 그것이 개인정보 원문이 될 수 없기 때문입니다. 2026-09-06
+ * 배포본 QA 에서 「8」 한 자리가 `[주민번호-1]` 의 원문이 되어 브라우저에 건너갔고,
+ * 그 뒤 그 기기에서는 8 이 든 글이 전부 누출 검산에 걸려 막혔습니다.
+ */
+export const MIN_DIGIT_RUN = 2
+
+/** 이 자리에 숫자가 몇 개인가 — 구분자는 안 셉니다 */
+function digitCount(text: string, span: DigitSpan): number {
+  let count = 0
+  for (let i = span.start; i < span.end; i += 1) {
+    const code = text.charCodeAt(i)
+    if (code >= 48 && code <= 57) count += 1
+  }
+  return count
+}
+
+/**
  * 묶음을 **실제로 가릴 자리**로 나눈다.
  *
  * 자릿수를 세는 것은 묶음 단위이지만, **가리는 것은 붙어 있는 조각 단위**입니다.
@@ -253,6 +277,16 @@ function groupBySentence(
  * 만드는 중에 확인했습니다.
  *
  * 사이에 글자나 한글이 있으면 다른 조각으로 봅니다. 구분자·공백뿐이면 한 조각입니다.
+ *
+ * ## 하한은 **이어 붙인 뒤에** 겁니다 — 순서가 곧 계약입니다
+ *
+ * 덩어리 단위로 먼저 걸러 내면 두 구멍이 생깁니다. 만드는 중에 실제로 그렇게 됐고,
+ * 둘 다 불변 규칙 2 를 어깁니다.
+ *
+ * ```
+ * 5-0-0-0 1-2-3-4 5-6-7-8 9-0-1-2   덩어리가 전부 한 자리 -> 아무것도 안 가려짐
+ * 302 0 9 8 7 6 5 4 3 21            가운데 한 자리들이 조각을 갈라 8자리가 평문으로
+ * ```
  */
 function toSpans(
   text: string,
@@ -276,7 +310,9 @@ function toSpans(
     end = run.end
   }
   spans.push({ kind, start, end })
-  return spans
+
+  // 한 자리 조각은 자기 토큰을 갖지 않습니다 → 위 `MIN_DIGIT_RUN` (ADR-081)
+  return spans.filter((one) => digitCount(text, one) >= MIN_DIGIT_RUN)
 }
 
 /**

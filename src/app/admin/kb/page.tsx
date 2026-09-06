@@ -1,6 +1,6 @@
 "use client";
 /**
- * S-12 · KB 검수 큐 — /admin/kb (ADR-081). **피해자 화면 어디서도 링크하지 않습니다.**
+ * S-12 · KB 검수 큐 — /admin/kb (ADR-087). **피해자 화면 어디서도 링크하지 않습니다.**
  * 껍데기만 공개이고 데이터는 전부 /api/admin/kb/* — 401 이면 로그인 카드가 본문 자리에 뜹니다.
  */
 import Image from "next/image";

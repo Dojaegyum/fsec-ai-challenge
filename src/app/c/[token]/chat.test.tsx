@@ -38,6 +38,7 @@ const askOf = (over: Partial<ChatSend["ask"]> = {}): ChatSend["ask"] => ({
   answer: nothing,
   skip: nothing,
   resolve: nothing,
+  confirmAnswer: nothing,
   ...over,
 });
 
@@ -184,9 +185,21 @@ describe("되묻기 문구의 토큰은 브라우저가 되살린다 — ADR-069
   const confirmAccount: NextQuestion = {
     slot_key: "counterpart_account",
     text: "올린 자료에서 찾은 받는 쪽 계좌입니다: [계좌-2]. 맞나요?",
-    input: "buttons",
+    // 되묻기는 제 `input` 을 갖습니다 — 그림은 버튼과 같고 답만 뜻으로 갑니다 (ADR-082)
+    input: "confirm",
     options: ["맞아요", "아니에요, 다시 적을게요", "모름·기억 안 남"],
   };
+
+  it("**선택지를 그린다** — `confirm` 도 버튼과 같은 모양이다 (ADR-082)", () => {
+    // 안 그리면 되묻기 문항에 답할 수단이 없어 그 슬롯이 영영 `extracted` 로 남습니다
+    const html = renderToStaticMarkup(
+      <QuestionBlock ask={askOf({ question: confirmAccount })} onAnswered={() => {}} i={0} />,
+    );
+    const text = textOf(html);
+    expect(text).toContain("맞아요");
+    expect(text).toContain("아니에요, 다시 적을게요");
+    expect(text).toContain("모름·기억 안 남");
+  });
 
   it("복원 목록이 있으면 번호로 보인다", () => {
     const html = renderToStaticMarkup(
@@ -221,5 +234,46 @@ describe("컴포저 받침은 바닥색을 칠하지 않는다 — 호라이즌 
     expect(composer).toContain("backdrop-blur");
     expect(composer).toContain("mask");
     expect(composer).not.toContain("var(--ground)");
+  });
+});
+
+/**
+ * 인용 꼬리말 — **조사가 제목에 붙어 「합니다을」이 되던 것.**
+ *
+ * ⚠️ 2026-09-06 접수 전 점검에서 「112에 신고합니다을 보고 안내했습니다」가
+ * 화면에 그대로 떴습니다. 조사는 앞 글자의 받침에 따라 달라지는데 매뉴얼 제목은
+ * KB 가 정합니다 — 그래서 제목을 **따옴표로 감싸**(`chat-handler` 의 `sourceNote`)
+ * 조사가 제목에 붙지 않게 합니다.
+ */
+describe("인용 꼬리말은 제목을 따옴표로 감싼다 — 조사가 붙지 않게", () => {
+  const answered = (sourceNote: string | null) =>
+    textOf(
+      renderToStaticMarkup(
+        <MiniChat
+          chat={chatOf({
+            lines: [
+              {
+                who: "ai",
+                message_id: "01MSG",
+                reply: "지급정지를 먼저 거세요.",
+                question: null,
+                sourceNote,
+                referencedSteps: [],
+              },
+            ],
+          })}
+          token="T"
+        />,
+      ),
+    );
+
+  it("제목 뒤에 「를」이 온다", () => {
+    const text = answered("「112에 신고합니다」");
+    expect(text).toContain("「112에 신고합니다」를 보고 안내했습니다");
+    expect(text).not.toContain("합니다을");
+  });
+
+  it("근거가 없으면 그 줄 자체가 없다", () => {
+    expect(answered(null)).not.toContain("보고 안내했습니다");
   });
 });

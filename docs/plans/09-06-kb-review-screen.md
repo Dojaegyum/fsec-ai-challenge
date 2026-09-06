@@ -14,14 +14,14 @@
 **기술:** Next 16 App Router · React 19 · TypeScript · `node:crypto`(scrypt) · postgres(`Sql`) · vitest · Tailwind v4 토큰.
 새 의존성 없음.
 
-**정본:** [ADR-081](../../decisions/081-kb-review-screen.md) · [화면 S-12](../../spec/frontend/08-14-screens.md) ·
+**정본:** [ADR-087](../../decisions/087-kb-review-screen.md) · [화면 S-12](../../spec/frontend/08-14-screens.md) ·
 [API §7](../../spec/common/08-14-api.md) · [에러 코드 표](../../spec/backend/08-16-errors.md) ·
 [핸드오프 09-06-s12-kb-review](../../assets/artifacts/handoff/09-06-s12-kb-review/README.md)
 
 ## 전역 제약
 
 - **KB 본문을 쓰는 경로를 만들지 않는다.** `kb_entry` 에 쓰는 코드는 `kb:load` 하나다 (RFC-002).
-- **승인 단추 문구는 「승인」.** 판단 단추 어디에도 「반영」이라는 말이 없어야 한다 (ADR-081 「근거」).
+- **승인 단추 문구는 「승인」.** 판단 단추 어디에도 「반영」이라는 말이 없어야 한다 (ADR-087 「근거」).
 - **`/api/admin/` 아래 라우트는 문지기가 자동으로 401 을 낸다.** 라우트에서 인증을 따로 확인하지 않는다 (§5.1).
   **`/api/admin-login` 만 밖**이고, 문지기 목록(`gated-paths.ts`)에 예외를 뚫지 않는다.
 - **관리자 경로는 속도 제한을 걸지 않는다** (§1.3 · `request.ts` 가 이미 그렇게 한다). 로그인만 `adminLogin` 갈래로 IP당 10분에 10회.
@@ -61,7 +61,7 @@
 
 **Files:** 없음 (브랜치와 의존성만)
 
-- [ ] **Step 1: 브랜치 확인** — `feat/kb-review-screen` 이 `origin/main` 위에 있고 ADR-081 커밋(`8313541`)이 들어 있는지 봅니다.
+- [ ] **Step 1: 브랜치 확인** — `feat/kb-review-screen` 이 `origin/main` 위에 있고 ADR-087 커밋(`8313541`)이 들어 있는지 봅니다.
 
 ```bash
 git branch --show-current          # feat/kb-review-screen
@@ -140,7 +140,7 @@ Expected: FAIL — `Cannot find module './admin-password'`
 ```ts
 // src/lib/admin-password.ts
 /**
- * 관리자 비밀번호 해시 — API §7.1 · ADR-081.
+ * 관리자 비밀번호 해시 — API §7.1 · ADR-087.
  *
  * 형식 `scrypt$N$r$p$<salt base64>$<hash base64>`. `node:crypto` 만 씁니다 — 의존성을 늘리지
  * 않으려는 것이고, scrypt 는 Node 가 내장합니다. **대조는 어떤 입력에도 던지지 않습니다** —
@@ -199,7 +199,7 @@ Expected: PASS (5)
 /**
  * 관리자 비밀번호 해시를 만든다 — `npm run admin:hash -- <비밀번호>`.
  *
- * 출력을 배포 환경변수 `ADMIN_PASSWORD_HASH` 에 넣습니다 (API §1.2 · §7.1 · ADR-081).
+ * 출력을 배포 환경변수 `ADMIN_PASSWORD_HASH` 에 넣습니다 (API §1.2 · §7.1 · ADR-087).
  * 비밀번호는 **인자로만** 받고 어디에도 기록하지 않습니다. 셸 히스토리에 남는 것이 싫으면
  * 앞에 공백을 두고 치세요(bash 의 HISTCONTROL=ignorespace).
  */
@@ -228,7 +228,7 @@ Expected: `scrypt$16384$8$1$…$…` 한 줄. 짧은 인자면 사용법과 함�
 
 ```bash
 git add src/lib/admin-password.ts src/lib/admin-password.test.ts src/scripts/admin-hash.ts src/package.json
-git commit -m "관리자 비밀번호 해시 형식을 scrypt 로 확정한다 — 만들기·대조·명령 (API §7.1 · ADR-081)"
+git commit -m "관리자 비밀번호 해시 형식을 scrypt 로 확정한다 — 만들기·대조·명령 (API §7.1 · ADR-087)"
 ```
 
 ---
@@ -283,7 +283,7 @@ export interface RouteResult {
   readonly body: unknown
   readonly status?: number
   /**
-   * 라우트가 덧붙일 헤더 — 지금은 로그인·로그아웃의 `Set-Cookie` 하나뿐입니다 (§7.1 · ADR-081).
+   * 라우트가 덧붙일 헤더 — 지금은 로그인·로그아웃의 `Set-Cookie` 하나뿐입니다 (§7.1 · ADR-087).
    * 계측 헤더·`Cache-Control` 뒤에 붙고, 같은 이름이면 라우트 것이 이깁니다.
    * **`Response` 를 직접 만들지 않으려는 것입니다** — 그러면 계측 헤더가 빠집니다 (route-contract R2)
    */
@@ -373,7 +373,7 @@ export type RateBucket = 'chat' | 'slot' | 'vault' | 'caseCreate' | 'read' | 'no
 `RATE_RULES` 의 `notFound` 아래:
 
 ```ts
-  // 계정이 하나라 IP 로 셉니다. 무차별 대입 방어 → §7.1 · ADR-081.
+  // 계정이 하나라 IP 로 셉니다. 무차별 대입 방어 → §7.1 · ADR-087.
   // `/api/admin/*` 은 제한하지 않지만(§1.3) 로그인은 그 접두사 밖이라 여기가 걸립니다
   adminLogin: {
     bucket: 'adminLogin',
@@ -484,7 +484,7 @@ Expected: FAIL — `./route` 없음
 ```ts
 // src/app/api/admin-login/route.ts
 /**
- * 관리자 로그인 — API §7.1 · ADR-081.
+ * 관리자 로그인 — API §7.1 · ADR-087.
  *
  * **문지기 밖입니다.** `/api/admin/` 접두사에 안 걸리는 이름을 일부러 골랐습니다 — 문지기 목록에
  * 예외를 뚫으면 다음 예외가 쉬워집니다. 대신 상한(`adminLogin` · IP 기준)이 걸립니다.
@@ -609,7 +609,7 @@ Expected: PASS · 라우트 규약 위반 0
 
 ```bash
 git add src/app/api/admin-login src/app/api/admin/logout src/proxy.test.ts
-git commit -m "관리자 로그인·로그아웃 — 로그인만 문지기 밖, 상한은 IP 기준 (API §7.1 · ADR-081)"
+git commit -m "관리자 로그인·로그아웃 — 로그인만 문지기 밖, 상한은 IP 기준 (API §7.1 · ADR-087)"
 ```
 
 ---
@@ -646,7 +646,7 @@ Expected: FAIL — import 없음
 - [ ] **Step 3: 구현** — `src/lib/errors.ts` 의 `KbError` 아래:
 
 ```ts
-/** 검수 큐의 변경 하나를 못 찾음 — 관리자 API §7.3 (ADR-081) */
+/** 검수 큐의 변경 하나를 못 찾음 — 관리자 API §7.3 (ADR-087) */
 export class KbChangeNotFoundError extends KbError {
   readonly code: string = 'KB_CHANGE_NOT_FOUND'
   readonly httpStatus: number = 404
@@ -678,7 +678,7 @@ Expected: PASS
 
 ```bash
 git add src/lib/errors.ts src/modules/kb-reviewer/review.ts src/modules/kb-reviewer/review.test.ts
-git commit -m "검수 큐 에러에 코드를 준다 — 못 찾음 404 · 이미 판단됨 409 (에러 표 · ADR-081)"
+git commit -m "검수 큐 에러에 코드를 준다 — 못 찾음 404 · 이미 판단됨 409 (에러 표 · ADR-087)"
 ```
 
 ---
@@ -784,7 +784,7 @@ Expected: FAIL — `./link` 없음
 ```ts
 // src/modules/kb-reviewer/link.ts
 /**
- * 조문 ↔ 매뉴얼 — API §7.4 · ADR-081 ④.
+ * 조문 ↔ 매뉴얼 — API §7.4 · ADR-087 ④.
  *
  * `source_key`(`law:011359:제3조`)의 법령 번호와 조를 `kb_entry.legal_basis` 글에서 뽑은
  * 「법 제N조」「시행령 제N조」와 대조합니다. **모델을 쓰지 않습니다** — 규칙이라 시험이 되고,
@@ -1112,7 +1112,7 @@ Expected: FAIL — `./kb-review` 없음
 ```ts
 // src/flows/kb-review.ts
 /**
- * 검수 큐 흐름 — API §7 · ADR-081. 라우트 다섯이 여기 함수 다섯을 부릅니다.
+ * 검수 큐 흐름 — API §7 · ADR-087. 라우트 다섯이 여기 함수 다섯을 부릅니다.
  *
  * **`kb_entry` 에 쓰는 자리가 없습니다.** 반영은 파일을 고쳐 릴리스하는 것입니다(RFC-002).
  * 닿는 매뉴얼은 읽을 때 규칙으로 계산합니다(§7.4) — `impact` 에 저장하지 않습니다.
@@ -1575,7 +1575,7 @@ describe('판단 — §7.3', () => {
 
 ```python
     "message_id": ("ulidParamOf",),
-    # 검수 큐의 변경 — ULID. 관리자 화면(S-12)만 씁니다 → API §7.2 · ADR-081
+    # 검수 큐의 변경 — ULID. 관리자 화면(S-12)만 씁니다 → API §7.2 · ADR-087
     "change_id": ("ulidParamOf",),
 ```
 
@@ -2145,7 +2145,7 @@ export function EntryDetail({ entry, changes, onPickChange }: { entry: EntryView
 // src/app/admin/kb/page.tsx
 "use client";
 /**
- * S-12 · KB 검수 큐 — /admin/kb (ADR-081). **피해자 화면 어디서도 링크하지 않습니다.**
+ * S-12 · KB 검수 큐 — /admin/kb (ADR-087). **피해자 화면 어디서도 링크하지 않습니다.**
  * 껍데기만 공개이고 데이터는 전부 /api/admin/kb/* — 401 이면 로그인 카드가 본문 자리에 뜹니다.
  */
 import Image from "next/image";
@@ -2313,7 +2313,7 @@ npx next dev -p 3131
 
 ```bash
 git add src/app/admin/kb
-git commit -m "S-12 KB 검수 큐 화면 — 받은편지함 + 조문·매뉴얼 렌즈, 승인은 「승인」 (ADR-081 · 핸드오프 09-06-s12)"
+git commit -m "S-12 KB 검수 큐 화면 — 받은편지함 + 조문·매뉴얼 렌즈, 승인은 「승인」 (ADR-087 · 핸드오프 09-06-s12)"
 ```
 
 ---
@@ -2347,9 +2347,9 @@ git commit -m "S-12 KB 검수 큐 화면 — 받은편지함 + 조문·매뉴얼
 
 mermaid: `REV["사람 검수<br/>명령줄"]` → `REV["사람 검수<br/>명령줄 · 화면"]`.
 
-§1 그림의 브라우저 subgraph 아래 한 줄을 더합니다 — `TEAM["팀 화면<br/>KB 검수"] -- "세션 쿠키" --> API`. 그리고 §7 의 환경변수 문장 뒤에 한 문장: *관리자 비밀번호는 `ADMIN_PASSWORD_HASH`(scrypt) 하나이고 `npm run admin:hash`로 만든다 (ADR-081 — 링크는 ARCHITECTURE 의 이웃 줄과 같은 상대경로로).*
+§1 그림의 브라우저 subgraph 아래 한 줄을 더합니다 — `TEAM["팀 화면<br/>KB 검수"] -- "세션 쿠키" --> API`. 그리고 §7 의 환경변수 문장 뒤에 한 문장: *관리자 비밀번호는 `ADMIN_PASSWORD_HASH`(scrypt) 하나이고 `npm run admin:hash`로 만든다 (ADR-087 — 링크는 ARCHITECTURE 의 이웃 줄과 같은 상대경로로).*
 
-「근거」 줄에 ADR-081 링크를 이웃 줄과 같은 꼴로 추가.
+「근거」 줄에 ADR-087 링크를 이웃 줄과 같은 꼴로 추가.
 
 - [ ] **Step 2: CLAUDE.md** 51행: `API 라우트 16(사건 13 + 크론 3)` → `API 라우트 23(사건 13 + 크론 3 + 관리자 7)`.
 
@@ -2357,7 +2357,7 @@ mermaid: `REV["사람 검수<br/>명령줄"]` → `REV["사람 검수<br/>명령
 
 - [ ] **Step 4: 핸드오프 README** — 표의 「상태」를 `**적용됨** — <커밋 해시>` 로.
 
-- [ ] **Step 5: config-report.ts** — 53행 근처 주석을 고치고 줄 하나 복구. 형태는 그 파일의 다른 줄과 같게 (예: `row('관리자 비밀번호', has(env, 'ADMIN_PASSWORD_HASH') ? '설정됨' : '없음 — /admin/kb 가 닫혀 있습니다 (ADR-081)')`). 정확한 헬퍼 이름은 그 파일의 이웃 줄을 그대로 따릅니다.
+- [ ] **Step 5: config-report.ts** — 53행 근처 주석을 고치고 줄 하나 복구. 형태는 그 파일의 다른 줄과 같게 (예: `row('관리자 비밀번호', has(env, 'ADMIN_PASSWORD_HASH') ? '설정됨' : '없음 — /admin/kb 가 닫혀 있습니다 (ADR-087)')`). 정확한 헬퍼 이름은 그 파일의 이웃 줄을 그대로 따릅니다.
 
 - [ ] **Step 6: 검사기 셋**
 
@@ -2372,7 +2372,7 @@ Expected: 전부 통과.
 
 ```bash
 git add ARCHITECTURE.md CLAUDE.md spec/frontend/08-14-screens.md assets/artifacts/handoff/09-06-s12-kb-review/README.md src/lib/config-report.ts docs/plans/README.md
-git commit -m "KB 검수 큐가 섰다 — ARCHITECTURE 물리 배치·층 4·라우트 수, S-12 구현 표시, 설정 현황에 관리자 비밀번호 (ADR-081)"
+git commit -m "KB 검수 큐가 섰다 — ARCHITECTURE 물리 배치·층 4·라우트 수, S-12 구현 표시, 설정 현황에 관리자 비밀번호 (ADR-087)"
 ```
 
 ---
@@ -2400,7 +2400,7 @@ cd src && npm run admin:hash -- "<무작위 비밀번호>"
 
 ```bash
 git add deploy/README.md .github/workflows/vercel-env.yml
-git commit -m "배포본에 KB 검수 큐 — ADMIN_PASSWORD_HASH 를 vercel-env 로 넣는다 (ADR-081)"
+git commit -m "배포본에 KB 검수 큐 — ADMIN_PASSWORD_HASH 를 vercel-env 로 넣는다 (ADR-087)"
 ```
 
 ---
@@ -2415,7 +2415,7 @@ git commit -m "배포본에 KB 검수 큐 — ADMIN_PASSWORD_HASH 를 vercel-env
 | §7.4 규칙 · 「추정」 · `impact` 에 안 씀 · `page:` 는 밖 | 6 · 8 · 11 |
 | 에러 코드 둘 | 5 |
 | S-12 두 렌즈 · 전환 · 판단 조문 단위 · 어휘 · 금지(반영 문구 · 링크 없음 · 피해자 데이터 없음) | 10 · 11 |
-| ADR-081 「어떻게 지키나」 넷 | 4 · 9 · 6 · 11 |
+| ADR-087 「어떻게 지키나」 넷 | 4 · 9 · 6 · 11 |
 | ADR-068 부분 대체의 결과(설정 현황 복구 · 환경변수) | 12 · 13 |
 | 껍데기에 헤더 자리 (계획에서 발견 — 정본엔 없던 것) | 2 |
 

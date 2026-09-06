@@ -187,7 +187,8 @@ describe('판독이 끝나면 미뤄 둔 부산물을 다시 판정한다', () =
         { artifactId: ARTIFACT_ID, planStepId: STEP_ID, kind: 'receipt_doc' },
         { artifactId: '01J8XKQZ3M7N2P4R6T8V0W2Y4E', planStepId: STEP_ID, kind: 'sms_capture' },
       ],
-      evidence: { kind: 'image', ingestStatus: 'done', transcriptMasked: stored(['금융감독원 통지']) },
+      // ADR-083 이후 기관 이름만으로는 통과하지 않으므로 접수번호로 통과시킨다
+      evidence: { kind: 'image', ingestStatus: 'done', transcriptMasked: stored(['접수번호 2026-004821']) },
     })
     await settleArtifacts({ caseId: CASE_ID, evidenceId: EVIDENCE_ID, container: one.container })
     expect(one.settled).toHaveLength(2)

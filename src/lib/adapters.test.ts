@@ -132,16 +132,33 @@ describe('없는 칸은 줄을 만들지 않는다', () => {
   })
 })
 
-describe('참고 절차 — summary 만 (§2.5)', () => {
-  it('다른 유형의 항목은 요약 한 문장만 간다 — 크기를 유형 수에 묶어 둔다', () => {
+describe('참고 절차 — summary 와 caveat 만 (§2.5 · ADR-084)', () => {
+  it('할 일·남기는 것·근거는 안 가지만 caveat 은 간다 — 크기를 유형 수에 묶어 둔다', () => {
     const entry = kbRowToPromptEntry(row(FULL, { channelId: 'CH-easypay' }), 'reference')
-    expect(entry.body).toBe(SUMMARY)
+    expect(entry.body).toBe(`${SUMMARY}\n주의: ${CAVEAT}`)
+    expect(entry.body).not.toContain('할 일:')
+    expect(entry.body).not.toContain('남기는 것:')
+    expect(entry.body).not.toContain('근거:')
     expect(entry.channelId).toBe('CH-easypay')
+  })
+
+  it('참고 절차에도 caveat 이 붙는다 (ADR-084)', () => {
+    const entry = kbRowToPromptEntry(
+      row({ summary: '요약', caveat: '1년 4개월 41건 · 0.1% · 평균 116일' }),
+      'reference',
+    )
+    expect(entry.body).toContain('주의: 1년 4개월 41건')
+    expect(entry.body).not.toContain('할 일:')
+  })
+
+  it('caveat 이 없으면 summary 만 간다', () => {
+    const entry = kbRowToPromptEntry(row({ summary: SUMMARY, caveat: null }), 'reference')
+    expect(entry.body).toBe(SUMMARY)
   })
 })
 
 describe('asKbSource 는 묶음에 따라 다르게 옮긴다', () => {
-  it('applied 는 넉넉히, reference 는 요약만', async () => {
+  it('applied 는 넉넉히, reference 는 요약과 주의만', async () => {
     const source = asKbSource({
       async find() {
         return {
@@ -152,7 +169,7 @@ describe('asKbSource 는 묶음에 따라 다르게 옮긴다', () => {
     })
     const groups = await source.find({ kbVersion: '2026.09.4', track: 'victim', channelId: 'CH-bank', orgId: null, asOf: '2026-09-06' })
     expect(groups.applied[0]!.body).toContain('할 일:')
-    expect(groups.reference[0]!.body).toBe(SUMMARY)
+    expect(groups.reference[0]!.body).toBe(`${SUMMARY}\n주의: ${CAVEAT}`)
     expect(groups.reference[0]!.channelId).toBe('CH-easypay')
   })
 })

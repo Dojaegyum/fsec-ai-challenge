@@ -219,6 +219,15 @@ function tokenRegions(text: string): { start: number; end: number }[] {
   return out
 }
 
+/**
+ * 이름 조각의 최소 길이 → ADR-081.
+ *
+ * 모델이 「잠시만요」의 「요」를 PERSON 으로 낸 일이 실측으로 있었습니다(2026-09-06).
+ * 한 글자는 사람 이름이 아니고, 대응표에 실리면 **브라우저가 그 글자를 어디서나
+ * 가립니다** — 그 기기에서 「요」가 든 발화가 전부 `[이름-N]` 으로 나갔습니다.
+ */
+export const MIN_NAME_CHARS = 2
+
 function nerToSpans(
   found: readonly NerSpan[],
   text: string,
@@ -230,6 +239,8 @@ function nerToSpans(
   for (const one of found) {
     const kind = NER_LABELS_TO_TOKENIZE[one.label]
     if (!kind) continue
+    // 한 글자 조각은 개인정보 원문이 아닙니다 → 위 `MIN_NAME_CHARS` (ADR-081)
+    if (one.value.trim().length < MIN_NAME_CHARS) continue
     if (isAllowed(one.value, allowedTerms)) continue
     // 우리 이름표 모양과 겹치면 다시 가리지 않습니다 → 위 `tokenRegions`
     if (ours.some((r) => r.start < one.end && one.start < r.end)) continue

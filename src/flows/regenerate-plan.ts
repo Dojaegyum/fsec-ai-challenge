@@ -101,6 +101,14 @@ export interface StoredArtifact {
   readonly verifyLevel: string
   readonly verifyResult: string
   /**
+   * 왜 그렇게 판정했나 — `artifact.verify_detail` (§11.4). 없으면 `null`.
+   *
+   * **화면이 판독 뒤 안내를 바꾸는 값이 여기 `reason` 입니다** → §3.6
+   * `artifacts[].verify_reason`. 안 실어 보내면 「올린 자료를 읽는 중입니다」가
+   * 판독이 끝난 뒤에도 그대로 남습니다 (2026-09-06 점검).
+   */
+  readonly verifyDetail: Readonly<Record<string, unknown>> | null
+  /**
    * ISO 8601 · **시간대 포함**.
    *
    * **기한의 기산점이 될 수 있습니다** → 08-16-deadline-rules.md

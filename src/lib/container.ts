@@ -272,7 +272,7 @@ function nerModel(env: Env): NerModel | null {
      * 그건 **사건 진행이 멈춘다**는 뜻입니다(경계라 못 가리면 안 내보냅니다).
      *
      * 그래서 **코드를 고치지 않고 늘릴 수 있게** 열어 둡니다. 라우트의
-     * `maxDuration`(챗은 60초)보다 반드시 짧게 두세요.
+     * `maxDuration`(챗은 100초 · 2026-09-06)보다 반드시 짧게 두세요.
      */
     ...(env.values.NER_TIMEOUT_MS
       ? { timeoutMs: Number(env.values.NER_TIMEOUT_MS) }
@@ -620,9 +620,10 @@ export function createContainer(
   env: Env = readEnv(),
   ports: Ports = unconfiguredPorts(env),
   /**
-   * 속도 제한을 어디에 세나. ⬜ 저장 위치가 정본에 미정이라 기본은
-   * 프로세스 메모리입니다 → [rate-limit.ts](./rate-limit.ts).
-   * 공유 저장소가 정해지면 여기 하나만 갈아 끼웁니다.
+   * 속도 제한을 어디에 세나. 기본은 프로세스 메모리이고, 실제 서버는
+   * **Postgres 표 하나**를 넘겨받습니다 → [wire.ts](./wire.ts) · ADR-085.
+   * 기본값이 메모리인 이유는 시험이 DB 없이도 조립되어야 하기 때문입니다
+   * → [rate-limit.ts](./rate-limit.ts).
    */
   rateCounter: RateCounterStore = createMemoryRateCounter(),
 ): Container {

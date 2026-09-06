@@ -86,6 +86,11 @@ export function asRetryJudge(checker: RetryChecker): RetryJudge {
  * 두는 이유는 크기입니다 — 참고 절차는 다른 유형의 것이라 스무 개가 넘고, 그쪽까지
  * 넣으면 한 턴 입력이 3,000 토큰 가까이 늘어납니다(적용 절차만은 약 950 토큰).
  *
+ * **`caveat` 은 예외입니다 — 참고 절차에도 갑니다** (2026-09-06 · ADR-084). 채널이
+ * 아직 정해지지 않은 사건의 챗이 「자율배상 얼마나 받나」에 「안내할 수치가 없다」고
+ * 답했는데, 그 41건·0.1%·평균 116일(불변 규칙 8)은 참고 절차 행의 `caveat` 에 있었습니다.
+ * 참고 절차 스무 개 중 `caveat` 이 있는 것은 넷뿐이라 늘어나는 입력은 200 토큰 안입니다.
+ *
  * **연락처와 `deadline` 은 여기서도 안 나갑니다.** 번호는 09-data-model.md §11.4.4 가
  * 막혔을 때만 주기로 했고, 기한은 계산기의 것이라 문장은 `summary` 가 맡습니다
  * (RFC-002 「적재 전 자기점검」). `steps[].contact_ref`·`url` 도 글자로 뜻이 없어 뺍니다.
@@ -120,10 +125,14 @@ export function kbRowToPromptEntry(row: KbRow, group: KbGroup): KbEntry {
     const artifact = text((body.required_artifact as { label?: unknown } | null | undefined)?.label)
     if (artifact) lines.push(`남기는 것: ${artifact}`)
 
-    // 기대치를 낮추는 말 — 자율배상 41건·0.1%·116일이 여기 있습니다 (불변 규칙 8)
-    const caveat = text(body.caveat)
-    if (caveat) lines.push(`주의: ${caveat}`)
+  }
 
+  // 기대치를 낮추는 말 — 자율배상 41건·0.1%·116일이 여기 있습니다 (불변 규칙 8).
+  // 참고 절차에도 보낸다 → ADR-084. 채널이 아직 정해지지 않은 사건의 챗도 이 수치를 봐야 한다
+  const caveat = text(body.caveat)
+  if (caveat) lines.push(`주의: ${caveat}`)
+
+  if (group === 'applied') {
     // 「무슨 법이에요」— 인용 카드에만 붙던 조문을 모델도 봅니다
     const basis = text(row.legalBasis)
     if (basis) lines.push(`근거: ${basis}`)

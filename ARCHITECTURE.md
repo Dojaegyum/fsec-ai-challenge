@@ -341,7 +341,7 @@ flowchart LR
 [ADR-056](decisions/056-transcript-org-normalization.md) · [ADR-064](decisions/064-doc-filler-retired.md) · [ADR-067](decisions/067-pii-confirm-server-masks.md) ·
 [ADR-068](decisions/068-no-admin-screen.md) · [ADR-069](decisions/069-evidence-slot-extraction.md) · [ADR-072](decisions/072-law-collection-wired.md) ·
 [ADR-077](decisions/077-upload-is-not-proof.md) · [ADR-078](decisions/078-shell-polls-all-processing-evidence.md) · [ADR-079](decisions/079-known-name-reuse.md) ·
-[ADR-081](decisions/081-kb-review-screen.md) · [RFC-002](rfc/002-kb-authoring.md) · [기한 계산 규칙](spec/common/08-16-deadline-rules.md)
+[ADR-087](decisions/087-kb-review-screen.md) · [RFC-002](rfc/002-kb-authoring.md) · [기한 계산 규칙](spec/common/08-16-deadline-rules.md)
 
 ## 5. 데이터 흐름
 
@@ -469,8 +469,8 @@ main 에 src/** 가 푸시됨
 ```
 
 - 환경은 Production 하나. PR 미리보기는 만들지 않는다. 환경변수만 바꿨을 때는 Actions 탭에서 `deploy`를 다시 건다.
-- 환경변수 이름의 정본은 [API 계약](spec/common/08-14-api.md) §1.2, 값은 Vercel 프로젝트 설정. 넣는 길은 소유자의 `vercel` CLI 또는 `vercel-env` 워크플로. 관리자 비밀번호는 `ADMIN_PASSWORD_HASH`(scrypt) 하나이고 `npm run admin:hash`로 만들어 저장소 시크릿에 둔다 ([ADR-081](decisions/081-kb-review-screen.md)).
-- 시연 자료: 합성 자료 셋 [`assets/demo/09-01-mock-evidence/`](assets/demo/09-01-mock-evidence/). 시작 화면의 「Mock 파일로 실행」 칩이 한 번에 담고, 이후 사람이 고른 파일과 같은 길로 처리된다. 칩은 `NEXT_PUBLIC_DEMO_MOCK=1` 빌드에서만 보인다.
+- 환경변수 이름의 정본은 [API 계약](spec/common/08-14-api.md) §1.2, 값은 Vercel 프로젝트 설정. 넣는 길은 소유자의 `vercel` CLI 또는 `vercel-env` 워크플로. 관리자 비밀번호는 `ADMIN_PASSWORD_HASH`(scrypt) 하나이고 `npm run admin:hash`로 만들어 저장소 시크릿에 둔다 ([ADR-087](decisions/087-kb-review-screen.md)).
+- 시연 자료: 합성 자료 셋 [`assets/demo/09-01-mock-evidence/`](assets/demo/09-01-mock-evidence/). 시작 화면의 「예시 자료로 체험하기」 칩이 한 번에 담고, 이후 사람이 고른 파일과 같은 길로 처리된다. 칩은 `NEXT_PUBLIC_DEMO_MOCK=1` 빌드에서만 보인다.
 
 | 워크플로 | 무엇을 보나 | 언제 |
 | --- | --- | --- |

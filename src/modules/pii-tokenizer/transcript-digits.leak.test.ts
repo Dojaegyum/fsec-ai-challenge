@@ -66,20 +66,56 @@ const SHORT_HOTLINE = new Set(['112', '114', '119', '182', '1332', '1394'])
 /** 업무 번호는 개인정보가 아닙니다 → 10-PII인식-실측-방법론.md 「절대 뽑으면 안 되는 것」 */
 const CLERICAL = /(?:사원번호|접수번호|주문번호)/
 
+/** 남은 글에서 **이어 읽히는** 숫자 조각 하나 */
+interface Piece {
+  /** 구분자를 뺀 숫자만 */
+  readonly digits: string
+  readonly start: number
+  readonly end: number
+}
+
+/**
+ * 구분자로만 이어진 숫자 덩어리를 **한 조각으로** 묶는다 — `toSpans` 와 같은 규칙.
+ *
+ * ⚠️ **덩어리마다 따로 세면 못 보는 것이 있습니다.** `5-0-0-0 1-2-3-4 5-6-7-8 9-0-1-2`
+ * (조건 F 의 상품권 핀번호)는 덩어리로는 전부 한 자리라 아래 4자리 문턱에 하나도 안
+ * 걸립니다 — **평문으로 통째로 남아 있는데 누출 0 으로 세어졌습니다**(2026-09-06 검토 지적).
+ *
+ * 사이를 **두 글자까지만** 잇습니다. 가려진 자리는 `maskOut` 이 공백으로 바꾸는데,
+ * 그 자리는 `minDigits`(9) 이상이라 이 폭으로는 못 건넙니다 — 가린 것을 사이에 두고
+ * 양옆의 무관한 숫자가 한 조각으로 붙는 것을 막습니다.
+ */
+function pieces(visible: string): Piece[] {
+  const out: Piece[] = []
+  let now: { digits: string; start: number; end: number } | null = null
+
+  for (const m of visible.matchAll(/\d+/g)) {
+    const at = m.index ?? 0
+    const gap = now === null ? '' : visible.slice(now.end, at)
+    if (now !== null && gap.length <= 2 && /^[^0-9A-Za-z가-힣]*$/.test(gap)) {
+      now.digits += m[0]
+      now.end = at + m[0].length
+      continue
+    }
+    if (now !== null) out.push(now)
+    now = { digits: m[0], start: at, end: at + m[0].length }
+  }
+  if (now !== null) out.push(now)
+  return out
+}
+
 /** 가리고 남은 글에서 **설명되지 않는** 숫자를 모은다 = 실제로 새어 나간 것 */
 function leaks(visible: string): string[] {
   const found: string[] = []
-  for (const m of visible.matchAll(/\d+/g)) {
-    const value = m[0]
-    const at = m.index ?? 0
-    if (value.length < 4) continue // 조각만으로는 식별이 안 됩니다
-    if (MONEY_OR_DATE.test(visible.slice(at + value.length, at + value.length + 6))) continue
-    if (SHORT_HOTLINE.has(value)) continue
+  for (const one of pieces(visible)) {
+    if (one.digits.length < 4) continue // 조각만으로는 식별이 안 됩니다
+    if (MONEY_OR_DATE.test(visible.slice(one.end, one.end + 6))) continue
+    if (SHORT_HOTLINE.has(one.digits)) continue
     // ⚠️ 앞뒤를 **함께** 봐야 합니다. `1588-5000` 은 앞 조각으로도 뒤 조각으로도
     //    걸리는데, 한쪽만 보면 반대쪽 조각을 놓칩니다
-    if (HOTLINE_PAIR.test(visible.slice(Math.max(0, at - 6), at + value.length + 6))) continue
-    if (CLERICAL.test(visible.slice(Math.max(0, at - 12), at))) continue
-    found.push(value)
+    if (HOTLINE_PAIR.test(visible.slice(Math.max(0, one.start - 6), one.end + 6))) continue
+    if (CLERICAL.test(visible.slice(Math.max(0, one.start - 12), one.start))) continue
+    found.push(one.digits)
   }
   return found
 }
@@ -125,8 +161,30 @@ describe('전사문 숫자 규칙 — 저장된 전사 결과에서 새지 않�
   })
 
   /**
+   * 조건 F(`medium` · batch 16)는 **한 자리씩 끊어 읽힌 상품권 핀번호**가 들어 있는
+   * 조건입니다(E34 — `5-0-0-0 1-2-3-4 5-6-7-8 9-0-1-2`). 2026-09-06 까지 이 파일이
+   * 안 보던 조건이고, 그 사이 `toSpans` 의 하한이 그 줄을 **통째로 놓쳤습니다**(검토 지적).
+   *
+   * 남는 1건은 아래 CPU `medium` 과 **같은 것**입니다 — `5501234567` 이 `"501-34567"`
+   * 로 읽혀 이어 붙여도 8자리라 `minDigits` 아래입니다. 전사 품질의 문제입니다.
+   */
+  it('GPU 조건 F (medium · batch 16) — 끊어 읽힌 핀번호까지 가리고, medium 의 알려진 1건만 남는다', () => {
+    const run = gpu.runs.find((r) => r.key === 'F')
+    expect(run, '조건 F 가 results-gpu.json 에 없습니다').toBeDefined()
+
+    const { leaked, over } = scan(run!)
+    expect(leaked, `새어 나간 숫자: ${leaked.join(', ')}`).toEqual(['E11:50134567'])
+    expect(over, `과차단: ${over.join(', ')}`).toEqual([])
+
+    // 핀번호가 남아 있으면 위 `leaks` 가 세지만, **왜 안 새는지**를 여기서 못박습니다
+    const pin = run!.items.find((one) => one.id === 'E34')
+    expect(pin).toBeDefined()
+    expect(maskOut(pin!.text, findTranscriptDigits(pin!.text))).not.toContain('9-0-1-2')
+  })
+
+  /**
    * CPU 의 `medium` 은 1건이 남습니다 — 값이 새로 생긴 게 아니라 **전사가 깨져**
-   * `5501234567` 이 `"501-34567"`(8자리)로 읽혀 `minDigits` 아래로 떨어진 것입니다.
+   * `5501234567` 이 `"501-34567"`(이어 붙여 8자리)로 읽혀 `minDigits` 아래로 떨어진 것입니다.
    * 전사를 좋게 하면 사라지고, 실제로 `large-v3` 에서는 사라집니다.
    * **여기를 0 으로 조이지 마세요** — 조이면 `minDigits` 를 낮춰야 하고 과차단이 옵니다.
    */
@@ -134,7 +192,9 @@ describe('전사문 숫자 규칙 — 저장된 전사 결과에서 새지 않�
     const run = cpu.runs.find((r) => r.key === 'A')
     expect(run).toBeDefined()
     const { leaked, over } = scan(run!)
-    expect(leaked).toEqual(['E11:34567'])
+    // `"501-34567"` 이 한 조각으로 세어집니다 — 위 `pieces` 가 구분자를 건너 잇습니다.
+    // 2026-09-06 까지는 뒤 덩어리만 `34567` 로 잡혔는데, **같은 한 건**입니다
+    expect(leaked).toEqual(['E11:50134567'])
     expect(over).toEqual([])
   })
 

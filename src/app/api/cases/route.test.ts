@@ -120,6 +120,7 @@ const casePlan: CasePlanStore = {
             kind: 'sms_capture',
             verifyLevel: 'L2',
             verifyResult: 'passed',
+            verifyDetail: null,
             createdAt: '2026-08-20T10:00:00+09:00',
           },
         ],
@@ -226,7 +227,8 @@ describe('사건을 만든다 — §3.1', () => {
       }
     }
 
-    expect(Object.keys(body.plan).sort()).toEqual(['is_superset', 'steps'].sort())
+    // `kb_version` 은 **플랜 전체가 어느 릴리스 기준인가**입니다 — §3.6 과 같은 칸
+    expect(Object.keys(body.plan).sort()).toEqual(['is_superset', 'kb_version', 'steps'].sort())
 
     for (const step of body.plan.steps) {
       expect(Object.keys(step).sort()).toEqual(
@@ -262,7 +264,7 @@ describe('사건을 만든다 — §3.1', () => {
     const body = (await res.json()) as {
       plan: {
         steps: {
-          artifacts: Record<string, string>[]
+          artifacts: Record<string, string | null>[]
           required_artifact: Record<string, string> | null
         }[]
       }
@@ -274,6 +276,8 @@ describe('사건을 만든다 — §3.1', () => {
         kind: 'sms_capture',
         verify_level: 'L2',
         verify_result: 'passed',
+        // 판정 이유가 없으면 `null` — **칸은 그대로 있습니다** (§3.6)
+        verify_reason: null,
       },
     ])
     expect(body.plan.steps[0].required_artifact).toEqual({
