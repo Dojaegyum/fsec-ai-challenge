@@ -461,6 +461,17 @@ def tick(st: State, now: float, shadow: bool = False, dry_run: bool = False) -> 
         leftover = st.creating["pod_id"]
         if dry_run:
             log(f"tick(dry-run) → 만드는 도중 남은 팟 {leftover} 정리는 건너뜁니다")
+        elif shadow:
+            # **shadow 회차의 남은 팟은 절대 이어받지 않는다.** 그 팟은 f"{POD_NAME}-shadow" 로
+            # 만든 시험 팟인데, 이어받으면 배포본 주소가 시험 팟으로 바뀌고(switch_backend),
+            # others 는 운영 이름으로 모아지므로 **운영 팟이 지워집니다**(재검토 반영).
+            # ready 든 아니든 지웁니다 — shadow 는 애초에 만들고 확인하고 지우는 회차입니다.
+            log(f"shadow 잔여 팟 {leftover} 은 이어받지 않고 지웁니다")
+            st.creating = None
+            try:
+                pod.terminate(leftover)
+            except pod.PodError:
+                pass
         elif (pod.health_once(leftover) or {}).get("ready"):
             # 이어받지 않으면 st.pod_id 는 여전히 옛 팟이라 decide 가 그 팟을 고르고,
             # 그 팟이 죽어 있으면 recreate 로 **세 번째** 팟을 만든다 — 준비된 유료 팟

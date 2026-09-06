@@ -256,6 +256,29 @@ class AdoptLeftoverPod(unittest.TestCase):
         self.assertEqual(terminated, ["X"])  # 이어받은 Y 는 절대 지우지 않는다
         self.assertTrue(any("새로 세웠습니다" in subject for subject, _ in mails))
 
+    def test_shadow_leftover_is_never_adopted(self):
+        """shadow 회차의 남은 팟은 f"{POD_NAME}-shadow" 로 만든 시험 팟이다 — 이어받으면
+        배포본 주소가 시험 팟으로 바뀌고, others 는 운영 이름으로 모아져 **운영 팟이 지워진다**
+        (재검토 반영). ready 여도 이어받지 않고 지운다."""
+        st = w.State(pod_id="PROD", creating={"pod_id": "SHADOW", "since": 900.0})
+        terminated, switched = [], []
+        FakePod = make_fake_pod(
+            find_pods=lambda name: [running("PROD")],
+            health_once=lambda pod_id, timeout=10: {"ready": True},
+            terminate=lambda pod_id: terminated.append(pod_id),
+        )
+        with tempfile.TemporaryDirectory() as d:
+            with _Patch(pod=FakePod, switch_backend=lambda url: switched.append(url) or True,
+                        do_recreate=lambda *a, **k: None,  # shadow 본 절차는 이 시험의 관심 밖
+                        call_resubmit=lambda: None, send_mail=lambda *a, **k: None,
+                        check_balance=lambda *a, **k: None, state_dir=lambda: pathlib.Path(d)):
+                action = w.tick(st, 1000.0, shadow=True)
+        self.assertNotEqual(action, "adopted")
+        self.assertEqual(switched, [])          # 배포본 주소를 시험 팟으로 바꾸지 않는다
+        self.assertEqual(terminated, ["SHADOW"])  # 운영 팟 PROD 는 건드리지 않는다
+        self.assertEqual(st.pod_id, "PROD")
+        self.assertIsNone(st.creating)
+
     def test_old_pod_kept_when_address_switch_failed(self):
         with tempfile.TemporaryDirectory() as d:
             action, st, terminated, mails = self._tick(False, pathlib.Path(d))
