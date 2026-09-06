@@ -181,6 +181,32 @@ export class IngestError extends AppError {
   readonly retryable: boolean = true
 }
 
+/**
+ * 상대 서비스에 **닿지 못한** 실패 — 연결 실패 · 타임아웃 · 5xx.
+ *
+ * `AppError` 가 **아닙니다.** 어댑터(`lib/inference.ts` · `lib/ner.ts`)가 던지고, 모듈이
+ * 자기 예외(`IngestError` · `PiiTokenizerUnavailableError`)로 감쌀 때 `detail.transient`
+ * 로 옮깁니다 → ADR-091 §1. 흐름은 그 표시로 「재시도중」 갈래를 탑니다.
+ *
+ * 4xx 는 여기 안 듭니다 — 요청 자체가 거절된 것이라 다시 보내도 같습니다.
+ */
+export class TransientError extends Error {
+  readonly transient = true as const
+
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(status === undefined ? message : `${message} (${status})`)
+    this.name = 'TransientError'
+  }
+}
+
+/** 어댑터가 「일시적」이라고 표시한 실패인가 — 모듈이 감쌀 때, 흐름이 갈래를 정할 때 씁니다 */
+export function isTransient(error: unknown): boolean {
+  return (error as { transient?: unknown } | null)?.transient === true
+}
+
 export class StoreError extends AppError {
   readonly code: string = 'STORE_ERROR'
   readonly httpStatus: number = 503
