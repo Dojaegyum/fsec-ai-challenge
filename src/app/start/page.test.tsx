@@ -350,3 +350,32 @@ describe("동의 전문 모달 — 관문", () => {
     expect(text.indexOf("학습에 쓰지 않습니다")).toBeLessThan(text.indexOf("1. 수집하는 항목"));
   });
 });
+
+/**
+ * 머리말 — **정직하되 미완성으로 읽히지 않게.**
+ *
+ * 2026-09-06 접수 전 점검: 「버전 초안 (법무 검토 전)」이 심사위원에게 미완성으로
+ * 읽혔습니다. 법무 검토 전이라는 사실은 이 파일 머리 주석과 ADR-031 에 남기고,
+ * 화면은 「시행 2026-09 · 초안」까지만 적습니다 (→ §S-05 「머리말」 · ADR-074 「맥락」).
+ */
+describe("동의 전문 모달 — 머리말", () => {
+  const header = () =>
+    textOf(
+      renderToStaticMarkup(
+        <ConsentModal
+          checks={[false, false, false, false, false]}
+          onToggle={() => {}}
+          onAgree={() => {}}
+          onClose={() => {}}
+        />,
+      ),
+    );
+
+  it("「시행 2026-09 · 초안」까지만 적는다", () => {
+    expect(header()).toContain("시행 2026-09 · 초안");
+  });
+
+  it("「법무 검토 전」은 화면에 없다 — 주석과 ADR 에 남는다", () => {
+    expect(header()).not.toContain("법무 검토 전");
+  });
+});
