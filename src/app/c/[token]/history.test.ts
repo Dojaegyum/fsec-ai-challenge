@@ -117,7 +117,7 @@ describe("내 기기에서는 되살아난다", () => {
     // 이 자리만 `****6789` 였고, 그래서 같은 계좌가 자료함과 챗에서 다르게
     // 보였습니다 — 사용자는 그것을 보안이 아니라 고장으로 읽습니다
     expect(line.reply).toContain(ACCOUNT);
-    expect(line.sourceNote).toBe("피해구제 신청서 제출");
+    expect(line.sourceNote).toBe("「피해구제 신청서 제출」");
   });
 
   it("다음 발화가 같은 번호를 이어 쓰게 매핑을 넘긴다 — 열어 낸 이름도", async () => {

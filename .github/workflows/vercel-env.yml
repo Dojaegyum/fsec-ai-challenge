@@ -63,7 +63,7 @@ on:
         required: false
         default: ""
       demo_mock:
-        description: "NEXT_PUBLIC_DEMO_MOCK — 시작 화면 「Mock 파일로 실행」 칩. 1 보임(대회 기간) · 0 숨김 · 비우면 안 건드림. 빌드에 구워지는 값이라 redeploy 와 함께"
+        description: "NEXT_PUBLIC_DEMO_MOCK — 시작 화면 「예시 자료로 체험하기」 칩. 1 보임(대회 기간) · 0 숨김 · 비우면 안 건드림. 빌드에 구워지는 값이라 redeploy 와 함께"
         required: false
         default: ""
       redeploy:

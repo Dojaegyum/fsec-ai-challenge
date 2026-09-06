@@ -166,7 +166,7 @@ describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 모양�
     expect(verdict.stepState).toBe('unconfirmed')
     expect(verdict.verifyDetail).toEqual({ reason: 'no_receipt_marks' })
     expect(verdict.note).toBe(
-      '올렸지만 접수번호나 기관명을 찾지 못했습니다. 접수번호를 적어 주시면 확인합니다',
+      '올렸지만 접수번호를 찾지 못했습니다. 접수번호를 적어 주시면 확인합니다',
     )
     // 막다른 길이 아닙니다 — 번호를 적거나(L1) 했다고 표시(L3)할 수 있습니다
     expect(verdict.nextOptions).toEqual([
@@ -203,7 +203,7 @@ describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 모양�
     expect(verdict.verifyResult).toBe('not_applicable')
     expect(verdict.stepState).toBe('unconfirmed')
     expect(verdict.verifyDetail).toEqual({ reason: 'reading_pending' })
-    expect(verdict.note).toBe('올린 자료를 읽는 중입니다. 접수번호나 기관명이 보이면 완료로 기록합니다')
+    expect(verdict.note).toBe('올린 자료를 읽는 중입니다. 접수번호가 보이면 완료로 기록합니다')
     // 기다리면 되는 자리라 다른 길을 내밀지 않습니다
     expect(verdict.nextOptions).toBeUndefined()
   })

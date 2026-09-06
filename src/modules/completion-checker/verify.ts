@@ -28,6 +28,9 @@
  * 경유 서비스(은행) 이름은 근거가 아니다 — 이체 캡처에도 있다. 공공기관만 본다.
  */
 
+// 안내문 표는 **화면과 나눠 씁니다** — 판독이 끝난 뒤 화면이 같은 글자로
+// 갈아끼워야 합니다 (§3.6 `verify_reason` · `notes.ts` 머리말)
+import { L2_NOTES } from './notes'
 import type {
   ArtifactSubmission,
   CompletionChecker,
@@ -70,15 +73,6 @@ const NEXT_AFTER_L2: readonly NextOption[] = [
  * 없었다는 뜻이고, 사용자는 할 수 있는 것을 다 했다 → README.
  */
 const SELF_REPORT_NOTE = '완료로 기록되지 않습니다. 접수번호를 확인하시면 알려주세요'
-
-/** L2 가 완료로 기록하지 못했을 때의 말 → 08-14-api.md §3.8 「응답 200 — L2 확인 못 함」 */
-const L2_NOTES = {
-  reading_pending: '올린 자료를 읽는 중입니다. 접수번호나 기관명이 보이면 완료로 기록합니다',
-  unreadable: '올렸지만 읽지 못했습니다. 접수번호를 적어 주시면 확인합니다',
-  not_a_document:
-    '통화 녹음은 접수증이 아닙니다. 접수증이나 접수 문자 캡처를 올리거나 접수번호를 적어 주세요',
-  no_receipt_marks: '올렸지만 접수번호나 기관명을 찾지 못했습니다. 접수번호를 적어 주시면 확인합니다',
-} as const
 
 export function createCompletionChecker(deps: {
   receiptFormat: ReceiptNumberFormat

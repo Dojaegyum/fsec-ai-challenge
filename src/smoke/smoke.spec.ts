@@ -68,7 +68,7 @@ test('시작 화면의 시연 칩은 `?demo` 로 열린다 — 합성 자료 셋
   // 마운트 뒤 location 을 읽어 그리므로 toBeVisible 의 기다림에 맡깁니다
   const res = await page.goto('/start?demo')
   expect(res?.status()).toBe(200)
-  await expect(page.getByRole('button', { name: 'Mock 파일로 실행' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '예시 자료로 체험하기' })).toBeVisible()
 })
 
 test('사건이 만들어진다 — T0 가 함께 온다 (§3.1 · ADR-046)', async ({ request }) => {

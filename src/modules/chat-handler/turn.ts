@@ -52,7 +52,10 @@ export function sourceNote(citations: readonly Citation[]): string | null {
     // 이름표가 없으면 **근거 줄을 안 그릴 뿐**입니다
     .filter((label) => typeof label === "string" && label.length > 0);
 
-  return labels.length > 0 ? labels.join(" · ") : null;
+  // **제목을 따옴표로 감쌉니다** — 화면이 뒤에 조사를 잇는데(「…를 보고
+  // 안내했습니다」), 제목이 「112에 신고합니다」처럼 받침 없이 끝나면 **「합니다을」**
+  // 이 됩니다. 조사는 앞 글자에 따라 달라지고 제목은 KB 가 정합니다 (2026-09-06 점검)
+  return labels.length > 0 ? labels.map((label) => `「${label}」`).join(" · ") : null;
 }
 
 /**

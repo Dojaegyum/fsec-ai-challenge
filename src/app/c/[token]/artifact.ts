@@ -40,6 +40,8 @@
 
 import { useCallback, useState } from "react";
 
+import { L2_NOTES, type L2Reason } from "@/modules/completion-checker/notes";
+
 import { postJson } from "./load";
 import type { LoadFail } from "./load";
 
@@ -81,9 +83,54 @@ export interface ArtifactSend {
    */
   readonly verdictStepId: string | null;
   readonly fail: LoadFail | null;
+  /**
+   * 지금 패널에 그릴 안내 한 줄. 할 말이 없으면 `null`.
+   *
+   * ⚠️ **`verdict.note` 를 그대로 그리면 굳습니다.** 파일로 낸 부산물은 낼 때
+   * 아직 읽는 중이고(`reading_pending`), 판독이 끝나면 **서버가 다시 판정합니다**
+   * (ADR-077). 그 결과는 `settle` 로 들어옵니다 — 안내의 주인은 이 값입니다
+   */
+  readonly note: string | null;
   submit(stepId: string, submission: ArtifactSubmission): Promise<ArtifactVerdict | null>;
+  /**
+   * 판독이 끝나 다시 판정된 단계를 받아 안내를 갈아끼웁니다.
+   *
+   * 부르는 쪽은 번들이 바뀔 때마다 **판정을 낸 그 단계**(`verdictStepId`)를 찾아
+   * 넘깁니다 → `page.tsx`. **낡은 번들이면 아무 일도 안 합니다** — 아래
+   * `settle` 구현의 네 관문을 보세요
+   */
+  settle(step: SettledStep): void;
   /** 판정 표시를 걷습니다 — 사용자가 다음 단계로 넘어갈 때 */
   clear(): void;
+}
+
+/** `settle` 이 보는 만큼의 단계 — §3.6 의 `state` 와 `artifacts[]` */
+export interface SettledStep {
+  readonly step_id: string;
+  readonly state: string;
+  readonly artifacts?: readonly {
+    /**
+     * **낸 판정과 번들을 맞대는 열쇠입니다** — 이것이 없으면 「낸 그 부산물이
+     * 번들에 들어왔는가」를 물을 수 없고, 낡은 번들로 안내를 갈아끼우게 됩니다
+     */
+    readonly artifact_id?: string;
+    readonly verify_reason?: string | null;
+  }[];
+}
+
+/**
+ * 이유 하나를 사람 말로 — **표는 서버와 나눠 씁니다** (`completion-checker/notes.ts`).
+ *
+ * 표에 없는 이유(L1 의 `format_unchecked` 등)면 `null` 입니다 — **지어내지 않습니다.**
+ */
+export function noteFor(reason: string | null | undefined): string | null {
+  return reason && reason in L2_NOTES ? L2_NOTES[reason as L2Reason] : null;
+}
+
+/** 단계의 **마지막** 부산물이 남긴 안내 — 새로고침 뒤에는 이것으로 그립니다 */
+export function noteOfStep(step: SettledStep | null | undefined): string | null {
+  if (!step || step.state === "done_verified") return null;
+  return noteFor(step.artifacts?.[step.artifacts.length - 1]?.verify_reason);
 }
 
 /** 코드는 낙타 표기, 계약은 밑줄 표기 — 옮기는 곳을 여기 하나로 둡니다 */
@@ -118,6 +165,7 @@ export function useArtifact(
     got: ArtifactVerdict;
   } | null>(null);
   const [fail, setFail] = useState<LoadFail | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   const submit = useCallback(
     async (stepId: string, submission: ArtifactSubmission) => {
@@ -144,6 +192,8 @@ export function useArtifact(
       // (`load.ts` 의 `toBundle` 과 같은 이유)
       const got = sent.json as ArtifactVerdict;
       setVerdict({ stepId, got });
+      // 서버가 낸 그 순간의 말. 판독이 끝나면 `settle` 이 갈아끼웁니다
+      setNote(got.note ?? null);
 
       // 사슬이 실제로 움직였을 때만 플랜을 다시 읽습니다
       if (got.unlocked_steps?.length || got.step_state === "done_verified") {
@@ -155,9 +205,51 @@ export function useArtifact(
     [caseToken, onPlanChanged, sendingStepId],
   );
 
+  /**
+   * 번들이 바뀌었을 때 그 단계의 **새 판정**으로 안내를 맞춥니다.
+   *
+   * ⚠️ **낡은 번들로 갈아끼우면 더 나빠집니다.** 이 함수는 번들이 바뀔 때마다
+   * 불리는데, 부산물을 막 냈을 때의 번들은 **그 부산물을 아직 모릅니다** —
+   * 서버를 다시 읽는 것은 판독이 끝난 뒤입니다. 그 목록의 마지막 줄은 **앞
+   * 시도**이고, 그것으로 고르면 방금 올린 파일에 앞 시도의 실패 문구가 붙습니다.
+   * L1·L3 은 아예 판독이 뒤집을 것이 없는데도 말이 덮였습니다 (검토 1회차).
+   *
+   * 그래서 관문 넷을 지납니다 —
+   *
+   * | 관문 | 왜 |
+   * | --- | --- |
+   * | 판정을 낸 **그 단계**인가 | 남의 판정을 이 단계에 붙이지 않습니다(`verdictStepId` 와 같은 이유) |
+   * | 단계가 **완료**로 바뀌었나 | 그러면 할 말이 없습니다 — 지웁니다 |
+   * | 판정이 **아직 안 끝난 것**인가 (`not_applicable`) | L1·L3 은 판독이 뒤집을 것이 없습니다. 그 말은 다시 낼 때까지 그대로입니다 |
+   * | 번들이 **낸 그 부산물**을 알고, 그 이유가 더는 `reading_pending` 인가 | 아니면 낡은 번들입니다 — 아무것도 안 합니다 |
+   */
+  const settle = useCallback(
+    (step: SettledStep) => {
+      if (verdict && verdict.stepId !== step.step_id) return;
+      if (step.state === "done_verified") {
+        setNote(null);
+        return;
+      }
+      // 맞댈 판정이 없으면 맞출 것도 없습니다. 새로고침 뒤의 안내는 이 훅이 아니라
+      // 화면이 단계에서 직접 고릅니다 → `page.tsx` 의 `noteOfStep`
+      if (!verdict) return;
+      if (verdict.got.verify_result !== "not_applicable") return;
+
+      const mine = step.artifacts?.find((one) => one.artifact_id === verdict.got.artifact_id);
+      if (!mine || mine.verify_reason === "reading_pending") return;
+
+      // **할 말이 생겼을 때만 갈아끼웁니다** — 표에 없는 이유로 하던 말을 지우면
+      // 사용자는 무엇을 더 해야 하는지 모른 채 남습니다
+      const next = noteFor(mine.verify_reason);
+      if (next) setNote(next);
+    },
+    [verdict],
+  );
+
   const clear = useCallback(() => {
     setVerdict(null);
     setFail(null);
+    setNote(null);
   }, []);
 
   return {
@@ -165,7 +257,9 @@ export function useArtifact(
     verdict: verdict?.got ?? null,
     verdictStepId: verdict?.stepId ?? null,
     fail,
+    note,
     submit,
+    settle,
     clear,
   };
 }

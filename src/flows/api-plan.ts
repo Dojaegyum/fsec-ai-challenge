@@ -52,6 +52,11 @@ export interface ApiPlanStep {
     readonly kind: string
     readonly verify_level: string
     readonly verify_result: string
+    /**
+     * 판정 이유. 화면이 판독 뒤 안내를 고르는 값입니다(§3.8 의 `reason` 과 같은 값).
+     * 이유가 없으면 `null` — **칸은 뺍니다가 아니라 `null` 입니다**
+     */
+    readonly verify_reason: string | null
   }[]
   readonly required_artifact: {
     readonly kind: string
@@ -80,6 +85,13 @@ export interface ApiPlanChannel {
 /** 계약의 `plan` */
 export interface ApiPlan {
   readonly is_superset: boolean
+  /**
+   * 이 플랜을 만든 KB 릴리스 → §3.1 · §3.6 `kb_version`. 단계가 없으면 `null`.
+   *
+   * **단계마다 붙는 `citation.kb_version` 과 다른 값입니다** — 저것은 그 단계가
+   * 어느 릴리스에서 왔나이고, 이것은 **플랜 전체가 언제 기준인가**입니다
+   */
+  readonly kb_version: string | null
   readonly steps: readonly ApiPlanStep[]
 }
 
@@ -123,6 +135,9 @@ export function toApiStep(step: StoredStep): ApiPlanStep {
       kind: one.kind,
       verify_level: one.verifyLevel,
       verify_result: one.verifyResult,
+      // **`verify_detail` 을 통째로 태우지 않습니다** — 그 안에는 `evidence_id`
+      // 처럼 화면이 쓸 일 없는 저장소 내부 값도 있습니다 (lib/adapters.ts 와 같은 이유)
+      verify_reason: typeof one.verifyDetail?.reason === 'string' ? one.verifyDetail.reason : null,
     })),
     required_artifact: step.requiredArtifact
       ? { kind: step.requiredArtifact.kind, label: step.requiredArtifact.label }
@@ -153,14 +168,17 @@ export function toApiChannel(channel: PlanChannel): ApiPlanChannel {
 }
 
 /**
- * **쓰는 두 칸만 받습니다.** 스냅샷 전체를 요구하면 `changedDeadlines` 처럼
+ * **쓰는 세 칸만 받습니다.** 스냅샷 전체를 요구하면 `changedDeadlines` 처럼
  * 이 응답과 무관한 칸이 늘 때마다 부르는 자리와 시험이 함께 늘어납니다.
  */
 export function toApiPlan(
-  snapshot: Pick<PlanSnapshot, 'isSuperset' | 'steps'>,
+  snapshot: Pick<PlanSnapshot, 'isSuperset' | 'steps' | 'kbVersion'>,
 ): ApiPlan {
   return {
     is_superset: snapshot.isSuperset,
+    // 사건을 만든 직후의 화면도 **이 안내가 어느 릴리스 기준인지** 말할 수 있어야
+    // 합니다 — §3.6 은 싣는데 §3.1 만 빠져 있었습니다 (2026-09-06 점검)
+    kb_version: snapshot.kbVersion ?? null,
     steps: snapshot.steps.map(toApiStep),
   }
 }
