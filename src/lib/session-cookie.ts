@@ -9,7 +9,7 @@
  * | | |
  * | --- | --- |
  * | 계정 | **하나.** 아이디·비밀번호를 환경변수로 받음 |
- * | 환경변수 | `ADMIN_USERNAME` · `ADMIN_PASSWORD_HASH` |
+ * | 환경변수 | `ADMIN_PASSWORD_HASH` (`ADMIN_USERNAME` 은 읽는 코드가 없어 2026-09-06 에 뺐습니다) |
  * | 인증 방식 | 로그인 후 **세션 쿠키** |
  * | 헤더 | `X-Session-Id`(사용자용)와 **별개** |
  *

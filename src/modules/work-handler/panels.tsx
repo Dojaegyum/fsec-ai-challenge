@@ -342,7 +342,11 @@ export function DownloadPanel({
       ) : null}
 
       {/* 받을 것이 정해져야 버튼이 생깁니다. 라벨만 넘어오면 **글자 없는 전폭 검은 버튼**입니다.
-          ⬜ `doc-builder`(F-08) 엔드포인트 계약이 아직 없습니다 → ADR-037 · spec 「TODO」 */}
+          ⬜ `doc-builder`(F-08) 엔드포인트 계약이 아직 없습니다 → ADR-037 · spec 「TODO」.
+          기재 안내(S-10) 자체는 셸(`doc.tsx`)이 이미 맡고 있고 — `WS-download` 패널은
+          `body.action: "download"` 인 KB 항목이 없어 **아직 어느 사건에서도 안 열립니다**
+          → ADR-064 · spec/frontend/08-17-workspace-panels.md 「아직 없는 것」. 없는
+          엔드포인트를 지어 `onDownload` 를 잇지 않습니다 — 이 자리는 값이 오면 그때 씁니다 */}
       {fileLabel && onDownload ? (
         <button type="button" className={`${PRIMARY} mt-3 w-full`} onClick={onDownload}>
           {fileLabel}

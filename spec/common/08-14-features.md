@@ -12,17 +12,17 @@
 
 ## P0 — 데모에 반드시 있어야 하는 것
 
-| ID | 기능 | 설명 | 요건 | 상세 | 상태 (2026-09-04) |
+| ID | 기능 | 설명 | 요건 | 상세 | 상태 (2026-09-04 · 2026-09-06 손질) |
 | --- | --- | --- | --- | --- | --- |
 | **F-01** | 사건 파일 생성·다중 업로드 | 녹음/이미지/텍스트 ~~드래그&드롭~~(파일 선택) → 하나의 사건으로 묶음. 증거 없이도 열립니다 | ⓪ | [06](../frontend/08-14-screens.md) | **구현** — `case-intake` · `POST /api/cases` · `/start` · `file-sender`(presigned 업로드) |
 | **F-02** | 텍스트화 엔진 | STT(화자 분리)·OCR(대화 구조 보존) → 통합 전사 뷰 | ① | | **구현** — `transcriber` ↔ `services/transcriber`(`TRANSCRIBER_URL` · [ADR-052](../../decisions/052-stt-configuration.md)) · `transcript-viewer`. 주소가 없으면 전사만 멈추고 사건은 돕니다 |
 | **F-03** | PII 스크러버 | 클라이언트 정규식 1차 + 서버 NER 2차 토큰화. 복원 매핑은 **암호문으로 서버 볼트에, 복호화 키는 클라이언트에**. 사건과 함께 파기 | ② | [04](08-14-pii-boundary.md) | **부분** — 1차 `pii-masker`·`pii-tokenizer`·볼트(`case_vault`) 구현. 2차 NER 은 배선됐으나 **기본 꺼짐**(`NER_URL` 없음 → 이름이 안 걸림 · `src/lib/config-report.ts`) |
 | **F-04** | 수법 판별·위험도 | 토큰화 텍스트 기반 LLM 분석 — 수법 분류·위험도·**근거 스팬 인용** | ① | | **미조립** — `case-reader` 모듈만 있고 부르는 곳 0. 절차 분기에는 쓰이지 않습니다(분기축은 경유 서비스) |
 | **F-05** | 경유 서비스 감지 + 매뉴얼 분기 | 이체내역·문진으로 경유 서비스 특정 → ~~8유형~~ **9유형** KB ~~(RAG)~~ **조건 조회**(벡터 검색 아님 → [ADR-012](../../decisions/012-kb-collection.md)) 기반 맞춤 플랜 생성 (근거·시행일 인용 강제) | ③ | [03](../backend/08-14-channel-matrix.md) | **구현** — `planner`·`kb-finder`(`src/flows/regenerate-plan.ts` · `…/plan`). 감지는 문진 + 전사문 기관명 교정([ADR-056](../../decisions/056-transcript-org-normalization.md)) |
-| **F-05b** | 슬롯 체커 | T0/T1/T2 티어링 — 증거 자동 추출 우선(2026-09-04 배선 — [ADR-069](../../decisions/069-evidence-slot-extraction.md) · 뽑힌 값은 한 탭으로 확인), 미충족 시 1문항([API](08-14-api.md) §3.4 `input` — 버튼으로 담을 수 있는 것은 전부 버튼), "모름" 시 보수적 슈퍼셋 플랜, 보완 시 플랜 자동 재생성 | ①③ | [02](../backend/08-14-slot-tiering.md) | **부분** — 문진·재생성은 `slot-checker`(`src/flows/answer-slot.ts` · `PATCH …/slots/{slot_key}`) 구현. **자동 추출 `slot-extractor` 는 미조립**(부르는 곳 0) |
+| **F-05b** | 슬롯 체커 | T0/T1/T2 티어링 — 증거 자동 추출 우선(2026-09-04 배선 — [ADR-069](../../decisions/069-evidence-slot-extraction.md) · 뽑힌 값은 한 탭으로 확인), 미충족 시 1문항([API](08-14-api.md) §3.4 `input` — 버튼으로 담을 수 있는 것은 전부 버튼), "모름" 시 보수적 슈퍼셋 플랜, 보완 시 플랜 자동 재생성 | ①③ | [02](../backend/08-14-slot-tiering.md) | **구현**(2026-09-06 · 그전 「부분」) — 문진·재생성은 `slot-checker`(`src/flows/answer-slot.ts` · `PATCH …/slots/{slot_key}`) 구현. ~~**자동 추출 `slot-extractor` 는 미조립**(부르는 곳 0)~~ → **배선됨**(2026-09-04 · [ADR-069](../../decisions/069-evidence-slot-extraction.md) — `src/flows/read-evidence.ts` 가 `createSlotExtractor` 를 부릅니다) |
 | **F-06** | 실행 보드 | 체크리스트 + ~~골든타임 타이머~~ + 3영업일 D-day 트래커 + ~~진행 타임라인~~(환급 3~6개월 기대치 관리) | ③ | [06](../frontend/08-14-screens.md) | **부분** — 타이머는 **폐기**(T0 는 레일로 상시 노출 → [ADR-036](../../decisions/036-t0-rail.md) · [ADR-063](../../decisions/063-chat-centered-layout.md)). D-day 는 `date-checker` + `src/flows/compute-deadlines.ts` + `deadline-viewer`/할 일 레일로 구현. 플랜 보드는 개발 경로 전용 |
-| **F-06b** | 완수 검증 엔진 | 부산물 입력/업로드로 완료 판정 (L1 자동검증 / L2 증빙 / L3 자기신고). ~~통화 동반 모드 포함~~ | ③ | [05](../backend/08-14-completion-hook.md) | **부분** — L1/L2/L3 는 `completion-checker`(`POST …/steps/{step_id}/artifacts`) 구현, L1 의 뜻은 「받아 적었나」로 바뀜([ADR-057](../../decisions/057-receipt-number-l1.md)). **통화 동반 모드는 코드 0** |
-| **F-07** | 대응 비서 챗 | 사건 컨텍스트 유지 Q&A, ~~통화 스크립트 생성~~ | ①③ | | **부분** — 챗은 `src/flows/chat-turn.ts`(`POST …/messages`) 구현. **통화 스크립트 생성은 코드 0** |
+| **F-06b** | 완수 검증 엔진 | 부산물 입력/업로드로 완료 판정 (L1 자동검증 / L2 증빙 / L3 자기신고). ~~통화 동반 모드 포함~~ | ③ | [05](../backend/08-14-completion-hook.md) | **부분** — L1/L2/L3 는 `completion-checker`(`POST …/steps/{step_id}/artifacts`) 구현, L1 의 뜻은 「받아 적었나」로 바뀜([ADR-057](../../decisions/057-receipt-number-l1.md)). ~~**통화 동반 모드는 코드 0**~~ → **폐기**(2026-09-06 표시 — 챗 중심 배치([ADR-063](../../decisions/063-chat-centered-layout.md))와 「서류를 만들지 않는다」([ADR-037](../../decisions/037-doc-guidance-not-generation.md))가 자리를 남기지 않았습니다. 새 ADR 없이 표시만 합니다) |
+| **F-07** | 대응 비서 챗 | 사건 컨텍스트 유지 Q&A, ~~통화 스크립트 생성~~ | ①③ | | **부분** — 챗은 `src/flows/chat-turn.ts`(`POST …/messages`) 구현. ~~**통화 스크립트 생성은 코드 0**~~ → **폐기**(2026-09-06 표시 — F-06b 와 같은 이유. ADR-063·ADR-037 의 배치에 통화 스크립트가 설 자리가 없습니다) |
 
 ## P1 — 데모 여력이 되면
 
@@ -36,7 +36,7 @@
 
 | ID | 기능 | 설명 | 요건 | 상태 (2026-09-04) |
 | --- | --- | --- | --- | --- |
-| **F-11** | 매뉴얼 KB 운영 파이프라인 | Watcher(법령 API·보도자료·기관 공지) → 변경 감지 → LLM 영향 분석 → 사람 검수 승인 → 버전 릴리스. Staleness Guard(90일 재검증). **MVP는 수동 구축 + 파이프라인 시연** | ③ | **구현(영향 분석 제외)** — 수집(국가법령정보 API · 조문 단위 · 하루 1회 크론)과 검수 큐·판단 기록(`npm run kb:review`)이 돕니다(2026-09-06 · [ADR-072](../../decisions/072-law-collection-wired.md)). LLM 영향 분석(`impact`)과 게시판 수집원은 없습니다. 「수동 구축」은 `src/kb/*.json` + `npm run kb:load`([RFC-002](../../rfc/002-kb-authoring.md))로 구현. Watcher·영향 분석·검수(`kb-collector`·`kb-reviewer`)는 **미조립**(부르는 곳 0), Staleness Guard 는 계획에 없음 |
+| **F-11** | 매뉴얼 KB 운영 파이프라인 | Watcher(법령 API·보도자료·기관 공지) → 변경 감지 → LLM 영향 분석 → 사람 검수 승인 → 버전 릴리스. Staleness Guard(90일 재검증). **MVP는 수동 구축 + 파이프라인 시연** | ③ | **구현(영향 분석 제외)** — 수집(국가법령정보 API · 조문 단위 · 하루 1회 크론)과 검수 큐·판단 기록(`npm run kb:review`)이 돕니다(2026-09-06 · [ADR-072](../../decisions/072-law-collection-wired.md)). LLM 영향 분석(`impact`)과 게시판 수집원은 없습니다. 「수동 구축」은 `src/kb/*.json` + `npm run kb:load`([RFC-002](../../rfc/002-kb-authoring.md))로 구현. ~~Watcher·영향 분석·검수(`kb-collector`·`kb-reviewer`)는 **미조립**(부르는 곳 0)~~ → 수집·검수는 조립됐습니다(2026-09-06 · `kb-collector` 는 `GET /api/cron/kb-collect`·`npm run kb:collect`, `kb-reviewer` 는 `npm run kb:review`). **영향 분석·게시판 수집원·Staleness Guard 없음** — Staleness Guard 는 계획에 없음 |
 
 → 상세: ~~[07](../backend/08-14-kb-operations.md)~~(2026-08-26 은퇴) → [RFC-002](../../rfc/002-kb-authoring.md) · [데이터 모델 §11·§12](../backend/08-16-data-model.md)
 

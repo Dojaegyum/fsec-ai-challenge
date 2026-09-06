@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countTokens, readTranscript } from "./read";
+import { countTokens, readTranscript, shortfallMessages } from "./read";
 import type { RawLine } from "./types";
 
 const lines: RawLine[] = [
@@ -48,5 +48,36 @@ describe("무엇이 가려져 나갔는지 개수로 밝힌다", () => {
 
   it("없으면 빈 목록이다", () => {
     expect(countTokens([])).toEqual([]);
+  });
+});
+
+/**
+ * §3.3 `shortfalls[]` 회귀 — 감사(2026-09-06). `read-evidence.ts` 가 이미
+ * 냈는데 화면에는 한 번도 안 그려지고 있었습니다.
+ */
+describe("못 읽은 것을 사람이 읽는 문장으로 — 에러가 아니다", () => {
+  it("아는 코드는 문장이 된다", () => {
+    expect(shortfallMessages(["no_speakers"])).toEqual(["누가 말한 줄인지는 갈라내지 못했습니다."]);
+  });
+
+  it("여럿이면 순서대로 다 옮긴다", () => {
+    expect(shortfallMessages(["truncated", "no_layout"])).toHaveLength(2);
+  });
+
+  it("같은 코드가 겹쳐 와도 한 번만 말한다", () => {
+    expect(shortfallMessages(["no_pieces", "no_pieces"])).toHaveLength(1);
+  });
+
+  it("모르는 코드는 지어내지 않고 조용히 뺀다", () => {
+    expect(shortfallMessages(["뭔가-새로-생긴-코드"])).toEqual([]);
+  });
+
+  it("`not_applicable` 은 사용자에게 알릴 「못 읽음」이 아니다", () => {
+    // 글로 올린 자료는 애초에 이 모듈이 읽을 것이 없다는 뜻이지, 못 읽은 것이 아닙니다
+    expect(shortfallMessages(["not_applicable"])).toEqual([]);
+  });
+
+  it("빈 배열이면 빈 배열이다", () => {
+    expect(shortfallMessages([])).toEqual([]);
   });
 });

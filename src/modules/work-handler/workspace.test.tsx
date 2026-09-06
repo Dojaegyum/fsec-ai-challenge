@@ -197,6 +197,40 @@ describe("죽은 버튼을 그리지 않는다", () => {
 });
 
 /**
+ * 「나중에」 회귀 — 감사(2026-09-06). `onLater` 를 안 넘기면(위 「죽은 버튼」시험)
+ * 안 뜨는 것은 지켜지고 있었는데, **넘겨도 안 떴습니다** — `Workspace` 가
+ * `onLater` 를 받지도, 패널에 넘기지도 않았기 때문입니다.
+ */
+describe("「나중에」 — onLater 를 넘기면 뜬다", () => {
+  const LATER_LABEL: Record<string, string> = {
+    visit: "나중에 할게요",
+    write: "기억이 안 나요",
+    upload: "나중에 올릴게요",
+    download: "나중에 받을게요",
+  };
+
+  for (const [action, label] of Object.entries(LATER_LABEL)) {
+    it(`\`${action}\` 패널에 「${label}」이 뜬다`, () => {
+      const text = textOf(
+        draw({ step: step({ body: { action } } as Partial<FullStep>), onLater: () => {} }),
+      );
+      expect(text).toContain(label);
+    });
+  }
+
+  // `WS-call`·`WS-wait`·`WS-read` 는 완료 개념이 없는(또는 통화 중인) 유형이라
+  // `onLater` 를 줘도 그 패널 자체가 그 prop 을 안 받습니다 — 안 뜨는 것이 맞습니다
+  for (const action of ["call", "wait", "read"]) {
+    it(`\`${action}\` 패널은 onLater 를 줘도 「나중에」 버튼이 없다`, () => {
+      const text = textOf(
+        draw({ step: step({ body: { action } } as Partial<FullStep>), onLater: () => {} }),
+      );
+      for (const label of Object.values(LATER_LABEL)) expect(text).not.toContain(label);
+    });
+  }
+});
+
+/**
  * **KB 에 적힌 주소와 번호는 눌러서 갑니다** — 옮겨 적게 하면 그 사이에 틀립니다.
  * `payinfo.or.kr`·`msafer.or.kr` 은 KB 에 있는데 화면에 링크가 없었습니다.
  */

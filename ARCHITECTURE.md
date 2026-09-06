@@ -431,11 +431,10 @@ sequenceDiagram
 | 변수 | 무엇 | 필수 |
 | --- | --- | :---: |
 | `DATABASE_URL` | 관계형 DB 접속. **볼트도 여기입니다** — `case_vault` 스키마 | Y |
-| `BLOB_TOKEN` | 객체 저장소 접근 | Y |
 | `XAI_API_KEY` | Grok API 키 | Y |
 | ~~`ADMIN_USERNAME` · `ADMIN_PASSWORD_HASH`~~ | ~~관리자 1계정~~ → **폐기** (2026-09-04 · [ADR-068](decisions/068-no-admin-screen.md)). 문지기는 남고 값은 비워 둡니다 | ~~Y~~ |
 | `CASE_PURGE_DAYS` | 사건 보관 기간. 기본 **180** (마지막 활동일 기준) | N |
-| `KB_FETCH_CRON` | 수집 주기. 기본 하루 1회 | N |
+| ~~`KB_FETCH_CRON`~~ | ~~수집 주기~~ → 뺌(2026-09-06). 주기는 `src/vercel.json` 의 crons | — |
 
 - **볼트를 여는 키는 이 표에 없습니다.** 복호화 키는 브라우저에만 있고 서버는 암호문을
   보관만 합니다 → [ADR-049](decisions/049-vault-in-postgres.md)
@@ -481,7 +480,7 @@ sequenceDiagram
 | --- | --- | --- |
 | ~~**볼트 제품**~~ | ~~분리 원칙(다른 인스턴스)과 리전을 함께 만족해야 합니다. Vercel KV 유지 여부~~ → **같은 Postgres 의 별도 스키마 `case_vault`** (2026-08-24). Upstash 에 서울 리전이 없고, 키가 DB 에 없어 분리가 막으려던 사고가 일어나지 않습니다 | [ADR-049](decisions/049-vault-in-postgres.md) · §8 |
 | **Vercel Cron 실행 제약** | 플랜별 실행 빈도·타임아웃을 확인하지 않았습니다. 크론 둘(알림·파기)은 `src/vercel.json` 에 하루 1회로 서서 돌고 있으나(2026-09-01·09-03) **플랜 상한을 문서로 확인한 적은 없습니다** | [ADR-025](decisions/025-scheduled-jobs.md) |
-| ~~**메일 발송 수단**~~ | ~~리마인더를 무엇으로 보내나~~ → **Brevo** (2026-09-01 · `src/lib/mailer.ts` · [api](spec/common/08-14-api.md) §1.2 `MAILER_API_KEY`). **배포 환경에 키가 없어 아직 안 나갑니다** — 크론은 돌고 발송만 `failed` 로 남습니다. 주기·문구는 여전히 미정 | [ADR-021](decisions/021-reentry-and-identity.md) 「남은 것」 |
+| ~~**메일 발송 수단**~~ | ~~리마인더를 무엇으로 보내나~~ → **Brevo** (2026-09-01 · `src/lib/mailer.ts` · [api](spec/common/08-14-api.md) §1.2 `MAILER_API_KEY`). ~~배포 환경에 키가 없어 아직 안 나갑니다~~ → **나갑니다** (2026-09-04 배포본에서 실제 발송 확인 · `MAILER_*` 셋 설정됨). 주기·문구는 여전히 미정 | [ADR-021](decisions/021-reentry-and-identity.md) 「남은 것」 |
 | ~~**`org.contact` 키 구조**~~ | ~~`call_center`·`app_path` 같은 이름~~ → **`report_tel` · `report_hours` · `submit[]` · `caution`** (2026-08-25 · 51곳 채움) | [data-model](spec/backend/08-16-data-model.md) §11.1 · [ADR-042](decisions/042-submit-paths.md) |
 | ~~**문진 선택지의 정본**~~ | ~~질문 문구와 선택지를 어디서 가져오나~~ → **코드 상수 `src/lib/questions.ts`** (A안 · 2026-08-20). 문구는 절차 지식이 아니라 KB 릴리스에 싣지 않고, `channel` 선택지는 채널 매트릭스 표 그대로입니다 | ~~[핸드오프 ⑤](docs/plans/08-16-backend-handoff.md)~~(은퇴) → [api](spec/common/08-14-api.md) §3.4 |
 

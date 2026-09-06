@@ -9,7 +9,7 @@
 
 import "client-only";
 
-export { readTranscript, countTokens } from "./read";
+export { readTranscript, countTokens, shortfallMessages } from "./read";
 export { TranscriptView } from "./view";
 export type { TranscriptViewProps } from "./view";
 export type { PiiToken, RawLine, TokenCount, TranscriptLine } from "./types";

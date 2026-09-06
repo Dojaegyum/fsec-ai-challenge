@@ -984,6 +984,7 @@ CREATE INDEX idx_audit_type_time ON audit_log (event_type, created_at);
 | `chat.context_built` | 챗 프롬프트 조립 | `{"applied":5,"reference":7,"kb_version":"...","transcript_lines":42}` |
 | `artifact.verified` | 부산물 검증 | `{"level":"L1","result":"passed"}` |
 | `llm.called` | LLM 호출 | `{"model":"...","token_in":1200}` |
+| `llm.failed` | LLM 을 불렀는데 답을 못 받음 — 시간 초과·닿지 못함(2026-09-06). `llm.called` 와 가릅니다: 답 없는 호출을 「불렀다」로 세지 않습니다 | `{"reason":"timeout","model":"..."}` |
 | `case.purged` | 파기 | `{"case_id":"..."}` |
 
 ---

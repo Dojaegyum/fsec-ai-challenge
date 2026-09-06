@@ -267,10 +267,29 @@ export const FIXTURE_SLOTS = [
   { slot_key: "counterpart_account", tier: "T2", state: "confirmed", value: "[계좌-1]" },
 ] as const;
 
+/**
+ * §3.6 `channels[]` — 기재 안내(S-10)의 「어디에 내나요」 카드 재료.
+ *
+ * 값은 §3.6 예시·`src/kb/org.json` 국민은행 행의 모양을 그대로 옮긴 **견본**입니다
+ * (`CLAUDE.md` 「목업·기획서에 등장하는 … 전부 예시입니다」).
+ */
+export const FIXTURE_CHANNELS: CaseBundle["channels"] = [
+  {
+    channel_id: "CH-bank",
+    org_id: "kb-bank",
+    org_name: "국민은행",
+    amount: 3_000_000,
+    confidence: 0.94,
+    submit: [{ how: "branch", text: "가까운 영업점에 서면 제출" }],
+    caution: "앱의 「사고신고」는 보안매체 분실 신고이고 피해구제 신청이 아닙니다",
+  },
+];
+
 export const FIXTURE_BUNDLE: CaseBundle = {
   case: FIXTURE_CASE,
   steps: FIXTURE_PLAN.steps,
   deadlines: FIXTURE_DEADLINES.deadlines,
   question: FIXTURE_QUESTION,
   slots: FIXTURE_SLOTS,
+  channels: FIXTURE_CHANNELS,
 };

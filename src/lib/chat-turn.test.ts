@@ -24,7 +24,12 @@ import type { CasePlanStore } from '@/flows/regenerate-plan'
 import { createContainer, unconfiguredPorts } from '@/lib/container'
 import type { Container, Ports } from '@/lib/container'
 import { createMessageStore } from '@/lib/db'
-import { KbCitationMissingError, KbUnavailableError } from '@/lib/errors'
+import {
+  KbCitationMissingError,
+  KbUnavailableError,
+  LlmBadRequestError,
+  LlmError,
+} from '@/lib/errors'
 import type { MessageStore, Sql } from '@/lib/db'
 import { readEnv } from '@/lib/env'
 
@@ -1356,5 +1361,43 @@ describe('답이 가리킨 단계·기한을 이력에도 남긴다 — §3.12 �
     const arrays = seen[0]!.params.filter((param): param is string[] => Array.isArray(param))
     expect(arrays.filter((one) => one.includes('01JFREEZE'))).toHaveLength(1)
     expect(arrays.filter((one) => one.includes('01JDUE'))).toHaveLength(1)
+  })
+})
+
+/**
+ * 모델이 안 떴을 때(시간 초과·닿지 못함)도 남긴다 — `llm.failed` (2026-09-06).
+ *
+ * `llm.called` 와 가릅니다. 답을 못 받은 호출을 「불렀다」로 세면 감사 기록이
+ * 거짓이 되고, 안 남기면 모델이 죽어 있던 시간이 어디에도 안 남습니다.
+ */
+describe('모델이 안 떴을 때도 남는다 — llm.failed', () => {
+  it('시간 초과는 reason: timeout 으로', async () => {
+    const one = chatHarness({
+      throws: new LlmError('모델이 제때 답하지 않았습니다', { reason: 'timeout', model: 'm-1' }),
+    })
+
+    await expect(runTurn(one)).rejects.toThrow(LlmError)
+
+    expect(one.audits.map((row) => row.eventType)).toEqual(['llm.failed'])
+    expect(one.audits[0]?.detail).toEqual({ reason: 'timeout', model: 'm-1' })
+  })
+
+  it('닿지 못한 것은 reason: unreachable 으로 — 모델 이름이 없으면 빼고', async () => {
+    const one = chatHarness({
+      throws: new LlmError('모델에 닿지 못했습니다', { reason: 'unreachable' }),
+    })
+
+    await expect(runTurn(one)).rejects.toThrow(LlmError)
+
+    expect(one.audits[0]?.eventType).toBe('llm.failed')
+    expect(one.audits[0]?.detail).toEqual({ reason: 'unreachable' })
+  })
+
+  it('**잘못된 요청(LlmBadRequestError)은 안 남는다** — 모델이 아니라 요청의 문제', async () => {
+    const one = chatHarness({ throws: new LlmBadRequestError('형식이 틀렸습니다') })
+
+    await expect(runTurn(one)).rejects.toThrow(LlmBadRequestError)
+
+    expect(one.audits).toHaveLength(0)
   })
 })

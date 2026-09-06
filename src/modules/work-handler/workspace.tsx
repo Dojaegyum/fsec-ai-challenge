@@ -83,6 +83,12 @@ export interface WorkspaceProps {
    * 넘기지 않으면 올리기 버튼을 안 그립니다.
    */
   onPickFile?(stepId: string, file: File): void;
+  /**
+   * 「나중에」 — **미루는 것 자체는 서버에 낼 것이 없어도 되지만, 그 판단은
+   * 호출부가 합니다**(`panels.tsx` 의 `Later` 주석). 안 넘기면 네 패널
+   * (`WS-visit`·`WS-write`·`WS-upload`·`WS-download`)의 「나중에」 버튼이 안 뜹니다.
+   */
+  onLater?: () => void;
 }
 
 /** `PlanStep` 에 본문까지 — 판정에 쓰는 것보다 넓습니다 */
@@ -304,7 +310,15 @@ function ArtifactSlot({
  * 그래서 이 짝은 `panels.test.tsx`(패널 단독)와 `workspace.test.tsx`(일곱 유형을
  * 이 호출부로 통과시키는 것) **양쪽에서** 지킵니다.
  */
-export function Workspace({ step, onSubmit, busy, verdict, fail, onPickFile }: WorkspaceProps) {
+export function Workspace({
+  step,
+  onSubmit,
+  busy,
+  verdict,
+  fail,
+  onPickFile,
+  onLater,
+}: WorkspaceProps) {
   const [typed, setTyped] = useState("");
 
   if (!step) return null;
@@ -435,16 +449,20 @@ export function Workspace({ step, onSubmit, busy, verdict, fail, onPickFile }: W
   const props = { title: step.title, children: inside };
 
   switch (panel) {
+    // `WS-call` 은 **「나중에」가 없습니다** — spec §S-06 이 「나중에」를 요구하는
+    // 넷(`WS-visit`·`WS-write`·`WS-upload`·`WS-download`)에 들지 않습니다
     case "WS-call":
       return <CallPanel {...props} />;
     case "WS-upload":
-      return <UploadPanel {...props} />;
+      return <UploadPanel {...props} onLater={onLater} />;
     case "WS-visit":
-      return <VisitPanel {...props} />;
+      return <VisitPanel {...props} onLater={onLater} />;
     case "WS-write":
-      return <WritePanel {...props} />;
+      return <WritePanel {...props} onLater={onLater} />;
     case "WS-download":
-      return <DownloadPanel {...props} />;
+      return <DownloadPanel {...props} onLater={onLater} />;
+    // `WS-wait`·`WS-read` 는 완료 개념이 없는 유형입니다 — 지금 미룰 「할 일」이
+    // 없어 `Later` 를 안 받습니다(패널 자체가 그 prop 을 안 받습니다)
     case "WS-wait":
       return <WaitPanel {...props} />;
     case "WS-read":

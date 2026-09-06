@@ -13,8 +13,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { CaseFileCard, RestartHint } from "./page";
-import type { CaseSlot } from "./load";
+import { CaseFileCard, docSubmitOf, RestartHint } from "./page";
+import type { CaseChannel, CaseSlot } from "./load";
 
 const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -105,5 +105,44 @@ describe("계좌가 묶인 쪽이라면 새로 시작 — ADR-066", () => {
 
   it("frozen_account 사건에는 그리지 않는다 — 이미 그쪽 절차입니다", () => {
     expect(renderToStaticMarkup(<RestartHint track="frozen_account" />)).toBe("");
+  });
+});
+
+/**
+ * 기재 안내(S-10) 「어디에 내나요」 카드 배선 — 감사(2026-09-06) 회귀.
+ *
+ * `doc.tsx` 는 `submit`·`submitNote` prop 을 이미 받게 서 있었는데 `page.tsx` 가
+ * `bundle.channels` 를 받지도, 넘기지도 않아 이 카드가 프로덕션에서 한 번도
+ * 안 그려졌습니다 → `load.ts`·`fixtures.ts` 의 짝 시험도 참고.
+ */
+describe("어디에 내나요 카드 재료 — §3.6 channels[]", () => {
+  const channel: CaseChannel = {
+    channel_id: "CH-bank",
+    org_id: "kb-bank",
+    org_name: "국민은행",
+    amount: 3_000_000,
+    confidence: 0.94,
+    submit: [{ how: "branch", text: "가까운 영업점에 서면 제출" }],
+    caution: "앱의 「사고신고」는 피해구제 신청이 아닙니다",
+  };
+
+  it("채널이 없으면 submit 이 비고 카드가 그려질 재료가 없다", () => {
+    expect(docSubmitOf([])).toEqual({ submit: [], submitNote: "" });
+  });
+
+  it("첫 채널의 submit 과 caution 을 그대로 옮긴다", () => {
+    expect(docSubmitOf([channel])).toEqual({
+      submit: [{ how: "branch", text: "가까운 영업점에 서면 제출" }],
+      submitNote: "앱의 「사고신고」는 피해구제 신청이 아닙니다",
+    });
+  });
+
+  it("채널이 여럿이면 첫 번째만 그린다", () => {
+    const second: CaseChannel = { ...channel, channel_id: "CH-easypay", org_name: "토스" };
+    expect(docSubmitOf([channel, second]).submit).toEqual(channel.submit);
+  });
+
+  it("caution 이 없으면 submitNote 가 빈 문자열이다 — 지어내지 않는다", () => {
+    expect(docSubmitOf([{ ...channel, caution: null }]).submitNote).toBe("");
   });
 });

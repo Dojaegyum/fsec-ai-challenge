@@ -48,6 +48,7 @@ export async function POST(
     if (found) {
       await startReading(
         {
+          caseId,
           evidenceId,
           objectKey: found.objectKey,
           kind: found.kind,

@@ -19,7 +19,8 @@
  *
  * ## 발송 수단이 없어도 돕니다
  *
- * `Mailer` 가 미설정이면(§1.2 `MAILER_API_KEY` — ⬜ 발송 수단 미정 → ADR-021)
+ * `Mailer` 가 미설정이면(§1.2 `MAILER_API_KEY` — 수단은 Brevo 로 정해짐(2026-09-01 ·
+ * `src/lib/mailer.ts`) · ADR-021)
  * 보낼 사건이 `failed` 로 남습니다. 정직한 결과입니다 — `no_email`·`nothing_due`
  * 집계는 발송 수단 없이도 맞고, 미발송 사실이 숫자로 드러납니다.
  *

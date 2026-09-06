@@ -28,7 +28,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { createContainer, unconfiguredPorts, type Ports } from '@/lib/container'
 import { readEnv } from '@/lib/env'
 
-import { GET } from './route'
+import {
+  GET,
+  POST,
+  VAULT_MAX_CIPHERTEXT_CHARS,
+  VAULT_MAX_ENTRIES,
+  VAULT_MAX_TOKEN_CHARS,
+} from './route'
 
 const CASE_ID = '01J8CASE000000000000000000'
 const TOKEN = '01J8TKN0000000000000000000'
@@ -124,5 +130,60 @@ describe('서버가 붙인 이름표까지 함께 낸다 — **회귀**', () => 
 
     expect(body.issued).toEqual(['[계좌-1]'])
     expect(JSON.stringify(body.issued)).not.toContain('110-2345-678901')
+  })
+})
+
+/**
+ * 한 번에 받는 상한 — §3.11 (2026-09-06 확정).
+ *
+ * **상한이 없으면 볼트가 사건 하나로 채워집니다.** 정상 사용에서는 닿지 않는 수라
+ * 넘으면 400 이고 재시도할 일이 없습니다.
+ */
+describe('한 번에 받는 상한 — §3.11', () => {
+  async function post(entries: readonly { token: string; ciphertext: string }[]) {
+    holder.container = {
+      ...createContainer(readEnv({}), {
+        ...unconfiguredPorts(readEnv({})),
+        auditStore: { appendChained: async (build) => build(null) },
+      } as Ports),
+      caseTokens: { toCaseId: async () => CASE_ID },
+      vaultWrite: {
+        list: async () => [],
+        tokens: async () => [],
+        put: async () => entries.length,
+      },
+      maskedTexts: { all: async () => [] },
+    }
+    return POST(
+      new Request(`http://x/api/cases/${TOKEN}/vault`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ entries }),
+      }),
+      { params: Promise.resolve({ case_token: TOKEN }) },
+    )
+  }
+
+  const entry = (i: number) => ({ token: `[계좌-${i}]`, ciphertext: 'c'.repeat(200) })
+
+  it('상한까지는 그대로 받는다', async () => {
+    const res = await post(Array.from({ length: VAULT_MAX_ENTRIES }, (_, i) => entry(i + 1)))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ stored: VAULT_MAX_ENTRIES })
+  })
+
+  it('항목이 하나 더 많으면 400', async () => {
+    const res = await post(Array.from({ length: VAULT_MAX_ENTRIES + 1 }, (_, i) => entry(i + 1)))
+    expect(res.status).toBe(400)
+  })
+
+  it('암호문이 상한보다 길면 400', async () => {
+    const res = await post([{ token: '[계좌-1]', ciphertext: 'c'.repeat(VAULT_MAX_CIPHERTEXT_CHARS + 1) }])
+    expect(res.status).toBe(400)
+  })
+
+  it('이름표가 상한보다 길면 400 — `[계좌-12]` 꼴이라 이보다 길 수 없다', async () => {
+    const res = await post([{ token: 'x'.repeat(VAULT_MAX_TOKEN_CHARS + 1), ciphertext: 'c' }])
+    expect(res.status).toBe(400)
   })
 })

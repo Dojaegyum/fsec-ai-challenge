@@ -131,6 +131,8 @@ export default function EvidenceView({
   const status = read?.ingest_status ?? file?.status;
   const lines = read?.transcript ?? (token === null ? FIXTURE_EVIDENCE.transcript : []);
   const tokens = read?.pii_tokens ?? (token === null ? FIXTURE_EVIDENCE.pii_tokens : []);
+  /** §3.3 `shortfalls[]` — 픽스처엔 없습니다. 개발 경로에서는 「다 읽었다」로 둡니다 */
+  const shortfalls = read?.shortfalls ?? [];
 
   /**
    * 되살리는 표 — **개발 경로에서만 픽스처**입니다.
@@ -342,6 +344,7 @@ export default function EvidenceView({
               <TranscriptView
                 lines={lines}
                 mappings={mappings}
+                shortfalls={shortfalls}
                 lineStyle={(i) => step(i + 3)}
               />
             </div>

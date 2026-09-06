@@ -29,7 +29,7 @@ import 'server-only'
 
 import { seoulDayLabel } from '@/lib/clock'
 import type { Container } from '@/lib/container'
-import { KbCitationMissingError } from '@/lib/errors'
+import { KbCitationMissingError, LlmBadRequestError, LlmError } from '@/lib/errors'
 import { newUlid } from '@/lib/ids'
 
 import type { Citation, NextQuestion, PublishInput } from '@/modules/chat-publisher'
@@ -230,9 +230,11 @@ export async function chatTurn(
  * 조회가 먼저 실패한 턴(`KbUnavailableError`)에 `llm.called` 를 적으면
  * **부르지 않은 호출을 셉니다.** 감사 기록이 거짓이 되느니 비는 편이 낫습니다.
  *
- * ⬜ **모델이 안 떴을 때(연결 실패·시간 초과)는 아직 안 남깁니다.** 「보내려다
- * 못 보냄」과 「보냈는데 답이 없음」을 밖에서 못 가르고, 지금 그것을 가를 신호가
- * `lib/llm.ts` 에서 안 올라옵니다. 생기면 이 함수에 갈래를 하나 더 두세요.
+ * **모델이 안 떴을 때(연결 실패·시간 초과)는 `llm.failed` 로 남깁니다**(2026-09-06).
+ * `llm.called` 와 가르는 이유는 위와 같습니다 — 답을 못 받은 호출을 「불렀다」로 세면
+ * 감사 기록이 거짓이 됩니다. 「보내려다 못 보냄」과 「보냈는데 답이 없음」은
+ * `lib/llm.ts` 가 `detail.reason` 에 `unreachable`·`timeout` 으로 실어 올립니다.
+ * 형식·권한 오류(`LlmBadRequestError`)는 요청이 잘못된 것이라 여기 안 남깁니다.
  *
  * ## 실패해도 원래 예외를 지킵니다
  *
@@ -244,6 +246,25 @@ async function recordFailedCall(
   error: unknown,
   container: Container,
 ): Promise<void> {
+  if (error instanceof LlmError && !(error instanceof LlmBadRequestError)) {
+    const reason = error.detail.reason
+    try {
+      await container.auditLogger.record({
+        eventType: 'llm.failed',
+        actorType: 'model',
+        caseId,
+        // 갈래와 모델 이름뿐입니다 — 프롬프트도 오류 본문도 안 담습니다
+        detail: {
+          reason: reason === 'timeout' || reason === 'unreachable' ? reason : 'unknown',
+          ...(typeof error.detail.model === 'string' ? { model: error.detail.model } : {}),
+        },
+      })
+    } catch {
+      // 아래 「실패해도 원래 예외를 지킵니다」
+    }
+    return
+  }
+
   if (!(error instanceof KbCitationMissingError)) return
 
   const detail = error.detail

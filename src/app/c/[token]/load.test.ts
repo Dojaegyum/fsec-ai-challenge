@@ -80,6 +80,45 @@ describe("한 응답을 셋으로 나눠 준다", () => {
     const state = await fetchCaseBundle(TOKEN);
     expect(state?.phase).toBe("failed");
   });
+
+  it("§3.6 plan.channels 를 그대로 옮긴다 — 기재 안내의 「어디에 내나요」 재료", async () => {
+    stubFetch(
+      json({
+        ...OK_BODY,
+        plan: {
+          ...OK_BODY.plan,
+          channels: [
+            {
+              channel_id: "CH-bank",
+              org_id: "kb-bank",
+              org_name: "국민은행",
+              amount: 3000000,
+              confidence: 0.94,
+              submit: [{ how: "branch", text: "가까운 영업점에 서면 제출" }],
+              caution: "앱의 「사고신고」는 피해구제 신청이 아닙니다",
+            },
+          ],
+        },
+      }),
+    );
+    const state = await fetchCaseBundle(TOKEN);
+
+    expect(state?.phase).toBe("ready");
+    if (state?.phase !== "ready") return;
+    expect(state.bundle.channels).toHaveLength(1);
+    expect(state.bundle.channels[0]?.org_name).toBe("국민은행");
+    expect(state.bundle.channels[0]?.submit).toEqual([
+      { how: "branch", text: "가까운 영업점에 서면 제출" },
+    ]);
+  });
+
+  it("plan.channels 가 없으면 빈 배열이다 — 카드가 자기 값을 짓지 않습니다", async () => {
+    stubFetch(json(OK_BODY));
+    const state = await fetchCaseBundle(TOKEN);
+
+    expect(state?.phase).toBe("ready");
+    expect(state?.phase === "ready" && state.bundle.channels).toEqual([]);
+  });
 });
 
 describe("서버가 말한 것만 쓴다", () => {

@@ -26,6 +26,7 @@ import 'server-only'
 
 import { allowedTermsFor } from '@/lib/allowed-terms'
 import type { Container } from '@/lib/container'
+import { IngestError } from '@/lib/errors'
 import {
   ORG_REPAIR_PROMPT,
   buildOrgRepairInput,
@@ -55,6 +56,7 @@ const POLL_AFTER_MS = 1500
  */
 export async function startReading(
   input: {
+    readonly caseId: string
     readonly evidenceId: string
     readonly objectKey: string
     readonly kind: EvidenceKind
@@ -67,10 +69,25 @@ export async function startReading(
   // 토큰화하는 것은 `collectReading` 이 합니다 (아래 `readWritten`)
   if (input.kind === 'text') return
 
-  await container.transcriber.start({
-    media: { objectKey: input.objectKey, kind: input.kind, mimeType: input.mimeType },
-    jobId: input.evidenceId,
-  })
+  try {
+    await container.transcriber.start({
+      media: { objectKey: input.objectKey, kind: input.kind, mimeType: input.mimeType },
+      jobId: input.evidenceId,
+    })
+  } catch (error) {
+    // **맡기기 자체가 실패한 것은 그 자리에서 `failed` 로 적습니다.** 2026-09-06 까지는
+    // 이 예외가 202 뒤로 사라져, 화면이 첫 폴링(§3.3)에서 다시 부딪히고서야 알았습니다 —
+    // 그 사이 자료함은 「읽는 중」을 그렸습니다. 에러로 올리지 않는 이유는 `collectReading`
+    // 의 같은 자리와 같습니다 → 불변 규칙 5. 미설정(AppError · 500)은 그대로 올립니다 —
+    // 고칠 수 없는 상태를 전사 실패로 덮지 않습니다(`transcribe.ts` 의 같은 판단)
+    if (!(error instanceof IngestError)) throw error
+    const reason = error.detail.reason
+    await container.evidenceWrite.fail({
+      caseId: input.caseId,
+      evidenceId: input.evidenceId,
+      reason: typeof reason === 'string' ? reason : 'submit_failed',
+    })
+  }
 }
 
 /** §3.3 이 돌려주는 것 */
@@ -200,10 +217,9 @@ export async function collectReading(
       // 기관명이 가려졌을 수 있습니다 → `Shortfall` 의 「무엇을 못 했는지는
       // 숨기지 않습니다」.
       //
-      // ⬜ **여기까지는 응답이고 화면은 아직입니다.** `evidence/[id]` 응답에는
-      // 실리지만 `shortfalls` 를 그리는 화면이 아직 없습니다 — 이 값만 그런 것이
-      // 아니라 `no_layout`·`no_speakers` 도 마찬가지입니다. 새 자리를 만드는 것은
-      // 시안 결정 대기 줄에 있어 여기서 정하지 않습니다
+      // 화면은 `transcript-viewer` 의 `shortfallMessages` 가 이 부호를 사람 말로 옮겨
+      // 전사문 아래에 그립니다(2026-09-06 · S-08). 2026-09-06 까지는 응답에만 실리고
+      // 그리는 자리가 없었습니다 — 새 부호를 더하면 그쪽 표에도 문장을 더하세요
       ...(masked.orgGuardMissing ? ['no_org_allowlist'] : []),
     ],
   }

@@ -149,9 +149,10 @@ export interface StoredStep {
 /**
  * 이 흐름이 밖에 요구하는 것 — 사건의 상태를 읽고 플랜을 반영하는 자리.
  *
- * **SQL 은 여기 없습니다.** ⬜ DB 드라이버가 아직 안 정해져(`package.json` 에 하나도
- * 없습니다) 구현이 없고, 부르면 무엇이 왜 없는지 말하며 멈춥니다
- * → [not-configured.ts](../lib/not-configured.ts).
+ * **SQL 은 여기 없습니다.** 구현은 `src/lib/db.ts` 가 `postgres` 드라이버로 채웁니다
+ * (2026-08 부터 · ADR-016). `DATABASE_URL` 이 비어 있으면 무엇이 왜 없는지 말하며
+ * 멈춥니다 → [not-configured.ts](../lib/not-configured.ts).
+ * (2026-09-06 정정 — 「드라이버가 아직 안 정해졌다」는 옛 문장이 남아 있었습니다.)
  */
 export interface CasePlanStore {
   /** 사건의 갈래. 없는 사건이면 `null` */

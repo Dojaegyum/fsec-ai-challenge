@@ -7,6 +7,7 @@
 > 사본입니다 — 평소와 방향이 반대이니 헷갈리지 마세요
 > (평소 규칙은 [CLAUDE.md](../../CLAUDE.md) 「spec과 아티팩트의 관계」).
 > ⚠️ **아티팩트 사본은 08-21 상태에 멈춰 있습니다.** 이 개정을 아직 안 받았으니 그쪽을 읽고 판단하지 마세요.
+> **2026-09-06 손질** — 「끊기는 자리」·TODO 의 닫힌 행을 [ADR-069](../../decisions/069-evidence-slot-extraction.md)·[ADR-071](../../decisions/071-track-questions-and-notice-date.md)·[ADR-073](../../decisions/073-refund-stage-and-derived-anchor.md) 과 2026-09-04 의 메일 발송 확인에 맞춰 취소선으로 표시했습니다. 갈림길 표와 여정 수는 그대로입니다.
 
 ## 이 문서가 하는 일
 
@@ -57,7 +58,7 @@
 | 1 | **`/` (S-04)** | 「지금 시작하기」 **하나** | 112 우선 안내 · 환급 미보장 고지 | ~~섬~~ → `/start` 로 이어짐 (`app/page.tsx:170`) |
 | 1 | **`/start` (S-05) 1/2** | 동의 전문 → 조항 다섯 확인 → Q1 하나 → (선택) 자료 올리기 | 동의만 관문. 자료·문진은 건너뛸 수 있음 | ~~UI만~~ → **붙음.** [다음]·[건너뛰고 바로 시작] 이 `POST /api/cases`(`start/open.ts:57-59`) — 사건과 T0 가 함께 생김(ADR-046). 자료는 그 뒤 `uploadFile` 로 |
 | 1 | **`/start` 2/2** | 주소 복사 · 이메일 입력 | 링크 발급 | ~~UI만~~ → **붙음.** 주소는 응답의 `link_token`(`start/page.tsx:1031`) · 이메일은 `PUT …/contact`(`start/contact.ts:41` · §3.13). 버튼 셋 다 `/c/{token}` 으로 이동(`start/page.tsx:748,763`) |
-| 1 | **`/c/{token}` · 본문 챗** | 진술을 적음 | T0 즉시 노출 · 한 번에 한 문항 | ~~UI만~~ → **붙음.** 발화 `POST …/messages`(`send.ts:238`) · 문항 답 `PATCH …/slots/{slot_key}`(`send.ts:304`) · T0 는 본문 위 접이식 오버레이(`safety.tsx:29-34` · ADR-063). ⬜ **진술에서 슬롯을 뽑는 `slot-extractor` 는 미조립** — 슬롯은 문항 답으로만 채워집니다 (`container.ts`·`flows/` 에 호출 0 → [doc-gardening §2 ③](../../docs/plans/08-26-doc-gardening.md)) |
+| 1 | **`/c/{token}` · 본문 챗** | 진술을 적음 | T0 즉시 노출 · 한 번에 한 문항 | ~~UI만~~ → **붙음.** 발화 `POST …/messages`(`send.ts:238`) · 문항 답 `PATCH …/slots/{slot_key}`(`send.ts:304`) · T0 는 본문 위 접이식 오버레이(`safety.tsx:29-34` · ADR-063). ~~⬜ **진술에서 슬롯을 뽑는 `slot-extractor` 는 미조립** — 슬롯은 문항 답으로만 채워집니다 (`container.ts`·`flows/` 에 호출 0 → [doc-gardening §2 ③](../../docs/plans/08-26-doc-gardening.md))~~ → **배선됐습니다**(2026-09-04 · [ADR-069](../../decisions/069-evidence-slot-extraction.md)) — 단 **진술이 아니라 올린 자료**에서입니다. `flows/read-evidence.ts` 가 전사·OCR 결과를 토큰화한 뒤 `slot-extractor` 로 다섯 슬롯을 `extracted` 로 두고, 문진 자리에서 한 탭으로 확인받습니다. 챗 발화에서는 여전히 안 뽑습니다 |
 | 2 | 본문 챗 + **오른쪽 워크스페이스** | 대본 읽고 전화 · 접수번호 받아적기 | `WS-call` · 부산물로 완료 판정 | ~~UI만~~ → **붙음.** `POST …/steps/{step_id}/artifacts`(`c/[token]/artifact.ts` · 2026-08-26 부터) → `completion-checker`. 접수증이 검증되면 `relief_applied_at` 기산점도 여기서 찍힘(`flows/anchor-from-artifact.ts:67-68`) |
 | 3 | ~~본문 플랜 (S-07)~~ → **왼쪽 할 일 레일** | 「지금 하실 일은 하나」 | 기한 계산 · D-day | ~~UI만~~ → **붙음.** 기한은 서버 `flows/compute-deadlines.ts` 가 KB 규칙·기산점으로 만들고, 레일은 값을 그릴 뿐(`todo.tsx:113-118`). **S-07 본문 화면은 `?view=plan` 개발 경로에만 남았습니다**([ADR-063](../../decisions/063-chat-centered-layout.md) · `page.tsx:133-134`) |
 | 3 | **본문 기재 안내 (S-10)** | 칸마다 값 복사 → 은행에 제출 | 서식 칸과 값을 짝지음. **서류를 만들지 않음** | ~~UI만~~ → **붙음.** `doc.tsx` — 값은 볼트에서 되받은 매핑으로 이 기기에서 펼침(`page.tsx:721` `chat.restorable`) |
@@ -76,8 +77,8 @@ T0 레일이 본문 밖 왼쪽에 고정된 이유가 이것입니다 — 국면
 
 | | A | B |
 | --- | --- | --- |
-| 기한 알림 | 이메일 — ⬜ **구현 전.** 크론 `GET /api/cron/reminders` 는 매일 돌지만(`vercel.json`) **Mailer 가 미설정**이라 보낼 사건이 `failed` 로 남습니다(`cron/reminders/route.ts:20-24` · `lib/container.ts:449-451`) | **없음** |
-| 링크를 잃으면 | 메일 본문의 링크로 복구 ([ADR-039](../../decisions/039-link-token.md) ③) — ⬜ 위와 같은 이유로 **아직 실제로 오는 메일이 없습니다** | **사건을 통째로 잃습니다** |
+| 기한 알림 | 이메일 — ~~⬜ **구현 전.** 크론 `GET /api/cron/reminders` 는 매일 돌지만(`vercel.json`) **Mailer 가 미설정**이라 보낼 사건이 `failed` 로 남습니다(`cron/reminders/route.ts:20-24` · `lib/container.ts:449-451`)~~ → **나갑니다**(2026-09-04 배포본 확인 — Brevo 키·발신자·`APP_ORIGIN` 을 넣고 크론이 `sent: 1` · [qa-readiness](../../docs/plans/08-23-qa-readiness.md) 「메일 발송 — 배포본에서 실제로 나감」) | **없음** |
+| 링크를 잃으면 | 메일 본문의 링크로 복구 ([ADR-039](../../decisions/039-link-token.md) ③) — ~~⬜ 위와 같은 이유로 **아직 실제로 오는 메일이 없습니다**~~ → 메일이 실제로 오므로(2026-09-04) 이 길이 섰습니다 | **사건을 통째로 잃습니다** |
 | 실질 | 180일 관리 | **일회성 조회** |
 
 - **막지 않습니다.** 거절 버튼 이름이 「이메일 없이 시작하기」이고, 무엇을 포기하는지가
@@ -245,6 +246,7 @@ KB 도 그 한 줄까지만 말하고 1332 확인을 권합니다(`ch-giftcard.j
 **아래는 계약 위반이 아니라 「아직 안 이은 것」입니다.** ~~화면은 전부 목 데이터로 돕니다~~ →
 제품 경로는 서버를 부릅니다. 픽스처는 `?view=` **개발 경로에서만** 그립니다(`page.tsx:238-249`).
 08-21 의 여덟 행 중 넷이 닫혔고, 그 뒤 드러난 넷을 아래에 더했습니다 (2026-09-04 · `main 3d3842b`).
+**2026-09-06 손질** — 더한 넷과 국면 5 가 닫혔습니다(ADR-069·071·073 · 메일은 2026-09-04 배포본 확인). 남은 것은 `confirm`·S-11·S-03 입니다.
 
 | 어디 | 무엇이 끊겨 있나 |
 | --- | --- |
@@ -255,11 +257,11 @@ KB 도 그 한 줄까지만 말하고 1332 확인을 권합니다(`ch-giftcard.j
 | `action: "confirm"` | **여전히 `panelFor("confirm")` 이 `null` 입니다**(`work-handler/panel.ts:29-37`). KB 에 `action: "confirm"` 항목이 아직 0 이라 터지지는 않습니다 — 넣는 순간 화면에서 조용히 사라집니다 |
 | S-11 | **여전히 화면이 없습니다.** 어휘(「가려진 것」·「나간 것」·「고장이 아닙니다」)만 `doc.tsx:562` · `transcript-viewer/view.tsx:56` 이 빌려 씁니다 |
 | S-03 피싱 백신 | 없습니다 (부가 기능) |
-| 국면 5 | 결정·환급 화면이 없습니다. 레일의 「환급」 칸은 단계가 비어 있습니다(`plan.tsx:83`) |
-| **「공고 2개월」 카드** (신규) | 레일에 공고 대기 줄은 있는데(`todo.tsx:198-203`) **`notice_started_at` 을 채우는 길이 없습니다** — `anchor-from-artifact.ts:61-64` 가 「통지문에서 온다」고 비워 두고, 문진(`slot-checker/check.ts:77-113`)에도 없습니다. 기산점이 없으면 기한 행이 안 만들어져(`compute-deadlines.ts:157-159`) 국면 4 의 카드가 **뜨지 않습니다** → [ADR-054](../../decisions/054-notice-anchor.md) 미이행 |
-| **이메일 알림** (신규) | `GET /api/cron/reminders` 는 매일 돌지만 **Mailer 미설정**(`lib/container.ts:449-451`) — 보낼 사건이 `failed` 로 남습니다(`cron/reminders/route.ts:20-24`). 여정 B 의 「메일 링크로 복구」도 따라서 아직 없습니다 |
-| **통장묶기 문진** (신규) | KB 는 생겼는데(`frozen-account.json`) 슬롯·문진이 `victim` 기준입니다 — 명의인에게 「돈이 나갔나요」가 나갑니다 → [doc-gardening §2 ③](../../docs/plans/08-26-doc-gardening.md) |
-| **진술에서 슬롯 자동 추출** (신규) | `slot-extractor` 모듈은 있는데 `container.ts`·`flows/`·`api/` 어디서도 부르지 않습니다. 여정 A 「슬롯 추출」은 지금 **문항에 답하는 것**만 뜻합니다 |
+| ~~국면 5~~ | ~~결정·환급 화면이 없습니다. 레일의 「환급」 칸은 단계가 비어 있습니다(`plan.tsx:83`)~~ → **해소**(2026-09-06 · [ADR-073](../../decisions/073-refund-stage-and-derived-anchor.md)) — `refund-decision`·`refund-payment`·`procedure-stopped` 가 `common.json` 에 생겼고, 기산점 `debt_extinct_at` 은 공고일 + 2개월을 규칙이 파생합니다. **KB 릴리스(2026.09.3) 뒤부터 배포본에** |
+| ~~**「공고 2개월」 카드** (신규)~~ | ~~레일에 공고 대기 줄은 있는데(`todo.tsx:198-203`) **`notice_started_at` 을 채우는 길이 없습니다** — `anchor-from-artifact.ts:61-64` 가 「통지문에서 온다」고 비워 두고, 문진(`slot-checker/check.ts:77-113`)에도 없습니다. 기산점이 없으면 기한 행이 안 만들어져(`compute-deadlines.ts:157-159`) 국면 4 의 카드가 **뜨지 않습니다** → [ADR-054](../../decisions/054-notice-anchor.md) 미이행~~ → **해소**(2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md) · ADR-054 이행) — 통지문 업로드에서 자료 추출이 공고일을 뽑아 확인 탭으로 내고(`victim`·`frozen_account` 둘 다), 명의인 갈래는 문진에서 날짜 문항으로도 묻습니다(`notice_started_at` · `ASK_ORDER_FROZEN`) |
+| ~~**이메일 알림** (신규)~~ | ~~`GET /api/cron/reminders` 는 매일 돌지만 **Mailer 미설정**(`lib/container.ts:449-451`) — 보낼 사건이 `failed` 로 남습니다(`cron/reminders/route.ts:20-24`). 여정 B 의 「메일 링크로 복구」도 따라서 아직 없습니다~~ → **해소** — **나갑니다**(2026-09-04 배포본 확인 — Brevo 키·발신자·`APP_ORIGIN` 을 넣고 크론이 `sent: 1` · [qa-readiness](../../docs/plans/08-23-qa-readiness.md) 「메일 발송 — 배포본에서 실제로 나감」). 여정 B 의 「메일 링크로 복구」도 따라서 섰습니다 |
+| ~~**통장묶기 문진** (신규)~~ | ~~KB 는 생겼는데(`frozen-account.json`) 슬롯·문진이 `victim` 기준입니다 — 명의인에게 「돈이 나갔나요」가 나갑니다 → [doc-gardening §2 ③](../../docs/plans/08-26-doc-gardening.md)~~ → **해소**(2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md)) — `slot-checker` 가 `track` 을 받아 명의인에게는 `ASK_ORDER_FROZEN` 둘(금융회사 · 공고일)만 냅니다 → 여정 H |
+| ~~**진술에서 슬롯 자동 추출** (신규)~~ | ~~`slot-extractor` 모듈은 있는데 `container.ts`·`flows/`·`api/` 어디서도 부르지 않습니다. 여정 A 「슬롯 추출」은 지금 **문항에 답하는 것**만 뜻합니다~~ → **해소**(2026-09-04 · [ADR-069](../../decisions/069-evidence-slot-extraction.md)) — `flows/read-evidence.ts` 가 부릅니다. 여정 A 「슬롯 추출」은 이제 **올린 자료에서 뽑은 값을 한 탭으로 확인하는 것**도 뜻합니다. 챗 발화에서는 여전히 안 뽑습니다 |
 
 ## 어긋난 자리 — **사람이 정해야 합니다**
 
@@ -315,9 +317,9 @@ KB 도 그 한 줄까지만 말하고 1332 확인을 권합니다(`ch-giftcard.j
 
 ## TODO
 
-- ⬜ 국면 5(결정·종결) 여정이 화면으로 없습니다 (2026-09-04 그대로 · `plan.tsx:83`)
-- ~~⬜ `frozen_account` 트랙의 단계를 KB 에 넣을지~~ → 넣었습니다 (2026-09-04 · ADR-066). 남은 것은 **트랙별 문진**
+- ~~⬜ 국면 5(결정·종결) 여정이 화면으로 없습니다 (2026-09-04 그대로 · `plan.tsx:83`)~~ → 붙었습니다 (2026-09-06 · [ADR-073](../../decisions/073-refund-stage-and-derived-anchor.md) · KB 릴리스 2026.09.3 뒤부터 배포본에)
+- ~~⬜ `frozen_account` 트랙의 단계를 KB 에 넣을지~~ → 넣었습니다 (2026-09-04 · ADR-066). ~~남은 것은 **트랙별 문진**~~ → 그것도 정했습니다 (2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md))
 - ⬜ 리마인더 주기·문구가 정본에 없습니다 → [module-names](08-16-module-names.md) 층 4. 주기는 코드에만 있습니다 —
-  `vercel.json` crons 매일 00:00 UTC(KST 09:00) · 파기는 18:00 UTC. 문구는 `reminder-sender` 안. **발송 수단은 미설정**(여정 B)
+  `vercel.json` crons 매일 00:00 UTC(KST 09:00) · 파기는 18:00 UTC. 문구는 `reminder-sender` 안. ~~**발송 수단은 미설정**(여정 B)~~ → 수단은 Brevo, 2026-09-04 배포본에서 실제로 나갑니다(여정 B). 주기·문구의 정본이 없는 것은 그대로입니다
 - ⬜ 여정 D 의 규칙 두 벌 — `case-opener` 를 ADR-063 에 맞출지, 셸의 덮어쓰기를 계약으로 적을지 (프론트 판단)
-- ⬜ 「공고 2개월」의 기산점 `notice_started_at` 을 통지문 업로드에서 채우는 길 (ADR-054 이행 · 국면 4 가 비어 있습니다)
+- ~~⬜ 「공고 2개월」의 기산점 `notice_started_at` 을 통지문 업로드에서 채우는 길 (ADR-054 이행 · 국면 4 가 비어 있습니다)~~ → 생겼습니다 (2026-09-06 · [ADR-071](../../decisions/071-track-questions-and-notice-date.md) — 통지문 업로드에서 자동 추출 · 명의인 갈래는 문진에서 날짜로도)

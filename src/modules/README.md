@@ -14,12 +14,12 @@
 
 **코드가 있다고 조립됐다는 뜻은 아닙니다.** 아래 「조립」 열은 `src/modules/` 밖에서 가져다 쓰는 파일이 있는지입니다(시험 제외).
 
-| 층 | 모듈 | 조립 (2026-09-04) |
+| 층 | 모듈 | 조립 (2026-09-06) |
 | --- | --- | --- |
-| 1 · 증거가 들어올 때 | `case-intake` `transcriber` `pii-tokenizer` `case-reader` `slot-extractor` | `case-reader` 는 **아무 데서도 안 부릅니다**, `slot-extractor` 는 `lib/questions.ts` 가 타입만 씁니다 — 코드는 있고 배선이 없습니다 |
+| 1 · 증거가 들어올 때 | `case-intake` `transcriber` `pii-tokenizer` `case-reader` `slot-extractor` | `case-reader` 는 **아무 데서도 안 부릅니다**. ~~`slot-extractor` 는 `lib/questions.ts` 가 타입만 씁니다 — 코드는 있고 배선이 없습니다~~ → **배선됨**(2026-09-04 · [ADR-069](../../decisions/069-evidence-slot-extraction.md)) — `flows/read-evidence.ts` 가 토큰화 뒤에 `createSlotExtractor` 를 부릅니다 |
 | 2 · 사용자가 말할 때 | `chat-receiver` `kb-finder` `prompt-builder` `citation-checker` `chat-publisher` · `pii-restorer`(브라우저) | 전부 배선됨 |
 | 3 · 사건 상태가 바뀔 때 | `slot-checker` `planner` `date-checker` `completion-checker` `doc-builder` | `doc-builder` 는 **아무 데서도 안 부릅니다** — 기재 안내 화면(S-10)은 셸 `src/app/c/[token]/doc.tsx` 가 `GET …/doc-guide` 계약 없이 서 있습니다(ADR-064) |
-| 4 · 하루 1회 | `kb-collector` `kb-reviewer` `reminder-sender` `case-purger` | `kb-collector`·`kb-reviewer` 는 **아무 데서도 안 부릅니다**. 크론 둘은 `/api/cron/reminders`·`/api/cron/purge` 가 부릅니다 |
+| 4 · 하루 1회 | `kb-collector` `kb-reviewer` `reminder-sender` `case-purger` | ~~`kb-collector`·`kb-reviewer` 는 **아무 데서도 안 부릅니다**~~ → **배선됨**(2026-09-06 · [ADR-072](../../decisions/072-law-collection-wired.md)) — `kb-collector` 는 크론 `/api/cron/kb-collect` 와 CLI `npm run kb:collect`(`scripts/kb-collect.ts`), `kb-reviewer` 는 CLI `npm run kb:review`(`scripts/kb-review.ts`) 가 부릅니다(둘 다 `lib/container.ts` 경유). 크론 셋은 `/api/cron/reminders`·`/api/cron/purge`·`/api/cron/kb-collect` |
 | 층 없음 | `retry-checker` `audit-logger` | 배선됨 |
 | C · 브라우저 | `pii-masker` `key-handler` `case-opener` `poll-checker` `file-sender` `transcript-viewer` `plan-viewer` `deadline-viewer` `chat-handler` `work-handler` | 전부 셸(`src/app/`)이 가져다 씁니다 |
 

@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 
 import type { RestorableMapping } from "@/modules/pii-restorer";
-import { countTokens, readTranscript } from "./read";
+import { countTokens, readTranscript, shortfallMessages } from "./read";
 import type { PiiToken, RawLine } from "./types";
 
 /**
@@ -29,6 +29,13 @@ export interface TranscriptViewProps {
    * `countTokens` 를 직접 불러 헤더에 적으세요. 두 곳에 나오면 중복입니다.
    */
   tokens?: readonly PiiToken[];
+  /**
+   * §3.3 `shortfalls[]` — 기계가 못 읽은 것. **에러가 아닙니다** (불변 규칙 5).
+   *
+   * 목록 아래에 사람이 읽는 문장으로 그립니다. 안 넘기면 아무것도 안 그립니다 —
+   * 이 값이 온 적 없다고 해서 「다 읽었다」로 단정하지 않되, 지어내지도 않습니다.
+   */
+  shortfalls?: readonly string[];
   /** 줄마다 다른 인라인 스타일 — 시안의 계단 등장에 씁니다 */
   lineStyle?: (index: number) => CSSProperties | undefined;
 }
@@ -37,9 +44,11 @@ export function TranscriptView({
   lines,
   mappings,
   tokens = [],
+  shortfalls = [],
   lineStyle,
 }: TranscriptViewProps) {
   const read = readTranscript(lines, mappings);
+  const shortfallLines = shortfallMessages(shortfalls);
   const counts = countTokens(tokens);
   const stuck = read.some((l) => l.unresolved.length > 0);
 
@@ -80,6 +89,16 @@ export function TranscriptView({
           </li>
         ))}
       </ol>
+
+      {/* ── 못 읽은 것 — **에러가 아닙니다**, 목록 아래에 담담하게 ──
+          §3.3 `shortfalls[]`. 아무 코드도 안 왔거나 다 모르는 코드면 아무것도 안 그립니다 */}
+      {shortfallLines.length > 0 && (
+        <ul className="grid gap-1 text-[12.5px] leading-[1.6] text-ink-3">
+          {shortfallLines.map((line) => (
+            <li key={line}>· {line}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
