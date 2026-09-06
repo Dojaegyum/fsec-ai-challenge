@@ -80,11 +80,6 @@ export default function ChatView({
   const { lines, sending, fail, send, loading, truncated, pastFailed, locked, ask, restorable } = chat;
   const [draft, setDraft] = useState("");
   const dev = token === null;
-  const question = ask.question;
-
-  /** 답하면 오른쪽 열이 할 일 패널로 넘어갑니다 — 보내기 전에 옮기지 않습니다 */
-  const answer = (value: string) => void ask.answer(value).then(onPickChoice);
-  const skip = () => void ask.skip().then(onPickChoice);
 
   const submit = () => {
     if (dev || sending) return;

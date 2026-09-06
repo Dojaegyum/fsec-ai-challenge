@@ -109,7 +109,6 @@ import type {
 import { createChatPublisher } from '@/modules/chat-publisher'
 import { createAllowedTermSource } from './allowed-terms'
 import { createChatReceiver } from '@/modules/chat-receiver'
-import type { LlmClient } from '@/modules/chat-receiver'
 import { createCitationChecker } from '@/modules/citation-checker'
 import { createPiiTokenizer } from '@/modules/pii-tokenizer'
 import type { NerModel } from '@/modules/pii-tokenizer'
