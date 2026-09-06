@@ -224,7 +224,8 @@ describe('사건을 만든다 — §3.1', () => {
       }
     }
 
-    expect(Object.keys(body.plan).sort()).toEqual(['is_superset', 'steps'].sort())
+    // `kb_version` 은 **플랜 전체가 어느 릴리스 기준인가**입니다 — §3.6 과 같은 칸
+    expect(Object.keys(body.plan).sort()).toEqual(['is_superset', 'kb_version', 'steps'].sort())
 
     for (const step of body.plan.steps) {
       expect(Object.keys(step).sort()).toEqual(

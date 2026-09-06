@@ -468,7 +468,7 @@ main 에 src/** 가 푸시됨
 
 - 환경은 Production 하나. PR 미리보기는 만들지 않는다. 환경변수만 바꿨을 때는 Actions 탭에서 `deploy`를 다시 건다.
 - 환경변수 이름의 정본은 [API 계약](spec/common/08-14-api.md) §1.2, 값은 Vercel 프로젝트 설정. 넣는 길은 소유자의 `vercel` CLI 또는 `vercel-env` 워크플로.
-- 시연 자료: 합성 자료 셋 [`assets/demo/09-01-mock-evidence/`](assets/demo/09-01-mock-evidence/). 시작 화면의 「Mock 파일로 실행」 칩이 한 번에 담고, 이후 사람이 고른 파일과 같은 길로 처리된다. 칩은 `NEXT_PUBLIC_DEMO_MOCK=1` 빌드에서만 보인다.
+- 시연 자료: 합성 자료 셋 [`assets/demo/09-01-mock-evidence/`](assets/demo/09-01-mock-evidence/). 시작 화면의 「예시 자료로 체험하기」 칩이 한 번에 담고, 이후 사람이 고른 파일과 같은 길로 처리된다. 칩은 `NEXT_PUBLIC_DEMO_MOCK=1` 빌드에서만 보인다.
 
 | 워크플로 | 무엇을 보나 | 언제 |
 | --- | --- | --- |

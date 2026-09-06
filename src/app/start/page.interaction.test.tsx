@@ -106,7 +106,7 @@ const openCaseWithThreeFiles = async () => {
   await act(async () => {
     root.render(<Start />);
   });
-  await press("Mock 파일로 실행");
+  await press("예시 자료로 체험하기");
   await until(() => host.textContent?.includes("통화녹음.wav") ?? false);
   await press("다음"); // 동의 전에는 전문 모달이 열립니다
   await press("전부 확인");

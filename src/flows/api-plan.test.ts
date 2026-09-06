@@ -110,10 +110,23 @@ describe('부산물의 판정 이유가 실린다 — §3.6 · §3.10', () => {
 })
 
 describe('§3.1 과 §3.6 이 같은 모양을 쓴다 — ADR-047', () => {
+  /**
+   * ⚠️ **사건 생성 응답에 `kb_version` 이 없었습니다** (2026-09-06 점검). §3.6 은
+   * 싣는데 §3.1 만 빠져 있어, 사건을 만든 직후의 화면은 **이 안내가 어느 릴리스
+   * 기준인지** 말할 수 없었습니다 — 단계마다 `citation.kb_version` 이 있어도
+   * 플랜 전체의 값은 따로입니다.
+   */
+  it('toApiPlan 은 kb_version 을 싣는다', () => {
+    expect(toApiPlan({ isSuperset: false, steps: [], kbVersion: '2026.09.4' }).kb_version).toBe(
+      '2026.09.4',
+    )
+  })
+
   it('플랜 전체도 같은 옮김을 지난다', () => {
-    // 이 옮김이 보는 것은 둘뿐입니다 — 스냅샷의 나머지 칸은 §3.6 응답에 안 나갑니다
+    // 이 옮김이 보는 것은 셋뿐입니다 — 스냅샷의 나머지 칸은 §3.6 응답에 안 나갑니다
     const plan = toApiPlan({
       isSuperset: true,
+      kbVersion: '2026.08.1',
       steps: [step(), step({ planStepId: 'b', stepKey: 'relief-apply', seq: 30 })],
     })
     expect(plan.is_superset).toBe(true)

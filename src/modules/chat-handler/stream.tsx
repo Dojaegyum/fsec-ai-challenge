@@ -17,7 +17,7 @@ export function AnswerBubble({ turn }: { turn: Turn }) {
       <p className="text-[15px] leading-[1.75] text-ink-1">{turn.reply}</p>
       {turn.sourceNote && (
         <p className="mt-2 text-[12.5px] leading-[1.6] text-ink-4">
-          {turn.sourceNote}을 보고 안내했습니다
+          {turn.sourceNote}를 보고 안내했습니다
         </p>
       )}
     </div>

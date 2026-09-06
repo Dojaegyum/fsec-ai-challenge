@@ -362,7 +362,7 @@ describe("답변은 화면 쪽 모양으로 옮겨진다", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.turn.sourceNote).toBe("피해구제 신청서 제출");
+    expect(result.turn.sourceNote).toBe("「피해구제 신청서 제출」");
     // `ref` 는 서버가 이번 턴에 발급한 내부 번호입니다 — 화면에 쓰지 않습니다
     expect(result.turn.sourceNote).not.toContain("kb-2");
   });

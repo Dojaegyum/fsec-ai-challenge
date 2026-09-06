@@ -236,3 +236,44 @@ describe("컴포저 받침은 바닥색을 칠하지 않는다 — 호라이즌 
     expect(composer).not.toContain("var(--ground)");
   });
 });
+
+/**
+ * 인용 꼬리말 — **조사가 제목에 붙어 「합니다을」이 되던 것.**
+ *
+ * ⚠️ 2026-09-06 접수 전 점검에서 「112에 신고합니다을 보고 안내했습니다」가
+ * 화면에 그대로 떴습니다. 조사는 앞 글자의 받침에 따라 달라지는데 매뉴얼 제목은
+ * KB 가 정합니다 — 그래서 제목을 **따옴표로 감싸**(`chat-handler` 의 `sourceNote`)
+ * 조사가 제목에 붙지 않게 합니다.
+ */
+describe("인용 꼬리말은 제목을 따옴표로 감싼다 — 조사가 붙지 않게", () => {
+  const answered = (sourceNote: string | null) =>
+    textOf(
+      renderToStaticMarkup(
+        <MiniChat
+          chat={chatOf({
+            lines: [
+              {
+                who: "ai",
+                message_id: "01MSG",
+                reply: "지급정지를 먼저 거세요.",
+                question: null,
+                sourceNote,
+                referencedSteps: [],
+              },
+            ],
+          })}
+          token="T"
+        />,
+      ),
+    );
+
+  it("제목 뒤에 「를」이 온다", () => {
+    const text = answered("「112에 신고합니다」");
+    expect(text).toContain("「112에 신고합니다」를 보고 안내했습니다");
+    expect(text).not.toContain("합니다을");
+  });
+
+  it("근거가 없으면 그 줄 자체가 없다", () => {
+    expect(answered(null)).not.toContain("보고 안내했습니다");
+  });
+});

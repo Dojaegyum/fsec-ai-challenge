@@ -146,7 +146,7 @@ describe("인용 번호와 판단 근거를 화면에 쓰지 않는다", () => {
 
   it("매뉴얼 이름만 한 줄로 밝힌다", () => {
     const text = textOf(renderToStaticMarkup(<AnswerBubble turn={toTurn(response, [])} />));
-    expect(text).toContain("피해구제 신청서 제출을 보고 안내했습니다");
+    expect(text).toContain("「피해구제 신청서 제출」를 보고 안내했습니다");
     expect(text).not.toContain("kb-2");
     expect(text).not.toContain("다음 단계라서");
     // 사건 정보(case-)는 지식베이스가 아니라 근거로 표시하지 않습니다

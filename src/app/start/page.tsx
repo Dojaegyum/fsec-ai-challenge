@@ -287,7 +287,7 @@ export function EvidenceSlots({
               disabled={busy}
               className="shrink-0 rounded-full border border-hairline px-3 py-1 text-[12.5px] text-ink-2 transition-colors duration-200 hover:border-[oklch(0.697_0.16_258.2/45%)] hover:text-ink-1 disabled:opacity-50"
             >
-              Mock 파일로 실행
+              예시 자료로 체험하기
             </button>
           ) : null}
         </span>
@@ -758,7 +758,7 @@ export function ConsentModal({
 
 export default function Start() {
   /**
-   * 시연 전용 게이트 — 「Mock 파일로 실행」 칩을 그리는 조건은 셋 중 하나입니다.
+   * 시연 전용 게이트 — 「예시 자료로 체험하기」 칩을 그리는 조건은 셋 중 하나입니다.
    *
    *   1. dev 빌드 — 늘 보입니다.
    *   2. 빌드 때 `NEXT_PUBLIC_DEMO_MOCK=1` — **대회 기간의 배포본**이 여기입니다
