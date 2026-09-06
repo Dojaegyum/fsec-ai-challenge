@@ -106,7 +106,7 @@
 | ~~`rfc/001` · `rfc/002`~~ | RFC-001 「모듈 골격」 33 중 32 준수(`doc-filler` 만 `.gitkeep`) · RFC-002 :34-46 파일 11개 vs 실재 5, `kb:load` 적재기·`body.actor/action`·`_note/_todo`(`kb-load.ts:396` 이 RFC-002 근거로 인용하나 본문 없음), `src/kb/README.md:13` 없는 `frozen-account.json` |
 | ~~모듈 README~~ | `chat-handler:53-56` · `case-opener:45-47` · `transcript-viewer:26-27` · `work-handler:61-63` · `src/modules/README.md:6,13` · `assets/artifacts/handoff/README.md:19` |
 | ~~`docs/plans/08-23-qa-readiness.md`~~ | :180 date-checker 호출(구현됨) · :610 org.json(채워짐) · 「27건」→51 · `seed:deadline` 「지운다」인데 package.json 잔존 · Task1 표 BLOB_TOKEN vs Supabase |
-| `spec/common/08-14-api.md` | §3.9 「`reply` 안의 토큰은 종류별로 부분 복원됩니다」 절과 그 표(`국민 ****7890` · `김O수` · 주민번호 복원 안 함) — ADR-034 로 폐기된 규칙인데 남아 있음. 같은 문서가 가리키는 04 「복원 위치와 범위」는 「전부」라 두 정본이 반대말 (2026-09-06 · ADR-075 작업 중 발견 — 그 PR 은 §3.9 에 `pii_mappings` 만 더하고 이 절은 안 건드림) |
+| ~~`spec/common/08-14-api.md`~~ | ~~§3.9 「`reply` 안의 토큰은 종류별로 부분 복원됩니다」 절과 그 표(`국민 ****7890` · `김O수` · 주민번호 복원 안 함) — ADR-034 로 폐기된 규칙인데 남아 있음~~ → **2026-09-06 닫음**(ADR-079 PR) — §3.9 를 「전부 원문」으로 정정하고 코드 주석 넷(`chat-handler/turn.ts`·`types.ts`·`README.md` · `c/[token]/history.ts`)과 `pii-masker` 주석 셋도 함께 맞춤 |
 
 ## 4. 문서 정리로 안 닫히는 것 — 코드·판단
 

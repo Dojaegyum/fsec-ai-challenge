@@ -616,3 +616,46 @@ describe('원문 없는 장부 항목이 반복문을 멈추지 않는다', () =
     expect(used).not.toContain('1')
   })
 })
+
+/**
+ * 브라우저가 이미 아는 이름을 `[이름-1]` 로 바꿔 보내면(ADR-079) 그 이름표가 **입력에
+ * 그대로** 옵니다. 모델이 그 글자를 사람 이름으로 집으면 `[이름-2]` 로 다시 가려져
+ * **한 사람에 이름표가 둘** 되고, 브라우저가 볼트에서 되살릴 짝도 어긋납니다.
+ * 우리 이름표 모양은 다시 가리지 않습니다 — 브라우저가 만든 `[계좌-1]` 과 같은 규칙입니다.
+ */
+describe('우리 이름표 모양은 다시 가리지 않는다 — ADR-079', () => {
+  const ISSUED = issuedMappings(['[이름-1]'])
+
+  it('모델이 `[이름-1]` 을 이름으로 집어도 그대로 둔다', async () => {
+    const text = '[이름-1]님 안녕하세요'
+    const tokenizer = createPiiTokenizer({
+      ner: nerOf([{ label: 'PERSON', start: 0, end: 6, value: '[이름-1]' }]),
+    })
+
+    const result = await tokenizer.tokenize(text, { mappings: ISSUED })
+
+    expect(result.masked).toBe(text)
+    expect(result.added).toEqual([])
+  })
+
+  it('이름표에 조사가 붙은 조각을 집어도 그대로 둔다', async () => {
+    const text = '[이름-1]님 안녕하세요'
+    const tokenizer = createPiiTokenizer({
+      ner: nerOf([{ label: 'PERSON', start: 0, end: 7, value: '[이름-1]님' }]),
+    })
+
+    const result = await tokenizer.tokenize(text, { mappings: ISSUED })
+
+    expect(result.masked).toBe(text)
+    expect(result.added).toEqual([])
+  })
+
+  it('이름표 옆의 진짜 이름은 여전히 가린다', async () => {
+    const text = '[이름-1]과 박철수가 왔어요'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '박철수') })
+
+    const result = await tokenizer.tokenize(text, { mappings: ISSUED })
+
+    expect(result.masked).toBe('[이름-1]과 [이름-2]가 왔어요')
+  })
+})

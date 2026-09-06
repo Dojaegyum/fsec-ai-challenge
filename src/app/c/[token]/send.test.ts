@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createSessionKey, memoryKeyStore, sealAll } from "@/modules/key-handler";
 
+import { openVault } from "./history";
 import { answerSlot, sendUtterance } from "./send";
 
 const TOKEN = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
@@ -423,5 +424,43 @@ describe("서버가 막 만든 대응표를 받아 온다 — §3.9 `pii_mapping
     const result = await send("이제 뭘 해야 하나요");
 
     expect(result.ok && result.fresh).toEqual([]);
+  });
+});
+
+/**
+ * 볼트에 짝이 있는 이름은 **브라우저가 보내기 전에 그 이름표로 바꿉니다** → ADR-079.
+ * 서버 장부에는 원문이 없어(불변 규칙 3) 같은 이름을 다시 말하면 서버가 `[이름-2]` 를
+ * 새로 붙였습니다 — 「같은 값 → 같은 번호」가 이름에서만 깨져 있었습니다.
+ */
+describe("볼트에서 연 이름을 다음 발화에서 그 이름표로 보낸다 — ADR-079", () => {
+  const NAME = "김민수";
+
+  it("원문 대신 [이름-1] 이 나가고, 봉해 맡길 것은 없다", async () => {
+    const store = memoryKeyStore();
+    const session = await createSessionKey();
+    await store.put(TOKEN, session);
+    const entries = await sealAll(session, [
+      { token: "[이름-1]", kind: "이름", seq: 1, original: NAME },
+    ]);
+    const calls = spyFetch((url) => (url.includes("/vault") ? json({ entries }) : json(answer)));
+
+    const vault = await openVault(TOKEN, store);
+    const result = await sendUtterance({
+      caseToken: TOKEN,
+      text: `${NAME}인데요, 이제 뭘 하죠`,
+      mappings: vault.maskContext,
+      vaultRead: vault.read,
+      store,
+    });
+
+    expect(result.ok).toBe(true);
+    const said = calls.find((c) => c.url.includes("/messages"));
+    expect(said?.body).toContain("[이름-1]");
+    expect(said?.body).not.toContain(NAME);
+    // 새로 만든 이름표가 없으니 볼트 POST 도 없습니다 — GET 한 번, 발화 한 번
+    expect(calls.map((c) => (c.url.includes("/vault") ? "vault" : "messages"))).toEqual([
+      "vault",
+      "messages",
+    ]);
   });
 });
