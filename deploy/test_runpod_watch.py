@@ -277,6 +277,29 @@ class RestartFailureMail(unittest.TestCase):
         _, text = mails[0]
         self.assertIn("ssh 로 restart.sh 를 걸지 못했습니다 — ssh 안 됨", text)
 
+    def test_subject_and_first_line_do_not_claim_it_was_issued(self):
+        st = w.State()
+        mails = []
+        FakePod = make_fake_pod(
+            find_pods=lambda name: [{"id": "p1", "name": name, "desiredStatus": "RUNNING"}],
+            health_once=lambda pod_id, timeout=10: {"ready": False},
+        )
+
+        def failing_restart(pod_obj):
+            raise w.pod.PodError("ssh 안 됨")
+
+        with _Patch(pod=FakePod, do_restart=failing_restart,
+                    send_mail=lambda *a, **k: mails.append(a),
+                    check_balance=lambda *a, **k: None, state_dir=lambda: HERE):
+            w.tick(st, 1000.0)
+        self.assertEqual(len(mails), 1)
+        subject, text = mails[0]
+        self.assertEqual(subject, "[FinAlly] 추론 팟 재시작을 걸지 못했습니다")
+        self.assertEqual(
+            text.splitlines()[0],
+            "팟은 RUNNING 인데 /health 가 안 되고, ssh 로 restart.sh 를 걸지 못했습니다.",
+        )
+
 
 class BalanceDryRun(unittest.TestCase):
     """--dry-run 은 잔액을 읽고 로그는 남기되, 쿨다운 타임스탬프도 메일도 남기면 안 된다

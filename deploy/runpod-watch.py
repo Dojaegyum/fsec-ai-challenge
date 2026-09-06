@@ -343,6 +343,7 @@ def call_resubmit() -> dict | None:
 def mail_text(kind: str, pod_id: str = "", url: str = "", extra: str = "") -> str:
     lines = {
         "restart": "팟은 RUNNING 인데 /health 가 안 돼 ssh 로 restart.sh 를 걸었습니다.",
+        "restart_failed": "팟은 RUNNING 인데 /health 가 안 되고, ssh 로 restart.sh 를 걸지 못했습니다.",
         "new_pod": "팟이 없거나 재시작으로 안 살아나 새 팟을 만들고 채웠습니다.",
         "create_failed": "새 팟을 만들거나 채우지 못했습니다. RunPod 콘솔과 잔액을 보세요.",
         "low_balance": "RunPod 잔액이 12시간치 아래입니다. 충전하지 않으면 팟이 삭제됩니다.",
@@ -467,11 +468,13 @@ def tick(st: State, now: float, shadow: bool = False, dry_run: bool = False) -> 
             restart_error = str(e)
             log(f"재시작 못 걸음: {e}")
         st.restart_pod, st.restart_at = arg, now
-        if should_notify(st, "restart", now):
-            # restart.sh 를 못 걸었으면 메일이 "걸었다"고 하면 안 된다 — 실패 사실을 적는다(검토 반영 · 사소 1)
+        # restart.sh 를 못 걸었으면 메일이 "걸었다"고 하면 안 된다 — 제목과 첫 줄부터 실패라고 말한다(검토 반영)
+        kind = "restart_failed" if restart_error else "restart"
+        if should_notify(st, kind, now):
+            subject = "[FinAlly] 추론 팟 재시작을 걸지 못했습니다" if restart_error else "[FinAlly] 추론 팟을 재시작했습니다"
             extra = f"ssh 로 restart.sh 를 걸지 못했습니다 — {restart_error}" if restart_error else ""
-            send_mail("[FinAlly] 추론 팟을 재시작했습니다", mail_text("restart", pod_id=arg, extra=extra))
-            mark_notified(st, "restart", now)
+            send_mail(subject, mail_text(kind, pod_id=arg, extra=extra))
+            mark_notified(st, kind, now)
     elif action == "recreate":
         log(f"새 팟 — 이유: {'팟 없음' if arg is None or not running else '재시작 뒤에도 안 살아남'}")
         new_id = do_recreate(st, arg, now, save=save_now)
