@@ -648,6 +648,70 @@ describe('원문 없는 장부 항목이 반복문을 멈추지 않는다', () =
 })
 
 /**
+ * 2026-09-06 배포본 격자 점검(19 사건 · 92턴)에서 이름 탐지 모델이 실제로 PERSON 으로
+ * 낸 보통명사 여섯입니다. 모델 지시문에 *"회사·기관·은행·앱 이름은 사람 이름이 아니다"*
+ * 가 이미 있는데도 그랬습니다 — 보장은 코드가 합니다(`common-nouns.ts` · research/09 R-2).
+ *
+ * 가리면 진술 추출기가 `[이름-1]`(=어머니)을 피해자 성명으로 뽑아 「맞아요」 한 번에
+ * 본인 이름 슬롯이 「어머니」로 확정됩니다 — 기재 안내의 성명 칸에 그대로 들어갑니다.
+ */
+describe('호칭·직함·기관 보통명사는 사람 이름이 아니다', () => {
+  const OBSERVED: [string, string][] = [
+    ['저희 어머니(72세)가 이틀 전에 경찰 사칭 전화에 속아 800만원을 보내셨어요', '어머니'],
+    ['아들이 그거 사기라고 하는디 내가 뭘 어떻게 해야 하는 거유', '아들'],
+    ['금감원 직원이라는 사람이 집 앞으로 와서 현금을 받아 갔어요', '직원'],
+    ['제 이름으로 모르는 계좌가 개설됐다고 은행에서 연락이 왔어요', '은행'],
+    ['편의점에서 구글 기프트카드 50만원어치를 사서 핀번호를 보냈어요', '구글'],
+    ['지금 검찰이라는 사람이랑 통화 중인데 안전계좌로 옮기라고 해요', '검찰'],
+  ]
+
+  for (const [text, word] of OBSERVED) {
+    it(`「${word}」를 이름으로 집어도 가리지 않는다 — 기관 사전이 비어 있어도`, async () => {
+      // 전사·판독 경로에서 KB 조회가 실패하면 allowedTerms 가 빕니다. 그때도 서야 합니다
+      const tokenizer = createPiiTokenizer({ ner: nerFinding(text, word) })
+
+      const result = await tokenizer.tokenize(text)
+
+      expect(result.masked, word).toBe(text)
+      expect(result.added, word).toEqual([])
+    })
+  }
+
+  it('조사가 붙은 조각도 면제한다 — 「아들이」·「은행에서」', async () => {
+    // 모델이 조사까지 한 덩어리로 집는 일이 흔합니다(기관명의 「카카오페이로」와 같음)
+    const text = '아들이 은행에서 확인했대요'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '아들이', '은행에서') })
+
+    const { masked } = await tokenizer.tokenize(text)
+
+    expect(masked).toBe(text)
+  })
+
+  it('호칭 옆의 진짜 이름은 여전히 가린다 — 「어머니 이름은 박순자예요」', async () => {
+    const text = '어머니 이름은 박순자예요. 신고할 때 어머니 이름으로 해야 하죠?'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '어머니', '박순자') })
+
+    const { masked, added } = await tokenizer.tokenize(text)
+
+    expect(masked).toBe('어머니 이름은 [이름-1]예요. 신고할 때 어머니 이름으로 해야 하죠?')
+    expect(added).toHaveLength(1)
+    expect(added[0].original).toBe('박순자')
+  })
+
+  it('보통명사를 품은 실명은 가린다 — 「김은행」·「이검찰」', async () => {
+    // 「포함하면 면제」가 아니라 「그 낱말이거나 그 낱말 + 조사」만 면제합니다
+    for (const name of ['김은행', '이검찰', '박고객']) {
+      const text = `${name} 님 되시죠`
+      const tokenizer = createPiiTokenizer({ ner: nerFinding(text, name) })
+
+      const { masked } = await tokenizer.tokenize(text)
+
+      expect(masked, name).toContain('[이름-1]')
+    }
+  })
+})
+
+/**
  * 브라우저가 이미 아는 이름을 `[이름-1]` 로 바꿔 보내면(ADR-079) 그 이름표가 **입력에
  * 그대로** 옵니다. 모델이 그 글자를 사람 이름으로 집으면 `[이름-2]` 로 다시 가려져
  * **한 사람에 이름표가 둘** 되고, 브라우저가 볼트에서 되살릴 짝도 어긋납니다.

@@ -4,7 +4,8 @@
  * 계약: spec/common/08-14-pii-boundary.md
  *   · 2중 스크러빙 — 1차는 브라우저 정규식, 2차는 여기 NER
  *   · 토큰 형식 `[계좌-1]` — 종류별 일련번호. 같은 값은 같은 번호
- *   · 토큰화 제외 목록을 **NER 결과보다 우선** 적용
+ *   · 토큰화 제외 목록을 **NER 결과보다 우선** 적용 — 기관 사전(`allowedTerms`)과
+ *     호칭·직함·기관 보통명사(`common-nouns.ts`) 두 겹
  *
  * ## 정규식을 여기서 다시 돌립니다
  *
@@ -22,6 +23,7 @@
 import { findHits } from '@/modules/pii-masker'
 import { PiiBoundaryError, PiiTokenizerUnavailableError } from '@/lib/errors'
 
+import { COMMON_NOUNS } from './common-nouns'
 import { tokenShape, tokensInText } from './ledger'
 import { findTranscriptDigits } from './transcript-digits'
 import { WIRE_NAME } from './types'
@@ -242,6 +244,10 @@ function nerToSpans(
     // 한 글자 조각은 개인정보 원문이 아닙니다 → 위 `MIN_NAME_CHARS` (ADR-081)
     if (one.value.trim().length < MIN_NAME_CHARS) continue
     if (isAllowed(one.value, allowedTerms)) continue
+    // 「어머니」·「직원」·「은행」·「검찰」은 사람 이름이 아닙니다 → `common-nouns.ts`.
+    // 모델 지시문에 이미 적혀 있는데도 2026-09-06 격자 점검에서 여섯 낱말이 PERSON 으로
+    // 왔습니다. 기관 사전과 달리 KB 없이도 서야 하는 목록이라 따로 둡니다
+    if (isAllowed(one.value, COMMON_NOUNS)) continue
     // 우리 이름표 모양과 겹치면 다시 가리지 않습니다 → 위 `tokenRegions`
     if (ours.some((r) => r.start < one.end && one.start < r.end)) continue
 
