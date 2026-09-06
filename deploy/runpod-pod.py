@@ -58,6 +58,9 @@ POD_SPEC = {
     "name": "finally-demo",
     "imageName": "runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404",
     "ports": ["22/tcp", f"{PORT}/http"],
+    # 2026-09-06 첫 실제 실행 — 필터 없이 만들면 CUDA 12.4 호스트에 떨어져 컨테이너가
+    # 영영 안 뜬다(uptime 0 · ssh 안 열림 · 13분 낭비). 이미지가 cu12.8.1 이라 하한을 박는다
+    "allowedCudaVersions": ["12.8", "12.9", "13.0"],
 }
 
 
