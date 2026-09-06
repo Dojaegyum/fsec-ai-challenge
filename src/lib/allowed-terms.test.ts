@@ -126,8 +126,11 @@ describe('공공기관도 제외 목록에 들어간다 — 05 U-35', () => {
   })
 
   it('**사전이 비면 가려집니다** — 이게 배선이 없을 때의 모습입니다', async () => {
-    const text = '금융감독원에 전화해서 물어봤는데 안 된다고 합니다'
-    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '금융감독원') })
+    // 「금융감독원」으로 보이던 시험입니다. 2026-09-07 부터 금융감독원·금감원은 토크나이저의
+    // 보통명사 목록(`pii-tokenizer/common-nouns.ts`)에도 있어 사전 없이도 안 가려지므로,
+    // **사전만 아는 이름**인 금융결제원으로 바꿔 배선의 효과를 그대로 보여 줍니다
+    const text = '금융결제원에 전화해서 물어봤는데 안 된다고 합니다'
+    const tokenizer = createPiiTokenizer({ ner: nerFinding(text, '금융결제원') })
     const { masked } = await tokenizer.tokenize(text, {
       allowedTerms: await allowedTermsFor({
         channels: { allCandidates: async () => rows, allPublicNames: async () => [] },
