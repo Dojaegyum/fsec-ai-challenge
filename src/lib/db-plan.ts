@@ -104,10 +104,12 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
         kind: string
         verify_level: string
         verify_result: string
+        verify_detail: Readonly<Record<string, unknown>> | null
         created_at: Date
       }[]
     >`
-      SELECT plan_step_id, artifact_id, kind, verify_level, verify_result, created_at
+      SELECT plan_step_id, artifact_id, kind, verify_level, verify_result,
+             verify_detail, created_at
       FROM artifact WHERE case_id = ${caseId} AND plan_step_id = ANY(${stepIds})
       ORDER BY created_at
     `
@@ -119,6 +121,8 @@ export function createCasePlanStore(sql: Sql, newId: () => string): CasePlanStor
         kind: one.kind,
         verifyLevel: one.verify_level,
         verifyResult: one.verify_result,
+        // **판정 이유** — 화면이 판독 뒤 안내를 고르는 값입니다 (§3.6 `verify_reason`)
+        verifyDetail: one.verify_detail,
         // **기한의 기산점이 될 수 있습니다** → 08-16-deadline-rules.md
         // 「기산점은 부산물」. `deadline.from` 이 `artifact:{kind}` 일 때 씁니다
         createdAt: seoulIso(one.created_at),

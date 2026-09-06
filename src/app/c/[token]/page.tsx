@@ -23,7 +23,7 @@ import {
   type EvidenceState,
 } from "./load";
 import { useChatSend } from "./send";
-import { useArtifact } from "./artifact";
+import { noteOfStep, useArtifact } from "./artifact";
 import { pickFile, useUploads } from "./upload";
 import T0Overlay from "./safety";
 import TodoRail from "./todo";
@@ -410,6 +410,21 @@ function CaseScreen({
    * (불변 규칙 6). 여기 없으면 사슬도 기한도 멈춥니다 → `artifact.ts`
    */
   const artifact = useArtifact(dataToken, onPlanChanged);
+  /**
+   * **판독이 끝나면 서버가 부산물을 다시 판정합니다** (ADR-077) — 그 결과가
+   * 번들에 실려 오면 패널 안내를 갈아끼웁니다.
+   *
+   * ⚠️ 2026-09-06 점검 — 통지문을 올리면 패널이 「올린 자료를 읽는 중입니다」에
+   * 굳었습니다. 낼 때 받은 말을 그대로 들고 있었고, 그것을 바꿔 주는 자리가
+   * 아무 데도 없었기 때문입니다. 번들은 판독이 끝날 때마다 다시 읽힙니다
+   * (위 `onSettled` → `onPlanChanged`)
+   */
+  const { settle: settleArtifact, verdictStepId } = artifact;
+  useEffect(() => {
+    if (!verdictStepId) return;
+    const found = bundle.steps.find((one) => one.step_id === verdictStepId);
+    if (found) settleArtifact(found);
+  }, [bundle.steps, settleArtifact, verdictStepId]);
 
   /**
    * 지금 손댈 단계 하나.
@@ -443,6 +458,27 @@ function CaseScreen({
       open.reduce((best, one) => (one.seq < best.seq ? one : best));
     return chosen as unknown as FullStep;
   }, [bundle.steps, picked]);
+
+  /**
+   * 패널에 그릴 판정 — **안내의 주인은 `artifact.note` 입니다.**
+   *
+   * 새로고침하면 판정은 사라지지만 부산물은 서버에 남아 있습니다. 그때는 그
+   * 단계의 마지막 부산물이 남긴 이유로 **같은 말**을 만듭니다 — 안 그러면 창을
+   * 다시 연 사람에게는 무엇을 더 해야 완료가 되는지가 통째로 사라집니다.
+   *
+   * 부산물은 번들의 단계(§3.6 `artifacts[]`)에서 봅니다 — `FullStep` 은
+   * 워크스페이스가 **판정에 쓰는 만큼**이라 그 칸이 없습니다
+   */
+  const activeOnServer = bundle.steps.find((one) => one.step_id === activeStep?.step_id) ?? null;
+  const panelNote = artifact.note ?? noteOfStep(activeOnServer);
+  const panelVerdict = (() => {
+    const mine = artifact.verdictStepId === activeStep?.step_id ? artifact.verdict : null;
+    if (mine) return { ...mine, note: panelNote ?? undefined };
+    // 새로고침 뒤 — 판정은 없고 서버에 남은 부산물만 있습니다
+    const last = activeOnServer?.artifacts?.at(-1);
+    if (!activeOnServer || !panelNote || !last) return null;
+    return { verify_result: last.verify_result, step_state: activeOnServer.state, note: panelNote };
+  })();
 
   /**
    * 파일을 부산물로 냅니다 — **두 걸음입니다.**
@@ -717,9 +753,7 @@ function CaseScreen({
                   busy={artifact.sendingStepId !== null || uploads.busy}
                   // **그 단계의 판정만** 그립니다 — 앞 단계의 「끝났습니다」가
                   // 다음 단계에 붙어 있으면 안 한 일이 한 것처럼 보입니다
-                  verdict={
-                    artifact.verdictStepId === activeStep?.step_id ? artifact.verdict : null
-                  }
+                  verdict={panelVerdict}
                   fail={artifact.fail}
                   onPickFile={dataToken ? (id, file) => void submitFile(id, file) : undefined}
                   /* 「나중에」 — 판단은 여기(호출부)가 합니다 (`work-handler` `Later` 주석) */

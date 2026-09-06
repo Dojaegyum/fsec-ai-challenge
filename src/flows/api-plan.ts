@@ -52,6 +52,11 @@ export interface ApiPlanStep {
     readonly kind: string
     readonly verify_level: string
     readonly verify_result: string
+    /**
+     * 판정 이유. 화면이 판독 뒤 안내를 고르는 값입니다(§3.8 의 `reason` 과 같은 값).
+     * 이유가 없으면 `null` — **칸은 뺍니다가 아니라 `null` 입니다**
+     */
+    readonly verify_reason: string | null
   }[]
   readonly required_artifact: {
     readonly kind: string
@@ -123,6 +128,9 @@ export function toApiStep(step: StoredStep): ApiPlanStep {
       kind: one.kind,
       verify_level: one.verifyLevel,
       verify_result: one.verifyResult,
+      // **`verify_detail` 을 통째로 태우지 않습니다** — 그 안에는 `evidence_id`
+      // 처럼 화면이 쓸 일 없는 저장소 내부 값도 있습니다 (lib/adapters.ts 와 같은 이유)
+      verify_reason: typeof one.verifyDetail?.reason === 'string' ? one.verifyDetail.reason : null,
     })),
     required_artifact: step.requiredArtifact
       ? { kind: step.requiredArtifact.kind, label: step.requiredArtifact.label }

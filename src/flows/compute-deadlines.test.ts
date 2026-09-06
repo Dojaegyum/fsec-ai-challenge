@@ -209,6 +209,7 @@ describe('`artifact:{kind}` 기산점 — §11.4', () => {
           kind: 'receipt_no',
           verifyLevel: 'L1',
           verifyResult,
+          verifyDetail: null,
           createdAt: '2026-08-17T14:30:00+09:00',
         },
       ],

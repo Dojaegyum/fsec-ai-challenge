@@ -40,6 +40,8 @@
 
 import { useCallback, useState } from "react";
 
+import { L2_NOTES, type L2Reason } from "@/modules/completion-checker/notes";
+
 import { postJson } from "./load";
 import type { LoadFail } from "./load";
 
@@ -81,9 +83,46 @@ export interface ArtifactSend {
    */
   readonly verdictStepId: string | null;
   readonly fail: LoadFail | null;
+  /**
+   * 지금 패널에 그릴 안내 한 줄. 할 말이 없으면 `null`.
+   *
+   * ⚠️ **`verdict.note` 를 그대로 그리면 굳습니다.** 파일로 낸 부산물은 낼 때
+   * 아직 읽는 중이고(`reading_pending`), 판독이 끝나면 **서버가 다시 판정합니다**
+   * (ADR-077). 그 결과는 `settle` 로 들어옵니다 — 안내의 주인은 이 값입니다
+   */
+  readonly note: string | null;
   submit(stepId: string, submission: ArtifactSubmission): Promise<ArtifactVerdict | null>;
+  /**
+   * 판독이 끝나 다시 판정된 단계를 받아 안내를 갈아끼웁니다.
+   *
+   * 부르는 쪽은 번들이 바뀔 때마다 **판정을 낸 그 단계**(`verdictStepId`)를 찾아
+   * 넘깁니다 → `page.tsx`. 다른 단계면 아무 일도 안 합니다
+   */
+  settle(step: SettledStep): void;
   /** 판정 표시를 걷습니다 — 사용자가 다음 단계로 넘어갈 때 */
   clear(): void;
+}
+
+/** `settle` 이 보는 만큼의 단계 — §3.6 의 `state` 와 `artifacts[].verify_reason` */
+export interface SettledStep {
+  readonly step_id: string;
+  readonly state: string;
+  readonly artifacts?: readonly { readonly verify_reason?: string | null }[];
+}
+
+/**
+ * 이유 하나를 사람 말로 — **표는 서버와 나눠 씁니다** (`completion-checker/notes.ts`).
+ *
+ * 표에 없는 이유(L1 의 `format_unchecked` 등)면 `null` 입니다 — **지어내지 않습니다.**
+ */
+export function noteFor(reason: string | null | undefined): string | null {
+  return reason && reason in L2_NOTES ? L2_NOTES[reason as L2Reason] : null;
+}
+
+/** 단계의 **마지막** 부산물이 남긴 안내 — 새로고침 뒤에는 이것으로 그립니다 */
+export function noteOfStep(step: SettledStep | null | undefined): string | null {
+  if (!step || step.state === "done_verified") return null;
+  return noteFor(step.artifacts?.[step.artifacts.length - 1]?.verify_reason);
 }
 
 /** 코드는 낙타 표기, 계약은 밑줄 표기 — 옮기는 곳을 여기 하나로 둡니다 */
@@ -118,6 +157,7 @@ export function useArtifact(
     got: ArtifactVerdict;
   } | null>(null);
   const [fail, setFail] = useState<LoadFail | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   const submit = useCallback(
     async (stepId: string, submission: ArtifactSubmission) => {
@@ -144,6 +184,8 @@ export function useArtifact(
       // (`load.ts` 의 `toBundle` 과 같은 이유)
       const got = sent.json as ArtifactVerdict;
       setVerdict({ stepId, got });
+      // 서버가 낸 그 순간의 말. 판독이 끝나면 `settle` 이 갈아끼웁니다
+      setNote(got.note ?? null);
 
       // 사슬이 실제로 움직였을 때만 플랜을 다시 읽습니다
       if (got.unlocked_steps?.length || got.step_state === "done_verified") {
@@ -155,9 +197,24 @@ export function useArtifact(
     [caseToken, onPlanChanged, sendingStepId],
   );
 
+  /**
+   * 번들이 바뀌었을 때 그 단계의 지금 판정으로 안내를 맞춥니다.
+   *
+   * **판정을 낸 단계의 것만 받습니다** — 다른 단계의 소식으로 이 안내를 바꾸면
+   * 안 한 일의 말이 여기 붙습니다(`verdictStepId` 가 있는 이유와 같습니다).
+   */
+  const settle = useCallback(
+    (step: SettledStep) => {
+      if (verdict && verdict.stepId !== step.step_id) return;
+      setNote(noteOfStep(step));
+    },
+    [verdict],
+  );
+
   const clear = useCallback(() => {
     setVerdict(null);
     setFail(null);
+    setNote(null);
   }, []);
 
   return {
@@ -165,7 +222,9 @@ export function useArtifact(
     verdict: verdict?.got ?? null,
     verdictStepId: verdict?.stepId ?? null,
     fail,
+    note,
     submit,
+    settle,
     clear,
   };
 }

@@ -14,6 +14,8 @@ import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { L2_NOTES } from "@/modules/completion-checker/notes";
+
 import { useArtifact } from "./artifact";
 import type { ArtifactSend } from "./artifact";
 
@@ -105,5 +107,115 @@ describe("판정은 자기 단계에만 붙는다", () => {
 
     expect(hookNow().verdict).toBeNull();
     expect(hookNow().verdictStepId).toBeNull();
+  });
+});
+
+/**
+ * 안내가 **판독 결과를 따라가는가** — §3.6 `artifacts[].verify_reason`.
+ *
+ * ⚠️ **2026-09-06 점검 — 패널이 「올린 자료를 읽는 중입니다」에 굳었습니다.**
+ * 파일을 부산물로 내면 그 순간에는 아직 읽는 중이라 서버가 `reading_pending`
+ * 으로 답하고, 판독이 끝나면 **서버가 다시 판정합니다**(ADR-077). 그런데 화면은
+ * 낼 때 받은 `note` 만 들고 있어, 판정이 바뀐 뒤에도 같은 말을 했습니다 —
+ * 사용자는 무엇을 더 해야 완료가 되는지 알 방법이 없었습니다.
+ */
+describe("안내는 판독 결과를 따라간다", () => {
+  /** 파일을 냈을 때의 첫 응답 — 아직 읽는 중입니다 */
+  const stubReadingPending = () =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              artifact_id: "01JART",
+              verify_level: "L2",
+              verify_result: "not_applicable",
+              verify_detail: { reason: "reading_pending" },
+              step_state: "unconfirmed",
+              note: L2_NOTES.reading_pending,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
+
+  const sendFile = async () => {
+    await act(async () => {
+      root.render(<Probe />);
+    });
+    await act(async () => {
+      await hookNow().submit("01STEP-A", { kind: "receipt_doc", evidenceId: "01EV" });
+    });
+  };
+
+  it("업로드 응답의 안내는 판독이 끝나면 단계의 verify_reason 으로 바뀐다", async () => {
+    stubReadingPending();
+    await sendFile();
+    expect(hookNow().note).toBe(L2_NOTES.reading_pending);
+
+    act(() =>
+      hookNow().settle({
+        step_id: "01STEP-A",
+        state: "unconfirmed",
+        artifacts: [{ verify_reason: "no_receipt_marks" }],
+      }),
+    );
+
+    expect(hookNow().note).toBe(L2_NOTES.no_receipt_marks);
+  });
+
+  it("단계가 완료로 바뀌면 안내를 지운다 — 할 일이 없습니다", async () => {
+    stubReadingPending();
+    await sendFile();
+
+    act(() =>
+      hookNow().settle({
+        step_id: "01STEP-A",
+        state: "done_verified",
+        artifacts: [{ verify_reason: "receipt_number_found" }],
+      }),
+    );
+
+    expect(hookNow().note).toBeNull();
+  });
+
+  it("**다른 단계의 소식은 안 받습니다** — 남의 판정을 이 단계에 붙이지 않습니다", async () => {
+    stubReadingPending();
+    await sendFile();
+
+    act(() =>
+      hookNow().settle({
+        step_id: "01STEP-B",
+        state: "unconfirmed",
+        artifacts: [{ verify_reason: "not_a_document" }],
+      }),
+    );
+
+    expect(hookNow().note).toBe(L2_NOTES.reading_pending);
+  });
+
+  it("표에 없는 이유면 안내를 지웁니다 — 지어내지 않습니다", async () => {
+    stubReadingPending();
+    await sendFile();
+
+    act(() =>
+      hookNow().settle({
+        step_id: "01STEP-A",
+        state: "unconfirmed",
+        artifacts: [{ verify_reason: "format_unchecked" }],
+      }),
+    );
+
+    expect(hookNow().note).toBeNull();
+  });
+
+  it("걷어내면 안내도 함께 사라진다", async () => {
+    stubReadingPending();
+    await sendFile();
+
+    act(() => hookNow().clear());
+
+    expect(hookNow().note).toBeNull();
   });
 });

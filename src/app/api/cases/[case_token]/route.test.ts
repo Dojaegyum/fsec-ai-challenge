@@ -219,3 +219,41 @@ describe('제출처가 §3.10 합본까지 실린다 — `plan.channels[].submit
     expect(one).toMatchObject({ org_id: null, submit: [], caution: null })
   })
 })
+
+/**
+ * 판정 이유가 합본까지 와야 **새로고침한 뒤에도 패널이 같은 말을 합니다.**
+ *
+ * 화면은 첫 로드에 이 응답 하나만 받습니다(§3.10 「첫 로드의 유일한 입구」).
+ * 여기서 빠지면 판독이 끝난 뒤 창을 새로 연 사람에게는 안내가 통째로 사라지고,
+ * 무엇을 더 해야 완료가 되는지 알 방법이 없습니다.
+ */
+describe('판정 이유가 §3.10 합본까지 실린다 — `artifacts[].verify_reason`', () => {
+  const withArtifact = (reason: unknown): StoredStep => ({
+    ...stepAt('report-112', 1, '2026-08-27T15:30:00.000+09:00'),
+    artifacts: [
+      {
+        artifactId: '01J8ART0000000000000000AA',
+        kind: 'receipt_doc',
+        verifyLevel: 'L2',
+        verifyResult: 'failed',
+        verifyDetail: { reason, evidence_id: '01J8EV00000000000000000000' },
+        createdAt: '2026-08-27T15:31:00.000+09:00',
+      },
+    ],
+  })
+
+  async function artifactsOf(reason: unknown) {
+    const plan = (await planOf([withArtifact(reason)])) as unknown as {
+      steps: { artifacts: { verify_reason: string | null }[] }[]
+    }
+    return plan.steps[0].artifacts
+  }
+
+  it('§3.6 과 같은 값이 합본에 실린다', async () => {
+    expect((await artifactsOf('no_receipt_marks'))[0].verify_reason).toBe('no_receipt_marks')
+  })
+
+  it('저장소 내부 값(`evidence_id`)은 안 실린다 — 이유만 나갑니다', async () => {
+    expect((await artifactsOf('no_receipt_marks'))[0]).not.toHaveProperty('evidence_id')
+  })
+})

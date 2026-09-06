@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { toApiChannel, toApiPlan, toApiStep } from './api-plan'
-import type { PlanChannel, StoredStep } from './regenerate-plan'
+import type { PlanChannel, StoredArtifact, StoredStep } from './regenerate-plan'
 
 const step = (over: Partial<StoredStep> = {}): StoredStep => ({
   planStepId: '01J8XKR7000000000000000000',
@@ -63,6 +63,49 @@ describe('근거 없는 단계를 만들지 않는다 — 불변 규칙 1', () =
       source_url: 'https://www.law.go.kr/법령/…/제4조',
       effective_from: '2024-08-28',
     })
+  })
+})
+
+/**
+ * 판정 이유가 응답에 실려야 **화면이 판독 뒤 안내를 바꿀 수 있습니다.**
+ *
+ * ⚠️ 2026-09-06 점검 — 통지문을 올리면 패널이 「올린 자료를 읽는 중입니다」라고
+ * 말하는데, 판독이 끝나 서버가 다시 판정한 뒤에도 그 말이 그대로 남았습니다.
+ * 응답에 이유(`verify_detail.reason`)가 안 실려 화면이 바꿀 값을 못 받았습니다.
+ */
+describe('부산물의 판정 이유가 실린다 — §3.6 · §3.10', () => {
+  const artifact = (over: Partial<StoredArtifact> = {}): StoredArtifact => ({
+    artifactId: '01J8XKR7ART00000000000000',
+    kind: 'receipt_doc',
+    verifyLevel: 'L2',
+    verifyResult: 'failed',
+    verifyDetail: null,
+    createdAt: '2026-09-06T09:18:00+09:00',
+    ...over,
+  })
+
+  it('단계 부산물에 verify_reason 이 실린다 — 화면이 판정 뒤 안내를 고르는 값', () => {
+    const api = toApiStep(
+      step({ artifacts: [artifact({ verifyDetail: { reason: 'no_receipt_marks' } })] }),
+    )
+    expect(api.artifacts[0].verify_reason).toBe('no_receipt_marks')
+  })
+
+  it('이유가 없으면 `null` — **칸을 빼지 않습니다**', () => {
+    // 「칸이 없다」와 「이유가 없다」가 갈리면 화면이 둘을 따로 다뤄야 합니다
+    const api = toApiStep(step({ artifacts: [artifact()] }))
+    expect(api.artifacts[0]).toHaveProperty('verify_reason', null)
+  })
+
+  it('이유 자리에 글자가 아닌 것이 있으면 `null` — 저장소 내부 값을 태우지 않습니다', () => {
+    const api = toApiStep(step({ artifacts: [artifact({ verifyDetail: { reason: 7 } })] }))
+    expect(api.artifacts[0].verify_reason).toBeNull()
+  })
+
+  it('있던 칸은 그대로다', () => {
+    const api = toApiStep(step({ artifacts: [artifact()] }))
+    expect(api.artifacts[0].verify_level).toBe('L2')
+    expect(api.artifacts[0].verify_result).toBe('failed')
   })
 })
 
