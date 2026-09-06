@@ -63,6 +63,12 @@ export interface RouteResult {
   readonly body: unknown
   /** 기본 200. 생성은 201, 접수는 202 → §3.1 §3.2 */
   readonly status?: number
+  /**
+   * 라우트가 덧붙일 헤더 — 지금은 로그인·로그아웃의 `Set-Cookie` 하나뿐입니다 (§7.1 · ADR-081).
+   * 계측 헤더·`Cache-Control` 뒤에 붙고, 같은 이름이면 라우트 것이 이깁니다.
+   * **`Response` 를 직접 만들지 않으려는 것입니다** — 그러면 계측 헤더가 빠집니다 (route-contract R2)
+   */
+  readonly headers?: Readonly<Record<string, string>>
 }
 
 export type RouteHandler = (ctx: RequestContext) => Promise<RouteResult>
@@ -209,6 +215,7 @@ export async function handleRoute(
     return ok(result.body, {
       status: result.status,
       telemetry: telemetry.snapshot(),
+      headers: result.headers,
     })
   } catch (error) {
     // **열거 방어는 여기서 겁니다** → ADR-039 ④ · §1.3.
