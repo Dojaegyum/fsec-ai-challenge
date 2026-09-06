@@ -8,6 +8,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { isTransient } from './errors'
 import { createNerModel } from './ner'
 
 const BASE = 'https://ner.example'
@@ -85,12 +86,14 @@ describe('createNerModel', () => {
     })
 
     it('거절당했을 때 — 상태 코드만 담고 본문은 안 담는다', async () => {
+      // 4xx 로 시험합니다 — 5xx 는 ADR-091 §1 로 TransientError 가 되어 메시지가 다릅니다
+      // (아래 '일시적 실패를 표시한다' describe)
       vi.stubGlobal('fetch', vi.fn(async () =>
-        respond({ detail: '김민수 님의 계좌 110-123-456' }, { status: 503 }),
+        respond({ detail: '김민수 님의 계좌 110-123-456' }, { status: 400 }),
       ))
       const error = await createNerModel({ baseUrl: BASE }).find('가').catch((e: Error) => e)
       expect(error).toBeInstanceOf(Error)
-      expect((error as Error).message).toBe('탐지 서비스가 거절했습니다 (503)')
+      expect((error as Error).message).toBe('탐지 서비스가 거절했습니다 (400)')
       // **원문이 감사 기록으로 새면 안 됩니다** → 08-14-pii-boundary.md
       expect((error as Error).message).not.toContain('김민수')
       expect((error as Error).message).not.toContain('110-123-456')
@@ -109,5 +112,35 @@ describe('createNerModel', () => {
         '탐지 서비스의 응답을 읽지 못했습니다',
       )
     })
+  })
+})
+
+describe('일시적 실패를 표시한다 — ADR-091 §1', () => {
+  const asResponse = (status: number) =>
+    ({ ok: status < 400, status, json: async () => ({}) }) as Response
+
+  it('닿지 못하면 transient 다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('ETIMEDOUT')
+    }))
+    const model = createNerModel({ baseUrl: BASE })
+
+    expect(isTransient(await model.find('김도현').catch((e: unknown) => e))).toBe(true)
+  })
+
+  it('503 도 transient 다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => asResponse(503)))
+    const model = createNerModel({ baseUrl: BASE })
+
+    expect(isTransient(await model.find('김도현').catch((e: unknown) => e))).toBe(true)
+  })
+
+  it('401 은 아니다 — 비밀값이 틀린 것은 기다려도 안 낫는다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => asResponse(401)))
+    const model = createNerModel({ baseUrl: BASE })
+
+    const thrown = await model.find('김도현').catch((e: unknown) => e)
+    expect(thrown).toBeInstanceOf(Error)
+    expect(isTransient(thrown)).toBe(false)
   })
 })
