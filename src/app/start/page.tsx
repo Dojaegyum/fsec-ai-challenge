@@ -81,7 +81,10 @@ import { openCase, trackOf } from "./open";
  *    `TRANSCRIBER_URL`·`NER_URL` 은 배포 환경변수에만 있습니다(ADR-059). 그래서
  *    4항이 「국외일 수 있음」으로 적혀 있습니다 — **덮지 않는 쪽**입니다. 확정
  *    표기로 바꾸려면 사람이 소재지를 확인해야 합니다 → `위탁` 의 `TODO(사람 확인)`
- *  · ⬜ **동의 전문은 법무 검토 전 초안입니다** — 모달 머리말이 그렇게 적고 있습니다.
+ *  · ⬜ **동의 전문은 법무 검토 전 초안입니다** — 화면에는 그렇게 적지 않습니다.
+ *    2026-09-05 까지 머리말이 「버전 초안 (법무 검토 전)」이었는데, 접수 전 점검에서
+ *    심사위원에게 **미완성**으로 읽혀 「시행 2026-09 · 초안」으로 줄였습니다(2026-09-06 ·
+ *    §S-05 「머리말」). 사실은 여기와 ADR-031 에 남습니다 — 법무 검토가 끝나면 이 줄을 ✅ 로.
  *    4항의 「국외 이전」 표기는 개인정보 보호법 제28조의8 을 근거로 우리가 쓴 것이고,
  *    표준 양식과의 대조는 아직 사람이 안 봤습니다
  *
@@ -595,6 +598,153 @@ export function ConsentClauses({
   );
 }
 
+/**
+ * 동의 전문 모달 → §S-05 「동의 — 전문은 모달, 요약은 그 앞에」 ·
+ * [컴포넌트 규칙](../../../spec/frontend/design-system/08-16-components.md) 의 `ConsentModal`.
+ *
+ * **요약 카드 넷 + 조항 다섯.** 다섯을 모두 확인해야 [동의하고 계속하기]가 열립니다
+ * ([ADR-031](../../../decisions/031-consent-clause-ack.md)) — 몇 개 남았는지는
+ * 머리(`확인 N / 5`)와 발(「N개 항목 확인 남음」)에 항상 보입니다. 왜 못 누르는지
+ * 모르게 두는 것이 진짜 이탈 원인입니다.
+ *
+ * **「전부 확인」은 다섯을 한 번에 채우는 또 하나의 길입니다**
+ * ([ADR-074](../../../decisions/074-consent-check-all.md)) — 관문(다섯 모두)은 그대로고
+ * 조작의 수만 줍니다. 채울 것이 있을 때만 그리고, [동의하고 계속하기]와 **합치지 않습니다**
+ * (확인은 읽었다, 동의는 하겠다). 2026-09-06 접수 전 점검에서 다섯 번 클릭이
+ * 「정당하지만 마찰」로 잡혀 들어왔습니다.
+ *
+ * 밖으로 뺀 이유는 `ConsentClauses` 와 같습니다 — **머리말과 관문의 상태는 읽히는
+ * 것이라 시험이 붙어야 하는데**, `Start` 안에 있으면 `useRouter` 때문에 정적으로 못
+ * 그립니다. 상태(`checks`)는 여전히 `Start` 가 들고 있습니다.
+ *
+ * **포커스를 가두지 않습니다** ([접근성](../../../spec/frontend/design-system/08-16-accessibility.md) 「키보드」).
+ */
+export function ConsentModal({
+  checks,
+  onToggle,
+  onCheckAll,
+  onAgree,
+  onClose,
+}: {
+  checks: readonly boolean[];
+  onToggle: (i: number) => void;
+  onCheckAll: () => void;
+  onAgree: () => void;
+  onClose: () => void;
+}) {
+  const checkedCount = checks.filter(Boolean).length;
+  const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="개인정보 수집·이용 동의 전문"
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center bg-[oklch(0_0_0/62%)] p-4 backdrop-blur-[6px] md:p-8"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="rise flex max-h-[84vh] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[oklch(0.305_0.013_267.1/80%)] bg-stage shadow-[0_40px_90px_-30px_oklch(0_0_0/90%)]"
+      >
+        {/* 좁은 화면에서는 오른쪽 묶음(전부 확인 · 확인 N / 5 · ✕)이 제목 아래로 내려옵니다 —
+            제목을 한 글자씩 꺾는 것보다 낫습니다 */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[oklch(0.305_0.013_267.1/72%)] px-6 py-[18px]">
+          <div className="min-w-0">
+            <div className="text-[16.5px] font-[660] tracking-[-0.015em] text-ink-1">
+              개인정보 수집·이용 동의 (필수)
+            </div>
+            <div className="mt-0.5 text-[13px] text-ink-3">
+              시행 2026-09 · 초안
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5">
+            {/* 채울 것이 있을 때만 — 다 채워지면 `확인 5 / 5` 가 그 자리를 말합니다 (ADR-074) */}
+            {!canAgree && (
+              <button
+                type="button"
+                onClick={onCheckAll}
+                className="inline-flex min-h-[30px] items-center rounded-full border border-[oklch(0.305_0.013_267.1/72%)] px-3 text-[13px] font-[620] text-ink-2 transition-colors hover:border-[oklch(1_0_0/25%)] hover:text-ink-1"
+              >
+                전부 확인
+              </button>
+            )}
+            <span
+              data-numeric
+              className="inline-flex items-center rounded-full border border-[oklch(0.697_0.16_258.2/42%)] bg-[oklch(0.697_0.16_258.2/10%)] px-2.5 py-[3px] text-[13px] font-[620] text-pii"
+            >
+              확인 {checkedCount} / 5
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="grid size-[34px] place-items-center rounded-[10px] border border-[oklch(0.305_0.013_267.1/72%)] text-[15px] text-ink-3 transition-colors hover:border-[oklch(1_0_0/25%)] hover:text-ink-1"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 pb-2 pt-5">
+          {/* 약속 네 가지 요약 — 전문과 다르면 전문이 기준 */}
+          <div className="grid gap-2 md:grid-cols-2">
+            <div className="rounded-[12px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[12px_14px]">
+              <div className="text-[13.5px] font-[640] text-ink-1">180일 뒤 자동 파기</div>
+              <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">마지막 활동일 기준입니다.</p>
+            </div>
+            <div className="rounded-[12px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[12px_14px]">
+              <div className="text-[13.5px] font-[640] text-ink-1">주민등록번호는 받지 않습니다</div>
+              <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">
+                못 가리면 그 파일만 빼고 진행합니다.
+              </p>
+            </div>
+            <div className="rounded-[12px] border border-[oklch(0.697_0.16_258.2/40%)] bg-pii-bg p-[12px_14px]">
+              {/* **가리는 자리는 둘입니다** — 적은 글은 브라우저(1차 정규식),
+                  올린 파일은 저희 서버(전사·판독 인프라). 전에는 「브라우저에서
+                  가려집니다」라고만 적어 파일까지 브라우저에서 가리는 것처럼
+                  읽혔습니다(2026-09-02 지적) — 파일은 브라우저가 못 가립니다 */}
+              <div className="text-[13.5px] font-[640] text-pii">가려진 뒤에야 AI 로 갑니다</div>
+              <p className="mt-1 text-[13px] leading-[1.55] text-ink-2">
+                적으신 글은 브라우저에서, 올리신 파일은 저희 서버에서 가립니다. 바깥 AI 에는
+                가려진 것만 갑니다.
+              </p>
+            </div>
+            <div className="rounded-[12px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[12px_14px]">
+              <div className="text-[13.5px] font-[640] text-ink-1">학습에 쓰지 않습니다</div>
+              <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">이 사건의 처리에만 씁니다.</p>
+            </div>
+          </div>
+
+          <ConsentClauses checks={checks} onToggle={onToggle} />
+        </div>
+
+        <div className="flex gap-2.5 border-t border-[oklch(0.305_0.013_267.1/72%)] bg-stage px-6 py-4">
+          {canAgree ? (
+            <button type="button" onClick={onAgree} className={`${btnPrimary} flex-1 text-[15px]`}>
+              동의하고 계속하기
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="inline-flex min-h-[50px] flex-1 cursor-not-allowed items-center justify-center gap-2.5 rounded-[12px] bg-[oklch(1_0_0/10%)] text-[15px] font-[660] text-ink-3"
+            >
+              동의하고 계속하기
+              <span data-numeric className="text-[13px] font-[560]">
+                {5 - checkedCount}개 항목 확인 남음
+              </span>
+            </button>
+          )}
+          <button type="button" onClick={onClose} className={`${btnGhost} px-6 text-[14.5px]`}>
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Start() {
   /**
    * 시연 전용 게이트 — 「Mock 파일로 실행」 칩을 그리는 조건은 셋 중 하나입니다.
@@ -700,6 +850,8 @@ export default function Start() {
   const checkedCount = checks.filter(Boolean).length;
   const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
   const toggle = (i: number) => setChecks((c) => c.map((v, j) => (j === i ? !v : v)));
+  // 다섯을 한 번에 — 관문은 그대로고(위 `canAgree`), 채우는 조작만 준다 (ADR-074)
+  const checkAll = () => setChecks((c) => c.map(() => true));
   const agree = () => {
     if (!canAgree) return;
     setAgreed(true);
@@ -1093,110 +1245,13 @@ export default function Start() {
 
       {/* ── 동의 전문 모달 ─────────────────────────────── */}
       {modalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="개인정보 수집·이용 동의 전문"
-          onClick={() => setModalOpen(false)}
-          className="fixed inset-0 z-50 grid place-items-center bg-[oklch(0_0_0/62%)] p-4 backdrop-blur-[6px] md:p-8"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="rise flex max-h-[84vh] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[oklch(0.305_0.013_267.1/80%)] bg-stage shadow-[0_40px_90px_-30px_oklch(0_0_0/90%)]"
-          >
-            <div className="flex items-center justify-between gap-4 border-b border-[oklch(0.305_0.013_267.1/72%)] px-6 py-[18px]">
-              <div>
-                <div className="text-[16.5px] font-[660] tracking-[-0.015em] text-ink-1">
-                  개인정보 수집·이용 동의 (필수)
-                </div>
-                <div className="mt-0.5 text-[13px] text-ink-3">
-                  시행 2026. 8. — · 버전 초안 (법무 검토 전)
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span
-                  data-numeric
-                  className="inline-flex items-center rounded-full border border-[oklch(0.697_0.16_258.2/42%)] bg-[oklch(0.697_0.16_258.2/10%)] px-2.5 py-[3px] text-[13px] font-[620] text-pii"
-                >
-                  확인 {checkedCount} / 5
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  aria-label="닫기"
-                  className="grid size-[34px] place-items-center rounded-[10px] border border-[oklch(0.305_0.013_267.1/72%)] text-[15px] text-ink-3 transition-colors hover:border-[oklch(1_0_0/25%)] hover:text-ink-1"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 pb-2 pt-5">
-              {/* 약속 네 가지 요약 — 전문과 다르면 전문이 기준 */}
-              <div className="grid gap-2 md:grid-cols-2">
-                <div className="rounded-[12px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[12px_14px]">
-                  <div className="text-[13.5px] font-[640] text-ink-1">180일 뒤 자동 파기</div>
-                  <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">
-                    마지막 활동일 기준입니다.
-                  </p>
-                </div>
-                <div className="rounded-[12px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[12px_14px]">
-                  <div className="text-[13.5px] font-[640] text-ink-1">
-                    주민등록번호는 받지 않습니다
-                  </div>
-                  <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">
-                    못 가리면 그 파일만 빼고 진행합니다.
-                  </p>
-                </div>
-                <div className="rounded-[12px] border border-[oklch(0.697_0.16_258.2/40%)] bg-pii-bg p-[12px_14px]">
-                  {/* **가리는 자리는 둘입니다** — 적은 글은 브라우저(1차 정규식),
-                      올린 파일은 저희 서버(전사·판독 인프라). 전에는 「브라우저에서
-                      가려집니다」라고만 적어 파일까지 브라우저에서 가리는 것처럼
-                      읽혔습니다(2026-09-02 지적) — 파일은 브라우저가 못 가립니다 */}
-                  <div className="text-[13.5px] font-[640] text-pii">가려진 뒤에야 AI 로 갑니다</div>
-                  <p className="mt-1 text-[13px] leading-[1.55] text-ink-2">
-                    적으신 글은 브라우저에서, 올리신 파일은 저희 서버에서 가립니다.
-                    바깥 AI 에는 가려진 것만 갑니다.
-                  </p>
-                </div>
-                <div className="rounded-[12px] border border-[oklch(0.305_0.013_267.1/72%)] bg-surface p-[12px_14px]">
-                  <div className="text-[13.5px] font-[640] text-ink-1">학습에 쓰지 않습니다</div>
-                  <p className="mt-1 text-[13px] leading-[1.55] text-ink-3">
-                    이 사건의 처리에만 씁니다.
-                  </p>
-                </div>
-              </div>
-
-              <ConsentClauses checks={checks} onToggle={toggle} />
-            </div>
-
-            <div className="flex gap-2.5 border-t border-[oklch(0.305_0.013_267.1/72%)] bg-stage px-6 py-4">
-              {canAgree ? (
-                <button type="button" onClick={agree} className={`${btnPrimary} flex-1 text-[15px]`}>
-                  동의하고 계속하기
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="inline-flex min-h-[50px] flex-1 cursor-not-allowed items-center justify-center gap-2.5 rounded-[12px] bg-[oklch(1_0_0/10%)] text-[15px] font-[660] text-ink-3"
-                >
-                  동의하고 계속하기
-                  <span data-numeric className="text-[13px] font-[560]">
-                    {5 - checkedCount}개 항목 확인 남음
-                  </span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className={`${btnGhost} px-6 text-[14.5px]`}
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConsentModal
+          checks={checks}
+          onToggle={toggle}
+          onCheckAll={checkAll}
+          onAgree={agree}
+          onClose={() => setModalOpen(false)}
+        />
       )}
     </main>
   );

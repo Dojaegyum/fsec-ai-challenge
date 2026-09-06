@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { kindOf } from "@/app/c/[token]/upload";
 
-import { ConsentClauses, EvidenceSlots, UploadNote } from "./page";
+import { ConsentClauses, ConsentModal, EvidenceSlots, UploadNote } from "./page";
 
 const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -301,5 +301,126 @@ describe("Mock 파일로 실행", () => {
   it("사람이 고른 줄에는 그 표시가 없다", () => {
     const html = draw({ picked: [pickedOne(1, "카톡캡처.png")] });
     expect(textOf(html)).not.toContain("Mock");
+  });
+});
+
+/**
+ * 동의 전문 모달 — **관문의 상태가 읽히는 대로 그려지나.**
+ *
+ * 계약: spec/frontend/08-14-screens.md §S-05 「동의 — 전문은 모달, 요약은 그 앞에」 ·
+ * ADR-031(조항별 확인이 동의의 성립 요건).
+ *
+ * 상태(`checks`)는 `Start` 가 들고 있고 여기는 받은 배열을 그리기만 합니다 —
+ * 그래서 정적 HTML 로 충분합니다. 누르는 쪽은 `Start` 의 한 줄(`toggle`)이라
+ * 따로 안 봅니다.
+ */
+describe("동의 전문 모달 — 관문", () => {
+  const NONE = [false, false, false, false, false] as const;
+  const ALL = [true, true, true, true, true] as const;
+
+  const modal = (checks: readonly boolean[]) =>
+    renderToStaticMarkup(
+      <ConsentModal
+        checks={checks}
+        onToggle={() => {}}
+        onCheckAll={() => {}}
+        onAgree={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+  it("다 확인하기 전에는 [동의하고 계속하기]가 잠겨 있고, 몇 개 남았는지가 머리와 발에 보인다", () => {
+    const html = modal([true, false, false, false, false]);
+    const text = textOf(html);
+
+    expect(text).toContain("확인 1 / 5");
+    expect(text).toContain("4개 항목 확인 남음");
+    // 왜 못 누르는지 모르게 두는 것이 진짜 이탈 원인입니다 (ADR-031 「결과」)
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>동의하고 계속하기/);
+  });
+
+  it("다섯을 모두 확인하면 열린다 — 그 전에는 열리지 않는다", () => {
+    const open = modal(ALL);
+    expect(textOf(open)).toContain("확인 5 / 5");
+    expect(textOf(open)).not.toContain("항목 확인 남음");
+    expect(open).not.toMatch(/disabled=""[^>]*>동의하고 계속하기/);
+
+    expect(modal(NONE)).toMatch(/disabled=""[^>]*>동의하고 계속하기/);
+  });
+
+  it("요약 카드 넷이 전문 앞에 있다 — 심사가 먼저 읽는 자리", () => {
+    const text = textOf(modal(NONE));
+    for (const card of ["180일 뒤 자동 파기", "주민등록번호는 받지 않습니다", "가려진 뒤에야 AI 로 갑니다", "학습에 쓰지 않습니다"]) {
+      expect(text).toContain(card);
+    }
+    expect(text.indexOf("학습에 쓰지 않습니다")).toBeLessThan(text.indexOf("1. 수집하는 항목"));
+  });
+});
+
+/**
+ * 머리말 — **정직하되 미완성으로 읽히지 않게.**
+ *
+ * 2026-09-06 접수 전 점검: 「버전 초안 (법무 검토 전)」이 심사위원에게 미완성으로
+ * 읽혔습니다. 법무 검토 전이라는 사실은 이 파일 머리 주석과 ADR-031 에 남기고,
+ * 화면은 「시행 2026-09 · 초안」까지만 적습니다 (→ §S-05 「머리말」 · ADR-074 「맥락」).
+ */
+describe("동의 전문 모달 — 머리말", () => {
+  const header = () =>
+    textOf(
+      renderToStaticMarkup(
+        <ConsentModal
+          checks={[false, false, false, false, false]}
+          onToggle={() => {}}
+          onCheckAll={() => {}}
+          onAgree={() => {}}
+          onClose={() => {}}
+        />,
+      ),
+    );
+
+  it("「시행 2026-09 · 초안」까지만 적는다", () => {
+    expect(header()).toContain("시행 2026-09 · 초안");
+  });
+
+  it("「법무 검토 전」은 화면에 없다 — 주석과 ADR 에 남는다", () => {
+    expect(header()).not.toContain("법무 검토 전");
+  });
+});
+
+/**
+ * 「전부 확인」 — **다섯을 한 번에 채우는 길** (ADR-074).
+ *
+ * 관문은 그대로다(다섯을 모두 확인해야 열림 · ADR-031). 바뀐 것은 다섯을 채우는
+ * 조작의 수다. 단추는 채울 것이 있을 때만 있고, [동의하고 계속하기]와 합쳐지지
+ * 않는다 — 확인(읽었다)과 동의(하겠다)는 다른 행위다.
+ *
+ * 누르면 실제로 다섯이 채워지는지는 `Start` 의 `checkAll` 한 줄이라 정적으로 못 본다.
+ * 여기는 단추가 **있어야 할 때 있고, 없어야 할 때 없는지**를 본다.
+ */
+describe("동의 전문 모달 — 전부 확인", () => {
+  const modal = (checks: readonly boolean[]) =>
+    renderToStaticMarkup(
+      <ConsentModal
+        checks={checks}
+        onToggle={() => {}}
+        onCheckAll={() => {}}
+        onAgree={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+  it("채울 것이 남아 있으면 「전부 확인」 단추가 있다", () => {
+    const html = modal([true, false, false, false, false]);
+    expect(html).toMatch(/<button[^>]*>전부 확인<\/button>/);
+  });
+
+  it("다 채워지면 사라진다 — 채울 것이 없다", () => {
+    expect(textOf(modal([true, true, true, true, true]))).not.toContain("전부 확인");
+  });
+
+  it("「전부 확인하고 동의」로 합치지 않는다 — 동의 단추는 따로 있다", () => {
+    const text = textOf(modal([false, false, false, false, false]));
+    expect(text).not.toContain("전부 확인하고");
+    expect(text).toContain("동의하고 계속하기");
   });
 });
