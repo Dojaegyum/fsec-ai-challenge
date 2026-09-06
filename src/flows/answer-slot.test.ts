@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createContainer, unconfiguredPorts, type Container, type Ports } from '@/lib/container'
 import { readEnv } from '@/lib/env'
+import { BadRequestError } from '@/lib/http'
 
 import type { ChannelWriter, OrgCandidateRow, SlotWriter } from '@/lib/db'
 import type { SlotKey, SlotState, SlotTier } from '@/modules/slot-checker'
@@ -675,5 +676,68 @@ describe('뽑힌 값의 되묻기 답 — ADR-069', () => {
     )
 
     expect(got.value).toBe('맞아요')
+  })
+
+  /**
+   * 같은 되묻기를 **뜻으로** 받는 길 — ADR-082.
+   *
+   * 2026-09-06 QA 에서 브라우저가 보내기 전에 「요」를 가려(ADR-081) 「아니에[이름-5], 다시
+   * 적을게[이름-5]」가 도착했고, 위 글자 비교가 어긋나 그 글자가 금액으로 저장됐습니다.
+   * 뜻으로 오면 글자가 무엇이 되든 상관이 없습니다.
+   */
+  describe('뜻으로 온 되묻기의 답 — ADR-082', () => {
+    it('action=confirm 은 뽑힌 값을 그대로 확정한다 — 글자와 무관', async () => {
+      const one = extractedHarness('amount', '32000000')
+
+      const got = await answerSlot(
+        { caseId: CASE_ID, slotKey: 'amount', action: 'confirm' },
+        one.container,
+      )
+
+      expect(got.state).toBe('confirmed')
+      expect(got.value).toBe('32000000')
+      // 글자 길과 **같은 자리를 지납니다** — `source` 는 `auto` 그대로여야 기한 계산이
+      // 「증거에서 온 날짜」로 셉니다(`compute-deadlines.ts`)
+      expect(one.slotWrites).toEqual([
+        expect.objectContaining({
+          slotKey: 'amount',
+          state: 'confirmed',
+          valueMasked: '32000000',
+          source: 'auto',
+          sourceRef: EVIDENCE_REF,
+        }),
+      ])
+    })
+
+    it('action=reject 는 슬롯을 비워 원래 형식으로 다시 묻게 한다', async () => {
+      const one = extractedHarness('amount', '32000000')
+
+      const got = await answerSlot(
+        { caseId: CASE_ID, slotKey: 'amount', action: 'reject' },
+        one.container,
+      )
+
+      expect(got.state).toBe('empty')
+      expect(got.value).toBeNull()
+      expect(one.slotWrites).toEqual([
+        expect.objectContaining({ slotKey: 'amount', state: 'empty', valueMasked: null }),
+      ])
+    })
+
+    it('extracted 가 아닌 슬롯에 confirm 이 오면 400 — 확인할 값이 없다', async () => {
+      const one = harness({ slots: TRANSFERRED })
+
+      await expect(
+        answerSlot({ caseId: CASE_ID, slotKey: 'amount', action: 'confirm' }, one.container),
+      ).rejects.toBeInstanceOf(BadRequestError)
+    })
+
+    it('되묻기 문항이 아닌 슬롯에 confirm 이 오면 400', async () => {
+      const one = harness({ slots: TRANSFERRED })
+
+      await expect(
+        answerSlot({ caseId: CASE_ID, slotKey: 'channel', action: 'confirm' }, one.container),
+      ).rejects.toBeInstanceOf(BadRequestError)
+    })
   })
 })

@@ -348,8 +348,29 @@ export function QuestionBlock({
       ? restore(question.text, [...restorable], { site: "chat-answer" })
       : question.text;
 
-  const answer = (value: string) => void ask.answer(value).then(onAnswered);
   const skip = () => void ask.skip().then(onAnswered);
+
+  /**
+   * 고른 선택지 하나를 보냅니다.
+   *
+   * **되묻기(`input: "confirm"`)만 다릅니다** — 글자가 아니라 **자리의 뜻**이 나갑니다
+   * (ADR-082). 브라우저가 보내기 전에 「요」를 가려(ADR-081) 「아니에[이름-5], 다시
+   * 적을게[이름-5]」가 서버에 도착했고, 글자 비교가 어긋나 **그 글자가 피해 금액으로
+   * 저장**됐습니다. 셋째(「모름」)는 지금까지대로 `unknown` 입니다 (ADR-061).
+   */
+  const answer = (value: string) => {
+    if (question.input === "confirm") {
+      const picked = question.options?.indexOf(value) ?? -1;
+      if (picked === 0) return void ask.confirmAnswer("confirm").then(onAnswered);
+      if (picked === 1) return void ask.confirmAnswer("reject").then(onAnswered);
+      // 선택지 밖의 글자는 **아무것도 안 보냅니다.** 값으로 흘리면 그것이 슬롯에
+      // 적히고, 「모름」으로 흘리면 답하려던 슬롯이 `unknown` 으로 닫혀 **다시 안
+      // 물어봅니다**(`slot-checker` 는 `empty` 만 순회합니다). 여기 오는 일 자체가
+      // 서버가 낸 선택지와 어긋났다는 뜻이라, 문항을 그대로 두는 것이 맞습니다
+      return;
+    }
+    void ask.answer(value).then(onAnswered);
+  };
 
   return (
     <>

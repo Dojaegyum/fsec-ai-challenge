@@ -127,6 +127,36 @@ describe('2차는 이름을 잡는다', () => {
   })
 })
 
+describe('이름 조각의 최소 길이 (ADR-081)', () => {
+  it('한 글자 이름 조각은 가리지 않는다 — 「잠시만요」의 「요」', async () => {
+    // 2026-09-06 배포본 QA 에서 판독 줄에 대해 실제로 이렇게 나왔습니다.
+    // 이 조각이 대응표에 실리면 그 기기에서는 「요」가 든 모든 발화가 가려 나갑니다
+    const text = '743 잠시만요 이거 확인 좀 해불게요'
+    const tokenizer = createPiiTokenizer({
+      ner: nerOf([
+        { label: 'PERSON', start: 7, end: 8, value: '요' },
+        { label: 'PERSON', start: 20, end: 21, value: '요' },
+      ]),
+    })
+
+    const result = await tokenizer.tokenize(text, { transcript: true })
+
+    expect(result.masked).toBe(text)
+    expect(result.added).toEqual([])
+  })
+
+  it('두 글자 이름은 그대로 가린다', async () => {
+    const text = '김민수님 방금 통화드린 수사관입니다'
+    const tokenizer = createPiiTokenizer({
+      ner: nerOf([{ label: 'PERSON', start: 0, end: 3, value: '김민수' }]),
+    })
+
+    const result = await tokenizer.tokenize(text, {})
+
+    expect(result.masked).toBe('[이름-1]님 방금 통화드린 수사관입니다')
+  })
+})
+
 describe('제외 목록이 NER 결과보다 우선한다', () => {
   it('기관명을 사람 이름으로 잘못 집어도 안 가린다', async () => {
     // 「카카오페이로 300만원」이 「[이름-1]로 300만원」이 되면 경유 서비스를

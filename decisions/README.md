@@ -156,6 +156,8 @@
 | [078](078-shell-polls-all-processing-evidence.md) | 처리중인 자료는 브라우저 셸이 전부 묻는다 — 서버가 스스로 받아 오지 않고, 팟이 버린 작업은 다시 맡긴다 | 채택 |
 | [079](079-known-name-reuse.md) | 브라우저는 이미 아는 이름을 보내기 전에 그 이름표로 바꾼다 — 찾지는 않고, 서버는 우리 이름표 모양을 다시 가리지 않는다 | 채택 |
 | [080](080-kb-entry-fields-to-prompt.md) | KB 행의 `steps`·`caveat`·`legal_basis`·완료 증거를 적용 절차의 프롬프트 본문에 넣는다 — 참고 절차는 요약만. 챗이 「자료에 없다」던 서류·수수료·자율배상 수치를 답한다 | 채택 |
+| [081](081-pii-fragment-floor.md) | 한 글자 조각은 개인정보 원문으로 다루지 않는다 — 이름 2자·숫자 조각 2자리 하한, 브라우저 검산은 4자 | 채택 |
+| [082](082-confirm-answers-are-actions.md) | 되묻기의 답은 글자가 아니라 뜻으로 보낸다 — `input: "confirm"` · `action: "confirm"` \| `"reject"` | 채택 |
 
 ## 아직 안 쓴 것
 

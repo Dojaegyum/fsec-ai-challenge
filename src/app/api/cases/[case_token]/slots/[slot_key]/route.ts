@@ -20,8 +20,15 @@ import { caseIdOf, handleRoute } from '@/lib/request'
 import { isSlotKey } from '@/modules/slot-checker'
 import { WIRE_NAME, type TokenKind } from '@/modules/pii-tokenizer'
 
-/** §3.5 가 정한 넷 */
-const ACTIONS: readonly SlotAction[] = ['answer', 'unknown', 'mask', 'keep']
+/** §3.5 가 정한 여섯 — 뒤의 둘은 되묻기의 답입니다 (ADR-082) */
+const ACTIONS: readonly SlotAction[] = [
+  'answer',
+  'unknown',
+  'mask',
+  'keep',
+  'confirm',
+  'reject',
+]
 
 interface AnswerBody {
   readonly action?: unknown

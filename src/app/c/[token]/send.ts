@@ -166,6 +166,8 @@ async function screenAndSeal(input: {
   //     볼트 POST 보다 **앞**입니다 — 걸리면 네트워크 호출이 정말 0회입니다.
   //     실패 문구에 원문을 싣지 않습니다. (2026-09-03 까지는 이 함수가 선언만
   //     있고 호출이 없었습니다)
+  //     4자 미만 원문은 검산에서 빠집니다 → ADR-081 (`mask.ts` 의 `assertNoLeak`).
+  //     여기서 거르지 않는 것은 그 판단이 검산 함수 하나에 있어야 하기 때문입니다
   const firstPass = out.mappings.filter((m) => FIRST_PASS_KINDS.has(m.kind));
   try {
     assertNoLeak(out.content, firstPass);
@@ -302,7 +304,8 @@ export type SlotResult =
  * | --- | --- | --- |
  * | `answer` | 값으로 답한다 | 원문 → 여기서 가려서 보냅니다 |
  * | `unknown` | 「모름」 | 없음. **실패가 아니라 상태입니다** (불변 규칙 5) |
- * | `mask`·`keep` | 되묻기에 답한다 | **이미 가려서 보냈던 그 값** 그대로 |
+ * | `mask`·`keep` | 개인정보 되묻기에 답한다 | **이미 가려서 보냈던 그 값** 그대로 |
+ * | `confirm`·`reject` | 뽑힌 값의 되묻기에 답한다 | **없음** — 뜻만 갑니다 (ADR-082) |
  *
  * ⬜ **`mask` 를 서버가 합니다.** §3.5 는 「가리는 것은 브라우저가 합니다」라고
  * 적혀 있지만, 2차에서 걸리는 것은 NER 이 집은 것(이름·기관)이라 **브라우저의
@@ -312,8 +315,8 @@ export type SlotResult =
 export async function answerSlot(input: {
   caseToken: string;
   slotKey: string;
-  action: "answer" | "unknown" | "mask" | "keep";
-  /** `answer` 면 원문 · `mask`/`keep` 이면 앞서 보낸 가려진 값 */
+  action: "answer" | "unknown" | "mask" | "keep" | "confirm" | "reject";
+  /** `answer` 면 원문 · `mask`/`keep` 이면 앞서 보낸 가려진 값. `confirm`/`reject` 는 없음 */
   value?: string;
   mappings: readonly PiiMapping[];
   /** `openVault` 의 `read` 를 그대로 → `screenAndSeal` 의 같은 이름 참고 */
@@ -324,8 +327,10 @@ export async function answerSlot(input: {
   const { caseToken, slotKey, action, signal } = input;
   const url = `/api/cases/${encodeURIComponent(caseToken)}/slots/${encodeURIComponent(slotKey)}`;
 
-  // 「모름」은 값이 없으니 경계를 지날 것도 없습니다
-  if (action === "unknown") {
+  // 값이 없는 답 — 「모름」과 **뽑힌 값의 되묻기**(ADR-082)입니다.
+  // 경계를 지날 것이 없고, `value` 를 안 싣는 것이 계약입니다 — 버튼 글자를 실어
+  // 보내던 옛 길에서 그 글자가 가려져 서버에 금액으로 저장된 일이 있었습니다
+  if (action === "unknown" || action === "confirm" || action === "reject") {
     const said = await sendJson("PATCH", url, { action }, signal, "답을 보내지 못했습니다.");
     if (!said.ok) return { ok: false, stage: "answer", fail: said.fail };
     return {
@@ -384,8 +389,13 @@ export interface SlotAsk {
   readonly answer: (value: string) => Promise<void>;
   /** 「모름」 */
   readonly skip: () => Promise<void>;
-  /** 되묻기에 답한다 */
+  /** 개인정보 되묻기에 답한다 */
   readonly resolve: (id: "mask" | "keep") => Promise<void>;
+  /**
+   * 자료에서 뽑힌 값의 되묻기(`input: "confirm"`)에 답한다 — **글자가 아니라 뜻으로**
+   * 보냅니다 (ADR-082). 「모름」은 지금까지대로 `skip` 입니다 (ADR-061)
+   */
+  readonly confirmAnswer: (kind: "confirm" | "reject") => Promise<void>;
 }
 
 /** 컴포저가 받는 것. **셸이 한 벌만 들고 두 곳(본문·유령)에 내려줍니다** */
@@ -724,10 +734,10 @@ export function useChatSend(
     [absorb, caseToken, mappings, onReferenced, sending, store, vaultRead],
   );
 
-  /** 답 하나를 보내고 화면 상태를 옮깁니다 — 세 입구(`answer`·`skip`·`resolve`)가 함께 씁니다 */
+  /** 답 하나를 보내고 화면 상태를 옮깁니다 — 네 입구(`answer`·`skip`·`resolve`·`confirmAnswer`)가 함께 씁니다 */
   const put = useCallback(
     async (
-      action: "answer" | "unknown" | "mask" | "keep",
+      action: "answer" | "unknown" | "mask" | "keep" | "confirm" | "reject",
       value: string | undefined,
       typed: string,
       /**
@@ -786,6 +796,8 @@ export function useChatSend(
       fail: askFail,
       answer: (value: string) => put("answer", value, value),
       skip: () => put("unknown", undefined, ""),
+      // **값을 안 싣습니다** — 뽑힌 값은 서버가 들고 있고, 우리는 맞다·아니다만 말합니다
+      confirmAnswer: (kind: "confirm" | "reject") => put(kind, undefined, ""),
       // **같은 값을 다시 보냅니다** — 이미 가렸고 이미 맡겼습니다
       resolve: (id: "mask" | "keep") =>
         confirm

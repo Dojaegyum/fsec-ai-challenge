@@ -17,8 +17,11 @@ import type { PiiMapping } from "@/modules/pii-masker";
 export interface NextQuestion {
   slot_key: string;
   text: string;
-  /** §3.4 가 넷으로 못박았습니다 — `| string` 을 붙이면 계약이 사라집니다 */
-  input: "buttons" | "text" | "date" | "amount";
+  /**
+   * §3.4 가 다섯으로 못박았습니다 — `| string` 을 붙이면 계약이 사라집니다.
+   * `confirm` 은 자료에서 뽑힌 값의 되묻기이고, 그림은 `buttons` 와 같습니다 (ADR-082)
+   */
+  input: "buttons" | "text" | "date" | "amount" | "confirm";
   options?: readonly string[];
 }
 

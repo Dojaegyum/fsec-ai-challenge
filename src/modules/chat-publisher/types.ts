@@ -27,7 +27,8 @@ export interface Citation {
 export interface NextQuestion {
   readonly slot_key: string
   readonly text: string
-  readonly input: 'buttons' | 'text' | 'date' | 'amount'
+  /** `confirm` 은 자료에서 뽑힌 값의 되묻기 — 답이 뜻으로 갑니다 (ADR-082) */
+  readonly input: 'buttons' | 'text' | 'date' | 'amount' | 'confirm'
   readonly options?: readonly string[]
 }
 

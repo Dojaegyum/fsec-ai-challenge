@@ -36,6 +36,17 @@ const ACCOUNT_MAPPING: PiiMapping = {
   original: ACCOUNT,
 };
 
+/**
+ * 서버 전사 숫자 규칙이 한 자리 덩어리에 붙였던 매핑 — 2026-09-06 배포본 QA 의 실물.
+ * 이런 것이 볼트에 있으면 「8」이 든 글이 전부 여기서 막힙니다 → ADR-081
+ */
+const SHORT_DIGIT_MAPPING: PiiMapping = {
+  token: "[주민번호-1]",
+  kind: "주민번호",
+  seq: 1,
+  original: "8",
+};
+
 /** 전사 NER(서버 2차)이 만든 이름 매핑 — 런타임에는 이 kind 가 섞여 들어옵니다 */
 const NAME_MAPPING = {
   token: "[이름-1]",
@@ -108,6 +119,31 @@ describe("마스킹 검산 (assertNoLeak 배선)", () => {
     const result = await send(`${NAME}가 전화했어요`, [NAME_MAPPING]);
 
     // 이름까지 검산하면 이 발화가 영구 차단됩니다 — 그 결함의 회귀 방지
+    expect(result.ok).toBe(true);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  /**
+   * 2026-09-06 배포본 QA. 서버가 만든 `[주민번호-1]`=「8」이 볼트에 들어간 뒤로 그 기기에서는
+   * 「8」이 든 발화와 날짜 답변(`2026-09-05`)이 **네트워크 호출도 없이** 영구 차단됐습니다.
+   * 열쇠 없는 두 번째 브라우저에서는 같은 글이 정상으로 갔습니다 → ADR-081.
+   */
+  it("4자 미만 원문은 막지 않는다 — 「8」이 든 발화가 그대로 나간다", async () => {
+    const spy = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            message_id: "01J8XKRE000000000000000000",
+            reply: "안내드립니다.",
+            citations: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    vi.stubGlobal("fetch", spy);
+
+    const result = await send("8월에도 비슷한 전화가 왔습니다", [SHORT_DIGIT_MAPPING]);
+
     expect(result.ok).toBe(true);
     expect(spy).toHaveBeenCalled();
   });

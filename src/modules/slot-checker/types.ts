@@ -88,8 +88,13 @@ export type TierStatus = 'satisfied' | 'partial' | 'unsatisfied'
 export interface NextQuestion {
   readonly slotKey: SlotKey
   readonly text: string
-  readonly input: 'buttons' | 'text' | 'date' | 'amount'
-  /** `input === 'buttons'` 일 때 필수. **「모름」 선택지가 반드시 들어갑니다** */
+  /**
+   * `confirm` 은 **자료에서 뽑힌 값의 되묻기**입니다 → ADR-082. 그림은 `buttons` 와 같고,
+   * 다른 것은 **답이 글자가 아니라 뜻으로 간다**는 것뿐입니다 — 첫 선택지가
+   * `action: "confirm"`, 둘째가 `"reject"`, 셋째(모름)가 `"unknown"` 으로 갑니다.
+   */
+  readonly input: 'buttons' | 'text' | 'date' | 'amount' | 'confirm'
+  /** `input` 이 `'buttons'`·`'confirm'` 일 때 필수. **「모름」 선택지가 반드시 들어갑니다** */
   readonly options?: readonly string[]
 }
 
@@ -120,7 +125,9 @@ export interface QuestionSource {
    *
    * `value` 는 토큰화된 값 그대로입니다(`32000000` · `2026-09-01T14:22:41+09:00` · `[계좌-1]`).
    * 사람이 읽을 모양으로 바꾸는 것은 문구 쪽 몫입니다. 선택지는 반드시 `CONFIRM_YES` 와
-   * `CONFIRM_NO` 를 앞에 두어야 합니다 — 답 처리(`flows/answer-slot.ts`)가 그 글자로 가릅니다.
+   * `CONFIRM_NO` 를 **그 순서로** 앞에 두어야 합니다 — 화면이 자리(0·1)를
+   * `action: "confirm"`·`"reject"` 로 옮깁니다(ADR-082). 글자는 사람이 읽는 것이고,
+   * 서버의 옛 글자 비교는 호환으로만 남아 있습니다.
    *
    * 없으면(구현하지 않은 문구 소스) 되묻지 않고 채워진 것으로만 셉니다.
    */
