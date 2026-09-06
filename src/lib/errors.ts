@@ -77,6 +77,17 @@ export class KbError extends AppError {
   readonly httpStatus: number = 500
 }
 
+/** 검수 큐의 변경 하나를 못 찾음 — 관리자 API §7.3 (ADR-081) */
+export class KbChangeNotFoundError extends KbError {
+  readonly code: string = 'KB_CHANGE_NOT_FOUND'
+  readonly httpStatus: number = 404
+}
+/** 승인·거절이 끝난 변경을 다시 판단하려 함 — 데이터 모델 §12.2 · ADR-044 */
+export class KbChangeDecidedError extends KbError {
+  readonly code: string = 'KB_CHANGE_DECIDED'
+  readonly httpStatus: number = 409
+}
+
 /**
  * LLM 응답의 참조가 검증을 통과하지 못했다.
  *
@@ -229,6 +240,8 @@ export const USER_MESSAGE: Readonly<Record<string, string>> = {
     '지금은 절차를 안내할 수 없습니다. 급하시면 1332(금융감독원)로 연락해 주세요.',
   SLOT_NOT_CONFIRMED: '먼저 확인이 필요한 항목이 있습니다.',
   ARTIFACT_REQUIRED: '앞 단계의 접수번호가 필요합니다.',
+  KB_CHANGE_NOT_FOUND: '그 변경을 찾지 못했습니다.',
+  KB_CHANGE_DECIDED: '이미 판단이 끝난 변경입니다.',
   LLM_UNAVAILABLE: '지금은 응답할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   LLM_BAD_REQUEST: '처리 중 문제가 발생했습니다.',
   INGEST_FAILED: '파일을 읽지 못했습니다. 다른 파일로 시도해 주세요.',
