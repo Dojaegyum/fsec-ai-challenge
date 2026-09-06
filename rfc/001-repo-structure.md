@@ -2,7 +2,7 @@
 
 - 상태: **시행 중**
 - 제정: 2026-08-16
-- 최종 개정: 2026-09-04
+- 최종 개정: 2026-09-06
 - 근거: [ADR-003](../decisions/003-spec-layout.md) (spec 폴더) ·
   [ADR-004](../decisions/004-agenda-and-assets.md) (AGENDA 이전·assets 신설) ·
   [ADR-005](../decisions/005-filename-convention.md) (파일명 통일) ·
@@ -36,6 +36,7 @@ assets/           산출물·자산 원본 — 빌드에 안 들어가는 것
   brand/            로고·favicon·아이콘
   artifacts/        HTML 아티팩트 (브라우저로 여는 완성 문서)
     plans/            우리가 정한 설계
+      {MM-dd-slug}/     제출물에 넣는 도표(PNG) 묶음 — 원본은 원고의 mermaid · README 필수
     context/          확인한 바깥 사실
     research/         우리 실측을 사람이 보게 정리한 것 (docs/research/ 의 HTML 짝)
     handoff/          화면 디자인 핸드오프 스냅샷 (받은 그대로 · 안 고침)
@@ -75,6 +76,9 @@ deploy/           그 자리를 만들고 올리는 도구 — 저장소가 아�
 4. **HTML 아티팩트인가?** (브라우저로 여는 완성 문서) → `assets/artifacts/`
    - 역할이 끝났다 → `archived/`
    - 우리가 정한 설계 → `plans/`
+     — **제출물에 넣는 도표(PNG)** 는 `plans/{MM-dd-slug}/` 폴더 하나로 묶습니다. 번호가 곧 삽입 순서이고
+     한 문서에 속하기 때문입니다. 폴더의 README 가 번호·절·굽는 방법을 적습니다. **원본은 원고의 mermaid**
+     이고 PNG 는 산출물이라 손으로 고치지 않습니다 (첫 사례 `09-06-spec-diagrams/`).
    - 확인한 바깥 사실 → `context/`
    - **우리 실측을 사람이 보게 정리한 것** → `research/`
      — **정본은 `docs/research/` 의 Markdown 입니다.** 여기 HTML 은 사본이고,
@@ -301,8 +305,11 @@ ADR 은 필요 없습니다 — 은퇴는 결정을 뒤집는 것이 아니라 �
 
 - **원본만 둡니다.** 앱이 서빙하는 사본은 `src/public/`이고, 둘을 같은 곳에 두지 않습니다.
 - **HTML 아티팩트는 단일 파일로** 작성합니다(외부 CSS·JS·폰트 의존 없음).
-- **`artifacts/handoff/`만 폴더 단위**입니다 — 밖에서 받은 화면 디자인을 **받은 그대로** 담습니다.
+- **`artifacts/handoff/`는 폴더 단위**입니다 — 밖에서 받은 화면 디자인을 **받은 그대로** 담습니다.
   `archived/`와 같이 **나중에 고치지 않습니다**. 절차는 [RFC-003](003-design-handoff.md).
+- **제출물에 넣는 도표(PNG)는 `artifacts/plans/{MM-dd-slug}/` 폴더 하나**로 묶습니다 — 번호가 곧 삽입 순서이고
+  한 문서에 속합니다. 폴더의 README 가 번호·절·굽는 방법을 적고, **원본은 원고의 mermaid** 라 PNG 를 손으로
+  고치지 않습니다. 첫 사례는 `09-06-spec-diagrams/`(기능명세서 그림 9장)입니다.
 - 외부에서 받은 자산은 **출처와 라이선스를 함께 적습니다** — 대회 제출물에 들어가므로 출처 불명은 위험합니다.
 - **`artifacts/research/` 는 `docs/research/` 의 HTML 짝**입니다. 발표·공유용 완성본이고,
   **숫자의 정본은 Markdown 쪽**입니다 — 두 벌이 되면 안 고친 쪽이 조용히 틀린 문서가 됩니다.
@@ -624,3 +631,4 @@ ADR까지 가는 것은 규약을 뒤집거나 새 규약을 세울 때뿐입니
 | 2026-08-26 | 「은퇴」 신설 — 역할이 끝난 `spec/`·`docs/` Markdown 은 옮기거나 지우지 않고 제자리에서 배너 + README 「은퇴」 절로. ADR 이 그 주소를 수십 곳 가리키고 있어 옮기면 고칠 수 없는 문서의 링크가 깨집니다. `docs/plans/` 의 「반영되면 지운다」 규정도 이걸로 대체. 첫 손질에서 6편 은퇴 · `doc-gardening` 스킬 신설 · 폴더 지도에 `assets/components/`·`src/migrations/` 보강 | 커밋 메시지 · [docs/plans/08-26-doc-gardening.md](../docs/plans/08-26-doc-gardening.md) |
 | 2026-09-04 | 배포본 스모크(`npm run smoke` · `smoke` 워크플로) 신설 — **게이트 밖 둘째.** 올리기 전을 보는 검사는 여덟인데 올라간 것이 도는지는 아무도 안 봤습니다. 같은 날 서버 모듈 21개 진입점에 `server-only` 표식을 달아 ADR-028 「다섯」을 코드로 — 그 대가로 `tsx` 스크립트는 `npm run`(`--conditions=react-server`)을 지나야 합니다 | 커밋 메시지 · [ADR-028](../decisions/028-runtime-and-module-shape.md) |
 | 2026-08-27 | 게이트 한 번에 도는 `gates.sh` 신설 — **CI 가 멈춘 날 만들었습니다.** 러너가 안 붙어 검사가 `queued` 로 남거나 0초에 `startup_failure` 로 떨어졌고 **검사 0개로 머지된 PR 이 생겼습니다.** 러너가 죽어도 검사 자체는 우리 것이라, 그것을 손에 들려 주는 자리입니다 | 커밋 메시지 |
+| 2026-09-06 | `assets/artifacts/plans/{MM-dd-slug}/` — **제출물에 넣는 도표(PNG) 묶음의 자리.** 첫 사례 `09-06-spec-diagrams/`(기능명세서 그림 9장). 원본은 원고의 mermaid 이고 PNG 는 산출물이라 손으로 고치지 않습니다. 구조 게이트가 새 폴더에 규약 수정을 요구해 함께 적습니다 | 커밋 메시지 |
