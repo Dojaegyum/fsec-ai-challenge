@@ -159,6 +159,7 @@
 | [081](081-pii-fragment-floor.md) | 한 글자 조각은 개인정보 원문으로 다루지 않는다 — 이름 2자·숫자 조각 2자리 하한, 브라우저 검산은 4자 | 채택 |
 | [082](082-confirm-answers-are-actions.md) | 되묻기의 답은 글자가 아니라 뜻으로 보낸다 — `input: "confirm"` · `action: "confirm"` \| `"reject"` | 채택 |
 | [083](083-receipt-number-required-for-l2.md) | L2 증빙은 접수번호가 필수다 — 기관 이름만으로는 완료로 기록하지 않는다. 사기 문자의 「경찰」이 112 신고 완료의 근거로 잡히던 것을 막는다 | 채택 |
+| [084](084-reference-caveat-to-prompt.md) | 참고 절차에도 `caveat` 을 프롬프트 본문에 넣는다 — 기대치를 낮추는 말은 어느 절차에서든 모델이 봐야 한다 | 채택 |
 
 ## 아직 안 쓴 것
 
