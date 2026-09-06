@@ -21,7 +21,7 @@
  */
 
 import { findHits } from '@/modules/pii-masker'
-import { PiiBoundaryError, PiiTokenizerUnavailableError } from '@/lib/errors'
+import { PiiBoundaryError, PiiTokenizerUnavailableError, isTransient } from '@/lib/errors'
 
 import { COMMON_NOUNS } from './common-nouns'
 import { tokenShape, tokensInText } from './ledger'
@@ -372,10 +372,12 @@ export function createPiiTokenizer(deps: { ner?: NerModel } = {}): PiiTokenizer 
           nerSpans = nerToSpans(await ner.find(text), text, allowedTerms)
           nerApplied = true
         } catch (error) {
-          // 통과시키고 로그만 남기는 경로를 만들지 않습니다 → 10-errors.md 원칙 1
+          // 통과시키고 로그만 남기는 경로를 만들지 않습니다 → 10-errors.md 원칙 1.
+          // **닿지 못한 것인지는 표시해 올립니다** — 자료 흐름이 원문을 버리고 「재시도중」으로
+          // 답할지, 오류(503)로 낼지를 이 표시로 정합니다 → ADR-091 §1
           throw new PiiTokenizerUnavailableError(
             '개인정보 탐지 모델을 쓸 수 없습니다',
-            { cause: error instanceof Error ? error.name : 'unknown' },
+            { cause: error instanceof Error ? error.name : 'unknown', transient: isTransient(error) },
           )
         }
       }
