@@ -518,6 +518,19 @@ export interface EvidenceReadHandlers {
  */
 const READS_PER_ROUND = 4;
 
+/**
+ * `done`·`failed` 를 본 뒤 **한 번 더** 읽기까지의 시간 → [ADR-086](../../../../decisions/086-defer-llm-work-after-read.md).
+ *
+ * ⚠️ **응답이 왔다고 서버 일이 다 끝난 것이 아닙니다.** 수거 요청은 마스킹·저장·부산물
+ * 판정까지만 기다리고 답하고, **기관명 보정과 슬롯 추출은 `after()` 로 응답 뒤에 돕니다.**
+ * 여기서 한 번 읽고 폴링을 멈추면 그 둘의 결과(기관 확정 · 되묻기 문항)를 이 화면이
+ * 영영 못 봅니다 — 사용자가 새로고침하거나 다른 일로 번들을 다시 읽을 때까지.
+ *
+ * 8초인 이유는 모델 호출 둘이 보통 그 안에 끝나기 때문입니다. 늦으면 그 판은 놓치되
+ * **다음 번들 조회가 어차피 집습니다** — 여기서 여러 번 되묻지 않는 이유입니다.
+ */
+export const SETTLE_FOLLOWUP_MS = 8_000;
+
 /** 더 물을 것이 없는 상태 — 끝났거나(done·failed·간격 없음) 조회가 끊긴 것(§3.1: 스스로 다시 안 부름) */
 function settled(state: EvidenceState | undefined): boolean {
   if (!state) return false;
@@ -570,6 +583,8 @@ export function useEvidenceReads(
     const ac = new AbortController();
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    /** `done` 뒤 한 번 더 읽을 예약들 → ADR-086. 화면을 떠나면 전부 걷습니다 */
+    const followUps: ReturnType<typeof setTimeout>[] = [];
 
     const round = async () => {
       const open = ids.filter((id) => !settled(readsRef.current[id]));
@@ -609,7 +624,17 @@ export function useEvidenceReads(
             handlersRef.current.onProgress(id, read.progress.percent);
           }
           if (read.ingest_status === "done" || read.ingest_status === "failed") {
-            handlersRef.current.onSettled(id, read.ingest_status);
+            const status = read.ingest_status;
+            handlersRef.current.onSettled(id, status);
+            // **한 번 더 읽습니다** → ADR-086. 서버는 이 응답 뒤에도 기관명 보정과
+            // 슬롯 추출을 `after()` 로 돌고 있어서, 여기서 멈추면 그 결과를 못 봅니다.
+            // `onSettled` 은 페이지에서 멱등입니다(`uploads.mark` + `onPlanChanged`)
+            followUps.push(
+              setTimeout(() => {
+                if (!alive) return;
+                handlersRef.current.onSettled(id, status);
+              }, SETTLE_FOLLOWUP_MS),
+            );
           }
           if (state.verdict.poll) {
             dueAtRef.current[id] = Date.now() + state.verdict.delayMs;
@@ -640,6 +665,8 @@ export function useEvidenceReads(
       alive = false;
       ac.abort();
       clearTimeout(timer);
+      // 화면을 떠났거나 바퀴가 다시 서는 중입니다 — 예약해 둔 두 번째 읽기도 걷습니다
+      for (const one of followUps) clearTimeout(one);
     };
     // `asked` 는 「다시 확인」 — 값이 오르면 바퀴를 처음부터 다시 돕니다
   }, [caseToken, wantedKey, asked]);

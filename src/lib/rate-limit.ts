@@ -44,9 +44,30 @@
  * 이유였습니다. [ADR-085](../../decisions/085-shared-rate-counter.md) 가 그것을
  * 뒤집었습니다: 약속한 상한이 **한 번도 지켜진 적이 없었던 것**이 요청당 upsert 한 줄보다
  * 무겁습니다. 끝난 창은 `purge` 크론이 하루 한 번 걷어냅니다(아래 `purgeExpired`).
+ *
+ * ## 공유 카운터가 안 되면 — **막지 않고 이 인스턴스에서 셉니다**
+ *
+ * 세는 곳을 DB 로 옮기면서 **길목에 터질 수 있는 것이 하나 생겼습니다.** 표가 아직
+ * 없거나(마이그레이션 전) 풀러가 몰리면 `hit` 이 던지고, 그것이 그대로 올라가면
+ * **모든 경로가 500** 이 됩니다 — 위의 「부르면 터지는 대역으로 두지 않습니다」를
+ * 정면으로 어깁니다.
+ *
+ * 그래서 `check` 는 공유 카운터의 실패를 잡아 **이 프로세스의 메모리 카운터로
+ * 떨어집니다**(fail-open 이되 상한은 남습니다 — 인스턴스마다 따로 셀 뿐입니다).
+ * 실패는 `console.warn` 으로 한 번씩 남깁니다. **대상 값은 로그에 안 적습니다** —
+ * IP 는 그 자체로 사람에 가까운 값입니다.
+ *
+ * ## 세는 키는 지문입니다
+ *
+ * `X-Session-Id` 는 **클라이언트가 아무 값이나 넣습니다**(§1 이 형식을 안 정했습니다).
+ * 그 값을 열쇠에 그대로 실으면 (1) btree 색인 상한(약 2704바이트)을 넘는 헤더 하나가
+ * 기본키 삽입을 터뜨리고 (2) 매 요청 다른 값을 보내면 요청마다 한 줄이 늘어납니다.
+ * 그래서 **대상은 SHA-256 앞 32자로 접어** 넣습니다. 갈래 이름은 우리 것이라 그대로 둡니다.
  */
 
 import 'server-only'
+
+import { createHash } from 'node:crypto'
 
 import type { ServerClock } from './clock'
 import { RateLimitedError } from './errors'
@@ -261,11 +282,30 @@ export interface RateLimiter {
   purgeExpired(): Promise<number>
 }
 
+/**
+ * 세는 대상을 지문으로 접는다 → ADR-085.
+ *
+ * **비밀로 만들려는 것이 아닙니다** — 길이를 고정하려는 것입니다. 대상은 사건
+ * 식별자·세션 식별자·IP 인데 그중 세션 식별자는 클라이언트가 아무 값이나 넣습니다.
+ * 32자면 충돌이 사실상 없고(128비트), 열쇠 길이가 갈래 이름 + 33자로 고정됩니다.
+ */
+function fingerprint(subject: string): string {
+  return createHash('sha256').update(subject).digest('hex').slice(0, 32)
+}
+
 export function createRateLimiter(deps: {
   counter: RateCounterStore
   clock: ServerClock
 }): RateLimiter {
   const { counter, clock } = deps
+
+  /**
+   * 공유 카운터가 안 될 때 떨어질 자리 → ADR-085 「실패 모드」.
+   *
+   * **이 프로세스 것입니다.** 상한이 인스턴스 수만큼 늘어나지만, 그건 2026-09-06
+   * 이전과 같은 상태이고 **길목이 통째로 500 이 되는 것보다 낫습니다.**
+   */
+  const fallback = createMemoryRateCounter()
 
   return {
     storeKind: counter.kind,
@@ -277,7 +317,23 @@ export function createRateLimiter(deps: {
     async check(bucket, subject) {
       const rule = RATE_RULES[bucket]
       const nowMs = clock.nowMs()
-      const window = await counter.hit(`${bucket}:${subject}`, rule.windowMs, nowMs)
+      // 갈래 이름은 우리 것이라 그대로, 대상만 접습니다 — 위 「세는 키는 지문입니다」
+      const key = `${bucket}:${fingerprint(subject)}`
+
+      let window: RateWindow
+      try {
+        window = await counter.hit(key, rule.windowMs, nowMs)
+      } catch (error) {
+        // ⚠️ **여기서 던지면 모든 경로가 500 입니다.** 「제한이 정상 사용을 막으면
+        // 안 된다」의 가장 심한 형태라, 막지 않고 이 인스턴스에서 셉니다 → ADR-085.
+        // **대상 값은 안 적습니다**(IP 는 사람에 가까운 값입니다 · §10.1).
+        // 메시지도 안 적습니다 — 접속 문자열이 섞여 나옵니다(`db.ts` 의 같은 규칙)
+        console.warn('[rate-limit] 공유 카운터 실패 — 이 인스턴스의 메모리 카운터로 셉니다', {
+          bucket,
+          error: error instanceof Error ? error.name : 'unknown',
+        })
+        window = await fallback.hit(key, rule.windowMs, nowMs)
+      }
 
       if (window.count <= rule.limit) return
 

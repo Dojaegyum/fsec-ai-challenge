@@ -22,7 +22,7 @@ import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useEvidenceReads } from "./load";
+import { SETTLE_FOLLOWUP_MS, useEvidenceReads } from "./load";
 import type { EvidenceReadHandlers, EvidenceReads } from "./load";
 
 declare global {
@@ -125,7 +125,7 @@ describe("처리중인 자료는 선택과 무관하게 전부 묻는다", () =>
     expect(calls.E2).toBe(1);
   });
 
-  it("끝나면 `onSettled` 를 한 번 부르고 더 묻지 않는다", async () => {
+  it("끝나면 `onSettled` 를 바로 한 번 부르고 더 묻지 않는다", async () => {
     const { calls } = serverOf({ E1: [processing("E1"), done("E1")] });
     const on = handlers();
 
@@ -134,6 +134,8 @@ describe("처리중인 자료는 선택과 무관하게 전부 묻는다", () =>
     const after = calls.E1;
     await settle();
 
+    // 8초 뒤에 한 번 더 부르는 것은 아래 「`done` 뒤에 한 번 더 읽는다」가 봅니다 —
+    // 여기 `settle` 은 30ms 라 그 예약에 닿지 않습니다 (ADR-086)
     expect(on.onSettled).toHaveBeenCalledTimes(1);
     expect(on.onSettled).toHaveBeenCalledWith("E1", "done");
     expect(after).toBe(2);
@@ -293,5 +295,94 @@ describe("한 바퀴에 넷까지만 묻는다 — 세션당 분당 300회 안�
 
     expect(calls.E5).toBeGreaterThanOrEqual(1);
     expect(calls.E6).toBeGreaterThanOrEqual(1);
+  });
+});
+
+/**
+ * ⚠️ **응답이 왔다고 서버 일이 다 끝난 것이 아닙니다** → ADR-086.
+ *
+ * 수거 요청은 마스킹·저장·부산물 판정까지만 기다리고 답합니다. **기관명 보정과
+ * 슬롯 추출은 `after()` 로 응답 뒤에** 돌고, 그 결과가 기관 확정과 되묻기 문항입니다.
+ * 셸이 `done` 에서 한 번 읽고 멈추면 그 둘을 **이 화면이 영영 못 봅니다** — 계약
+ * §3.3 이 「몇 초 뒤 번들에 반영된다」고 적은 그 몇 초를 아무도 안 기다리게 됩니다.
+ */
+describe("`done` 뒤에 한 번 더 읽는다 — ADR-086", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** 가짜 시계 위에서 그린다 — 폴링과 예약이 전부 타이머라 손으로 감습니다 */
+  const drawFake = async (ui: React.ReactElement) => {
+    await act(async () => {
+      root.render(ui);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+  };
+
+  it("`done` 직후 한 번, 8초 뒤에 한 번 더 부른다", async () => {
+    serverOf({ E1: [done("E1")] });
+    const on = handlers();
+
+    await drawFake(<Probe wanted={["E1"]} on={on} />);
+
+    expect(on.onSettled).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SETTLE_FOLLOWUP_MS);
+    });
+
+    expect(on.onSettled).toHaveBeenCalledTimes(2);
+    expect(on.onSettled).toHaveBeenLastCalledWith("E1", "done");
+  });
+
+  it("두 번뿐이다 — 되풀이하지 않는다", async () => {
+    serverOf({ E1: [done("E1")] });
+    const on = handlers();
+
+    await drawFake(<Probe wanted={["E1"]} on={on} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SETTLE_FOLLOWUP_MS * 5);
+    });
+
+    expect(on.onSettled).toHaveBeenCalledTimes(2);
+  });
+
+  it("화면을 떠나면 두 번째는 안 나간다", async () => {
+    serverOf({ E1: [done("E1")] });
+    const on = handlers();
+
+    await drawFake(<Probe wanted={["E1"]} on={on} />);
+    expect(on.onSettled).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+    // 바깥 `afterEach` 가 한 번 더 unmount 해도 되게 새로 세워 둡니다
+    root = createRoot(host);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SETTLE_FOLLOWUP_MS * 2);
+    });
+
+    expect(on.onSettled).toHaveBeenCalledTimes(1);
+  });
+
+  it("실패도 한 번 더 읽는다 — 부산물 판정이 그 뒤에 끝날 수 있다", async () => {
+    serverOf({ E1: [json({ evidence_id: "E1", ingest_status: "failed", reason: "empty" })] });
+    const on = handlers();
+
+    await drawFake(<Probe wanted={["E1"]} on={on} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SETTLE_FOLLOWUP_MS);
+    });
+
+    expect(on.onSettled).toHaveBeenCalledTimes(2);
+    expect(on.onSettled).toHaveBeenLastCalledWith("E1", "failed");
   });
 });

@@ -44,6 +44,10 @@ export function createPostgresRateCounter(sql: Sql): RateCounterStore {
       `
 
       const one = rows[0]
+      // upsert + RETURNING 은 늘 한 줄입니다. 안 오면 우리가 모르는 상태이므로
+      // **조용히 0 으로 세지 않습니다** — 그러면 상한이 소리 없이 사라집니다.
+      // 던지면 `check` 가 이 인스턴스의 메모리 카운터로 떨어집니다(ADR-085 「실패 모드」)
+      if (!one) throw new Error('rate_limit_window upsert returned no row')
       return { count: Number(one.count), resetAtMs: one.reset_at.getTime() }
     },
 
@@ -52,8 +56,11 @@ export function createPostgresRateCounter(sql: Sql): RateCounterStore {
       // 삼키는 것은 부르는 쪽(`purge` 크론)의 몫입니다: 이 한 줄 때문에 사건
       // 파기가 실패로 보이면 안 되고, 여기서 조용히 0 을 내면 「지울 것이
       // 없었다」와 「못 지웠다」가 같은 모양이 됩니다
+      //
+      // **`<=` 입니다** — 메모리 카운터의 `sweep` 과 같은 경계를 씁니다
+      // (`resetAtMs <= nowMs` 이면 그 창은 이미 끝난 것으로 봅니다)
       const gone = await sql`
-        DELETE FROM rate_limit_window WHERE reset_at < ${new Date(nowMs)}
+        DELETE FROM rate_limit_window WHERE reset_at <= ${new Date(nowMs)}
       `
       return gone.count
     },
