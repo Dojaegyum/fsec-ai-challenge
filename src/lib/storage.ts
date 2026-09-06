@@ -22,6 +22,7 @@
 import 'server-only'
 
 import type { Env } from './env'
+import { TransientError } from './errors'
 
 import type { UploadSlotSource } from '@/modules/case-intake'
 import type { ObjectStore } from '@/modules/case-purger'
@@ -87,10 +88,14 @@ export function createMediaReader(env: Env): MediaReader | null {
           cache: 'no-store',
         })
       } catch {
-        // ⚠️ **접속 정보를 메시지에 담지 않습니다.** 이 값은 감사 기록으로 갑니다
-        throw new Error('저장소에 닿지 못했습니다')
+        // ⚠️ **접속 정보를 메시지에 담지 않습니다.** 이 값은 감사 기록으로 갑니다.
+        // **닿지 못한 것은 일시적입니다** → ADR-091 §1. 팟이 죽어 있는 동안 브라우저가 5초마다
+        // 다시 맡기는데, 그 첫 단계가 이 호출입니다 — 저장소가 잠깐 흔들린 것을 최종 실패로 적으면
+        // 사용자가 파일을 다시 올려야 합니다
+        throw new TransientError('저장소에 닿지 못했습니다')
       }
 
+      if (res.status >= 500) throw new TransientError('저장소가 답하지 못했습니다', res.status)
       if (!res.ok) throw new Error(`저장소가 주소를 안 냈습니다 (${res.status})`)
 
       const body: unknown = await res.json().catch(() => null)

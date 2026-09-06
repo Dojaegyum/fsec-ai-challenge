@@ -29,6 +29,8 @@ import 'server-only'
 
 import type { NerModel, NerSpan } from '@/modules/pii-tokenizer'
 
+import { TransientError } from './errors'
+
 export interface NerConfig {
   /** 서비스 주소. 예: `https://xxxx-8000.proxy.runpod.net` */
   readonly baseUrl: string
@@ -109,9 +111,12 @@ export function createNerModel(cfg: NerConfig): NerModel {
           cache: 'no-store',
         })
       } catch {
-        throw failed('탐지 서비스에 닿지 못했습니다')
+        // **닿지 못한 것은 일시적입니다** → ADR-091 §1. `pii-tokenizer` 가 감쌀 때
+        // `detail.transient` 로 옮기고, 자료 흐름은 원문을 버리고 「재시도중」으로 답합니다
+        throw new TransientError('탐지 서비스에 닿지 못했습니다')
       }
 
+      if (res.status >= 500) throw new TransientError('탐지 서비스가 답하지 못했습니다', res.status)
       if (!res.ok) throw failed('탐지 서비스가 거절했습니다', res.status)
 
       try {

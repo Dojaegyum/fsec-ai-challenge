@@ -12,6 +12,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { isTransient } from './errors'
 import { createInferenceEngines } from './inference'
 
 const CFG = { baseUrl: 'http://svc.test', timeoutMs: 1000 }
@@ -218,5 +219,40 @@ describe('실패를 다루는 방식', () => {
 
     expect(thrown).toBeInstanceOf(Error)
     expect(thrown).not.toHaveProperty('httpStatus')
+  })
+})
+
+describe('일시적 실패를 표시한다 — ADR-091 §1', () => {
+  it('닿지 못하면 transient 다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('ECONNREFUSED')
+    }))
+    const { stt } = createInferenceEngines(CFG)
+
+    const thrown = await stt.submit({ url: 'u', mimeType: 'audio/m4a' }).catch((e: unknown) => e)
+
+    expect(isTransient(thrown)).toBe(true)
+    expect(thrown).not.toHaveProperty('httpStatus')
+  })
+
+  it('5xx 도 transient 다 — RunPod 프록시가 팟 대신 내는 502 포함', async () => {
+    server([{ status: 502 }])
+    const { stt } = createInferenceEngines(CFG)
+
+    expect(isTransient(await stt.poll('j1').catch((e: unknown) => e))).toBe(true)
+  })
+
+  it('4xx 는 일시적이 아니다 — 요청이 거절된 것', async () => {
+    server([{ status: 413 }])
+    const { stt } = createInferenceEngines(CFG)
+
+    expect(isTransient(await stt.submit({ url: 'u', mimeType: 'audio/m4a' }).catch((e: unknown) => e))).toBe(false)
+  })
+
+  it('묻기의 404 는 여전히 「없다」다 — 회귀', async () => {
+    server([{ status: 404 }])
+    const { stt } = createInferenceEngines(CFG)
+
+    expect(await stt.poll('j1')).toEqual({ status: 'missing' })
   })
 })

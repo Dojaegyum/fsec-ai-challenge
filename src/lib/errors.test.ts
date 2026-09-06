@@ -33,7 +33,9 @@ import {
   RestoreDeniedError,
   SlotNotConfirmedError,
   StoreError,
+  TransientError,
   USER_MESSAGE,
+  isTransient,
   userMessageFor,
 } from './errors'
 import { BadRequestError, CaseNotFoundError, UnauthorizedError } from './http'
@@ -164,4 +166,21 @@ describe('재시도 — §2 표', () => {
       expect(THROWN[code].retryable).toBe(RETRYABLE.includes(code))
     })
   }
+})
+
+describe('TransientError — 닿지 못한 실패의 표시 (ADR-091)', () => {
+  it('AppError 가 아니고, transient 표시와 상태 코드만 든다', () => {
+    const e = new TransientError('전사 서비스가 답하지 못했습니다', 502)
+    expect(e).toBeInstanceOf(Error)
+    expect(e).not.toBeInstanceOf(AppError)
+    expect(e).not.toHaveProperty('httpStatus')
+    expect(e.message).toBe('전사 서비스가 답하지 못했습니다 (502)')
+    expect(isTransient(e)).toBe(true)
+  })
+
+  it('보통 Error · null 은 일시적이 아니다', () => {
+    expect(isTransient(new Error('x'))).toBe(false)
+    expect(isTransient(null)).toBe(false)
+    expect(isTransient(undefined)).toBe(false)
+  })
 })

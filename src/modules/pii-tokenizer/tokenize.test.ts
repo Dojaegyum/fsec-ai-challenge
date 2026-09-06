@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { PiiTokenizerUnavailableError } from '@/lib/errors'
+import { PiiTokenizerUnavailableError, TransientError } from '@/lib/errors'
 
 import { issuedMappings } from './ledger'
 import { createPiiTokenizer } from './tokenize'
@@ -754,5 +754,34 @@ describe('우리 이름표 모양은 다시 가리지 않는다 — ADR-079', ()
     const result = await tokenizer.tokenize(text, { mappings: ISSUED })
 
     expect(result.masked).toBe('[이름-1]과 [이름-2]가 왔어요')
+  })
+})
+
+describe('모델이 닿지 않는 것은 detail.transient 로 올린다 — ADR-091 §1', () => {
+  it('TransientError 면 transient: true', async () => {
+    const tokenizer = createPiiTokenizer({
+      ner: {
+        find: async () => {
+          throw new TransientError('닿지 못함')
+        },
+      },
+    })
+
+    const thrown = (await tokenizer.tokenize('김민수 고객님').catch((e: unknown) => e)) as PiiTokenizerUnavailableError
+    expect(thrown).toBeInstanceOf(PiiTokenizerUnavailableError)
+    expect(thrown.detail).toMatchObject({ transient: true })
+  })
+
+  it('보통 Error 면 transient: false — 지금까지의 503 그대로', async () => {
+    const tokenizer = createPiiTokenizer({
+      ner: {
+        find: async () => {
+          throw new Error('거절 (401)')
+        },
+      },
+    })
+
+    const thrown = (await tokenizer.tokenize('김민수 고객님').catch((e: unknown) => e)) as PiiTokenizerUnavailableError
+    expect(thrown.detail).toMatchObject({ transient: false })
   })
 })

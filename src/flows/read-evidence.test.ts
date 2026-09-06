@@ -22,7 +22,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { Container } from '@/lib/container'
-import { AppError, IngestError } from '@/lib/errors'
+import { AppError, IngestError, PiiTokenizerUnavailableError, TransientError } from '@/lib/errors'
 
 /**
  * 판독이 끝난 뒤 미뤄 둔 부산물 판정을 부르는지만 봅니다 → ADR-077.
@@ -768,7 +768,11 @@ describe('맡기기가 실패하면 그 자리에서 failed 로 적는다', () =
     })
 
     // 던지지 않고 **결과로** 말합니다 — 다시 맡기는 자리(`collectReading` 의 missing)가 이 값을 봅니다
-    await expect(startReading(input, one.container)).resolves.toEqual({ ok: false, reason: 'submit_failed' })
+    await expect(startReading(input, one.container)).resolves.toEqual({
+      ok: false,
+      reason: 'submit_failed',
+      transient: false,
+    })
 
     expect(one.failed).toEqual([{ caseId: CASE_ID, evidenceId: EVIDENCE_ID, reason: 'submit_failed' }])
   })
@@ -874,5 +878,215 @@ describe('모델 호출을 응답 뒤로 미룬다 — ADR-086', () => {
 
     expect(got.status).toBe('done')
     expect(one.completeText).toHaveBeenCalled()
+  })
+})
+
+describe('맡기기가 닿지 못하면 실패로 적지 않는다 — ADR-091 §3', () => {
+  const input = {
+    caseId: CASE_ID,
+    evidenceId: EVIDENCE_ID,
+    objectKey: KEY,
+    kind: 'audio' as const,
+    mimeType: 'audio/m4a',
+  }
+
+  function containerWhere(start: () => Promise<unknown>) {
+    const failed: unknown[] = []
+    const container = {
+      transcriber: { start },
+      evidenceWrite: {
+        finish: async () => {},
+        fail: async (one: unknown) => {
+          failed.push(one)
+        },
+      },
+    } as unknown as Container
+    return { container, failed }
+  }
+
+  it('일시적이면 { ok: false, transient: true } 이고 evidenceWrite.fail 을 안 부른다', async () => {
+    const { container, failed } = containerWhere(async () => {
+      throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed', transient: true })
+    })
+
+    const got = await startReading(input, container)
+
+    expect(got).toEqual({ ok: false, reason: 'submit_failed', transient: true })
+    expect(failed).toEqual([])
+  })
+
+  it('최종적이면 지금처럼 failed 로 적는다 — 회귀', async () => {
+    const { container, failed } = containerWhere(async () => {
+      throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed', transient: false })
+    })
+
+    const got = await startReading(input, container)
+
+    expect(got).toEqual({ ok: false, reason: 'submit_failed', transient: false })
+    expect(failed).toEqual([{ caseId: CASE_ID, evidenceId: EVIDENCE_ID, reason: 'submit_failed' }])
+  })
+
+  it('retryOnce 면 일시적 실패 뒤 2초 기다렸다 한 번 더 맡긴다 — 두 번째가 되면 ok', async () => {
+    let calls = 0
+    const waited: number[] = []
+    const { container, failed } = containerWhere(async () => {
+      calls += 1
+      if (calls === 1) throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed', transient: true })
+      return { started: true, job: { jobId: EVIDENCE_ID, phase: 'stt', kind: 'audio' } }
+    })
+
+    const got = await startReading(input, container, {
+      retryOnce: true,
+      sleep: async (ms) => {
+        waited.push(ms)
+      },
+    })
+
+    expect(got).toEqual({ ok: true })
+    expect(calls).toBe(2)
+    expect(waited).toEqual([2000])
+    expect(failed).toEqual([])
+  })
+
+  it('retryOnce 라도 두 번 다 일시적이면 transient 로 답하고 failed 는 안 적는다', async () => {
+    const { container, failed } = containerWhere(async () => {
+      throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed', transient: true })
+    })
+
+    const got = await startReading(input, container, { retryOnce: true, sleep: async () => {} })
+
+    expect(got).toEqual({ ok: false, reason: 'submit_failed', transient: true })
+    expect(failed).toEqual([])
+  })
+
+  it('최종적 실패는 retryOnce 여도 다시 안 맡긴다 — 같은 요청은 같은 결과', async () => {
+    let calls = 0
+    const { container } = containerWhere(async () => {
+      calls += 1
+      throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed', transient: false })
+    })
+
+    await startReading(input, container, { retryOnce: true, sleep: async () => {} })
+
+    expect(calls).toBe(1)
+  })
+})
+
+describe('팟이나 모델에 닿지 못하면 「재시도중」으로 답한다 — ADR-091 §3', () => {
+  const asked = () => ({
+    caseId: CASE_ID,
+    evidenceId: EVIDENCE_ID,
+    kind: 'audio' as const,
+    mimeType: 'audio/m4a',
+    objectKey: KEY,
+    stored: null,
+  })
+  const RETRYING = { status: 'running', phase: 'stt', percent: 0, pollAfterMs: 5000, retrying: true }
+
+  it('묻기가 닿지 못하면 다시 맡겨 보고, 그것도 닿지 못하면 재시도중', async () => {
+    const one = harness({ lines: [] })
+    const started: unknown[] = []
+    const failed: unknown[] = []
+    Object.assign(one.container, {
+      transcriber: {
+        collect: async () => {
+          throw new IngestError('물어보지 못했습니다', { reason: 'poll_failed', transient: true })
+        },
+        start: async (input: unknown) => {
+          started.push(input)
+          throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed', transient: true })
+        },
+      },
+      evidenceWrite: { finish: async () => {}, fail: async (i: unknown) => { failed.push(i) } },
+    })
+
+    const got = await collectReading(asked(), one.container)
+
+    expect(got).toEqual(RETRYING)
+    expect(started).toHaveLength(1)
+    expect(failed).toEqual([])
+    expect(one.finished).toHaveLength(0)
+  })
+
+  it('묻기가 닿지 못했는데 다시 맡기기가 되면 평소 처리중으로 답한다', async () => {
+    const one = harness({ lines: [] })
+    Object.assign(one.container, {
+      transcriber: {
+        collect: async () => {
+          throw new IngestError('물어보지 못했습니다', { reason: 'poll_failed', transient: true })
+        },
+        start: async () => ({ started: true, job: { jobId: EVIDENCE_ID, phase: 'stt', kind: 'audio' } }),
+      },
+    })
+
+    const got = await collectReading(asked(), one.container)
+
+    expect(got).toEqual({ status: 'running', phase: 'stt', percent: 0, pollAfterMs: 1500 })
+  })
+
+  it('묻기의 최종적 실패(poll_failed · transient 아님)는 지금처럼 던진다 — 회귀', async () => {
+    const one = harness({ lines: [] })
+    Object.assign(one.container, {
+      transcriber: {
+        collect: async () => {
+          throw new IngestError('물어보지 못했습니다', { reason: 'poll_failed' })
+        },
+      },
+    })
+
+    await expect(collectReading(asked(), one.container)).rejects.toBeInstanceOf(IngestError)
+  })
+
+  it('팟이 작업을 잊었고(404) 다시 맡기기가 닿지 못하면 failed 가 아니라 재시도중', async () => {
+    const one = harness({ lines: [] })
+    const failed: unknown[] = []
+    Object.assign(one.container, {
+      transcriber: {
+        collect: async () => ({ status: 'missing' }),
+        start: async () => {
+          throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed', transient: true })
+        },
+      },
+      evidenceWrite: { finish: async () => {}, fail: async (i: unknown) => { failed.push(i) } },
+    })
+
+    const got = await collectReading(asked(), one.container)
+
+    expect(got).toEqual(RETRYING)
+    expect(failed).toEqual([])
+  })
+
+  it('원문은 받았는데 모델이 닿지 않으면 원문을 버리고 재시도중 — 저장도 대응표도 없다', async () => {
+    const one = harness({ lines: [lineOf(`${THEIRS} 로 보내라고 했어요`)] })
+    Object.assign(one.container, {
+      piiTokenizer: createPiiTokenizer({
+        ner: {
+          find: async () => {
+            throw new TransientError('닿지 못함')
+          },
+        },
+      }),
+    })
+
+    const got = await collectReading(asked(), one.container)
+
+    expect(got).toEqual(RETRYING)
+    expect(one.finished).toHaveLength(0)
+    expect(JSON.stringify(got)).not.toContain(THEIRS)
+  })
+
+  it('모델의 최종적 실패(transient 아님)는 지금처럼 503 예외로 올린다 — 회귀', async () => {
+    const one = harness({ lines: [lineOf('김민수 고객님')] })
+    Object.assign(one.container, {
+      piiTokenizer: createPiiTokenizer({
+        ner: {
+          find: async () => {
+            throw new Error('거절 (401)')
+          },
+        },
+      }),
+    })
+
+    await expect(collectReading(asked(), one.container)).rejects.toBeInstanceOf(PiiTokenizerUnavailableError)
   })
 })

@@ -15,9 +15,11 @@ import { readEnv } from '@/lib/env'
 
 import type { CaseStore } from '@/modules/case-intake'
 
-// 판독 맡기기는 전사기를 건드리므로 라우트 제어 흐름만 보도록 대역으로 둡니다
+// 판독 맡기기는 전사기를 건드리므로 라우트 제어 흐름만 보도록 대역으로 둡니다.
+// `RETRY_POLL_AFTER_MS` 도 라우트가 실제로 가져다 쓰므로 가짜가 함께 냅니다 — 안 내면
+// 가져오기가 `undefined` 가 되고 응답의 `poll_after_ms` 도 `undefined` 가 됩니다.
 const startReading = vi.hoisted(() => vi.fn())
-vi.mock('@/flows/read-evidence', () => ({ startReading, collectReading: vi.fn() }))
+vi.mock('@/flows/read-evidence', () => ({ startReading, collectReading: vi.fn(), RETRY_POLL_AFTER_MS: 5000 }))
 
 import { POST } from './route'
 
@@ -45,8 +47,13 @@ vi.mock('@/lib/wire', () => ({
   },
 }))
 
-/** `read` 가 `null` 이면 「그 번호의 증거가 없다」입니다 */
-function build(caseId: string | null, evidenceFound: boolean) {
+/**
+ * `read` 가 `null` 이면 「그 번호의 증거가 없다」입니다.
+ *
+ * `kind` 는 재시도중 응답의 `progress.phase` 를 가릅니다(오디오는 `stt`,
+ * 그 밖은 `ocr` → 라우트의 분기). 기본은 기존 시험과 같은 `'image'` 입니다.
+ */
+function build(caseId: string | null, evidenceFound: boolean, kind: 'audio' | 'image' = 'image') {
   const env = readEnv({})
   const made = createContainer(env, {
     ...unconfiguredPorts(env),
@@ -60,9 +67,9 @@ function build(caseId: string | null, evidenceFound: boolean) {
       async read() {
         return evidenceFound
           ? {
-              kind: 'image' as const,
+              kind,
               objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
-              mimeType: 'image/png',
+              mimeType: kind === 'audio' ? 'audio/mpeg' : 'image/png',
               ingestStatus: 'pending' as const,
               transcriptMasked: null,
               createdAt: '2026-09-06T14:00:00+09:00',
@@ -89,6 +96,9 @@ const ask = (evidence_id = EVIDENCE_ID) =>
 
 beforeEach(() => {
   startReading.mockReset()
+  // 대부분의 시험은 맡기기 결과에 관심이 없습니다 — 기본을 성공으로 두고
+  // 재시도중을 다루는 시험만 아래에서 `mockResolvedValueOnce` 로 덮습니다.
+  startReading.mockResolvedValue({ ok: true })
 })
 
 describe('업로드 완료 통지 — §3.2 3단계', () => {
@@ -128,5 +138,34 @@ describe('업로드 완료 통지 — §3.2 3단계', () => {
     const res = await POST(ask('not-a-ulid'), route(TOKEN, 'not-a-ulid'))
 
     expect(res.status).toBe(400)
+  })
+})
+
+describe('맡기기가 닿지 못하면 202 에 재시도중을 싣는다 — ADR-091 §3', () => {
+  it('startReading 이 transient 면 processing + progress.retrying + poll_after_ms 5000', async () => {
+    build(CASE_ID, true, 'audio')
+    startReading.mockResolvedValueOnce({ ok: false, reason: 'submit_failed', transient: true })
+
+    const res = await POST(ask(), route())
+    const body = await res.json()
+
+    expect(res.status).toBe(202)
+    expect(body).toEqual({
+      evidence_id: EVIDENCE_ID,
+      ingest_status: 'processing',
+      progress: { phase: 'stt', percent: 0, retrying: true },
+      poll_after_ms: 5000,
+    })
+    // 완료 통지만 2초 뒤 한 번 더를 켭니다
+    expect(startReading.mock.calls[0][2]).toMatchObject({ retryOnce: true })
+  })
+
+  it('맡기기가 되면 지금처럼 { evidence_id, ingest_status } 만 — 회귀', async () => {
+    build(CASE_ID, true)
+    startReading.mockResolvedValueOnce({ ok: true })
+
+    const body = await (await POST(ask(), route())).json()
+
+    expect(body).toEqual({ evidence_id: EVIDENCE_ID, ingest_status: 'processing' })
   })
 })

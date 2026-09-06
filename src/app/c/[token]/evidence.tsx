@@ -126,6 +126,8 @@ export default function EvidenceView({
   const status = read?.ingest_status ?? file?.status;
   /** §3.3 `progress.percent` — 서버가 준 값 그대로. 레일 줄에도 같은 값이 있습니다(`markRail`) */
   const percent = read?.progress?.percent ?? file?.percent;
+  /** §3.3 `progress.retrying` — 서버에 닿지 못해 다시 맡기는 중. 진행률 대신 이 사실을 그립니다(ADR-091 §6) */
+  const retrying = read?.progress?.retrying === true;
   const lines = read?.transcript ?? (token === null ? FIXTURE_EVIDENCE.transcript : []);
   const tokens = read?.pii_tokens ?? (token === null ? FIXTURE_EVIDENCE.pii_tokens : []);
   /** §3.3 `shortfalls[]` — 픽스처엔 없습니다. 개발 경로에서는 「다 읽었다」로 둡니다 */
@@ -264,25 +266,38 @@ export default function EvidenceView({
           </div>
         ) : status === "processing" ? (
           <div className="grid gap-2 p-[18px_16px]">
-            <p className="flex items-center gap-2 text-[14px] text-ink-2">
-              <span
-                aria-hidden
-                className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
-              />
-              개인정보 보호 처리중입니다. 끝나면 전사가 여기 뜹니다
-              {typeof percent === "number" && (
-                <span data-numeric className="text-ink-3">
-                  · {percent}%
-                </span>
-              )}
-            </p>
+            {retrying ? (
+              /* **서버에 닿지 못해 다시 맡기는 중** (ADR-091). 오류가 아니라 처리중이고, 셸의 폴링이
+                 5초마다 다시 맡깁니다. 진행률은 안 적습니다 — 0% 는 멈춘 것으로 보입니다 */
+              <p className="flex items-center gap-2 text-[14px] text-ink-2">
+                <span
+                  aria-hidden
+                  className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
+                />
+                전사 서버에 다시 연결하는 중입니다. 파일은 안전하게 보관돼 있습니다
+              </p>
+            ) : (
+              <p className="flex items-center gap-2 text-[14px] text-ink-2">
+                <span
+                  aria-hidden
+                  className="size-1.5 shrink-0 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
+                />
+                개인정보 보호 처리중입니다. 끝나면 전사가 여기 뜹니다
+                {typeof percent === "number" && (
+                  <span data-numeric className="text-ink-3">
+                    · {percent}%
+                  </span>
+                )}
+              </p>
+            )}
             {/* **예상 시간은 적지 않습니다** — 실측이 없고, 틀린 숫자는 기다리는 사람을
                 더 불안하게 합니다. 대신 진행률과 「가셔도 됩니다」. 이 문장이 참인 것은
-                폴링을 셸이 들기 때문입니다(ADR-078) — 화면을 떠나도 조회는 계속됩니다 */}
+                폴링을 셸이 들기 때문입니다(ADR-078) — 화면을 떠나도 조회는 계속됩니다.
+                (기존 「다른 화면에 가셔도 됩니다」 문단 그대로 — 재시도중에도 참입니다) */}
             <p className="text-[12.5px] leading-[1.6] text-ink-3">
               원본은 아직 이 브라우저 안에 있습니다.{" "}
               <b className="font-[620] text-ink-2">다른 화면에 가셔도 됩니다</b> — 이 창을 열어
-              두면 끝났을 때 자료함에 「전사 완료」로 표시됩니다.
+              두면 {retrying ? "연결되면 이어서 처리하고, " : ""}끝났을 때 자료함에 「전사 완료」로 표시됩니다.
             </p>
           </div>
         ) : readFailed || sendFailed ? (

@@ -67,6 +67,7 @@ file-sender(브라우저) → pii-masker(브라우저) → transcriber(여기) �
 | 언제 | 무엇 |
 | --- | --- |
 | 읽는 도구 **호출 자체**가 실패 | `IngestError` — `INGEST_FAILED` · 422 · 재시도 1회 → [10](../../../spec/backend/08-16-errors.md) §2 |
+| 읽는 도구에 **닿지 못함**(연결 · 타임아웃 · 5xx) | 같은 `IngestError` 에 `detail.transient: true` — 흐름이 「재시도중」으로 답합니다 → [ADR-091](../../../decisions/091-evidence-retrying-not-failed.md) |
 | 도구·저장소가 **아직 안 붙음** | 그 예외를 **그대로** 올립니다 (아래) |
 
 ### 미설정을 전사 실패로 덮지 않습니다

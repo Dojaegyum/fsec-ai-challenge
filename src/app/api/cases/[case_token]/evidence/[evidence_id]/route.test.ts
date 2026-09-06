@@ -46,8 +46,14 @@ vi.mock('@/lib/wire', () => ({
   },
 }))
 
-/** `createdAt` 이 없으면 「그 번호의 증거가 없다」입니다 */
-function build(caseId: string | null, pendingCreatedAt: string | null) {
+/**
+ * `createdAt` 이 없으면 「그 번호의 증거가 없다」입니다.
+ *
+ * 세 번째 인자(`processingKind`)를 주면 **이미 올라와 판독 중인 자료**를 냅니다 —
+ * `pendingCreatedAt` 은 이때 무시되고, `ingestStatus: 'processing'` 인 행이라
+ * 라우트가 `collectReading` 갈래(§3.3 `running`)를 탑니다.
+ */
+function build(caseId: string | null, pendingCreatedAt: string | null, processingKind?: 'audio' | 'image') {
   const env = readEnv({})
   const made = createContainer(env, {
     ...unconfiguredPorts(env),
@@ -59,6 +65,16 @@ function build(caseId: string | null, pendingCreatedAt: string | null) {
     caseTokens: { async toCaseId() { return caseId } },
     evidence: {
       async read() {
+        if (processingKind) {
+          return {
+            kind: processingKind,
+            objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
+            mimeType: processingKind === 'audio' ? 'audio/mpeg' : 'image/png',
+            ingestStatus: 'processing' as const,
+            transcriptMasked: null,
+            createdAt: new Date().toISOString(),
+          }
+        }
         return pendingCreatedAt === null
           ? null
           : {
@@ -120,5 +136,38 @@ describe('자료 하나 조회 — §3.3', () => {
     expect(body.ingest_status).toBe('processing')
     expect(markUploaded).toHaveBeenCalledTimes(1)
     expect(startReading).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('재시도중은 processing 인 채 progress.retrying 으로 — ADR-091 §2', () => {
+  it('retrying 이 붙은 running 은 poll_after_ms 5000 과 progress.retrying: true 로 나간다', async () => {
+    build(CASE_ID, null, 'audio')
+    collectReading.mockResolvedValueOnce({
+      status: 'running',
+      phase: 'stt',
+      percent: 0,
+      pollAfterMs: 5000,
+      retrying: true,
+    })
+
+    const res = await GET(ask(), route())
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({
+      evidence_id: EVIDENCE_ID,
+      ingest_status: 'processing',
+      progress: { phase: 'stt', percent: 0, retrying: true },
+      poll_after_ms: 5000,
+    })
+  })
+
+  it('평소 running 에는 retrying 칸이 없다 — 회귀', async () => {
+    build(CASE_ID, null, 'audio')
+    collectReading.mockResolvedValueOnce({ status: 'running', phase: 'stt', percent: 40, pollAfterMs: 1500 })
+
+    const body = await (await GET(ask(), route())).json()
+
+    expect(body.progress).toEqual({ phase: 'stt', percent: 40 })
   })
 })

@@ -27,7 +27,7 @@
  * §1.3 표에 이 자리가 없습니다. **안 적으면 빠뜨린 것과 구분되지 않아** 밝혀 둡니다.
  */
 
-import { startReading } from '@/flows/read-evidence'
+import { RETRY_POLL_AFTER_MS, startReading } from '@/flows/read-evidence'
 import { CaseNotFoundError } from '@/lib/http'
 import { caseIdOf, handleRoute, ulidParamOf } from '@/lib/request'
 
@@ -52,8 +52,10 @@ export async function POST(
 
     // **여기서 읽기를 맡깁니다.** 결과를 기다리지 않습니다 — 서버 함수가
     // 몇 분을 못 살고, 화면은 §3.3 으로 물어봅니다.
-    // 작업 번호로 증거 번호를 그대로 쓰므로 어디에도 적어 둘 필요가 없습니다
-    await startReading(
+    // 작업 번호로 증거 번호를 그대로 쓰므로 어디에도 적어 둘 필요가 없습니다.
+    // **닿지 못하면 2초 뒤 한 번 더**(에러 §2) — 그래도 안 되면 `failed` 가 아니라 「재시도중」으로
+    // 답합니다(ADR-091 §3). 브라우저의 첫 폴링이 5초 뒤 다시 맡깁니다
+    const started = await startReading(
       {
         caseId,
         evidenceId,
@@ -62,7 +64,20 @@ export async function POST(
         mimeType: found.mimeType,
       },
       container,
+      { retryOnce: true },
     )
+
+    if (!started.ok && started.transient) {
+      return {
+        status: 202,
+        body: {
+          evidence_id: evidenceId,
+          ingest_status: 'processing',
+          progress: { phase: found.kind === 'audio' ? 'stt' : 'ocr', percent: 0, retrying: true },
+          poll_after_ms: RETRY_POLL_AFTER_MS,
+        },
+      }
+    }
 
     return {
       // 202 — 접수했고 아직 안 끝났습니다. 진행 상태는 §3.3 으로 묻습니다

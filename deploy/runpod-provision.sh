@@ -53,6 +53,8 @@ FINALLY_TOKEN="$(cat /opt/finally/token)" \
   setsid nohup python3 -m uvicorn transcriber.app:app --host 0.0.0.0 --port 8917 \
     > /tmp/uvicorn.log 2>&1 < /dev/null &
 echo $! > uvicorn.pid
+# 마지막 재시작 시각 — 팟 안 watchdog 와 밖의 감시자가 **같은 유예(180초)** 를 이 파일로 셉니다 (ADR-092 B·C)
+date +%s > last-restart
 EOF
 chmod +x /opt/finally/restart.sh
 setsid /opt/finally/restart.sh < /dev/null
@@ -66,6 +68,43 @@ for i in $(seq 1 90); do
   [ "$i" = 90 ] && { echo "✗ 15분이 지나도 ready 가 아닙니다 — /tmp/uvicorn.log:"; tail -20 /tmp/uvicorn.log; exit 1; }
   sleep 10
 done
+
+# ── 5. 자가 재시작 루프 — ready 가 확인된 **뒤에** 띄웁니다 (ADR-092 B)
+#    첫 적재(모델 내려받기)를 재시작으로 끊지 않게 하려는 순서입니다.
+#    조건은 「연속 실패 횟수」가 아니라 「마지막 재시작 뒤 180초가 지났는가」입니다 —
+#    재시작 직후 20~40초는 정상이어도 /health 가 안 잡히므로, 세면 자기를 끝없이 죽입니다.
+say "watchdog.sh"
+cat > /opt/finally/watchdog.sh <<'EOF'
+#!/usr/bin/env bash
+# 20초마다 /health · ready 아니고 last-restart 가 180초보다 오래됐으면 restart.sh (ADR-092 B)
+cd /opt/finally
+GRACE=180
+while true; do
+  now=$(date +%s)
+  last=$(cat last-restart 2>/dev/null || echo 0)
+  body=$(curl -s -m 8 -H "x-finally-token: $(cat token)" localhost:8917/health || true)
+  case "$body" in *'"ready":true'*|*'"ready": true'*) ready=1 ;; *) ready=0 ;; esac
+  if [ "$ready" = 0 ] && [ $((now - last)) -ge "$GRACE" ]; then
+    echo "$(date -Is) health 실패 → restart.sh (last-restart $((now - last))초 전)" >> /tmp/watchdog.log
+    if ! curl -fs -m 3 localhost:11434/api/tags >/dev/null 2>&1; then
+      echo "$(date -Is) ollama 도 안 잡힘 → 다시 띄움" >> /tmp/watchdog.log
+      setsid nohup ollama serve > /tmp/ollama.log 2>&1 < /dev/null &
+      sleep 5
+    fi
+    setsid /opt/finally/restart.sh < /dev/null
+  fi
+  sleep 20
+done
+EOF
+chmod +x /opt/finally/watchdog.sh
+# 여러 번 돌려도 하나만 — 앞의 것을 pid 파일로만 죽입니다 (pkill -f 는 ssh 세션을 죽입니다)
+if [ -f /opt/finally/watchdog.pid ] && kill -0 "$(cat /opt/finally/watchdog.pid)" 2>/dev/null; then
+  kill "$(cat /opt/finally/watchdog.pid)"; sleep 1
+fi
+setsid nohup bash /opt/finally/watchdog.sh > /dev/null 2>&1 < /dev/null &
+echo $! > /opt/finally/watchdog.pid
+echo "  watchdog pid $(cat /opt/finally/watchdog.pid)"
+
 ollama ps
 echo
 echo "✓ 팟 안은 끝. 바깥에서 python deploy/runpod-pod.py health"

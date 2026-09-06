@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { IngestError, StoreError } from '@/lib/errors'
+import { IngestError, StoreError, TransientError } from '@/lib/errors'
 
 import { createTranscriber } from './transcribe'
 import type {
@@ -784,5 +784,79 @@ describe('부르는 쪽에 넘겨야 하는 것', () => {
 
     expect((await read(withStt, audio)).phase).toBe('stt')
     expect((await read(withOcr, image)).phase).toBe('ocr')
+  })
+})
+
+describe('닿지 못한 것은 detail.transient 로 올린다 — ADR-091 §1', () => {
+  const media = { objectKey: 'c/e', kind: 'audio' as const, mimeType: 'audio/m4a' }
+  const deps = (submit: () => Promise<string>, poll: () => Promise<never>) => ({
+    media: { readUrl: async () => 'https://store/x', readText: async () => '' },
+    stt: { submit, poll },
+    ocr: { submit, poll },
+  })
+
+  it('맡기기가 TransientError 면 transient: true', async () => {
+    const t = createTranscriber(
+      deps(
+        async () => {
+          throw new TransientError('닿지 못함')
+        },
+        async () => {
+          throw new Error('unused')
+        },
+      ) as never,
+    )
+
+    const thrown = (await t.start({ media, jobId: 'j1' }).catch((e: unknown) => e)) as IngestError
+    expect(thrown).toBeInstanceOf(IngestError)
+    expect(thrown.detail).toMatchObject({ reason: 'submit_failed', transient: true })
+  })
+
+  it('맡기기가 보통 Error 면 transient: false', async () => {
+    const t = createTranscriber(
+      deps(
+        async () => {
+          throw new Error('거절 (413)')
+        },
+        async () => {
+          throw new Error('unused')
+        },
+      ) as never,
+    )
+
+    const thrown = (await t.start({ media, jobId: 'j1' }).catch((e: unknown) => e)) as IngestError
+    expect(thrown.detail).toMatchObject({ reason: 'submit_failed', transient: false })
+  })
+
+  it('묻기가 TransientError 면 poll_failed 에 transient: true', async () => {
+    const t = createTranscriber(
+      deps(
+        async () => 'j1',
+        async () => {
+          throw new TransientError('닿지 못함', 502)
+        },
+      ) as never,
+    )
+
+    const thrown = (await t
+      .collect({ jobId: 'j1', phase: 'stt', kind: 'audio' })
+      .catch((e: unknown) => e)) as IngestError
+    expect(thrown.detail).toMatchObject({ reason: 'poll_failed', transient: true })
+  })
+
+  it('파일 주소 요청이 TransientError 면 read_url_failed 에 transient: true', async () => {
+    const t = createTranscriber({
+      media: {
+        readUrl: async () => {
+          throw new TransientError('저장소에 닿지 못했습니다')
+        },
+        readText: async () => '',
+      },
+      stt: { submit: async () => 'j1', poll: async () => ({ status: 'running', percent: 0 }) },
+      ocr: { submit: async () => 'j1', poll: async () => ({ status: 'running', percent: 0 }) },
+    } as never)
+
+    const thrown = (await t.start({ media, jobId: 'j1' }).catch((e: unknown) => e)) as IngestError
+    expect(thrown.detail).toMatchObject({ reason: 'read_url_failed', transient: true })
   })
 })
