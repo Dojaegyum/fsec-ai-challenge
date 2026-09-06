@@ -372,10 +372,16 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
     const ac = new AbortController();
     let alive = true;
     const key = pendingKey(caseToken);
-    /** 시작 화면이 남긴 「아직 서버에 없는 수」 → `pendingKey` */
+    /**
+     * 시작 화면이 남긴 「아직 서버에 없는 수」 → `pendingKey`.
+     *
+     * **셀 수 없는 값이면 0 입니다** — 남의 값이나 옛 값이 들어와도 목록을
+     * 한 번만 읽고 끝냅니다(`NaN` 이면 목표가 영영 안 차 60초를 헛돕니다)
+     */
     const pending = (() => {
       try {
-        return Number(sessionStorage.getItem(key) ?? 0);
+        const raw = Number(sessionStorage.getItem(key) ?? 0);
+        return Number.isFinite(raw) && raw > 0 ? raw : 0;
       } catch {
         return 0;
       }

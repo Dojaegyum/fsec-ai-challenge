@@ -470,11 +470,12 @@ function CaseScreen({
    * 워크스페이스가 **판정에 쓰는 만큼**이라 그 칸이 없습니다
    */
   const activeOnServer = bundle.steps.find((one) => one.step_id === activeStep?.step_id) ?? null;
-  const panelNote = artifact.note ?? noteOfStep(activeOnServer);
+  /** **그 단계의 판정만** 그립니다 — 훅의 안내도 낸 단계의 것일 때만 씁니다 */
+  const myVerdict = artifact.verdictStepId === activeStep?.step_id ? artifact.verdict : null;
+  const panelNote = (myVerdict ? artifact.note : null) ?? noteOfStep(activeOnServer);
   const panelVerdict = (() => {
-    const mine = artifact.verdictStepId === activeStep?.step_id ? artifact.verdict : null;
-    if (mine) return { ...mine, note: panelNote ?? undefined };
-    // 새로고침 뒤 — 판정은 없고 서버에 남은 부산물만 있습니다
+    if (myVerdict) return { ...myVerdict, note: panelNote ?? undefined };
+    // 새로고침했거나 다른 단계로 옮긴 뒤 — 판정은 없고 서버에 남은 부산물만 있습니다
     const last = activeOnServer?.artifacts?.at(-1);
     if (!activeOnServer || !panelNote || !last) return null;
     return { verify_result: last.verify_result, step_state: activeOnServer.state, note: panelNote };

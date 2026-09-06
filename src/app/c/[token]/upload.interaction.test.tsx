@@ -136,6 +136,17 @@ describe("시작 화면이 아직 올리는 중이면 목록을 다시 읽는다
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  it("셀 수 없는 값이 남아 있으면 이어받지 않는다 — 헛돌지 않습니다", async () => {
+    sessionStorage.setItem(KEY, "곧");
+    const spy = listServer([[row("E1", "audio")]]);
+
+    await draw();
+    await tick(20_000);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+  });
+
   /**
    * 시작 화면이 못 올린 파일이 있으면 그 수는 영영 안 채워집니다 — 그때도
    * 무한정 묻지 않습니다. 그 뒤는 사용자가 「+ 올리기」로 다시 올립니다
