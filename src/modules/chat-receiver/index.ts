@@ -13,6 +13,7 @@ export type {
   CitationOutcome,
   CitationSource,
   Clock,
+  FreshMapping,
   IssuedRef,
   IssuedToken,
   KbContextRef,

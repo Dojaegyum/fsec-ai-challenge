@@ -380,3 +380,48 @@ describe("답변은 화면 쪽 모양으로 옮겨진다", () => {
     expect(result.ok && result.turn.sourceNote).toBeNull();
   });
 });
+
+/**
+ * 서버 2차(NER)가 이름에 붙인 `[이름-1]` 의 짝은 서버가 보관하지 않습니다(불변 규칙 3).
+ * 그 짝은 **토큰화가 일어난 그 응답에만** 실려 옵니다 → ADR-062 의 챗 경로.
+ * 여기서 받아 두지 않으면 새로고침 뒤 내 말풍선이 `[이름-1]` 로 굳습니다.
+ */
+describe("서버가 막 만든 대응표를 받아 온다 — §3.9 `pii_mappings`", () => {
+  const NAME = "김민수";
+  const FRESH = [{ token: "[이름-1]", kind: "이름", seq: 1, original: NAME }];
+
+  it("응답의 대응표가 fresh 로 돌아온다 — 훅이 봉해 맡길 재료입니다", async () => {
+    spyFetch(() => json({ ...answer, pii_mappings: FRESH }));
+    const result = await send(`제 이름은 ${NAME}입니다`);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.fresh).toEqual(FRESH);
+  });
+
+  it("비서 답에 든 [이름-1] 이 그 자리에서 원문으로 보인다 — 새로고침 전에도", async () => {
+    spyFetch(() =>
+      json({ ...answer, reply: "[이름-1]님, 다음은 피해구제 신청서 제출입니다.", pii_mappings: FRESH }),
+    );
+    const result = await send(`제 이름은 ${NAME}입니다`);
+
+    expect(result.ok && result.turn.reply).toContain(NAME);
+    expect(result.ok && result.turn.reply).not.toContain("[이름-1]");
+  });
+
+  it("칸이 없으면 빈 배열이다 — 대부분의 턴이 이렇습니다", async () => {
+    spyFetch(() => json(answer));
+    const result = await send("이제 뭘 해야 하나요");
+
+    expect(result.ok && result.fresh).toEqual([]);
+  });
+
+  it("원문이 빈 항목은 버린다 — 뜻 없는 짝을 볼트에 넣지 않습니다", async () => {
+    spyFetch(() =>
+      json({ ...answer, pii_mappings: [{ token: "[이름-2]", kind: "이름", seq: 2, original: "" }] }),
+    );
+    const result = await send("이제 뭘 해야 하나요");
+
+    expect(result.ok && result.fresh).toEqual([]);
+  });
+});

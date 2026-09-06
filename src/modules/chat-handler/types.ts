@@ -65,6 +65,13 @@ export interface ChatResponse {
   referenced_steps?: readonly string[];
   referenced_deadlines?: readonly string[];
   next_question?: NextQuestion | null;
+  /**
+   * **토큰화가 이 요청에서 막 일어난 응답에만** 실리는 원문 포함 대응표 → §3.9 · ADR-075
+   * (ADR-062 의 챗 경로). 서버가 보관하지 않으므로 다음 응답에는 없습니다 — 받는 즉시
+   * `ChatSend.absorb` 로 봉해 볼트에 맡기는 것이 유일한 생존 경로입니다. 안 받으면
+   * 새로고침 뒤 내 말풍선이 `[이름-1]` 로 남습니다
+   */
+  pii_mappings?: readonly { token: string; kind: string; seq: number; original: string }[];
 }
 
 /** 경계 너머로 나갈 발화 — **`content` 말고는 보내지 않습니다** */

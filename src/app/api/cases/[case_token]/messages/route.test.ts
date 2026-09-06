@@ -16,8 +16,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createContainer, unconfiguredPorts, type Ports } from '@/lib/container'
 import type { MessageStore } from '@/lib/db'
 import { readEnv } from '@/lib/env'
+import type { TurnResult } from '@/flows/chat-turn'
 
-import { GET } from './route'
+import { GET, POST } from './route'
 
 const CASE_ID = '01J8CASE000000000000000000'
 const TOKEN = '01J8TKN0000000000000000000'
@@ -46,6 +47,15 @@ vi.mock('@/lib/wire', () => ({
   resetContainer: () => {
     holder.container = undefined
   },
+}))
+
+/**
+ * 한 턴의 결과는 이 파일이 보는 대상이 아닙니다 — **라우트가 그것을 어떤 모양으로
+ * 내리는가**만 봅니다. 흐름 자체는 `src/lib/chat-turn.test.ts` 가 봅니다
+ */
+const turned = vi.hoisted(() => ({ result: undefined as unknown }))
+vi.mock('@/flows/chat-turn', () => ({
+  chatTurn: async () => turned.result,
 }))
 
 function wiredContainer(turns: readonly Turn[], truncated = false) {
@@ -145,5 +155,67 @@ describe('답이 가리킨 단계·기한이 이력에 실린다 — §3.12 · A
   it('`truncated` 는 저장소가 말한 대로', async () => {
     const body = await bodyOf([said()], true)
     expect(body.truncated).toBe(true)
+  })
+})
+
+/** 한 턴의 결과 — 시험마다 대응표만 갈아끼웁니다 */
+function turnResult(freshMappings: TurnResult['freshMappings']): TurnResult {
+  return {
+    body: {
+      message_id: '01J8XKRE000000000000000000',
+      reply: '네, 확인했습니다.',
+      citations: [],
+      next_question: null,
+    },
+    referencedSteps: [],
+    referencedDeadlines: [],
+    freshMappings,
+    telemetry: {
+      piiTokenCounts: {},
+      piiEgressResidual: 0,
+      kbVersion: '2026.08.1',
+      auditId: '01J8AUDIT00000000000000000',
+    },
+  }
+}
+
+async function postBody(result: TurnResult) {
+  holder.container = wiredContainer([])
+  turned.result = result
+
+  const res = await POST(
+    new Request(`http://x/api/cases/${TOKEN}/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: '제 이름은 김민수입니다' }),
+    }),
+    { params: Promise.resolve({ case_token: TOKEN }) },
+  )
+
+  expect(res.status).toBe(200)
+  return (await res.json()) as Record<string, unknown>
+}
+
+/**
+ * 서버 2차가 붙인 이름표의 짝은 **토큰화가 일어난 그 응답에만** 실립니다 → ADR-062.
+ * 전사 응답(§3.3)과 같은 모양이라야 브라우저가 같은 `absorb` 로 봉해 맡깁니다.
+ */
+describe('서버가 막 만든 대응표가 그 응답에 실린다 — §3.9 `pii_mappings` · ADR-062 의 챗 경로', () => {
+  it('대응표가 있으면 원문 포함으로 실린다 — 전사 응답 §3.3 과 같은 모양', async () => {
+    const body = await postBody(
+      turnResult([{ token: '[이름-1]', kind: '이름', seq: 1, original: '김민수' }]),
+    )
+
+    expect(body.pii_mappings).toEqual([
+      { token: '[이름-1]', kind: '이름', seq: 1, original: '김민수' },
+    ])
+    // 나머지 칸은 그대로입니다
+    expect(body).toMatchObject({ reply: '네, 확인했습니다.', referenced_steps: [] })
+  })
+
+  it('없으면 칸 자체가 없다 — 빈 배열도 싣지 않는다', async () => {
+    const body = await postBody(turnResult([]))
+
+    expect(body).not.toHaveProperty('pii_mappings')
   })
 })

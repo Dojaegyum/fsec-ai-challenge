@@ -324,7 +324,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
 
     const chat = createChatReceiver({
       // 아직 없는 자리. 1차 마스킹이 이미 지난 텍스트가 들어온다
-      tokenizer: { tokenize: async (text) => ({ masked: text, counts: {} }) },
+      tokenizer: { tokenize: async (text) => ({ masked: text, counts: {}, added: [] }) },
       orgTerms: { list: async (): Promise<readonly string[]> => [] },
       kb: { find: (query) => asPromptEntries(kbFinder, query) },
       prompts: builder,
@@ -410,7 +410,7 @@ describe('chat-receiver 가 순서를 부르면 끝까지 이어진다', () => {
     })
 
     const chat = createChatReceiver({
-      tokenizer: { tokenize: async (text) => ({ masked: text, counts: {} }) },
+      tokenizer: { tokenize: async (text) => ({ masked: text, counts: {}, added: [] }) },
       orgTerms: { list: async (): Promise<readonly string[]> => [] },
       kb: { find: (query) => asPromptEntries(kbFinder, query) },
       prompts: createPromptBuilder(),
@@ -735,6 +735,8 @@ function turnOf(over: Partial<TurnOutcome> = {}): TurnOutcome {
     counts: { applied: 5, reference: 7, transcriptLines: 42 },
     // 계측 헤더가 이 값으로 섭니다 → §1.1 · `X-Pii-Token-Count`
     piiCounts: { account: 1 },
+    // 서버가 이번 발화에서 막 만든 대응표 — 기본은 「없음」
+    freshMappings: [],
     attempts: 1,
     ...over,
   }
@@ -1399,5 +1401,42 @@ describe('모델이 안 떴을 때도 남는다 — llm.failed', () => {
     await expect(runTurn(one)).rejects.toThrow(LlmBadRequestError)
 
     expect(one.audits).toHaveLength(0)
+  })
+})
+
+/**
+ * 서버 2차가 붙인 이름표의 짝은 **그 응답에서** 브라우저에 건넵니다 → ADR-062.
+ * 전사 폴링만 그랬고 챗은 그 칸이 없어, 챗에서 적은 이름이 새로고침 뒤 `[이름-1]` 로
+ * 남았습니다. 흐름은 리시버가 낸 것을 **그대로** 라우트까지 올립니다 — 보관하지 않습니다.
+ */
+describe('서버가 막 만든 대응표를 응답까지 올린다 — ADR-062 의 챗 경로', () => {
+  const FRESH = [{ token: '[이름-1]', kind: '이름', seq: 1, original: '김민수' }]
+
+  it('리시버가 낸 freshMappings 가 TurnResult 에 그대로 실린다', async () => {
+    const one = chatHarness({ turn: turnOf({ freshMappings: FRESH }) })
+
+    const got = await chatTurn({ caseId: CASE_ID, content: '제 이름은 김민수입니다' }, one.container)
+
+    expect(got.freshMappings).toEqual(FRESH)
+  })
+
+  it('송출 본문(body)에는 섞지 않는다 — 싣는 모양은 라우트가 정한다', async () => {
+    const one = chatHarness({ turn: turnOf({ freshMappings: FRESH }) })
+
+    const got = await chatTurn({ caseId: CASE_ID, content: '제 이름은 김민수입니다' }, one.container)
+
+    expect(got.body).not.toHaveProperty('pii_mappings')
+    expect(JSON.stringify(got.body)).not.toContain('김민수')
+  })
+
+  it('저장되는 발화에는 원문이 없다 — 토큰화된 것만 남는다', async () => {
+    const one = chatHarness({
+      turn: turnOf({ freshMappings: FRESH, utteranceMasked: '제 이름은 [이름-1]입니다' }),
+    })
+
+    await chatTurn({ caseId: CASE_ID, content: '제 이름은 김민수입니다' }, one.container)
+
+    expect(one.written).toHaveLength(1)
+    expect(JSON.stringify(one.written[0])).not.toContain('김민수')
   })
 })
