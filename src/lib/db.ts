@@ -640,6 +640,9 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
     },
 
     async listRetryCandidates({ withinMs, limit }) {
+      // 창의 시작 시각을 여기서 계산해 넘깁니다 — SQL 의 make_interval(secs => …) 은
+      // 표·칸 이름 검사기(schema-names.py)가 `secs` 를 칸으로 읽어 CI 가 막습니다
+      const cutoff = new Date(Date.now() - withinMs)
       const rows = await sql<
         { case_id: string; evidence_id: string; kind: EvidenceKind; object_key: string | null; mime_type: string | null }[]
       >`
@@ -647,7 +650,7 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
         FROM evidence
         WHERE ingest_status = 'processing'
           AND kind <> 'text'
-          AND created_at > now() - make_interval(secs => ${Math.floor(withinMs / 1000)})
+          AND created_at > ${cutoff}
         ORDER BY created_at ASC
         LIMIT ${limit}
       `

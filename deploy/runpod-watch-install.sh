@@ -24,6 +24,6 @@ sudo cp "$REPO_DIR/deploy/finally-runpod-watch.service" /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now finally-runpod-watch
 sleep 3
-systemctl --no-pager status finally-runpod-watch | head -8
+systemctl --no-pager status finally-runpod-watch | head -8 || true
 echo
 echo "로그: journalctl -u finally-runpod-watch -f   · 멈춤: touch /var/lib/finally/watch.paused"
