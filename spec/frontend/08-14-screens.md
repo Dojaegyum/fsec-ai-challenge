@@ -276,6 +276,12 @@ side    plan.steps 에 지금 할 단계가 있으면  → 'work'
 - **「잘 모르겠어요」는 `track` 값이 아닙니다** — 클라이언트가 `victim` 으로 엽니다.
   §3.1 의 `track` 은 둘뿐이고, `victim` 의 T0 가 곧 「모름 → 보수적 슈퍼셋」입니다
   → [ADR-060](../../decisions/060-unsure-opens-victim.md).
+- **「내 돈이 나갔어요」는 T1 첫 문항의 답이기도 합니다** (2026-09-06 ·
+  [ADR-076](../../decisions/076-q1-fills-transferred-and-reply-acknowledges.md)). 클라이언트가
+  `POST /api/cases` 에 `transferred: true` 를 함께 보내고(`start/open.ts` 의 `openingOf`), 서버가
+  그것을 문진에서 「네, 돈이 나갔어요」를 누른 것과 같은 값으로 사건과 함께 저장합니다 — 그래서
+  사건 화면의 첫 문항은 「어떤 방법으로 보내셨나요?」입니다. **같은 것을 두 번 묻지 않습니다.**
+  「잘 모르겠어요」는 이 칸을 안 보내고 문진이 「돈이 실제로 빠져나갔나요?」부터 묻습니다.
 - **고른 뒤에는 바꾸지 않습니다.** 「잘 모르겠어요」로 들어왔는데 실제로는 계좌가 묶인
   쪽이었다면 **새 사건**으로 다시 엽니다 — `track` 을 고치는 API 는 없습니다
   → [ADR-066](../../decisions/066-track-fixed-new-case.md). 그래서 `victim` 사건 화면에

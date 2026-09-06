@@ -40,6 +40,8 @@ const TRACKS: readonly Track[] = ['victim', 'frozen_account']
 
 interface OpenCaseBody {
   readonly track?: unknown
+  /** 시작 화면 Q1 의 답 → §3.1 · ADR-076. 없어도 됩니다 */
+  readonly transferred?: unknown
 }
 
 /**
@@ -63,17 +65,43 @@ function readTrack(body: OpenCaseBody): Track {
   return body.track as Track
 }
 
+/**
+ * 시작 화면 Q1 의 답 → §3.1 `transferred` · ADR-076.
+ *
+ * **선택 항목입니다.** 「잘 모르겠어요」로 열면 없고, 그때는 문진이 묻습니다.
+ * 있으면 참·거짓만 받습니다 — 다른 값을 슬롯에 넣으면 `bool` 슬롯에 글자가 남습니다.
+ *
+ * **`frozen_account` 에는 그 문항이 없습니다**(ADR-071) — 돈을 보낸 적이 없는 명의인에게
+ * 「돈이 나갔다」를 저장하면 T1 이 없어야 할 갈래에 T1 값이 생깁니다. 모순은 여기서 막습니다.
+ */
+function readTransferred(body: OpenCaseBody, track: Track): boolean | undefined {
+  if (body.transferred === undefined || body.transferred === null) return undefined
+
+  if (typeof body.transferred !== 'boolean') {
+    throw new BadRequestError('transferred 는 참·거짓만 받습니다', { param: 'transferred' })
+  }
+  if (track === 'frozen_account') {
+    throw new BadRequestError('통장묶기 갈래에는 송금 여부 문항이 없습니다', {
+      param: 'transferred',
+    })
+  }
+  return body.transferred
+}
+
 export async function POST(request: Request) {
   return handleRoute(
     request,
     async (ctx) => {
-      const track = readTrack(await readJsonObject<OpenCaseBody>(ctx.request))
+      const body = await readJsonObject<OpenCaseBody>(ctx.request)
+      const track = readTrack(body)
+      const transferred = readTransferred(body, track)
       const { container } = ctx
 
       // 사건과 T0 공통 안전 절차를 함께 만들고 한 번에 저장합니다 → ADR-046.
-      // 슬롯이 하나도 없어도 절차가 붙습니다 → 08-14-slot-tiering.md
+      // 슬롯이 하나도 없어도 절차가 붙습니다 → 08-14-slot-tiering.md.
+      // 시작 화면에서 답한 것이 있으면 그것도 같은 트랜잭션에 → ADR-076
       const { opened, plan } = await openCaseWithPlan(
-        { track },
+        { track, transferred },
         {
           container,
           store: container.ports.casePlan,

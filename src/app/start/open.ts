@@ -54,10 +54,34 @@ export function trackOf(pick: number): Track {
   return pick === 1 ? "frozen_account" : "victim";
 }
 
-export async function openCase(track: Track, signal?: AbortSignal): Promise<OpenResult> {
+/** §3.1 의 요청 본문 — 갈래와, 있으면 시작 화면에서 이미 답한 송금 여부 */
+export interface Opening {
+  readonly track: Track;
+  /** Q1 「내 돈이 나갔어요」일 때만 `true`. 없으면 문진이 묻습니다 → ADR-076 */
+  readonly transferred?: boolean;
+}
+
+/**
+ * 화면의 Q1 → §3.1 요청 본문.
+ *
+ * **「내 돈이 나갔어요」는 곧 첫 문항 「돈이 실제로 빠져나갔나요?」의 답입니다** → ADR-076.
+ * 그 답을 여기 함께 실어 보내야 사건 화면이 같은 것을 다시 묻지 않습니다 — 사건을 만든 뒤
+ * §3.5 로 한 번 더 답하면 그 사이에 첫 문항이 「돈이 나갔나요」로 뜨고, 실패하면 「답했는데
+ * 저장 안 됨」이 남습니다. 서버가 사건과 같은 트랜잭션에 넣습니다.
+ *
+ * 「잘 모르겠어요」는 보내지 않습니다 — 모름은 답이 아니라 문진이 물을 자리입니다.
+ * 「내 계좌가 갑자기 묶였어요」도 보내지 않습니다 — 명의인에게 그 문항은 없고(ADR-071),
+ * 보내면 서버가 400 을 냅니다.
+ */
+export function openingOf(pick: number): Opening {
+  const track = trackOf(pick);
+  return pick === 0 ? { track, transferred: true } : { track };
+}
+
+export async function openCase(opening: Opening, signal?: AbortSignal): Promise<OpenResult> {
   const made = await postJson(
     "/api/cases",
-    { track },
+    opening,
     signal,
     "사건을 만들지 못했습니다. 연결을 확인해 주세요.",
   );

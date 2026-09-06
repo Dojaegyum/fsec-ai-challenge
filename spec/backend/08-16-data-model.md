@@ -352,6 +352,11 @@ CREATE TRIGGER trg_case_slot_touch BEFORE UPDATE ON case_slot
 
 **T0에는 슬롯이 없습니다.** 진입 자체로 충분합니다 → [02-slot-tiering.md](08-14-slot-tiering.md).
 
+**`transferred` 는 보통 시작 화면이 채웁니다** — `/start` 의 Q1 「내 돈이 나갔어요」가 §3.1 의 `transferred: true` 로
+실려 사건과 같은 트랜잭션에 `confirmed` · `source: user` 로 들어갑니다(2026-09-06 ·
+[ADR-076](../../decisions/076-q1-fills-transferred-and-reply-acknowledges.md)). 값은 문진에서 그 버튼을 눌렀을 때와
+같은 글자입니다(`lib/questions.ts` 의 `transferredAnswer`). 「잘 모르겠어요」로 연 사건만 문진이 묻습니다.
+
 **이 표가 코드의 표입니다** — `slot-checker/check.ts` 의 `VALUE_TYPES` 가 열일곱을 같은 값으로 갖고, 적재 검증(§11.4.5)과 저장이
 둘 다 그것을 봅니다. 티어는 `T1_KEYS` 둘이고 나머지가 T2 입니다. 다만 **T2 충족 판정은 `amount_hint`·`notice_started_at`·`victim_account`·`victim_name` 을 세지
 않습니다** — 첫째는 `amount` 와 같은 사실의 다른 표현이라 둘 중 하나가 늘 비고, 둘째는 물어서 채우는 값이 아니며, 뒤 둘은 서류 기재용이라 절차 선택과 무관합니다(ADR-070).

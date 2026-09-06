@@ -53,7 +53,10 @@ import type { DeadlineChange } from '@/lib/db'
 
 import type { OpenedCase, Track } from '@/modules/case-intake'
 import type { Actor, PlanResult, StepState } from '@/modules/planner'
+import { tierOf, valueTypeOf } from '@/modules/slot-checker'
 import type { NextQuestion, SlotKey, SlotState, SlotTier, TierStatus } from '@/modules/slot-checker'
+
+import { transferredAnswer } from '@/lib/questions'
 
 import { computeDeadlines } from './compute-deadlines'
 
@@ -67,6 +70,22 @@ export interface StoredSlot {
    * 플랜을 만드는 데는 상태만 필요해 오래 없던 칸이라 선택입니다
    */
   readonly valueMasked?: string | null
+}
+
+/**
+ * 사건을 열 때 **이미 아는** 슬롯 — 사건·플랜과 한 트랜잭션에 들어갑니다 → ADR-076.
+ *
+ * 지금은 하나뿐입니다: `/start` 의 Q1 「내 돈이 나갔어요」가 답한 `transferred`.
+ * `SlotWriter.write` 가 받는 것과 같은 모양이고 `caseId` 만 없습니다 — 사건 번호는
+ * 저장하는 쪽이 압니다.
+ */
+export interface OpenSlot {
+  readonly slotKey: SlotKey
+  readonly tier: SlotTier
+  readonly valueType: ReturnType<typeof valueTypeOf>
+  readonly state: SlotState
+  readonly valueMasked: string | null
+  readonly source: 'auto' | 'user' | 'system'
 }
 
 /**
@@ -200,8 +219,16 @@ export interface CasePlanStore {
    *
    * **한 트랜잭션이어야 합니다.** 둘로 갈라 부르는 자리를 만들지 마세요 —
    * 포트를 나눈 순간 어떤 구현도 이것을 보장할 수 없습니다.
+   *
+   * `slots` 는 시작 화면에서 이미 답한 것 → ADR-076. **같은 트랜잭션에** 넣습니다 —
+   * 사건 뒤에 따로 쓰면 그 사이의 실패가 「답했는데 다시 묻는」 사건을 남깁니다.
+   * 없으면 빈 배열이고, 그것이 「잘 모르겠어요」로 연 사건입니다.
    */
-  openCase(row: OpenedCase, result: PlanResult): Promise<readonly StoredStep[]>
+  openCase(
+    row: OpenedCase,
+    result: PlanResult,
+    slots?: readonly OpenSlot[],
+  ): Promise<readonly StoredStep[]>
 }
 
 /**
@@ -630,20 +657,32 @@ export { CaseNotFoundError }
  * @throws KbError 근거 네 칸이 빈 KB 항목이 왔을 때 — 버리지 않고 멈춥니다
  */
 export async function openCaseWithPlan(
-  input: { track: Track },
+  input: {
+    readonly track: Track
+    /**
+     * 시작 화면 Q1 의 답 → §3.1 `transferred` · ADR-076. 「내 돈이 나갔어요」가 `true` 이고,
+     * 「잘 모르겠어요」는 없습니다(문진이 묻습니다). 라우트가 갈래와의 모순(`frozen_account`)을
+     * 먼저 걸러 여기는 검사하지 않습니다
+     */
+    readonly transferred?: boolean
+  },
   deps: RegeneratePlanDeps,
 ): Promise<{ readonly opened: OpenedCase; readonly plan: PlanSnapshot }> {
   const { container, store, kbVersion } = deps
   const { caseIntake, kbFinder, planner, slotChecker, auditLogger } = container
 
   // 값만 만듭니다. 아직 저장하지 않습니다
-  const opened = caseIntake.draft(input)
+  const opened = caseIntake.draft({ track: input.track })
   const version = await kbVersion.current()
 
-  // 새 사건이라 슬롯도 경유 서비스도 기존 단계도 없습니다.
-  // **읽으러 가지 않습니다** — 아직 저장된 것이 없으므로 물어볼 곳이 없습니다
-  // 첫 문항부터 갈래에 맞게 — 통장묶기 명의인에게 「돈이 나갔나요」를 내지 않습니다(ADR-071)
-  const check = slotChecker.check({ slots: [], track: input.track })
+  // 시작 화면에서 이미 답한 것. **읽으러 가지 않습니다** — 아직 저장된 것이 없으므로
+  // 물어볼 곳이 없고, 아는 것은 이 요청에 실려 온 것뿐입니다
+  const known = slotsAtOpen(input)
+
+  // 첫 문항부터 갈래에 맞게 — 통장묶기 명의인에게 「돈이 나갔나요」를 내지 않습니다(ADR-071).
+  // 시작 화면에서 답한 것은 **여기서부터 채워진 것으로 셉니다** — 안 그러면 응답의 첫 문항이
+  // 방금 답한 것을 다시 묻습니다(ADR-076)
+  const check = slotChecker.check({ slots: known, track: input.track })
 
   const groups = await kbFinder.find({
     kbVersion: version,
@@ -658,13 +697,13 @@ export async function openCaseWithPlan(
     caseId: opened.caseId,
     applied: groups.applied.map(kbRowToPlanStep),
     reference: groups.reference.map(kbRowToPlanStep),
-    slots: [],
+    slots: known.map((one) => ({ slotKey: one.slotKey, state: one.state })),
     existing: [],
     superset: check.needsSupersetPlan,
   })
 
-  // **여기서 처음 저장합니다.** 사건과 플랜이 한 트랜잭션으로 들어갑니다
-  const steps = await store.openCase(opened, result)
+  // **여기서 처음 저장합니다.** 사건과 플랜, 그리고 시작 화면의 답이 한 트랜잭션으로 들어갑니다
+  const steps = await store.openCase(opened, result, known)
 
   // 새 사건에는 기산점이 될 슬롯이 아직 없어 **보통 빈 배열입니다.** 그래도
   // 같은 코드를 지나게 둡니다 — 생성과 재생성이 갈리면 어느 쪽이 맞는지
@@ -678,8 +717,15 @@ export async function openCaseWithPlan(
     eventType: 'case.opened',
     actorType: 'user',
     caseId: opened.caseId,
-    // 09-data-model.md §10.2 — 건수와 버전만. 원문도 토큰도 안 넣습니다
-    detail: { track: opened.track, kb_version: version, steps: steps.length },
+    // 09-data-model.md §10.2 — 건수와 버전만. 원문도 토큰도 안 넣습니다.
+    // `transferred` 는 값이 아니라 **답했다는 사실**입니다 — ADR-060 이 남긴 「모름으로 연
+    // 사건과 확신하고 고른 victim 을 구별 못 한다」가 이 한 칸으로 갈립니다(ADR-076)
+    detail: {
+      track: opened.track,
+      kb_version: version,
+      steps: steps.length,
+      ...(typeof input.transferred === 'boolean' ? { transferred: input.transferred } : {}),
+    },
   })
 
   return {
@@ -700,4 +746,27 @@ export async function openCaseWithPlan(
       auditId: record.auditId,
     },
   }
+}
+
+/**
+ * 시작 화면에서 이미 답한 것을 슬롯 모양으로 → ADR-076.
+ *
+ * **문진에서 그 버튼을 눌렀을 때와 같은 값**입니다 — 티어·값 타입은 `slot-checker` 의 표에서,
+ * 글자는 `lib/questions.ts` 에서 옵니다. 여기서 따로 적으면 길이 둘이 되어 사건 파일 카드가
+ * 같은 사실을 두 모양으로 그립니다. `confirmed` · `source: user` 인 것은 사람이 버튼으로 답한
+ * 것이기 때문입니다(`flows/answer-slot.ts` 의 `storeAnswer` 와 같습니다).
+ */
+function slotsAtOpen(input: { readonly transferred?: boolean }): readonly OpenSlot[] {
+  if (typeof input.transferred !== 'boolean') return []
+
+  return [
+    {
+      slotKey: 'transferred',
+      tier: tierOf('transferred'),
+      valueType: valueTypeOf('transferred'),
+      state: 'confirmed',
+      valueMasked: transferredAnswer(input.transferred),
+      source: 'user',
+    },
+  ]
 }

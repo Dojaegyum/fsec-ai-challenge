@@ -23,10 +23,12 @@ import type { PlanResult } from '@/modules/planner'
 
 import {
   CaseNotFoundError,
+  openCaseWithPlan,
   readCasePlan,
   regeneratePlan,
   type CasePlanStore,
   type KbVersionSource,
+  type OpenSlot,
   type StoredStep,
 } from './regenerate-plan'
 
@@ -75,9 +77,12 @@ function planStoreOf(
 ) {
   const applied: PlanResult[] = []
   const openedRows: OpenedCase[] = []
+  /** 사건과 함께 들어온 슬롯 → ADR-076 */
+  const openedSlots: OpenSlot[][] = []
   const store: CasePlanStore = {
-    async openCase(row, result) {
+    async openCase(row, result, slots = []) {
       openedRows.push(row)
+      openedSlots.push([...slots])
       return store.applyPlan(row.caseId, result)
     },
     async readCase() {
@@ -145,7 +150,7 @@ function planStoreOf(
     },
     ...over,
   }
-  return { store, applied, openedRows }
+  return { store, applied, openedRows, openedSlots }
 }
 
 const kbVersion: KbVersionSource = { current: async () => '2026.08.1' }
@@ -184,12 +189,14 @@ function containerFor(kbStore: Ports['kbStore']) {
 let deps: Parameters<typeof regeneratePlan>[1]
 let seenQueries: KbQuery[]
 let appliedResults: PlanResult[]
+let openedSlots: OpenSlot[][]
 
 beforeEach(() => {
   const kb = kbStoreOf([kbRow()])
   const plans = planStoreOf()
   seenQueries = kb.seen
   appliedResults = plans.applied
+  openedSlots = plans.openedSlots
 
   deps = {
     container: containerFor(kb.store),
@@ -226,6 +233,78 @@ describe('슬롯이 하나도 없어도 플랜이 나온다 — 불변 규칙 5'
 
     expect(snapshot.steps.length).toBeGreaterThan(0)
     expect(snapshot.isSuperset).toBe(true)
+  })
+})
+
+describe('시작 화면의 답을 사건과 함께 저장한다 — ADR-076', () => {
+  it('송금 여부가 확정된 채 열리고, 첫 문항은 송금 수단이다', async () => {
+    const { plan } = await openCaseWithPlan({ track: 'victim', transferred: true }, deps)
+
+    // **같은 것을 다시 묻지 않습니다** — 시작 화면에서 이미 「내 돈이 나갔어요」를 골랐습니다
+    expect(plan.nextQuestion?.slotKey).toBe('channel')
+    expect(plan.t1).toBe('partial')
+    // 송금 수단은 아직 모르므로 여전히 넓은 플랜입니다
+    expect(plan.isSuperset).toBe(true)
+  })
+
+  it('슬롯이 사건과 같은 자리(store.openCase)로 들어간다 — 따로 쓰는 경로가 없다', async () => {
+    await openCaseWithPlan({ track: 'victim', transferred: true }, deps)
+
+    expect(openedSlots).toHaveLength(1)
+    expect(openedSlots[0]).toHaveLength(1)
+    expect(openedSlots[0]?.[0]).toMatchObject({
+      slotKey: 'transferred',
+      tier: 'T1',
+      valueType: 'bool',
+      state: 'confirmed',
+      source: 'user',
+    })
+  })
+
+  it('값은 문진에서 그 버튼을 눌렀을 때와 같은 글자다', async () => {
+    // 사건 파일 카드와 챗의 사건 정보가 이 글자를 그대로 읽습니다 — 길이 둘이면 값도 둘이 됩니다
+    await openCaseWithPlan({ track: 'victim', transferred: true }, deps)
+
+    expect(openedSlots[0]?.[0]?.valueMasked).toBe('네, 돈이 나갔어요')
+  })
+
+  it('답이 없으면 슬롯 없이 열리고 첫 문항은 송금 여부다', async () => {
+    const { plan } = await openCaseWithPlan({ track: 'victim' }, deps)
+
+    expect(openedSlots[0]).toEqual([])
+    expect(plan.nextQuestion?.slotKey).toBe('transferred')
+  })
+
+  it('감사 기록에는 답했다는 사실만 남는다 — 값도 토큰도 없다', async () => {
+    const seen: { eventType: string; detail: Readonly<Record<string, unknown>> }[] = []
+    const kb = kbStoreOf([kbRow()])
+    const plans = planStoreOf()
+    const container = {
+      ...createContainer(
+        readEnv({}),
+        portsWith({
+          kbStore: kb.store,
+          auditStore: {
+            appendChained: async (build) => {
+              const record = build(null)
+              seen.push({ eventType: record.eventType, detail: record.detail })
+              return record
+            },
+          },
+        }),
+      ),
+      slots: { read: async () => [] },
+      deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    }
+
+    await openCaseWithPlan(
+      { track: 'victim', transferred: true },
+      { container, store: plans.store, kbVersion },
+    )
+
+    const opened = seen.find((one) => one.eventType === 'case.opened')
+    expect(opened?.detail.transferred).toBe(true)
+    expect(JSON.stringify(opened?.detail)).not.toContain('돈이 나갔어요')
   })
 })
 
