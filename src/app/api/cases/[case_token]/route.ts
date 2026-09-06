@@ -72,6 +72,11 @@ export async function GET(
                 text: snapshot.nextQuestion.text,
                 input: snapshot.nextQuestion.input,
                 options: [...(snapshot.nextQuestion.options ?? [])],
+                // **물은 값의 출처** → §3.5 `held_ref`. 답이 이것을 되돌려 줘야
+                // 그 사이에 바뀐 값을 확정하지 않습니다 (ADR-082 × ADR-087)
+                ...(snapshot.nextQuestion.heldRef === undefined
+                  ? {}
+                  : { held_ref: snapshot.nextQuestion.heldRef }),
               }
             : null,
         },

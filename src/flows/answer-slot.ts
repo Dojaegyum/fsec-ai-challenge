@@ -76,6 +76,13 @@ export async function answerSlot(
     readonly slotKey: string
     readonly action: SlotAction
     readonly value?: string
+    /**
+     * 되묻기 문항이 실어 보냈던 **그 값의 출처** → §3.5 `held_ref`.
+     *
+     * `action: 'confirm'` 에만 옵니다. 없으면 지금까지대로 동작합니다 — 옛 화면이
+     * 보낸 요청을 막지 않습니다
+     */
+    readonly heldRef?: string
   },
   container: Container,
 ): Promise<AnswerResult> {
@@ -119,7 +126,7 @@ export async function answerSlot(
     }
     const target = { caseId: input.caseId, slotKey: input.slotKey, tier, valueType }
     return input.action === 'confirm'
-      ? confirmHeld(target, held, container)
+      ? confirmHeld(target, held, container, input.heldRef)
       : rejectHeld(target, container)
   }
 
@@ -297,12 +304,39 @@ async function readHeldValue(
  *
  * `source` 는 `auto` 로 둡니다 — 기한 계산이 「증거에서 온 날짜」를 확정으로 보는
  * 근거가 이 칸입니다(`compute-deadlines.ts`).
+ *
+ * ## ⚠️ 사용자가 **본 값**만 확정합니다 → §3.5 `held_ref`
+ *
+ * 답에 값이 안 실리므로(ADR-082) 확정되는 것은 **지금 DB 에 있는 값**입니다. 그런데
+ * 슬롯 추출은 응답 뒤로 미뤄져 있어(ADR-086), 화면에 「32,000,000원이 맞나요?」가 떠
+ * 있는 동안 두 번째 자료의 추출이 그 칸을 3,000,000 으로 덮을 수 있습니다 — 그러면
+ * 「맞아요」 한 번에 **본 적 없는 값이 `confirmed`** 가 됩니다.
+ *
+ * 그래서 문항이 실어 보낸 출처(`heldRef`)와 지금 슬롯의 `source_ref` 가 같을 때만
+ * 확정합니다. 다르면 **아무것도 안 쓰고** 지금 값을 그대로 돌려주고, 부르는 쪽의
+ * `afterAnswer` 가 **새 값의 확인 문항**을 냅니다 — 400 이 아닙니다(불변 규칙 5).
+ *
+ * `heldRef` 가 없으면 지금까지대로 확정합니다 — 옛 화면의 요청을 막지 않습니다.
  */
 async function confirmHeld(
   one: ConfirmTarget,
   held: HeldValue,
   container: Container,
+  heldRef?: string,
 ): Promise<AnswerResult> {
+  if (heldRef !== undefined && held.sourceRef !== heldRef) {
+    return {
+      slotKey: one.slotKey,
+      // 값은 그대로 `extracted` 입니다 — 확인 전이고, 다음 문항이 이 값을 다시 묻습니다
+      state: 'extracted',
+      value: held.valueMasked,
+      piiConfirm: null,
+      counts: null,
+      // 아무것도 안 썼습니다 — 플랜을 다시 만들 이유가 없습니다
+      planRegenerated: false,
+    }
+  }
+
   await container.slotWrite.write({
     caseId: one.caseId,
     slotKey: one.slotKey,

@@ -205,6 +205,80 @@ describe('되묻기의 답 — action 목록에 confirm·reject 가 있다 (ADR-
 
     expect((await PATCH(one.request, one.route)).status).toBe(400)
   })
+
+  /**
+   * ⚠️ **사용자가 못 본 값이 「맞아요」로 확정되던 자리** — ADR-082 × ADR-087.
+   *
+   * 답에 값이 안 실리므로 서버는 **지금** DB 값을 닫습니다. 그런데 슬롯 추출은 응답
+   * 뒤로 미뤄져 있어(ADR-086), 되묻기가 떠 있는 동안 다른 자료의 추출이 그 칸을
+   * 덮을 수 있습니다. 문항이 실어 준 출처를 답이 되돌려 주면 그 어긋남이 보입니다.
+   */
+  describe('held_ref — 화면이 물은 값과 지금 값이 같은가 (§3.5)', () => {
+    /** 되묻기 문항을 낼 수 있는 플랜 — 앞 문항들이 이미 채워져 있습니다 */
+    const heldPlan = (sourceRef: string, valueMasked: string): CasePlanStore => ({
+      ...casePlan,
+      async readSlots() {
+        return [
+          { slotKey: 'transferred' as const, tier: 'T1' as const, state: 'confirmed' as const },
+          { slotKey: 'channel' as const, tier: 'T1' as const, state: 'confirmed' as const },
+          { slotKey: 'org_name' as const, tier: 'T2' as const, state: 'confirmed' as const },
+          {
+            slotKey: 'amount' as const,
+            tier: 'T2' as const,
+            state: 'extracted' as const,
+            valueMasked,
+            sourceRef,
+          },
+        ]
+      },
+    })
+
+    it('출처가 같으면 확정한다', async () => {
+      const one = ask('amount', {
+        action: 'confirm',
+        held_ref: '01J8XKQZ3M7N2P4R6T8V0W2Y4B',
+      })
+      const res = await PATCH(one.request, one.route)
+      const body = (await res.json()) as { slot: { state: string } }
+
+      expect(res.status).toBe(200)
+      expect(body.slot.state).toBe('confirmed')
+    })
+
+    it('**다르면 확정하지 않고 200 으로 새 문항을 낸다** — 에러가 아닙니다', async () => {
+      const NEW_REF = '01J8XKQZ3M7N2P4R6T8V0W2Y4C'
+      const writes: unknown[] = []
+      holder.container = {
+        ...wiredContainer(),
+        ports: { ...wiredContainer().ports, casePlan: heldPlan(NEW_REF, '3000000') },
+        slots: {
+          read: async () => [{ ...EXTRACTED[0]!, valueMasked: '3000000', sourceRef: NEW_REF }],
+        },
+        slotWrite: { write: async (input: unknown) => void writes.push(input) },
+      }
+
+      const one = ask('amount', {
+        action: 'confirm',
+        held_ref: '01J8XKQZ3M7N2P4R6T8V0W2Y4B',
+      })
+      const res = await PATCH(one.request, one.route)
+      const body = (await res.json()) as {
+        slot: { state: string }
+        next_question: { slot_key: string; input: string; held_ref?: string } | null
+      }
+
+      expect(res.status).toBe(200)
+      // 아무것도 안 썼습니다 — 본 적 없는 값이 확정되지 않습니다
+      expect(writes).toHaveLength(0)
+      expect(body.slot.state).toBe('extracted')
+      // 대신 **새 값의 확인 문항**이 나갑니다. 그 값의 출처가 실려 다음 답이 짝을 맞춥니다
+      expect(body.next_question).toMatchObject({
+        slot_key: 'amount',
+        input: 'confirm',
+        held_ref: NEW_REF,
+      })
+    })
+  })
 })
 
 describe('계측 헤더 — 08-14-api.md §1.1', () => {

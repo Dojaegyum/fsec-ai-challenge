@@ -23,6 +23,14 @@ export interface NextQuestion {
    */
   input: "buttons" | "text" | "date" | "amount" | "confirm";
   options?: readonly string[];
+  /**
+   * 되묻는 값의 출처 — `input` 이 `"confirm"` 일 때만 옵니다.
+   *
+   * **답에 그대로 실어 보냅니다** (§3.5 `held_ref`). 그 사이 미룬 추출이 그 칸을
+   * 덮었으면 서버가 확정하지 않고 새 문항을 냅니다 — 사용자가 **본 적 없는 값**이
+   * 「맞아요」 한 번에 확정되던 자리입니다 (ADR-082 × ADR-087)
+   */
+  held_ref?: string;
 }
 
 /**

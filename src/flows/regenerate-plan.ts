@@ -70,6 +70,11 @@ export interface StoredSlot {
    * 플랜을 만드는 데는 상태만 필요해 오래 없던 칸이라 선택입니다
    */
   readonly valueMasked?: string | null
+  /**
+   * 그 값이 어디서 왔나(`source_ref`). 되묻기 문항이 이것을 싣고, 답이 되돌려 줍니다 —
+   * 사용자가 본 값이 그 사이에 바뀌지 않았는지를 서버가 견주는 자리입니다(§3.5)
+   */
+  readonly sourceRef?: string | null
 }
 
 /**

@@ -441,6 +441,9 @@ function asWireQuestion(one: SlotQuestion | null): NextQuestion | null {
     text: one.text,
     input: one.input,
     options: [...(one.options ?? [])],
+    // 되묻기가 **지금 물은 값의 출처** → §3.5 `held_ref`. 답이 이것을 되돌려 줘야
+    // 그 사이에 바뀐 값을 확정하지 않습니다 (ADR-082 × ADR-087)
+    ...(one.heldRef === undefined ? {} : { held_ref: one.heldRef }),
   }
 }
 

@@ -52,6 +52,10 @@ export async function GET(
               text: snapshot.nextQuestion.text,
               input: snapshot.nextQuestion.input,
               options: [...(snapshot.nextQuestion.options ?? [])],
+              // 되묻기가 **지금 물은 값의 출처** → §3.5 `held_ref`
+              ...(snapshot.nextQuestion.heldRef === undefined
+                ? {}
+                : { held_ref: snapshot.nextQuestion.heldRef }),
             }
           : null,
       },

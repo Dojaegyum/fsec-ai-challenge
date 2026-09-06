@@ -33,6 +33,7 @@ const ACTIONS: readonly SlotAction[] = [
 interface AnswerBody {
   readonly action?: unknown
   readonly value?: unknown
+  readonly held_ref?: unknown
 }
 
 function readAction(body: AnswerBody): SlotAction {
@@ -45,6 +46,22 @@ function readAction(body: AnswerBody): SlotAction {
     })
   }
   return body.action as SlotAction
+}
+
+/**
+ * 되묻기 문항이 실어 보냈던 **그 값의 출처** → §3.5 `held_ref`.
+ *
+ * 화면은 §3.4 `next_question.held_ref` 를 그대로 되돌려 줍니다. 흐름이 지금 슬롯의
+ * `source_ref` 와 견주어, 다르면 **확정하지 않고 새 문항을 냅니다** — 되묻기가 떠 있는
+ * 동안 미룬 추출이 그 칸을 덮었다는 뜻이기 때문입니다(ADR-082 × ADR-087).
+ *
+ * **없으면 없는 대로 지나갑니다.** 옛 화면이 보낸 요청을 400 으로 막지 않습니다 —
+ * 모양이 아닌 값도 마찬가지입니다(그때는 흐름이 「다르다」로 보아 다시 묻습니다).
+ */
+function readHeldRef(body: AnswerBody): string | undefined {
+  return typeof body.held_ref === 'string' && body.held_ref.length > 0
+    ? body.held_ref
+    : undefined
 }
 
 /**
@@ -114,12 +131,15 @@ export async function PATCH(
     const body = await readJsonObject<AnswerBody>(ctx.request)
     const action = readAction(body)
 
+    const heldRef = readHeldRef(body)
+
     const result = await answerSlot(
       {
         caseId,
         slotKey,
         action,
         ...(typeof body.value === 'string' ? { value: body.value } : {}),
+        ...(heldRef === undefined ? {} : { heldRef }),
       },
       container,
     )
@@ -167,6 +187,10 @@ export async function PATCH(
               text: after.nextQuestion.text,
               input: after.nextQuestion.input,
               options: [...(after.nextQuestion.options ?? [])],
+              // 되묻기가 **지금 물은 값의 출처** → 아래 `readHeldRef` 의 짝
+              ...(after.nextQuestion.heldRef === undefined
+                ? {}
+                : { held_ref: after.nextQuestion.heldRef }),
             }
           : null,
         // **안 바뀐 기한은 안 실립니다** → §3.5. 매번 전부 실으면 화면이

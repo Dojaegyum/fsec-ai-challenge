@@ -740,4 +740,113 @@ describe('뽑힌 값의 되묻기 답 — ADR-069', () => {
       ).rejects.toBeInstanceOf(BadRequestError)
     })
   })
+
+  /**
+   * ⚠️ **사용자가 못 본 값이 「맞아요」로 확정되던 자리** — ADR-082 × ADR-087.
+   *
+   * 답에 값을 안 싣게 되면서(ADR-082) 서버는 **지금** DB 값을 확정합니다. 그런데
+   * 슬롯 추출은 응답 뒤(`after()`)로 미뤄져 있어(ADR-086), 화면에 「32,000,000원이
+   * 맞나요?」가 떠 있는 동안 두 번째 자료의 추출이 그 칸을 3,000,000 으로 덮을 수
+   * 있습니다. 그 상태에서 「맞아요」를 누르면 **본 적 없는 값이 `confirmed`** 가 됩니다.
+   *
+   * 그래서 되묻기 문항이 그 값의 출처(`held_ref` = 슬롯의 `source_ref`)를 싣고,
+   * 답이 그것을 되돌려 줍니다. 다르면 **확정하지 않고 새 문항을 냅니다** — 에러가
+   * 아닙니다(불변 규칙 5).
+   */
+  describe('사용자가 본 값만 확정한다 — held_ref (ADR-082 × ADR-087)', () => {
+    const OTHER_REF = '01J8XKQZ3M7N2P4R6T8V0W2Y4C'
+
+    /** 되묻기가 떠 있는 슬롯 하나 — 플랜 쪽과 슬롯 쪽이 **같은 값**을 봅니다 */
+    function heldHarness(sourceRef: string, valueMasked = '3000000') {
+      const one = harness({
+        slots: [
+          { slotKey: 'transferred', tier: 'T1', state: 'confirmed' },
+          { slotKey: 'channel', tier: 'T1', state: 'confirmed' },
+          { slotKey: 'org_name', tier: 'T2', state: 'confirmed' },
+          { slotKey: 'amount', tier: 'T2', state: 'extracted', valueMasked, sourceRef },
+        ],
+      })
+      ;(one.container as unknown as Record<string, unknown>).slots = {
+        read: async () => [
+          {
+            slotKey: 'amount',
+            tier: 'T2',
+            state: 'extracted',
+            valueMasked,
+            valueType: 'decimal',
+            source: 'auto',
+            confidence: 0.9,
+            sourceRef,
+          },
+        ],
+      }
+      return one
+    }
+
+    it('되묻기 문항이 그 값의 출처를 싣는다', async () => {
+      const one = heldHarness(EVIDENCE_REF)
+
+      const after = await afterAnswer(CASE_ID, one.container, false)
+
+      expect(after.nextQuestion?.slotKey).toBe('amount')
+      expect(after.nextQuestion?.input).toBe('confirm')
+      expect(after.nextQuestion?.heldRef).toBe(EVIDENCE_REF)
+    })
+
+    it('출처가 같으면 확정한다', async () => {
+      const one = heldHarness(EVIDENCE_REF)
+
+      const got = await answerSlot(
+        { caseId: CASE_ID, slotKey: 'amount', action: 'confirm', heldRef: EVIDENCE_REF },
+        one.container,
+      )
+
+      expect(got.state).toBe('confirmed')
+      expect(one.slotWrites).toEqual([
+        expect.objectContaining({ slotKey: 'amount', state: 'confirmed', valueMasked: '3000000' }),
+      ])
+    })
+
+    it('**그 사이 다른 자료가 값을 덮었으면 확정하지 않는다**', async () => {
+      // 화면이 물은 것은 `EVIDENCE_REF` 의 값인데 지금 슬롯에 있는 것은 다른 자료의 값입니다
+      const one = heldHarness(OTHER_REF, '32000000')
+
+      const got = await answerSlot(
+        { caseId: CASE_ID, slotKey: 'amount', action: 'confirm', heldRef: EVIDENCE_REF },
+        one.container,
+      )
+
+      expect(one.slotWrites).toHaveLength(0)
+      expect(got.state).toBe('extracted')
+      expect(got.planRegenerated).toBe(false)
+    })
+
+    it('대신 **새 값의 확인 문항**을 낸다 — 에러가 아닙니다', async () => {
+      const one = heldHarness(OTHER_REF, '32000000')
+
+      const got = await answerSlot(
+        { caseId: CASE_ID, slotKey: 'amount', action: 'confirm', heldRef: EVIDENCE_REF },
+        one.container,
+      )
+      const after = await afterAnswer(CASE_ID, one.container, got.planRegenerated)
+
+      expect(after.nextQuestion?.slotKey).toBe('amount')
+      expect(after.nextQuestion?.input).toBe('confirm')
+      // 새 값이 문구에 들어가고, 그 값의 출처가 실립니다 — 다음 「맞아요」는 이것을 되돌려 줍니다
+      expect(after.nextQuestion?.text).toContain('32,000,000원')
+      expect(after.nextQuestion?.heldRef).toBe(OTHER_REF)
+    })
+
+    it('held_ref 를 안 보내면 지금까지대로 확정한다 — 옛 화면 호환', async () => {
+      const one = heldHarness(OTHER_REF, '32000000')
+
+      const got = await answerSlot(
+        { caseId: CASE_ID, slotKey: 'amount', action: 'confirm' },
+        one.container,
+      )
+
+      expect(got.state).toBe('confirmed')
+      expect(one.slotWrites).toHaveLength(1)
+    })
+  })
 })

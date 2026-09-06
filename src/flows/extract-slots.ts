@@ -30,6 +30,7 @@
  * | 확신도 | `CONFIDENCE_MIN` 미만은 버립니다 — 08-14-slot-tiering.md 의 「임계값 미정」을 여기서 정했습니다 |
  * | 모양 | `lib/extracted-value.ts` 가 못 다듬으면 버립니다 — 「어제」·「삼천만 원쯤」은 사람에게 묻습니다 |
  * | 이미 확정된 슬롯 | 덮지 않습니다 — `repairOrgs` 와 같은 그물. `unknown`(모름)은 채웁니다. **모델을 부른 뒤 한 번 더 읽어** 그 사이에 도착한 「맞아요」도 지킵니다 |
+ * | 사용자가 **거절한** 슬롯 | 덮지 않습니다 — `empty` + `source: 'user'`. 안 그러면 아니라고 말한 값을 다시 뽑아 같은 되묻기가 다시 뜹니다 |
  *
  * ## 실패해도 진행한다
  *
@@ -96,18 +97,18 @@ export async function extractSlotsFrom(
     })
 
     // ⚠️ **적기 직전에 한 번 더 읽습니다.** 위 그물은 모델을 부르기 전의 것이라
-    // 몇 초 낡았습니다 — 그 사이에 사용자의 「맞아요」가 도착할 수 있습니다.
+    // 몇 초 낡았습니다 — 그 사이에 사용자의 「맞아요」·「아니에요」가 도착할 수 있습니다.
     //
     // 챗 경로에서 실제로 겹치는 자리입니다(ADR-087): 같은 응답이 그 슬롯의 확인 문항을
     // 싣고 나가고, 사용자가 누른 §3.5 `PATCH /slots` 가 이 미룬 쓰기보다 먼저 도착합니다.
     // 쓰기는 `state = EXCLUDED.state` 로 덮으므로(`lib/db.ts`), 낡은 그물로 적으면
     // **방금 확정한 값을 다른 값의 `extracted` 로 되돌립니다.**
-    const confirmed = await confirmedKeys(input.caseId, container)
+    const protectedKeys = await protectedFrom(input.caseId, container)
 
     for (const one of result.slots) {
       if (!isConfirmable(one.slotKey)) continue
       if (one.confidence < CONFIDENCE_MIN) continue
-      if (confirmed.has(one.slotKey)) continue
+      if (protectedKeys.has(one.slotKey)) continue
       const value = normalizeExtracted(one.slotKey, one.valueMasked, input.text)
       if (value === null) continue
 
@@ -139,8 +140,44 @@ export async function extractSlotsFrom(
   }
 }
 
-/** 지금 `confirmed` 인 슬롯 이름들. **덮지 않을 것의 그물**입니다 */
+/** 지금 `confirmed` 인 슬롯 이름들 — **추출기에 「이건 이미 안다」고 알려 주는 데** 씁니다 */
 async function confirmedKeys(caseId: string, container: Container): Promise<Set<string>> {
   const already = await container.slots.read(caseId)
   return new Set(already.filter((one) => one.state === 'confirmed').map((one) => one.slotKey))
+}
+
+/**
+ * **덮지 않을 것의 그물** — 적기 직전에 씁니다.
+ *
+ * 둘입니다.
+ *
+ * | 상태 | 무엇 |
+ * | --- | --- |
+ * | `confirmed` | 사용자가 확인했습니다. 자동이 덮을 수 없습니다 |
+ * | `empty` + `source: 'user'` | 사용자가 **거절한** 값입니다 → 아래 |
+ *
+ * ⚠️ **거절한 값이 되살아나던 자리입니다.** 「아니에요, 다시 적을게요」는 슬롯을
+ * `state: 'empty'` · `source: 'user'` 로 비웁니다(`answer-slot.ts` 의 `rejectHeld`).
+ * `confirmed` 만 보는 그물로는 그 칸이 비어 있는 것과 구분되지 않아, 다음 발화나
+ * 두 번째 자료의 추출이 **같은 값을 다시 `extracted` 로** 적고 같은 되묻기가 다시
+ * 떴습니다 — 아니라고 말한 값을 계속 다시 묻는 것입니다.
+ *
+ * **그 조합을 만드는 자리는 거절 하나뿐입니다.** `state: 'empty'` 로 쓰는 코드는
+ * `rejectHeld` 하나이고(`storeAnswer` 의 「표에 없는 라벨」은 아무것도 안 쓰고
+ * 돌아갑니다), 행은 이 쓰기로만 생깁니다. 그래서 이 조합을 「거절」로 읽어도
+ * 됩니다 — 새로 `empty` 를 쓰는 자리를 만들면 **여기를 함께 보세요.**
+ *
+ * 다시 물을 길은 막히지 않습니다 — 슬롯 체커가 `empty` 를 **원래 형식으로** 묻고
+ * (`check.ts` 의 순회), 사용자가 답하면 그 값이 들어갑니다.
+ */
+async function protectedFrom(caseId: string, container: Container): Promise<Set<string>> {
+  const already = await container.slots.read(caseId)
+  return new Set(
+    already
+      .filter(
+        (one) =>
+          one.state === 'confirmed' || (one.state === 'empty' && one.source === 'user'),
+      )
+      .map((one) => one.slotKey),
+  )
 }

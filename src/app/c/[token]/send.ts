@@ -307,6 +307,10 @@ export type SlotResult =
  * | `mask`·`keep` | 개인정보 되묻기에 답한다 | **이미 가려서 보냈던 그 값** 그대로 |
  * | `confirm`·`reject` | 뽑힌 값의 되묻기에 답한다 | **없음** — 뜻만 갑니다 (ADR-082) |
  *
+ * 「맞아요」에는 **지금 물은 값의 출처**(`held_ref` · §3.4 문항이 실어 준 것)를 함께
+ * 보냅니다. 그 사이 미룬 추출(ADR-086)이 그 칸을 덮었으면 서버가 확정하지 않고 새
+ * 문항을 냅니다 — 값이 아니라 자료·발화 번호라 경계와 무관합니다 (ADR-087).
+ *
  * ⬜ **`mask` 를 서버가 합니다.** §3.5 는 「가리는 것은 브라우저가 합니다」라고
  * 적혀 있지만, 2차에서 걸리는 것은 NER 이 집은 것(이름·기관)이라 **브라우저의
  * 정규식은 그것을 못 집습니다** — 지금 브라우저가 할 수 있는 일이 아닙니다.
@@ -318,6 +322,8 @@ export async function answerSlot(input: {
   action: "answer" | "unknown" | "mask" | "keep" | "confirm" | "reject";
   /** `answer` 면 원문 · `mask`/`keep` 이면 앞서 보낸 가려진 값. `confirm`/`reject` 는 없음 */
   value?: string;
+  /** `confirm` 일 때 **지금 물은 값의 출처** — §3.4 문항의 `held_ref` 그대로 */
+  heldRef?: string;
   mappings: readonly PiiMapping[];
   /** `openVault` 의 `read` 를 그대로 → `screenAndSeal` 의 같은 이름 참고 */
   vaultRead: boolean;
@@ -331,7 +337,14 @@ export async function answerSlot(input: {
   // 경계를 지날 것이 없고, `value` 를 안 싣는 것이 계약입니다 — 버튼 글자를 실어
   // 보내던 옛 길에서 그 글자가 가려져 서버에 금액으로 저장된 일이 있었습니다
   if (action === "unknown" || action === "confirm" || action === "reject") {
-    const said = await sendJson("PATCH", url, { action }, signal, "답을 보내지 못했습니다.");
+    const said = await sendJson(
+      "PATCH",
+      url,
+      // **값 대신 출처**입니다 — 서버가 「내가 본 값이 아직 그대로인가」를 봅니다 (§3.5)
+      { action, ...(input.heldRef === undefined ? {} : { held_ref: input.heldRef }) },
+      signal,
+      "답을 보내지 못했습니다.",
+    );
     if (!said.ok) return { ok: false, stage: "answer", fail: said.fail };
     return {
       ok: true,
@@ -749,6 +762,13 @@ export function useChatSend(
     ) => {
       if (!caseToken || !question || asking) return;
       const target = slotKey ?? question.slot_key;
+      /**
+       * 되묻기의 「맞아요」에만 실립니다 — **지금 화면에 떠 있는 문항이 물은 값**의
+       * 출처입니다(§3.4 `held_ref`). 그 사이 미룬 추출이 그 칸을 덮었으면 서버가
+       * 확정하지 않고 새 문항을 냅니다 (ADR-087). 「아니에요」는 비우는 것이라
+       * 무엇을 지우는지가 달라져도 결과가 같습니다 — 안 싣습니다
+       */
+      const heldRef = action === "confirm" ? question.held_ref : undefined;
 
       setAsking(true);
       setAskFail(null);
@@ -758,6 +778,7 @@ export function useChatSend(
         slotKey: target,
         action,
         ...(value === undefined ? {} : { value }),
+        ...(heldRef === undefined ? {} : { heldRef }),
         mappings,
         vaultRead,
         store,

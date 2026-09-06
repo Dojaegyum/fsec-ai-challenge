@@ -47,6 +47,17 @@ const AMOUNT: NextQuestion = {
   input: "amount",
 };
 
+/**
+ * 자료에서 뽑힌 값의 되묻기 — **그 값의 출처가 실려 옵니다** (§3.4 `held_ref`).
+ */
+const HELD: NextQuestion = {
+  slot_key: "amount",
+  text: "올린 자료에서 찾은 보낸 금액입니다: 32,000,000원. 맞나요?",
+  input: "confirm",
+  options: ["맞아요", "아니에요, 다시 적을게요", "모름·기억 안 남"],
+  held_ref: "01J8XKQZ3M7N2P4R6T8V0W2Y4B",
+};
+
 const CARD = {
   found: [{ kind: "이름", text: "[이름-1]" }],
   text: "여기에 개인정보가 들어 있는 것 같습니다.",
@@ -125,8 +136,12 @@ let root: Root;
 const seen: { now: ChatSend | null } = { now: null };
 const hookNow = () => seen.now as ChatSend;
 
-function Probe() {
-  const now = useChatSend(TOKEN, ORG);
+/**
+ * `question` 은 **셸이 번들에서 내려주는 첫 문항**입니다(`page.tsx` 의 `bundle.question`).
+ * 다시 그리며 바꿀 수 있게 속성으로 받습니다 — 번들이 갱신되는 자리를 세웁니다.
+ */
+function Probe({ question = ORG }: { question?: NextQuestion | null }) {
+  const now = useChatSend(TOKEN, question);
   // 렌더 중에 바깥을 건드리지 않습니다 — `act()` 가 효과까지 흘려보내므로
   // 시험이 읽는 시점에는 언제나 최신입니다
   useEffect(() => {
@@ -148,12 +163,19 @@ afterEach(() => {
 });
 
 /** 훅을 마운트하고 첫 로드(볼트·이력)가 끝날 때까지 기다립니다 */
-async function mount(): Promise<void> {
+async function mount(question: NextQuestion | null = ORG): Promise<void> {
   await act(async () => {
-    root.render(<Probe />);
+    root.render(<Probe question={question} />);
   });
   await act(async () => {
     await Promise.resolve();
+  });
+}
+
+/** 번들이 갱신돼 셸이 새 문항을 내려주는 자리 — 같은 훅을 다시 그립니다 */
+async function rerender(question: NextQuestion | null): Promise<void> {
+  await act(async () => {
+    root.render(<Probe question={question} />);
   });
 }
 
@@ -283,6 +305,57 @@ describe("되묻기의 답 — confirmAnswer 는 뜻만 보낸다 (ADR-082)", ()
 
     const patched = calls.filter((one) => one.url.includes("/slots/"));
     expect(patched[0]?.url).toContain("/slots/org_name");
+  });
+});
+
+/**
+ * 되묻기의 「맞아요」는 **내가 본 값**에만 붙습니다 — ADR-082 × ADR-087.
+ *
+ * 답에 값이 안 실리므로 서버는 지금 DB 값을 닫습니다. 되묻기가 떠 있는 동안 미룬
+ * 추출(ADR-086)이 그 칸을 덮으면 **본 적 없는 값이 확정**됩니다 — 문항이 실어 준
+ * 출처를 그대로 되돌려 주면 서버가 그 어긋남을 봅니다.
+ */
+describe("되묻기의 답이 물었던 값의 출처를 되돌려 준다 — §3.5 held_ref", () => {
+  it("「맞아요」에 held_ref 가 실린다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(HELD);
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(JSON.parse(patched[0]!.body)).toEqual({
+      action: "confirm",
+      held_ref: HELD.held_ref,
+    });
+  });
+
+  it("「아니에요」는 지금까지대로 뜻만 보낸다 — 비우는 데는 짝이 필요 없습니다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(HELD);
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("reject");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(JSON.parse(patched[0]!.body)).toEqual({ action: "reject" });
+  });
+
+  it("출처가 없는 문항에는 안 싣는다 — 옛 서버가 낸 문항", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount({ ...HELD, held_ref: undefined });
+
+    await act(async () => {
+      await hookNow().ask.confirmAnswer("confirm");
+    });
+
+    const patched = calls.filter((one) => one.url.includes("/slots/"));
+    expect(JSON.parse(patched[0]!.body)).toEqual({ action: "confirm" });
   });
 });
 
