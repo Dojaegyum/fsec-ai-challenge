@@ -34,7 +34,7 @@
  * 전사문 옆에 따로 붙여야 하고, 그건 이 모듈의 일이 아닙니다.
  */
 
-import { AppError, IngestError } from '@/lib/errors'
+import { AppError, IngestError, isTransient } from '@/lib/errors'
 
 import type {
   At,
@@ -333,6 +333,8 @@ function ingestFailed(
     readonly phase: IngestPhase | null
     /** 어디서 틀어졌나. **짧은 표시값만** — 예외 문구를 그대로 담지 않습니다 */
     readonly reason: string
+    /** 닿지 못한 것인가(연결 · 타임아웃 · 5xx). 흐름이 「재시도중」 갈래를 정하는 표시 → ADR-091 §1 */
+    readonly transient?: boolean
   },
 ): IngestError {
   return new IngestError(message, { ...detail })
@@ -430,6 +432,7 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
           kind: media.kind,
           phase,
           reason: 'submit_failed',
+          transient: isTransient(error),
         })
       }
     },
@@ -451,6 +454,7 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
           kind: job.kind,
           phase: job.phase,
           reason: 'poll_failed',
+          transient: isTransient(error),
         })
       }
 
