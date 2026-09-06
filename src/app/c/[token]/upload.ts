@@ -47,6 +47,21 @@ export function kindOf(mime: string): "audio" | "image" | "text" | null {
   return null;
 }
 
+/**
+ * 시작 화면이 **아직 서버에 없는 파일 수**를 남기는 자리 — 두 화면이 같은 열쇠를 씁니다.
+ *
+ * 시작 화면은 파일을 하나씩 올리는데, 발급된 주소 앞에서 사용자를 세우지
+ * 않으므로(불변 규칙 5 · ADR-021) **다 올라가기 전에 사건 화면이 열립니다.**
+ * 그때 사건 화면이 목록을 한 번만 읽으면 늦게 올라간 파일은 목록에 없고,
+ * 셸 폴링도 그것을 묻지 않아 「처리중」에 굳습니다 (2026-09-06 점검).
+ *
+ * 남기는 것은 **수 하나뿐**입니다 — 파일도 개인정보도 담지 않습니다.
+ * 창을 닫으면 사라지는 `sessionStorage` 라 다음 사건까지 따라오지 않습니다.
+ */
+export function pendingKey(caseToken: string): string {
+  return `fin-ally:pending-uploads:${caseToken}`;
+}
+
 export type UploadResult =
   | { readonly ok: true; readonly evidenceId: string }
   | { readonly ok: false; readonly fail: LoadFail };
@@ -356,19 +371,68 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
     if (!caseToken) return;
     const ac = new AbortController();
     let alive = true;
+    const key = pendingKey(caseToken);
+    /** 시작 화면이 남긴 「아직 서버에 없는 수」 → `pendingKey` */
+    const pending = (() => {
+      try {
+        return Number(sessionStorage.getItem(key) ?? 0);
+      } catch {
+        return 0;
+      }
+    })();
+    const startedAt = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const forget = () => {
+      try {
+        sessionStorage.removeItem(key);
+      } catch {}
+    };
 
-    void (async () => {
+    const readOnce = async (): Promise<number> => {
       const found = await fetchEvidenceList(caseToken, ac.signal);
-      if (!alive || found.length === 0) return;
+      if (!alive || found.length === 0) return 0;
 
       setFiles((prev) => mergeRail(found, prev));
       // 아무것도 안 고른 상태면 첫 줄을 골라 둡니다 — 자료함이 빈 본문으로 열리지 않게
       setSelectedId((cur) => cur ?? found[0]?.id);
+      return found.length;
+    };
+
+    void (async () => {
+      let seen = await readOnce();
+      if (!alive) return;
+      if (pending <= 0) {
+        forget();
+        return;
+      }
+
+      /**
+       * **첫 읽기 시점의 서버 수 + 아직 올리는 중인 수.** 시작 화면이
+       * 「아직 서버에 없는 수」를 적으므로 첫 읽기가 이미 일부를 포함해도
+       * 과대평가되지 않습니다 — 과대평가되더라도 60초에서 끝납니다.
+       */
+      const target = seen + pending;
+      const loop = async () => {
+        if (!alive) return;
+        seen = await readOnce();
+        if (!alive) return;
+        // 못 올린 파일이 있으면 목표가 영영 안 차므로 시간으로 끊습니다 —
+        // 그 뒤는 사용자가 「+ 올리기」로 다시 올릴 수 있습니다
+        if (seen >= target || Date.now() - startedAt > 60_000) {
+          forget();
+          return;
+        }
+        timer = setTimeout(() => void loop(), 4_000);
+      };
+      // 시작 화면이 아직 올리는 중이면 4초마다 다시 읽습니다 — **목록에 들어와야
+      // 셸 폴링이 그 파일을 묻습니다** (ADR-078)
+      timer = setTimeout(() => void loop(), 4_000);
     })();
 
     return () => {
       alive = false;
       ac.abort();
+      if (timer) clearTimeout(timer);
     };
   }, [caseToken]);
 
