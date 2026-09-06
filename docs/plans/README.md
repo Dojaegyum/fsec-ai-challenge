@@ -21,7 +21,7 @@
 | [08-22-layer-c-viewers.md](08-22-layer-c-viewers.md) | 태스크 9개 전부 끝남(2026-08-23) |
 | [08-22-layer-c-transport.md](08-22-layer-c-transport.md) | 태스크 10개 전부 끝남(2026-08-23) |
 | [08-24-oracle-account-handoff.md](08-24-oracle-account-handoff.md) | 목적(무료 ARM 자리 확보) 달성. 재구축은 `deploy/oci-provision.py` |
-| [08-18-backend-baseline.md](08-18-backend-baseline.md) | 착수 단계 ①~⑥ 에 전부 코드가 생기고 §2 「막힌 것」 다섯 중 셋이 닫힘(2026-09-04 감사 — §5 여덟 점검 결과는 그 문서에 날짜와 함께). 남은 둘은 [ARCHITECTURE §10](../../ARCHITECTURE.md)·ADR-021·ADR-025 「남은 것」 |
+| [08-18-backend-baseline.md](08-18-backend-baseline.md) | 착수 단계 ①~⑥ 에 전부 코드가 생기고 §2 「막힌 것」 다섯 중 셋이 닫힘(2026-09-04 감사 — §5 여덟 점검 결과는 그 문서에 날짜와 함께). 남은 둘은 ADR-021·ADR-025 「남은 것」 (ARCHITECTURE 의 미결 절은 2026-09-06 에 없앴습니다) |
 
 ## 여기가 아닌 것
 

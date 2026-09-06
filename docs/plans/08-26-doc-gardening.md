@@ -52,6 +52,15 @@
 - 넓은 폭에서 T0 가 접히는지(screens.md :72 ↔ :92 자기모순) · 좁은 폭의 열 순서(코드가 챗 먼저).
 - `org.json` 해피머니 — 공식 사이트 첫 화면이 「상품권 채권접수 조회」 한 장이라 `ch-giftcard.json` 의 핀 사용정지 안내가 헛걸음일 수 있음(PR #52 `caution`).
 
+## 셋째 손질에서 한 것 (2026-09-06) — ARCHITECTURE.md 한 편
+
+`main 6e74f74` 기준으로 [ARCHITECTURE.md](../../ARCHITECTURE.md) 를 절 안에서 다시 썼습니다(제목·앵커는 유지).
+앱 밖 Python 서비스(`services/transcriber/` — STT·OCR·NER)를 §1·§4·§5·§6 에 넣었고, 볼트(`case_vault`)·크론 셋·
+법령 수집원 하나·미조립 둘(`case-reader`·`doc-builder`)·`pii-restorer` 전부 원문(ADR-034)·대응표 건네기(ADR-062·075·079)·
+셸 폴링(ADR-078)을 실제대로 그렸습니다. **§10 「아직 안 정해진 것」과 §7 「환경과 시크릿」은 없앴습니다**(환경변수 정본은 api §1.2 · 값은 Vercel) — 미결은 각 절 제자리에 한 줄로 두고, 그림에서 ADR 번호를 빼고 본문의 ADR 링크는 절 끝 「근거」 한 줄로 모았습니다. 라벨은 뷰어에서 잘리지 않게 짧게 끊고 줄바꿈을 넣었습니다.
+코드·판단이 필요한 것은 아래 4절 ⑥ 으로. 그 절을 가리키던 포인터(deploy/README · api §1.2 · glossary · research/09 R-1 ·
+plans/README · CLAUDE.md · README.md)는 같은 커밋에서 고쳤고, ADR 안의 참조는 이력이라 두었습니다.
+
 ## 1. 은퇴 문서에서 꺼낸 미결 — 제자리를 찾아야 하는 것
 
 은퇴한 계획이 들고 있던 열린 항목입니다. 은퇴 문서는 더 안 고치므로 여기서 추적합니다. 닫히면 취소선.
@@ -117,6 +126,7 @@
 | ③ **`frozen_account` 트랙이 어느 spec 에도 없음** | 0001:27-28 CHECK · `start/open.ts:27` · `start/page.tsx:58` 선택 가능 ↔ ~~`src/kb/frozen-account.json` 없음 → 선택해도 `common.json` 지급정지 안내~~ → **2026-09-04 KB 가 생겼습니다**(ADR-066 · research/21). ~~지급정지 안내~~가 아니라 **빈 플랜**이었습니다(조회축이 `track` 이라 victim 행이 안 붙음). 남은 공백 — **트랙별 슬롯·문진**(slot-tiering ③ 과 한 묶음) · S-07 레일의 `step_key` 넷이 victim 것 | 계약 공백 절반 — channel-matrix 「통장묶기」 절은 갱신됨 |
 | ④ **층 1 후반·층 4 트리거가 통째로 미조립인데 문서 넷이 현재형** | ~~NER(`container.ts`) · `case-reader`·`slot-extractor`·`kb-collector`·`kb-reviewer`·`doc-builder`·`doc-filler` import 0~~ → 2026-09-06 기준 `slot-extractor`(ADR-069)·`kb-collector`·`kb-reviewer`(ADR-072) 배선됨 · NER 은 배포본에서 켬(RunPod) · 남은 미조립은 `case-reader`·`doc-builder` 둘 — features·pii-boundary·module-boundaries·module-names. <br>~~크론 라우트·`vercel.json` crons 없음~~ → **둘 다 섰습니다**(리마인더 2026-09-01 · 파기 2026-09-03). ~~`casePurger` 호출자 0~~ → `/api/cron/purge`. ~~ReminderSource unconfigured~~ → `db-reminder.ts`. ~~Mailer 는 여전히 미설정~~ → 2026-09-01 Brevo 로 설정·발송 확인(발송 수단 미정 → ADR-021) | 문서에 「구현 전」 표시가 없어 생긴 것 → ⑩ 상태 열로 |
 | ~~⑤ **같은 값을 세 문서가 다르게 적음 — 정본 지정 필요**~~ → **2026-09-04 전부 가름** — 재시도: 코드(`receive.ts` `MAX_ATTEMPTS=2` = 재시도 1회)가 정본, errors.md 를 맞췄고 `retry-checker` 의 `[0,0]` 만 코드 후속 · WS 수: 「계약 8 · 구현 7 · WS-confirm 구현 전」으로 명시 · 애니메이션 속도: tokens 표가 정본(accessibility 는 가리킴) · 다크 전용·`--horizon`: **값은 CSS, 뜻은 tokens 문서**(CSS 주석이 낡은 쪽 — 코드 후속) · `referenced_*`: 서버가 인용에서 채움(ADR-065) 으로 셋 다 같은 말 | 재시도 횟수(chat-context 1 · errors 2 · `receive.ts:43` 2) · WS 유형 수(8 · 7 · 코드 7) · 장식 애니메이션(accessibility 「7초 이상」 · tokens 1.6/2.6s) · 다크 전용(tokens 「확정」 · css 「미정」) · `--horizon`(tokens ADR-048 「의미」 · css:164 「장식 전용」) · `referenced_*`(system-prompt 「뺐다」 · chat-context §5 · api §3.9) | 어느 쪽이 이기는지 정해야 닫힘 |
+| ⑥ **ARCHITECTURE 미결 절을 없애며 코드로 넘긴 것** (2026-09-06) | **업로드 원본의 사건별 키 암호화** — spec 약속(`08-16-data-model.md:236` · `08-16-domain-model.md:179`)이고 `src/lib/storage.ts` 에 암호화 코드 없음(비공개 버킷 + 짧은 서명 주소만) · **속도 제한 공유 저장소** — `src/lib/rate-limit.ts` 프로세스 메모리, api §1.3 이 Postgres 금지라 저장소 선택이 먼저 · **임시공휴일** — `src/lib/holidays.ts` 표, 특일 API 키(공공데이터포털) 없음 · 미조립 둘은 ④ | 코드 후속 또는 사람 판단 — ARCHITECTURE 는 §2·§3 에 현재 상태만 적음 |
 
 ## 진행 방법
 
