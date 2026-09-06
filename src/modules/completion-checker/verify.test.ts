@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { L2_NOTES } from './notes'
 import type { EvidenceReading, ReceiptNumberFormat } from './types'
 import { createCompletionChecker, findReceiptMarks, looksLikeReceiptNumber } from './verify'
 
@@ -114,9 +115,14 @@ describe('looksLikeReceiptNumber — 형식 규격이 아니라 오타 거르개
  * 사기범과의 통화 녹음을 올려도 「신청서류 제출」이 끝났고, 이체 캡처가 112 접수증으로
  * 인정됐습니다. 부산물 원리(불변 규칙 6)는 「절차가 남긴 것이 존재한다」이지
  * 「무엇이든 올렸다」가 아닙니다. 그래서 L2 는 **판독 결과**를 봅니다 —
- * 접수번호 모양이나 기관명이 있어야 통과하고, 없으면 「올렸지만 확인 못 함」입니다.
+ * 접수번호 자리와 번호가 있어야 통과하고, 없으면 「올렸지만 확인 못 함」입니다.
+ *
+ * ⚠️ **2026-09-06 QA 에서 다시 뚫렸습니다** → ADR-083. 「본 건은 수사기밀이므로 경찰에
+ * 신고하거나…」가 적힌 합성 사기 문자가 공공기관 이름(「경찰」) 하나로 통과했습니다.
+ * 사기 문자에는 수사기관 이름이 거의 늘 들어 있어 **기관 이름만으로는 더 이상 통과시키지
+ * 않습니다.** 접수번호가 있어야만 완료입니다.
  */
-describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 모양이나 기관명이 있어야 한다', () => {
+describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 자리와 번호가 있어야 한다 (ADR-083)', () => {
   const ORGS = ['경찰청', '경찰', '112', '금융감독원', '금감원', '1332']
   const doc = (text: string | null, over: Partial<EvidenceReading> = {}): EvidenceReading => ({
     kind: 'image',
@@ -140,11 +146,31 @@ describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 모양�
     })
   })
 
-  it('공공기관 이름이 있으면 완료다 — 통지문·확인원은 번호가 없을 수 있다', () => {
-    const verdict = upload(doc('채권소멸절차 개시 공고 통지\n금융감독원\n2026년 9월 3일'))
+  it('공공기관 이름만 있으면 완료가 아니다 — 접수번호를 적는 길을 낸다 (ADR-083)', () => {
+    const verdict = upload(doc('[경찰청] 문의는 182 로 연락해 주세요'))
+    expect(verdict.verifyResult).toBe('failed')
+    expect(verdict.stepState).toBe('unconfirmed')
+    expect(verdict.verifyDetail).toEqual({ reason: 'org_only' })
+    expect(verdict.note).toBe(L2_NOTES.org_only)
+    // 막다른 길이 아니다 — 번호를 적거나(L1) 했다고 표시(L3)할 수 있다
+    expect(verdict.nextOptions).toEqual([
+      { level: 'L1', label: '접수번호를 적어 주세요' },
+      { level: 'L3', label: '번호 없이 접수했다고 표시' },
+    ])
+  })
+
+  it('사기 문자에 든 「경찰」은 근거가 아니다 (ADR-083 · 2026-09-06 QA)', () => {
+    const verdict = upload(
+      doc('본 건은 수사기밀이므로 경찰에 신고하거나 타인에게 알리지 마십시오'),
+    )
+    expect(verdict.verifyResult).toBe('failed')
+    expect(verdict.verifyDetail).toEqual({ reason: 'org_only' })
+  })
+
+  it('접수번호가 있으면 기관 이름 없이도 완료다', () => {
+    const verdict = upload(doc('112 신고가 접수되었습니다. 접수번호 2026-0906-00417'))
     expect(verdict.verifyResult).toBe('passed')
-    expect(verdict.stepState).toBe('done_verified')
-    expect(verdict.verifyDetail).toEqual({ reason: 'org_name_found' })
+    expect(verdict.verifyDetail).toEqual({ reason: 'receipt_number_found' })
   })
 
   it('접수번호가 이름표로 가려져 있어도 자리를 본다 — 「접수번호 [계좌-1]」', () => {
@@ -165,9 +191,7 @@ describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 모양�
     expect(verdict.verifyResult).toBe('failed')
     expect(verdict.stepState).toBe('unconfirmed')
     expect(verdict.verifyDetail).toEqual({ reason: 'no_receipt_marks' })
-    expect(verdict.note).toBe(
-      '올렸지만 접수번호를 찾지 못했습니다. 접수번호를 적어 주시면 확인합니다',
-    )
+    expect(verdict.note).toBe(L2_NOTES.no_receipt_marks)
     // 막다른 길이 아닙니다 — 번호를 적거나(L1) 했다고 표시(L3)할 수 있습니다
     expect(verdict.nextOptions).toEqual([
       { level: 'L1', label: '접수번호를 적어 주세요' },
@@ -203,7 +227,7 @@ describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 모양�
     expect(verdict.verifyResult).toBe('not_applicable')
     expect(verdict.stepState).toBe('unconfirmed')
     expect(verdict.verifyDetail).toEqual({ reason: 'reading_pending' })
-    expect(verdict.note).toBe('올린 자료를 읽는 중입니다. 접수번호가 보이면 완료로 기록합니다')
+    expect(verdict.note).toBe(L2_NOTES.reading_pending)
     // 기다리면 되는 자리라 다른 길을 내밀지 않습니다
     expect(verdict.nextOptions).toBeUndefined()
   })

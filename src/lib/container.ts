@@ -272,7 +272,7 @@ function nerModel(env: Env): NerModel | null {
      * 그건 **사건 진행이 멈춘다**는 뜻입니다(경계라 못 가리면 안 내보냅니다).
      *
      * 그래서 **코드를 고치지 않고 늘릴 수 있게** 열어 둡니다. 라우트의
-     * `maxDuration`(챗은 60초)보다 반드시 짧게 두세요.
+     * `maxDuration`(챗은 100초 · 2026-09-06)보다 반드시 짧게 두세요.
      */
     ...(env.values.NER_TIMEOUT_MS
       ? { timeoutMs: Number(env.values.NER_TIMEOUT_MS) }
