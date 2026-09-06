@@ -1,5 +1,7 @@
 """감시자의 판단 시험 — ADR-092 C. 세지 않고, 싼 조치부터, 비싼 조치는 확인된 사실 뒤에만."""
+import dataclasses
 import importlib.util
+import json
 import pathlib
 import sys
 import unittest
@@ -15,6 +17,45 @@ spec.loader.exec_module(w)
 
 def running(pod_id="p1"):
     return {"id": pod_id, "name": "finally-demo", "desiredStatus": "RUNNING"}
+
+
+class _Patch:
+    """w 의 모듈 속성 여러 개를 바꿨다가 끝나면 되돌리는 컨텍스트 매니저 — 시험마다
+    try/finally 를 반복하지 않게 (Fix round 1 시험들이 공유해서 쓴다)."""
+
+    def __init__(self, **attrs):
+        self.attrs = attrs
+        self.orig = {}
+
+    def __enter__(self):
+        for k, v in self.attrs.items():
+            self.orig[k] = getattr(w, k)
+            setattr(w, k, v)
+        return self
+
+    def __exit__(self, *exc):
+        for k, v in self.orig.items():
+            setattr(w, k, v)
+        return False
+
+
+def make_fake_pod(**overrides):
+    """runpod-pod.py 를 흉내내는 가짜 모듈 — 필요한 함수만 overrides 로 갈아 끼운다.
+    PodError 는 진짜 것을 그대로 물려줘 tick()/do_recreate() 의 except pod.PodError 가 맞게 잡는다."""
+    real_pod = w.pod
+    defaults = {
+        "find_pods": lambda name: [],
+        "health_once": lambda pod_id, timeout=10: None,
+        "create_pod": lambda name: {"id": "new1"},
+        "provision": lambda pod_id: None,
+        "wait_ready": lambda pod_id, minutes=15: True,
+        "proxy_url": lambda pod_id: f"https://{pod_id}-8917.proxy.runpod.net",
+        "terminate": lambda pod_id: None,
+    }
+    defaults.update(overrides)
+    attrs = {"PodError": real_pod.PodError}
+    attrs.update({k: staticmethod(v) for k, v in defaults.items()})
+    return type("FakePod", (), attrs)
 
 
 class Decide(unittest.TestCase):
@@ -130,6 +171,156 @@ class DryRun(unittest.TestCase):
             )
         self.assertEqual(action, "restart")
         self.assertEqual(calls, [])
+
+    def test_dry_run_leaves_state_completely_untouched(self):
+        # 컨트롤러 판단 2 — check_balance 를 무해하게 막아 두면, dry-run 은 State 를
+        # 필드 하나도 안 바꿔야 한다(파일 쓰기는 main() 이 --dry-run 이면 아예 안 함).
+        st = w.State()
+        before = dataclasses.asdict(st)
+        FakePod = make_fake_pod(
+            find_pods=lambda name: [{"id": "p1", "name": name, "desiredStatus": "RUNNING"}],
+            health_once=lambda pod_id, timeout=10: {"ready": False},
+        )
+        with _Patch(pod=FakePod, check_balance=lambda *a, **k: None, state_dir=lambda: HERE):
+            w.tick(st, 1000.0, dry_run=True)
+        self.assertEqual(dataclasses.asdict(st), before)
+
+
+class DoRecreateSaves(unittest.TestCase):
+    """감시자가 팟을 만드는 도중 죽어도 watch.json 에 흔적이 남아야 한다 (검토 반영 1)."""
+
+    def test_creating_saved_immediately_and_cleared_on_success(self):
+        st = w.State()
+        saved = []
+        FakePod = make_fake_pod()
+        with _Patch(pod=FakePod, switch_backend=lambda url: True,
+                    call_resubmit=lambda: None, send_mail=lambda *a, **k: None):
+            new_id = w.do_recreate(st, None, 1000.0, save=lambda s: saved.append(dataclasses.asdict(s)))
+        self.assertEqual(new_id, "new1")
+        self.assertGreaterEqual(len(saved), 2)
+        self.assertEqual(saved[0]["creating"], {"pod_id": "new1", "since": 1000.0})
+        self.assertIsNone(saved[-1]["creating"])
+
+
+class DoRecreateOldPod(unittest.TestCase):
+    """주소 교체가 안 됐으면 옛 팟을 지우면 안 된다 (검토 반영 3)."""
+
+    def _run(self, switched):
+        st = w.State()
+        terminated = []
+        mails = []
+        FakePod = make_fake_pod(terminate=lambda pod_id: terminated.append(pod_id))
+        with _Patch(pod=FakePod, switch_backend=lambda url: switched,
+                    call_resubmit=lambda: None, send_mail=lambda *a, **k: mails.append(a)):
+            w.do_recreate(st, "old1", 1000.0)
+        return terminated, mails
+
+    def test_old_pod_terminated_when_switch_succeeds(self):
+        terminated, _ = self._run(True)
+        self.assertIn("old1", terminated)
+
+    def test_old_pod_kept_when_switch_fails(self):
+        terminated, mails = self._run(False)
+        self.assertNotIn("old1", terminated)
+        self.assertTrue(any("옛 팟 old1 은 남겨 두었습니다" in text for _, text in mails))
+
+
+class CreateFailureTimestamp(unittest.TestCase):
+    """create_failures 는 tick 의 now 가 아니라 실패한 실제 시각을 적어야 한다 —
+    do_recreate 가 수십 분 걸릴 수 있어 now 를 쓰면 creation_paused() 가 실제보다
+    훨씬 느리게 찬다 (검토 반영 5)."""
+
+    def test_uses_real_clock_not_ticks_now(self):
+        st = w.State()
+        real_pod = w.pod
+
+        class FailingPod:
+            PodError = real_pod.PodError
+
+            @staticmethod
+            def create_pod(name):
+                raise FailingPod.PodError("boom")
+
+        real_time_time = w.time.time
+        fixed = 5000.0
+        w.pod = FailingPod
+        w.time.time = lambda: fixed  # 실제 time 모듈의 time 을 바꾼다 — 반드시 되돌린다
+        try:
+            result = w.do_recreate(st, None, 1000.0)
+        finally:
+            w.pod = real_pod
+            w.time.time = real_time_time
+        self.assertIsNone(result)
+        self.assertEqual(st.create_failures[-1], fixed)
+
+
+class RestartFailureMail(unittest.TestCase):
+    """ssh 로 restart.sh 를 못 걸었으면 메일이 "걸었다"고 하면 안 된다 (검토 반영 · 사소 1)."""
+
+    def test_mail_reports_failure_when_do_restart_raises(self):
+        st = w.State()
+        mails = []
+        FakePod = make_fake_pod(
+            find_pods=lambda name: [{"id": "p1", "name": name, "desiredStatus": "RUNNING"}],
+            health_once=lambda pod_id, timeout=10: {"ready": False},
+        )
+
+        def failing_restart(pod_obj):
+            raise w.pod.PodError("ssh 안 됨")
+
+        with _Patch(pod=FakePod, do_restart=failing_restart,
+                    send_mail=lambda *a, **k: mails.append(a),
+                    check_balance=lambda *a, **k: None, state_dir=lambda: HERE):
+            action = w.tick(st, 1000.0)
+        self.assertEqual(action, "restart")
+        self.assertEqual(len(mails), 1)
+        _, text = mails[0]
+        self.assertIn("ssh 로 restart.sh 를 걸지 못했습니다 — ssh 안 됨", text)
+
+
+class BalanceDryRun(unittest.TestCase):
+    """--dry-run 은 잔액을 읽고 로그는 남기되, 쿨다운 타임스탬프도 메일도 남기면 안 된다
+    (컨트롤러 판단 1 · 검토 반영 2)."""
+
+    def test_dry_run_reads_but_does_not_persist_or_mail(self):
+        st = w.State()
+        mails = []
+
+        class FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                return json.dumps({"data": {"myself": {"clientBalance": 1.0, "currentSpendPerHr": 10.0}}}).encode()
+
+        with _Patch(http=lambda *a, **k: FakeResp(), send_mail=lambda *a, **k: mails.append(a)):
+            w.check_balance(st, 1000.0, dry_run=True)
+        self.assertEqual(st.balance_checked_at, 0.0)
+        self.assertEqual(mails, [])
+
+
+class BalanceBadResponse(unittest.TestCase):
+    """GraphQL 이 200 을 주면서 myself: null 을 돌려줘도 TypeError 로 새 나가면 안 된다
+    (검토 반영 · 사소 2)."""
+
+    def test_none_myself_does_not_raise(self):
+        st = w.State()
+
+        class FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                return b'{"data": {"myself": null}}'
+
+        with _Patch(http=lambda *a, **k: FakeResp()):
+            w.check_balance(st, 1000.0)  # 예외 없이 끝나면 통과
 
 
 if __name__ == "__main__":

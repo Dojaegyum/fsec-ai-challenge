@@ -258,14 +258,14 @@ def provision(pod_id: str) -> None:
             stdout=subprocess.PIPE,
         )
         subprocess.run(base + ["mkdir -p /opt/finally && tar xzf - --no-same-owner -C /opt/finally"],
-                       stdin=tar.stdout, check=True)
+                       stdin=tar.stdout, check=True, timeout=600)
         tar.wait()
         provision_script = (ROOT / "deploy" / "runpod-provision.sh").read_bytes()
-        subprocess.run(base + ["cat > /opt/finally/provision.sh"], input=provision_script, check=True)
+        subprocess.run(base + ["cat > /opt/finally/provision.sh"], input=provision_script, check=True, timeout=60)
         # 토큰은 명령줄이 아니라 stdin 으로 — 팟의 프로세스 목록에 안 남습니다
-        subprocess.run(base + ["umask 077 && cat > /opt/finally/token"], input=token.encode(), check=True)
+        subprocess.run(base + ["umask 077 && cat > /opt/finally/token"], input=token.encode(), check=True, timeout=60)
         print("▸ 팟 안에서 provision.sh 를 돌립니다 (모델 내려받기 포함 · 10분쯤)")
-        subprocess.run(base + ["bash /opt/finally/provision.sh"], check=True)
+        subprocess.run(base + ["bash /opt/finally/provision.sh"], check=True, timeout=1800)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
         die(f"팟 {pod_id} 채우기 실패 — {type(e).__name__}: {str(e)[:200]}")
 

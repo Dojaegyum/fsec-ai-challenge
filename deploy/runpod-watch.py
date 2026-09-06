@@ -166,8 +166,14 @@ def do_restart(pod_obj: dict) -> None:
     subprocess.run(pod.ssh_base(ip, port) + ["setsid /opt/finally/restart.sh < /dev/null"], check=True, timeout=60)
 
 
-def do_recreate(st: State, old_pod_id: str | None, now: float, shadow: bool = False) -> str | None:
-    """새 팟 — 손 절차 그대로. 실패하면 create_failures 에 적고 None."""
+def do_recreate(st: State, old_pod_id: str | None, now: float, shadow: bool = False, save=None) -> str | None:
+    """새 팟 — 손 절차 그대로. 실패하면 create_failures 에 적고 None.
+
+    `save` 는 상태를 즉시 디스크에 적는 콜백(tick 이 넘겨줌). 이 함수는 모델 내려받기·
+    vercel-env 대기로 수십 분이 걸릴 수 있어, st.creating 을 세팅한 직후 저장해 두지 않으면
+    그 사이 감시자가 죽었을 때 watch.json 에는 여전히 creating: null 이 남아 유료 팟이
+    고아로 남는다 — 그래서 세팅 직후와, 다 끝나 지운 직후 두 번 부른다(검토 반영 1).
+    """
     if creation_paused(st, now):
         log("새 팟 만들기를 쉽니다 — 한 시간에 세 번 실패했습니다")
         return None
@@ -178,6 +184,8 @@ def do_recreate(st: State, old_pod_id: str | None, now: float, shadow: bool = Fa
             created = pod.create_pod(name)
             new_id = created["id"]
             st.creating = {"pod_id": new_id, "since": now}
+            if save:
+                save(st)
             log(f"팟 생성 {new_id} (시도 {attempt + 1})")
             try:
                 pod.provision(new_id)
@@ -196,23 +204,38 @@ def do_recreate(st: State, old_pod_id: str | None, now: float, shadow: bool = Fa
             log(f"shadow — {url} ready 확인. 주소 교체 없이 terminate")
             pod.terminate(new_id)
             st.creating = None
+            if save:
+                save(st)
             return new_id
         switched = switch_backend(url)
-        if old_pod_id and old_pod_id != new_id:
+        # 주소 교체가 안 됐는데 옛 팟을 지우면, 실서비스는 여전히 그 주소를 보는 채로
+        # 팟만 없어진다 — 교체가 확인된 뒤에만 지운다(검토 반영 3)
+        if old_pod_id and old_pod_id != new_id and switched:
             try:
                 pod.terminate(old_pod_id)
             except pod.PodError as e:
                 log(f"옛 팟 {old_pod_id} terminate 실패: {e}")
         resub = call_resubmit() if switched else None
+        extra = f"switched={switched} resubmit={resub}"
+        if not switched and old_pod_id and old_pod_id != new_id:
+            extra += (
+                f"\n옛 팟 {old_pod_id} 은 남겨 두었습니다 — 주소 교체가 안 됐습니다. "
+                "vercel-env 로 새 주소를 넣은 뒤 옛 팟을 손으로 지우세요"
+            )
         send_mail(
             "[FinAlly] 추론 팟을 새로 세웠습니다" + ("" if switched else " — 주소 교체는 손으로"),
-            mail_text("new_pod", pod_id=new_id, url=url, extra=f"switched={switched} resubmit={resub}"),
+            mail_text("new_pod", pod_id=new_id, url=url, extra=extra),
         )
         st.creating = None
         st.create_failures = []
+        if save:
+            save(st)
         return new_id
     except (pod.PodError, subprocess.SubprocessError, OSError) as e:
-        st.create_failures.append(now)
+        # now 는 tick 이 회차를 시작한 시각 — 이 함수가 수십 분 걸릴 수 있어 실패 시각으로
+        # 쓰면 creation_paused() 의 "한 시간에 세 번" 판정이 실제보다 훨씬 느리게 찬다.
+        # 진짜 지금 시각을 적는다(검토 반영 5).
+        st.create_failures.append(time.time())
         st.creating = None
         if new_id:
             try:
@@ -357,7 +380,10 @@ def send_mail(subject: str, text: str) -> None:
 def check_balance(st: State, now: float, dry_run: bool = False) -> None:
     if now - st.balance_checked_at < BALANCE_EVERY_SEC:
         return
-    st.balance_checked_at = now
+    if not dry_run:
+        # 실패해도 10분은 쉰다 — 다만 --dry-run 은 이 쿨다운을 안 건드린다. 건드리면 dry-run
+        # 직후에 도는 진짜 회차의 첫 잔액 조회가 밀린다(검토 반영 2)
+        st.balance_checked_at = now
     key = env("RUNPOD_API_KEY")
     try:
         with http(
@@ -371,10 +397,15 @@ def check_balance(st: State, now: float, dry_run: bool = False) -> None:
     except (urllib.error.URLError, urllib.error.HTTPError, ValueError, KeyError) as e:
         log(f"잔액 조회 실패: {e}")
         return
+    if not me or "clientBalance" not in me or "currentSpendPerHr" not in me:
+        # GraphQL 이 200 을 주면서 myself: null 을 돌려주는 경우(예: 키가 무효) — try 밖에서
+        # me["clientBalance"] 를 바로 쓰면 TypeError 가 새 나간다(검토 반영 · 사소 2)
+        log("잔액 응답을 읽지 못했습니다")
+        return
     hours = hours_left(float(me["clientBalance"]), float(me["currentSpendPerHr"]))
     log(f"잔액 ${me['clientBalance']:.2f} · 시간당 ${me['currentSpendPerHr']:.3f} · {hours:.1f}h")
     if dry_run:
-        return  # 읽기는 해도 된다 — 다만 --dry-run 에서는 메일을 보내지 않는다(컨트롤러 판단 1)
+        return  # 읽고 로그만 남긴다 — 메일도, 쿨다운 갱신도 안 한다(컨트롤러 판단 1 · 검토 반영 2)
     if hours < LOW_BALANCE_HOURS and should_notify(st, "low_balance", now):
         send_mail("[FinAlly] RunPod 잔액이 12시간치 아래입니다", mail_text("low_balance", extra=f"{hours:.1f}시간 남음"))
         mark_notified(st, "low_balance", now)
@@ -415,8 +446,12 @@ def tick(st: State, now: float, shadow: bool = False, dry_run: bool = False) -> 
         log(f"tick(dry-run) → {action} {arg}")
         check_balance(st, now, dry_run=True)
         return action
+
+    def save_now(s: State) -> None:
+        save_state(state_dir() / "watch.json", s)
+
     if shadow:
-        do_recreate(st, None, now, shadow=True)
+        do_recreate(st, None, now, shadow=True, save=save_now)
         return "shadow"
     if action == "ok":
         apply_ok(st, arg, now)
@@ -425,17 +460,21 @@ def tick(st: State, now: float, shadow: bool = False, dry_run: bool = False) -> 
     elif action == "restart":
         target = next(p for p in running if p["id"] == arg)
         log(f"{arg} 가 RUNNING 인데 health 실패 → restart.sh")
+        restart_error = None
         try:
             do_restart(target)
         except (pod.PodError, subprocess.SubprocessError) as e:
+            restart_error = str(e)
             log(f"재시작 못 걸음: {e}")
         st.restart_pod, st.restart_at = arg, now
         if should_notify(st, "restart", now):
-            send_mail("[FinAlly] 추론 팟을 재시작했습니다", mail_text("restart", pod_id=arg))
+            # restart.sh 를 못 걸었으면 메일이 "걸었다"고 하면 안 된다 — 실패 사실을 적는다(검토 반영 · 사소 1)
+            extra = f"ssh 로 restart.sh 를 걸지 못했습니다 — {restart_error}" if restart_error else ""
+            send_mail("[FinAlly] 추론 팟을 재시작했습니다", mail_text("restart", pod_id=arg, extra=extra))
             mark_notified(st, "restart", now)
     elif action == "recreate":
         log(f"새 팟 — 이유: {'팟 없음' if arg is None or not running else '재시작 뒤에도 안 살아남'}")
-        new_id = do_recreate(st, arg, now)
+        new_id = do_recreate(st, arg, now, save=save_now)
         if new_id:
             apply_ok(st, new_id, time.time())
     check_balance(st, now)
@@ -456,7 +495,11 @@ def main() -> None:
             log(f"tick → {action}")
         except Exception as e:  # noqa: BLE001 — 감시자는 어떤 예외에도 죽지 않고 다음 회차로
             log(f"tick 예외: {e!r}")
-        save_state(path, st)
+        if not args.dry_run:
+            # --dry-run 은 아무것도 안 쓴다 — OCI 박스에서 손으로 돌리는 dry-run 이 진짜 데몬과
+            # 같은 STATE_DIR 을 볼 때, 이 줄이 있으면 last-writer-wins 으로 진짜 상태
+            # (restart_pod·restart_at 등)를 지울 수 있다(검토 반영 2)
+            save_state(path, st)
         if args.once:
             return
         time.sleep(LOOP_SEC)
