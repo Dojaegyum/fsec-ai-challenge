@@ -275,8 +275,11 @@ export function asSelectorSource(selector: KbSelector, pool: SelectorPool): Sele
         candidates: snapshot.candidates.map((one) => markForCase(one, snapshot.entries.get(one.key), input)),
         exclude: input.exclude,
       })
+      const kept = result.picked.filter((picked) =>
+        keepOrgPick(snapshot.entries.get(picked.key), input.orgId, lastUserText(input.history)),
+      )
       const entries: KbSelectedEntry[] = []
-      for (const picked of result.picked) {
+      for (const picked of kept) {
         const entry = snapshot.entries.get(picked.key)
         if (entry) entries.push(selectedEntryOf(entry))
       }
@@ -287,13 +290,32 @@ export function asSelectorSource(selector: KbSelector, pool: SelectorPool): Sele
           groups: result.stats.groups,
           rounds: result.stats.rounds,
           ms: result.stats.ms,
-          picked: result.picked.map((one) => one.key),
+          picked: kept.map((one) => one.key),
           calls: result.stats.calls,
           ...(result.stats.skipped ? { skipped: result.stats.skipped } : {}),
         },
       }
     },
   }
+}
+
+/**
+ * 사건에 기관이 붙어 있으면 **다른 기관의 연락처는 버린다** — 사용자가 이번 말에 그 기관 이름을
+ * 직접 적었을 때만 남긴다. 선별 모델에게 「이 사건의 기관만」이라고 일러도(ADR-089 ③) 배포본
+ * 점검(2026-09-06)에서 은행 넷을 같이 골랐다 — 답변 모델은 사건 정보로 맞는 은행을 골랐지만
+ * 남의 연락처 셋이 프롬프트에 실렸다. 기관이 안 정해진 사건은 그대로 둔다(고를 근거가 없으므로).
+ */
+function keepOrgPick(entry: PoolEntry | undefined, orgId: string | null, said: string): boolean {
+  if (!entry || entry.kind !== 'org' || orgId === null) return true
+  if (entry.org.orgId === orgId) return true
+  return entry.org.name.length > 0 && said.includes(entry.org.name)
+}
+
+function lastUserText(history: readonly { speaker: string; text: string }[]): string {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i]!.speaker === 'user') return history[i]!.text
+  }
+  return ''
 }
 
 /** 후보 목록에서 이 사건의 기관·유형을 알아볼 수 있게 이름 뒤에 표시를 붙인다 (ADR-089 ③) */

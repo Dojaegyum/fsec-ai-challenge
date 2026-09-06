@@ -137,3 +137,18 @@ describe("발화도 경계를 지나서 나간다", () => {
     expect(outgoing("이제 뭘 해야 하나요").content).toBe("이제 뭘 해야 하나요");
   });
 });
+
+describe("선별된 연락처·조문도 근거 줄에 적는다 — ADR-089 ⑤ · 배포본 점검 2026-09-06", () => {
+  it("org- · law- 의 이름표가 kb- 와 나란히 보인다", () => {
+    const got = sourceNote([
+      { ref: "kb-22", label: "112에 신고합니다" },
+      { ref: "org-4", label: "KB국민은행 연락처" },
+      { ref: "law-1", label: "전기통신금융사기 피해 방지 및 피해금 환급에 관한 특별법 제4조(지급정지)" },
+      { ref: "case-3", label: "기관명" },
+    ]);
+    expect(got).toContain("「112에 신고합니다」");
+    expect(got).toContain("「KB국민은행 연락처」");
+    expect(got).toContain("제4조(지급정지)」");
+    expect(got).not.toContain("기관명");
+  });
+});
