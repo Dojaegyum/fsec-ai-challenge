@@ -62,7 +62,7 @@ Vercel 대시보드 → Settings → Environment Variables 에 같은 이름으�
 | `KB_VERSION` | 안내를 아예 안 만듭니다 ([ADR-045](../decisions/045-kb-release-pin.md)) |
 
 **없어도 도는 것** — `TRANSCRIBER_URL`(비면 녹음이 글로 안 옮겨지고, **사건 진행은
-그대로 돕니다**) · `CASE_PURGE_DAYS`(기본 180) · `ADMIN_*`(**만들지 않기로** — [ADR-068](../decisions/068-no-admin-screen.md). 비워 두세요) · `NEXT_PUBLIC_DEMO_MOCK`(시작 화면의 시연 칩 — 아래 「시연 칩」. **대회 기간에는 `1`**) · `LAW_API_OC`(법령 수집 크론의 국가법령정보 API 사용자 ID — 비면 수집만 「오류」로 남습니다 · ADR-072).
+그대로 돕니다**) · `CASE_PURGE_DAYS`(기본 180) · `ADMIN_PASSWORD_HASH`(KB 검수 큐 `/admin/kb` 의 비밀번호 해시 — `npm run admin:hash -- <비밀번호>` 로 만든 `scrypt$…` 값. 비면 관리자 경로가 전부 401 · [ADR-081](../decisions/081-kb-review-screen.md). ~~`ADMIN_*` 는 만들지 않기로~~ → 2026-09-06 이 하나만 되살림) · `NEXT_PUBLIC_DEMO_MOCK`(시작 화면의 시연 칩 — 아래 「시연 칩」. **대회 기간에는 `1`**) · `LAW_API_OC`(법령 수집 크론의 국가법령정보 API 사용자 ID — 비면 수집만 「오류」로 남습니다 · ADR-072).
 
 > ✅ **켜기 전 조건이던 배선은 붙었습니다** (2026-08-27). 토큰화 제외 목록이
 > 네 경로에 다 물렸고, 가장 나쁜 문장으로 다시 걸어 **경유 서비스 14곳이

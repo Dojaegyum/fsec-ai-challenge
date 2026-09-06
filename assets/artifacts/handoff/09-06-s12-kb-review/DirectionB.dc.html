@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: oklch(0.135 0.005 268); color: oklch(0.845 0.009 271.3); font-family: "Pretendard Variable", Pretendard, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; font-size: 15px; line-height: 1.7; word-break: keep-all; overflow-wrap: break-word; -webkit-font-smoothing: antialiased; }
+    a { color: oklch(0.697 0.16 258.2); } a:hover { color: oklch(1 0 89.9); }
+    .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); padding: 5px 12px; font-size: 13px; color: oklch(0.73 0.019 261.3); }
+    .dot { width: 5px; height: 5px; border-radius: 999px; background: oklch(0.697 0.16 258.2); }
+    .pillnav { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); padding: 2px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 999px; font-size: 13px; color: oklch(0.73 0.019 261.3); }
+    .pill.on { background: oklch(1 0 0 / 12%); font-weight: 620; color: oklch(1 0 89.9); }
+    .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); padding: 1px 9px; font-size: 12.5px; color: oklch(0.73 0.019 261.3); white-space: nowrap; }
+    .badge.strong { color: oklch(1 0 89.9); font-weight: 620; }
+    .eyebrow { font-size: 12.5px; font-weight: 620; letter-spacing: 0.13em; color: oklch(0.69 0 89.9); }
+    .eyebrow.on { color: oklch(0.697 0.16 258.2); }
+    .h { font-size: 16px; font-weight: 640; color: oklch(1 0 89.9); }
+    .body { font-size: 13.5px; line-height: 1.65; color: oklch(0.73 0.019 261.3); }
+    .card { border-radius: 13px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(0.275 0.008 268); padding: 15px 17px; box-shadow: 0 1px 0 oklch(1 0 0 / 7%) inset, 0 10px 24px -12px oklch(0 0 0 / 65%); }
+    .strip { border-radius: 18px; background: oklch(0.175 0.006 268); box-shadow: 0 1px 0 oklch(1 0 0 / 6%) inset, 0 16px 40px -18px oklch(0 0 0 / 70%); padding: 16px 20px; }
+    .done { display: flex; align-items: center; gap: 10px; border-radius: 11px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); padding: 8px 12px; font-size: 13px; color: oklch(0.73 0.019 261.3); }
+    .tag { display: inline-flex; border-radius: 6px; border: 1px solid oklch(0.697 0.16 258.2 / 36%); background: oklch(0.231 0.047 259.1); padding: 1px 8px; font-size: 12.5px; color: oklch(0.697 0.16 258.2); font-family: ui-monospace, "Geist Mono", Consolas, monospace; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); font-size: 13px; font-weight: 560; color: oklch(0.845 0.009 271.3); }
+    .btn.primary { border-radius: 999px; border-color: transparent; background: oklch(1 0 89.9); color: oklch(0.135 0.005 268); font-weight: 620; font-size: 13.5px; padding: 0 18px; }
+    .num { font-variant-numeric: tabular-nums; }
+    .ins { background: oklch(0.697 0.16 258.2 / 14%); color: oklch(1 0 89.9); border-radius: 4px; padding: 0 2px; }
+    .stat { display: flex; flex-direction: column; gap: 2px; }
+    .stat .k { font-size: 12.5px; color: oklch(0.69 0 89.9); }
+    .stat .v { font-size: 20px; line-height: 1.6; font-weight: 640; color: oklch(1 0 89.9); }
+  </style>
+</helmet>
+<div style="width: 1440px; min-height: 900px; display: flex; flex-direction: column; background: oklch(0.135 0.005 268);">
+
+  <header style="border-bottom: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(0.175 0.006 268);">
+    <div style="max-width: 1408px; margin: 0 auto; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 32px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="symbol-mark.png" alt="" style="height: 23px; width: auto; filter: invert(1);">
+        <span style="font-size: 18px; font-weight: 660; letter-spacing: -0.02em; color: oklch(1 0 89.9);">Fin<span style="color: oklch(0.697 0.16 258.2);">Ally</span></span>
+        <span style="margin-left: 4px; font-size: 13px; color: oklch(0.73 0.019 261.3);">KB 검수</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <nav class="pillnav">
+          <span class="pill on">검수 대기 <span class="num" style="color: oklch(0.69 0 89.9); font-weight: 400;">58</span></span>
+          <span class="pill">판단 이력</span>
+        </nav>
+        <span class="chip">검수자 김태현</span>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; padding: 24px 32px 40px;">
+
+    <section class="strip" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+      <div class="stat"><span class="k">지금 나가는 KB</span><span class="v num">2026.09.2</span></div>
+      <div class="stat"><span class="k">마지막 릴리스</span><span class="v num">09-04</span></div>
+      <div class="stat"><span class="k">검수 대기</span><span class="v num">58</span></div>
+      <div class="stat"><span class="k">마지막 수집</span><span class="v num">오늘 04:00</span></div>
+    </section>
+
+    <div class="body" style="padding: 2px 2px 0;">시간순입니다. 카드 하나에 판단 하나. 판단한 카드는 한 줄로 접힙니다.</div>
+
+    <article class="card" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <span class="eyebrow on">법 011359 · 제13조의4</span>
+        <span class="badge strong"><span class="dot" style="background: oklch(1 0 89.9);"></span>새 조문 · 시행 2026-08-04</span>
+      </div>
+      <h2 class="h" style="margin: 0;">(신설) [조문 제목 — 스냅샷에서]</h2>
+      <p class="body" style="margin: 0; color: oklch(0.845 0.009 271.3);"><span class="ins">[조문 원문 앞 두 줄 — source_snapshot 그대로]</span> … <a href="#" style="font-size: 12.5px;">전체 보기</a></p>
+      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span class="eyebrow">닿는 매뉴얼</span>
+        <span class="badge">없음 — 새 조문이라 어느 항목에 붙일지 사람이 정합니다</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; border-top: 1px solid oklch(0.42 0.014 267 / 78%); padding-top: 12px;">
+        <span class="btn primary"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"></path></svg>승인</span>
+        <span class="btn">거절</span>
+        <span class="btn">미룸</span>
+        <span class="body" style="margin-left: auto;">메모 없이 승인하면 「봤다」만 남습니다</span>
+      </div>
+    </article>
+
+    <article class="card" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <span class="eyebrow on">법 011359 · 제3조</span>
+        <span class="badge">최초 수집 · 기준선</span>
+      </div>
+      <h2 class="h" style="margin: 0;">피해구제의 신청</h2>
+      <p class="body" style="margin: 0; color: oklch(0.845 0.009 271.3);">① 피해자는 피해금을 송금·이체한 계좌를 관리하는 금융회사 또는 <span class="ins">[조문 원문 — source_snapshot 그대로]</span> … <a href="#" style="font-size: 12.5px;">전체 보기</a></p>
+      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span class="eyebrow">닿는 매뉴얼 · 3</span>
+        <span class="tag">common-freeze-request</span>
+        <span class="tag">common-relief-apply</span>
+        <span class="tag">common-relief-documents</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; border-top: 1px solid oklch(0.42 0.014 267 / 78%); padding-top: 12px;">
+        <span class="btn primary"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"></path></svg>승인</span>
+        <span class="btn">거절</span>
+        <span class="btn">미룸</span>
+      </div>
+    </article>
+
+    <div class="done"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"></path></svg><span style="flex: 1;">법 011359 · 제2조 (정의) — 승인 · 김태현 · 09-06 · 「제8호 신설, 통장묶기 항목 확인 필요」</span><span class="num">2026.09.3 대기</span></div>
+    <div class="done"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"></path></svg><span style="flex: 1;">법 011359 · 제1조 (목적) — 승인 · 김태현 · 09-06</span><span class="num">2026.09.3 대기</span></div>
+
+    <article class="card" style="display: flex; flex-direction: column; gap: 12px; opacity: 0.85;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <span class="eyebrow on">시행령 011448 · 제11조의3</span>
+        <span class="badge">최초 수집 · 기준선</span>
+      </div>
+      <h2 class="h" style="margin: 0;">전자금융업자의 범위</h2>
+      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span class="eyebrow">닿는 매뉴얼 · 1</span>
+        <span class="tag">easypay-freeze-request</span>
+        <span class="body">· 원문 페이지를 못 열었던 자리입니다 — 여기서 처음 봅니다</span>
+      </div>
+    </article>
+
+    <div class="body num" style="text-align: center; padding-top: 6px;">… 54건 더</div>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>

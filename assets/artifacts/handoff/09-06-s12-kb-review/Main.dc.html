@@ -1,0 +1,213 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: oklch(0.135 0.005 268); color: oklch(0.845 0.009 271.3); font-family: "Pretendard Variable", Pretendard, system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; font-size: 15px; line-height: 1.7; word-break: keep-all; overflow-wrap: break-word; -webkit-font-smoothing: antialiased; }
+    a { color: oklch(0.697 0.16 258.2); } a:hover { color: oklch(1 0 89.9); }
+    .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); padding: 5px 12px; font-size: 13px; color: oklch(0.73 0.019 261.3); }
+    .dot { width: 5px; height: 5px; border-radius: 999px; background: oklch(0.697 0.16 258.2); }
+    .pillnav { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); padding: 2px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 999px; font-size: 13px; color: oklch(0.73 0.019 261.3); }
+    .pill.on { background: oklch(1 0 0 / 12%); font-weight: 620; color: oklch(1 0 89.9); }
+    .filter { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 11px; border-radius: 999px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); font-size: 12.5px; color: oklch(0.73 0.019 261.3); }
+    .filter.on { color: oklch(1 0 89.9); font-weight: 620; border-color: oklch(1 0 0 / 25%); }
+    .group { font-size: 12.5px; font-weight: 620; letter-spacing: 0.13em; color: oklch(0.69 0 89.9); padding: 6px 2px 0; }
+    .row { display: flex; align-items: center; gap: 10px; border-radius: 11px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(0.275 0.008 268); padding: 9px 11px; box-shadow: 0 1px 0 oklch(1 0 0 / 7%) inset, 0 8px 20px -10px oklch(0 0 0 / 65%); }
+    .row.on { border-color: oklch(0.697 0.16 258.2 / 45%); background: oklch(0.697 0.16 258.2 / 9%); }
+    .row .t { font-size: 13.5px; font-weight: 620; color: oklch(1 0 89.9); }
+    .row .m { font-size: 12.5px; color: oklch(0.73 0.019 261.3); }
+    .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); padding: 1px 9px; font-size: 12.5px; color: oklch(0.73 0.019 261.3); white-space: nowrap; }
+    .badge.strong { color: oklch(1 0 89.9); font-weight: 620; }
+    .panel { border-radius: 18px; background: oklch(0.175 0.006 268); box-shadow: 0 1px 0 oklch(1 0 0 / 6%) inset, 0 16px 40px -18px oklch(0 0 0 / 70%); padding: 20px; }
+    .eyebrow { font-size: 12.5px; font-weight: 620; letter-spacing: 0.13em; color: oklch(0.69 0 89.9); }
+    .eyebrow.on { color: oklch(0.697 0.16 258.2); }
+    .title { font-size: 20px; line-height: 1.6; font-weight: 640; color: oklch(1 0 89.9); }
+    .h { font-size: 16px; font-weight: 640; color: oklch(1 0 89.9); }
+    .body { font-size: 13.5px; line-height: 1.65; color: oklch(0.73 0.019 261.3); }
+    .card { border-radius: 13px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(0.275 0.008 268); padding: 13px 15px; }
+    .dashed { border: 1px dashed oklch(0.42 0.014 267 / 78%); border-radius: 11px; padding: 10px 12px; font-size: 13px; color: oklch(0.73 0.019 261.3); }
+    .tag { display: inline-flex; border-radius: 6px; border: 1px solid oklch(0.697 0.16 258.2 / 36%); background: oklch(0.231 0.047 259.1); padding: 1px 8px; font-size: 12.5px; color: oklch(0.697 0.16 258.2); font-family: ui-monospace, "Geist Mono", Consolas, monospace; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(1 0 0 / 8%); font-size: 13px; font-weight: 560; color: oklch(0.845 0.009 271.3); }
+    .btn.primary { border-radius: 999px; border-color: transparent; background: oklch(1 0 89.9); color: oklch(0.135 0.005 268); font-weight: 620; font-size: 13.5px; padding: 0 18px; }
+    .input { display: flex; align-items: center; min-height: 44px; border-radius: 11px; border: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(0.225 0.006 268); padding: 0 14px; font-size: 13.5px; color: oklch(0.69 0 89.9); }
+    .num { font-variant-numeric: tabular-nums; }
+    .ins { background: oklch(0.697 0.16 258.2 / 14%); color: oklch(1 0 89.9); border-radius: 4px; padding: 0 2px; }
+  </style>
+</helmet>
+<div style="width: 1440px; min-height: 900px; display: flex; flex-direction: column; background: oklch(0.135 0.005 268);">
+
+  <header style="border-bottom: 1px solid oklch(0.42 0.014 267 / 78%); background: oklch(0.175 0.006 268);">
+    <div style="max-width: 1408px; margin: 0 auto; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 32px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="symbol-mark.png" alt="" style="height: 23px; width: auto; filter: invert(1);">
+        <span style="font-size: 18px; font-weight: 660; letter-spacing: -0.02em; color: oklch(1 0 89.9);">Fin<span style="color: oklch(0.697 0.16 258.2);">Ally</span></span>
+        <span style="margin-left: 4px; font-size: 13px; color: oklch(0.73 0.019 261.3);">KB 검수</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="chip num"><span class="dot"></span>지금 나가는 KB 2026.09.2</span>
+        <nav class="pillnav">
+          <span class="pill on">검수 대기 <span class="num" style="color: oklch(0.69 0 89.9); font-weight: 400;">58</span></span>
+          <span class="pill">판단 이력</span>
+          <span class="pill">릴리스</span>
+        </nav>
+        <span class="chip">검수자 김태현</span>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width: 1408px; width: 100%; margin: 0 auto; box-sizing: border-box; display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 18px; padding: 22px 32px 32px;">
+
+    <section style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+      <nav class="pillnav" style="align-self: flex-start;">
+        <span class="pill on">조문 기준 <span class="num" style="color: oklch(0.69 0 89.9); font-weight: 400;">58</span></span>
+        <span class="pill">매뉴얼 기준 <span class="num" style="color: oklch(0.69 0 89.9); font-weight: 400;">9</span></span>
+      </nav>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 4px;">
+        <span class="filter on">전체 <span class="num">58</span></span>
+        <span class="filter">최초 수집 <span class="num">58</span></span>
+        <span class="filter">변경 <span class="num">0</span></span>
+        <span class="filter">미룸 <span class="num">0</span></span>
+        <span class="filter">기관 페이지 <span class="num">0</span></span>
+      </div>
+
+      <div class="group">법 011359 · 통신사기피해환급법 · 31</div>
+      <div class="row">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제2조 (정의)</span>
+          <span class="m num">시행 2026-08-04 · 감지 09-06 04:00 · 닿는 항목 0</span>
+        </div>
+        <span class="badge">최초 수집</span>
+      </div>
+      <div class="row on">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제3조 (피해구제의 신청)</span>
+          <span class="m num">시행 2026-08-04 · 감지 09-06 04:00 · 닿는 항목 3</span>
+        </div>
+        <span class="badge">최초 수집</span>
+      </div>
+      <div class="row">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제4조 (지급정지)</span>
+          <span class="m num">시행 2026-08-04 · 감지 09-06 04:00 · 닿는 항목 1</span>
+        </div>
+        <span class="badge">최초 수집</span>
+      </div>
+      <div class="row">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제5조 (채권소멸절차의 개시 공고)</span>
+          <span class="m num">시행 2026-08-04 · 감지 09-06 04:00 · 닿는 항목 1</span>
+        </div>
+        <span class="badge">최초 수집</span>
+      </div>
+      <div class="row">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제7조 (지급정지에 대한 이의제기)</span>
+          <span class="m num">시행 2026-08-04 · 감지 09-06 04:00 · 닿는 항목 2</span>
+        </div>
+        <span class="badge">최초 수집</span>
+      </div>
+      <div class="row">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제13조의4 (신설)</span>
+          <span class="m num">시행 2026-08-04 · 감지 09-06 04:00 · 닿는 항목 없음</span>
+        </div>
+        <span class="badge strong"><span class="dot" style="background: oklch(1 0 89.9);"></span>새 조문</span>
+      </div>
+      <div class="dashed num" style="text-align: center;">… 25건 더</div>
+
+      <div class="group">시행령 011448 · 27</div>
+      <div class="row">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제3조 (피해구제 신청의 방법 등)</span>
+          <span class="m num">시행 2026-08-04 · 감지 09-06 04:00 · 닿는 항목 2</span>
+        </div>
+        <span class="badge">최초 수집</span>
+      </div>
+      <div class="row">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span class="t">제11조의3 (전자금융업자의 범위)</span>
+          <span class="m num">시행 2024-08-28 · 감지 09-06 04:00 · 닿는 항목 1</span>
+        </div>
+        <span class="badge">최초 수집</span>
+      </div>
+      <div class="dashed num" style="text-align: center;">… 25건 더</div>
+    </section>
+
+    <section class="panel" style="display: flex; flex-direction: column; gap: 18px; min-width: 0; align-self: start;">
+      <div style="display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <span class="eyebrow on">법 011359 · 제3조</span>
+          <span class="badge">최초 수집 · 기준선</span>
+        </div>
+        <h1 class="title" style="margin: 0;">피해구제의 신청</h1>
+        <div class="body num">공포번호 [스냅샷에서] · 시행 2026-08-04 · 감지 2026-09-06 04:00 · <span class="tag">law:011359:제3조</span></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span class="eyebrow">무엇이 바뀌었나</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+          <div class="dashed" style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 12.5px; font-weight: 620; color: oklch(0.69 0 89.9);">직전</span>
+            <span>직전 원문이 없습니다. 첫 수집이라 이 조문이 기준선이 됩니다. 사람이 한 번 봐야 검수가 시작됩니다.</span>
+          </div>
+          <div class="card" style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 12.5px; font-weight: 620; color: oklch(0.69 0 89.9);">이번</span>
+            <span class="body" style="color: oklch(0.845 0.009 271.3);">① 피해자는 피해금을 송금·이체한 계좌를 관리하는 금융회사 또는 <span class="ins">[조문 원문 — source_snapshot 그대로]</span> …</span>
+            <a href="#" style="font-size: 12.5px; align-self: flex-start;">원문 전체 펼치기</a>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <span class="eyebrow">닿는 매뉴얼 · 3</span>
+          <span class="body" style="font-size: 12.5px;">행을 누르면 왼쪽이 매뉴얼 기준으로 바뀌고, 그 항목에 닿은 조문이 모입니다</span>
+        </div>
+        <div class="body">아래 항목의 <span class="tag">legal_basis</span> 가 이 조문을 가리킵니다. 승인은 「봤다」는 표시이고, 항목을 고치는 것은 <span class="tag">src/kb/*.json</span> 에서 따로 합니다.</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="row" style="border-radius: 11px;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span class="t">돈이 빠져나간 금융회사에 지급정지를 요청합니다</span>
+              <span class="m"><span class="tag">common-freeze-request</span> · common.json · 확인일 2026-08-25 · 닿은 조문 2</span>
+            </div>
+            <span class="badge">매뉴얼 기준으로<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L10.5 8 6 12.5"></path></svg></span>
+          </div>
+          <div class="row" style="border-radius: 11px;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span class="t">같은 통화에서 피해구제를 신청합니다</span>
+              <span class="m"><span class="tag">common-relief-apply</span> · common.json · 확인일 2026-08-25 · 닿은 조문 2</span>
+            </div>
+            <span class="badge">매뉴얼 기준으로<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L10.5 8 6 12.5"></path></svg></span>
+          </div>
+          <div class="row" style="border-radius: 11px;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span class="t">신청서류를 금융회사에 제출합니다</span>
+              <span class="m"><span class="tag">common-relief-documents</span> · common.json · 확인일 2026-08-25 · 닿은 조문 2</span>
+            </div>
+            <span class="badge">매뉴얼 기준으로<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L10.5 8 6 12.5"></path></svg></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid oklch(0.42 0.014 267 / 78%); padding-top: 16px;">
+        <div class="input">메모 예시: 시행일 미정, 10월 재확인</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="btn primary"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"></path></svg><span>승인 완료 및 반영</span></span>
+          <span class="btn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>거절</span>
+          <span class="btn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.5V8l2.5 1.5"></path></svg>미룸</span>
+          <span class="body num" style="margin-left: auto;">다음 · 제4조 (지급정지) →</span>
+        </div>
+        <div class="body">승인해도 매뉴얼에 자동 반영되지 않습니다. 릴리스가 끝나면 이 항목에 <span class="tag">--released 2026.09.3</span> 이 붙습니다.</div>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>
