@@ -58,9 +58,10 @@ export function sourceNote(citations: readonly Citation[]): string | null {
 /**
  * 한 턴을 화면이 쓰는 모양으로 옮깁니다.
  *
- * **`site: "chat-answer"` 는 종류별 부분 복원입니다** — 계좌는 `국민 ****7890`,
- * 주민번호는 복원하지 않습니다. 인젝션으로 값을 캐내려는 시도를 막는 자리입니다
- * (§3.9 「`reply` 안의 토큰은 종류별로 부분 복원됩니다」).
+ * **`site: "chat-answer"` 도 전부 원문으로 펼칩니다** → ADR-034 · §3.9. 인젝션으로 값을
+ * 캐내려는 시도는 복원 범위가 아니라 **복원 전 검사**가 막습니다 — 모델이 지어낸 토큰은
+ * 이 사건의 매핑에 없어 토큰 그대로 남습니다(`pii-restorer`). 2026-09-06 까지 이 주석은
+ * ADR-013 의 「종류별 부분 복원」을 적고 있었습니다.
  */
 export function toTurn(
   response: ChatResponse,

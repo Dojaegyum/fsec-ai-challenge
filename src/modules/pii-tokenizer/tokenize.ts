@@ -22,7 +22,7 @@
 import { findHits } from '@/modules/pii-masker'
 import { PiiBoundaryError, PiiTokenizerUnavailableError } from '@/lib/errors'
 
-import { tokensInText } from './ledger'
+import { tokenShape, tokensInText } from './ledger'
 import { findTranscriptDigits } from './transcript-digits'
 import { WIRE_NAME } from './types'
 import type {
@@ -202,17 +202,37 @@ function mergeSpans(strong: readonly Span[], weak: readonly Span[]): Span[] {
   return kept.sort((a, b) => a.start - b.start)
 }
 
+/**
+ * 입력에 이미 박혀 있는 **우리 이름표**의 자리 — 브라우저가 가려 보낸 `[계좌-1]`,
+ * 아는 이름을 바꿔 보낸 `[이름-1]`(ADR-079).
+ *
+ * 모델이 이 글자를 사람 이름으로 집으면 `[이름-2]` 로 **다시** 가려져 한 사람에
+ * 이름표가 둘이 되고, 브라우저가 볼트에서 되살릴 짝도 어긋납니다 — 시험으로
+ * 확인했습니다(`[이름-1]님` → `[이름-2]님`). 이름표 모양과 겹치는 조각은 버립니다.
+ */
+function tokenRegions(text: string): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = []
+  const re = tokenShape()
+  for (let m = re.exec(text); m !== null; m = re.exec(text)) {
+    out.push({ start: m.index, end: m.index + m[0].length })
+  }
+  return out
+}
+
 function nerToSpans(
   found: readonly NerSpan[],
   text: string,
   allowedTerms: readonly string[],
 ): Span[] {
   const spans: Span[] = []
+  const ours = tokenRegions(text)
 
   for (const one of found) {
     const kind = NER_LABELS_TO_TOKENIZE[one.label]
     if (!kind) continue
     if (isAllowed(one.value, allowedTerms)) continue
+    // 우리 이름표 모양과 겹치면 다시 가리지 않습니다 → 위 `tokenRegions`
+    if (ours.some((r) => r.start < one.end && one.start < r.end)) continue
 
     // 모델이 준 자리가 실제 글자와 안 맞으면 버립니다 — 엉뚱한 자리를 가리면
     // 지워야 할 것을 놔두고 멀쩡한 글자를 지웁니다

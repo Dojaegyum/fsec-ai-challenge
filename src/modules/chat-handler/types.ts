@@ -87,7 +87,7 @@ export interface OutgoingMessage {
 /** 화면이 그리는 한 턴 */
 export interface Turn {
   message_id: string;
-  /** **원문입니다** — 종류별 부분 복원을 지난 뒤 (ADR-034 · §3.9) */
+  /** **원문입니다** — 전부 펼친 뒤 (ADR-034 · §3.9). 모델이 지어낸 토큰만 토큰 그대로 남습니다 */
   reply: string;
   question: NextQuestion | null;
   /** 「이 답변은 …를 보고 썼습니다」 한 줄. 인용 번호를 쓰지 않습니다 */

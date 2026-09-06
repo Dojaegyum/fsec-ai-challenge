@@ -96,7 +96,7 @@ describe("내 기기에서는 되살아난다", () => {
     expect(past.lines[0]?.who === "me" && past.lines[0].text).toBe(`${ACCOUNT} 로 보냈어요`);
   });
 
-  it("비서의 답은 종류별 부분 복원이다 — chat-answer", async () => {
+  it("비서의 답도 전부 펼친다 — chat-answer (ADR-034)", async () => {
     const { store, entries } = await seeded();
     stubApi(entries, [
       {
@@ -120,17 +120,30 @@ describe("내 기기에서는 되살아난다", () => {
     expect(line.sourceNote).toBe("피해구제 신청서 제출");
   });
 
-  it("다음 발화가 같은 번호를 이어 쓰게 매핑을 넘긴다", async () => {
+  it("다음 발화가 같은 번호를 이어 쓰게 매핑을 넘긴다 — 열어 낸 이름도", async () => {
     const { store, entries } = await seeded();
     stubApi(entries, []);
     const vault = await openVault(TOKEN, store);
 
-    // 1차 종류만 들어갑니다. 서버 NER 이 만든 `[이름-N]` 은 여기 없습니다 —
-    // `PiiKind` 에 없는 값을 넣으면 다음 마스킹이 그 종류를 못 셉니다
-    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]"]);
+    // 열어 낸 이름 짝도 들어갑니다 → ADR-079. 같은 이름을 다시 말하면 브라우저가
+    // 보내기 전에 `[이름-1]` 로 바꿉니다 — 서버 장부에는 원문이 없어 서버는
+    // 같은 이름에 `[이름-2]` 를 새로 붙일 수밖에 없기 때문입니다
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]", "[이름-1]"]);
     expect(vault.maskContext[0]?.original).toBe(ACCOUNT);
+    expect(vault.maskContext[1]?.original).toBe(NAME);
     // 되살리는 쪽은 둘 다 씁니다
     expect(vault.restorable).toHaveLength(2);
+  });
+
+  it("열쇠가 없으면 이름은 문맥에 안 들어간다 — 원문 없는 이름표는 바꿔 쓸 데가 없다", async () => {
+    const { entries } = await seeded();
+    stubApi(entries, []);
+
+    const vault = await openVault(TOKEN, memoryKeyStore());
+
+    // 계좌는 번호를 지키려고 예약 칸으로 들어가지만(브라우저가 번호를 발급하는 종류),
+    // 이름은 브라우저가 번호를 발급하지 않으므로 예약할 것도 없습니다
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]"]);
   });
 });
 
@@ -281,13 +294,15 @@ describe("서버가 붙인 이름표도 자리를 차지한다", () => {
 
     const vault = await openVault(TOKEN, store);
 
-    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]", "[전화-3]"]);
+    // 볼트에서 열어 낸 둘(계좌·이름 — ADR-079) 뒤에 서버 장부의 예약 칸이 붙습니다
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]", "[이름-1]", "[전화-3]"]);
     // 볼트에서 온 칸은 **원문이 살아 있어야** 합니다 — 예약 칸이 덮으면 복원이 죽습니다
     expect(vault.maskContext[0]?.original).toBe(ACCOUNT);
-    expect(isReserved(vault.maskContext[1]!)).toBe(true);
+    expect(vault.maskContext[1]?.original).toBe(NAME);
+    expect(isReserved(vault.maskContext[2]!)).toBe(true);
   });
 
-  it("`[이름-N]` 은 안 셉니다 — 브라우저가 만들지 않는 종류입니다", async () => {
+  it("서버 장부의 `[이름-N]` 은 안 셉니다 — 원문이 없고, 브라우저가 번호를 발급하지 않는 종류입니다", async () => {
     stubApi([], [], false, ["[이름-1]", "[계좌-1]"]);
 
     const vault = await openVault(TOKEN, memoryKeyStore());
@@ -301,7 +316,8 @@ describe("서버가 붙인 이름표도 자리를 차지한다", () => {
 
     const vault = await openVault(TOKEN, store);
 
-    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]"]);
+    // 열어 낸 이름도 함께 옵니다(ADR-079) — 볼트만으로 서는 것이 요점입니다
+    expect(vault.maskContext.map((m) => m.token)).toEqual(["[계좌-1]", "[이름-1]"]);
     expect(vault.read).toBe(true);
   });
 });

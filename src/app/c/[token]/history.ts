@@ -56,7 +56,11 @@ import type { RestorableMapping } from "@/modules/pii-restorer";
 
 import type { Line } from "./send";
 
-/** 1차(정규식)가 만드는 종류 넷. `[이름-1]` 은 서버 NER 이 만듭니다 */
+/**
+ * 1차(정규식)가 **번호를 발급하는** 종류 넷. `[이름-1]` 은 서버 NER 이 만듭니다 —
+ * 브라우저는 이름 번호를 발급하지 않으므로 이름은 자리를 예약하지 않고, **열어 낸
+ * 짝만** 발화 문맥에 넣어 다시 나올 때 바꿔 씁니다(ADR-079 · 아래 `openVault`)
+ */
 const FIRST_PASS: readonly string[] = ["주민번호", "카드", "전화", "계좌"];
 
 /**
@@ -92,7 +96,7 @@ export interface OpenedVault {
   /** 화면에 되살릴 때 쓰는 것 — **열린 것 전부** */
   readonly restorable: RestorableMapping[];
   /**
-   * 다음 발화를 가릴 때 이어 쓸 것 — **1차 종류만**.
+   * 다음 발화를 가릴 때 이어 쓸 것 — **1차 종류 넷 + 열어 낸 이름**.
    *
    * 이걸 넘겨야 같은 계좌가 다시 나올 때 `[계좌-1]` 을 재사용합니다.
    * 안 넘기면 세션마다 번호가 1부터 다시 시작해, **서로 다른 계좌가 같은
@@ -100,6 +104,10 @@ export interface OpenedVault {
    *
    * **못 연 칸도 여기 들어옵니다** — 원문 자리에 `RESERVED_ORIGINAL` 이 박힌
    * 예약 칸으로. 위 머리말의 덮어쓰기를 막는 것이 이 칸들입니다.
+   *
+   * **이름은 열어 낸 것만** 들어옵니다(ADR-079). 브라우저는 이름을 찾지 않고 아는
+   * 이름만 바꿔 쓰므로, 원문 없는 이름표는 쓸 데가 없고 예약할 이유도 없습니다
+   * (이름 번호는 서버가 발급합니다).
    */
   readonly maskContext: PiiMapping[];
   /** 이 기기에 열쇠가 있나. 없으면 토큰이 토큰으로 보입니다 */
@@ -228,6 +236,12 @@ export async function openVault(
         seq: parsed.seq,
         original: original ?? RESERVED_ORIGINAL,
       });
+    } else if (parsed?.kind === "이름" && original !== null) {
+      // **열어 낸 이름 짝** → ADR-079. 같은 이름을 다시 말하면 브라우저가 보내기
+      // 전에 이 이름표로 바꿉니다 — 서버 장부에는 원문이 없어 서버는 같은 이름에
+      // `[이름-2]` 를 새로 붙일 수밖에 없습니다. 못 연 이름표는 넣지 않습니다:
+      // 바꿔 쓸 원문이 없고, 이름 번호는 브라우저가 발급하지 않아 예약할 것도 없습니다
+      maskContext.push({ token: entry.token, kind: "이름", seq: parsed.seq, original });
     }
   }
 
@@ -304,10 +318,10 @@ const NO_HISTORY: History = { lines: [], truncated: false };
 /**
  * 대화 이력을 읽어 화면 줄로 되살립니다.
  *
- * **자리마다 펼치는 정도가 다릅니다** → PII 경계 「복원 가능 목록」.
- *  · 내가 한 말(`user-input`) — 전부 펼칩니다. 내가 쓴 글입니다
- *  · 비서의 답(`chat-answer`) — **종류별 부분 복원.** 계좌는 `국민 ****7890`,
- *    주민번호는 안 펼칩니다. 인젝션으로 값을 캐내려는 시도를 막는 자리입니다
+ * **두 자리 다 전부 펼칩니다** → ADR-034 · PII 경계 「복원 위치와 범위」.
+ *  · 내가 한 말(`user-input`) — 내가 쓴 글입니다
+ *  · 비서의 답(`chat-answer`) — 모델이 지어낸 토큰만 그대로 남습니다(복원 전 검사 ②).
+ *    2026-09-03 까지 이 자리만 `****6789` 였고, 사용자는 그것을 고장으로 읽었습니다
  */
 export async function fetchHistory(
   caseToken: string,

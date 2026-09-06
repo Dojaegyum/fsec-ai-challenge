@@ -452,3 +452,62 @@ describe("챗 응답이 실어 온 대응표도 이 기기 것으로 만든다 �
     expect(last?.who === "ai" && last.reply).toContain(NAME);
   });
 });
+
+/**
+ * 챗 응답으로 받은 이름 짝은 발화 문맥에도 합쳐집니다(`absorb` ③). 그러면 **같은 이름을
+ * 다시 말할 때 브라우저가 보내기 전에 `[이름-1]` 로 바꿉니다** → ADR-079. 안 바꾸면 서버는
+ * 원문을 모르는 장부만 들고 있어 `[이름-2]` 를 새로 붙이고, 모델이 두 사람으로 읽습니다.
+ */
+describe("같은 이름을 다시 말하면 이번엔 브라우저가 가려 보낸다 — ADR-079", () => {
+  const NAME = "김민수";
+  const FRESH = [{ token: "[이름-1]", kind: "이름", seq: 1, original: NAME }];
+
+  /** 첫 발화 응답에만 대응표가 실립니다 — 서버는 보관하지 않으니 둘째부터는 없습니다 */
+  function stubOnceNamedServer(calls: Call[]) {
+    let turns = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const body = typeof init?.body === "string" ? init.body : "";
+        if (init?.method !== undefined && init.method !== "GET") calls.push({ url, body });
+        if (url.includes("/vault") && init?.method === "POST") return json({ stored: 1 });
+        if (url.includes("/vault")) return json({ entries: [] });
+        if (url.includes("/messages") && init?.method === "POST") {
+          turns += 1;
+          return json({
+            message_id: `01J8XKRE${turns}`,
+            reply: "네, 확인했습니다.",
+            citations: [],
+            referenced_steps: [],
+            next_question: null,
+            ...(turns === 1 ? { pii_mappings: FRESH } : {}),
+          });
+        }
+        return json({ messages: [], truncated: false });
+      }),
+    );
+  }
+
+  it("둘째 발화는 [이름-1] 로 나가고 원문은 안 나간다", async () => {
+    const calls: Call[] = [];
+    stubOnceNamedServer(calls);
+    await mount();
+
+    await act(async () => {
+      await hookNow().send(`제 이름은 ${NAME}입니다`);
+    });
+    await act(async () => {
+      await hookNow().send(`${NAME} 맞습니다. 이제 뭘 하죠`);
+    });
+
+    const said = calls.filter((one) => one.url.includes("/messages"));
+    expect(said).toHaveLength(2);
+    // 첫 발화는 브라우저가 이름을 모르므로 원문이 나갑니다 — 그것은 서버 2차의 몫입니다
+    expect(said[0]?.body).toContain(NAME);
+    // 둘째부터는 압니다
+    expect(said[1]?.body).toContain("[이름-1]");
+    expect(said[1]?.body).not.toContain(NAME);
+    // 볼트에는 첫 응답의 짝을 맡긴 한 번뿐입니다
+    expect(calls.filter((one) => one.url.includes("/vault"))).toHaveLength(1);
+  });
+});
