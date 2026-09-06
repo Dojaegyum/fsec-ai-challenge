@@ -17,9 +17,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { configReport, formatConfigReport } from '@/lib/config-report'
-import { createContainer } from '@/lib/container'
-import { readEnv } from '@/lib/env'
-import { buildPorts } from '@/lib/wire'
+import { getContainer } from '@/lib/wire'
 
 const ENV_LOCAL = fileURLToPath(new URL('../.env.local', import.meta.url))
 
@@ -35,8 +33,10 @@ function loadEnvLocal(): void {
 
 function main(): void {
   loadEnvLocal()
-  const env = readEnv()
-  const container = createContainer(env, buildPorts(env))
+  // **서버가 쓰는 것과 같은 조립본을 봅니다** → wire.ts. 여기서 따로 조립하면
+  // 서버에만 있는 것(속도 제한 카운터 · ADR-085)이 「없음」으로 떠서, 운영자가
+  // 멀쩡한 설정을 의심합니다 — 2026-09-06 까지 실제로 그랬습니다
+  const container = getContainer()
   console.log('설정 현황 — 이 프로세스가 읽은 환경변수 기준 (값은 찍지 않습니다)\n')
   console.log(formatConfigReport(configReport(container)))
 }

@@ -15,6 +15,7 @@
  * 2. 응답에 사건 식별자가 안 실린다 — 크론 응답은 실행 기록에 남는다
  * 3. 일부가 실패해도 200 이고, 남은 층이 종류별로 세어진다
  * 4. 실패한 사건은 서버 로그에 남는다 — 파기가 밀린 것을 관측할 유일한 자리
+ * 5. 끝난 속도 제한 창을 같은 바퀴에서 걷어내되, 그것이 실패해도 파기 응답은 200 이다 (ADR-085)
  */
 
 import { describe, expect, it, vi } from 'vitest'
@@ -90,6 +91,8 @@ describe('두 번째 관문 — §6.1', () => {
       purged: 0,
       failed: 0,
       remaining: {},
+      // 끝난 속도 제한 창도 같은 바퀴에서 걷어냅니다 → ADR-085
+      rate_windows_purged: 0,
     })
   })
 })
@@ -119,6 +122,7 @@ describe('응답은 건수뿐이다', () => {
       // 어느 층이 몇 건 남았나 — 볼트만 계속 남으면 볼트 설정이,
       // 객체 저장소만 남으면 삭제 권한이 문제입니다
       remaining: { objects: 1, database: 1 },
+      rate_windows_purged: 0,
     })
   })
 
@@ -165,6 +169,58 @@ describe('일부가 실패해도 멈추지 않는다', () => {
     expect(res.status).toBe(200)
     expect(logged.join('\n')).toContain('01J8CASE000000000000000009')
     expect(logged.join('\n')).toContain('vault')
+
+    spy.mockRestore()
+  })
+})
+
+/**
+ * 끝난 창을 지우는 것은 **덤**입니다 → ADR-085. 배포본에 마이그레이션 0011 이 아직
+ * 안 돌았으면 표가 없어 던지는데, 그 한 줄 때문에 사건 파기가 실패로 보이면 안 됩니다.
+ */
+describe('속도 제한 창 정리 — ADR-085', () => {
+  it('걷어낸 줄 수를 응답에 싣는다', async () => {
+    wire(EMPTY)
+    holder.container = {
+      ...(holder.container as object),
+      rateLimiter: { storeKind: 'shared', check: async () => {}, purgeExpired: async () => 7 },
+    }
+
+    const res = await GET(ask({ authorization: `Bearer ${SECRET}` }))
+
+    expect(await res.json()).toMatchObject({ rate_windows_purged: 7 })
+  })
+
+  it('표가 없어 던져도 200 이고 파기 건수는 그대로다 — 이유는 로그로', async () => {
+    const logged: string[] = []
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      logged.push(args.map(String).join(' '))
+    })
+
+    wire({ scanned: 1, purged: [CASE_ID], failed: [] })
+    holder.container = {
+      ...(holder.container as object),
+      rateLimiter: {
+        storeKind: 'shared',
+        check: async () => {},
+        purgeExpired: async () => {
+          throw new Error('relation "rate_limit_window" does not exist')
+        },
+      },
+    }
+
+    const res = await GET(ask({ authorization: `Bearer ${SECRET}` }))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      scanned: 1,
+      purged: 1,
+      failed: 0,
+      remaining: {},
+      // **못 지운 것과 지울 것이 없던 것을 가릅니다** — 0 이면 후자입니다
+      rate_windows_purged: null,
+    })
+    expect(logged.join('\n')).toContain('rate_limit_window')
 
     spy.mockRestore()
   })

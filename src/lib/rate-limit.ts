@@ -16,7 +16,10 @@
  * ## 세는 곳 — 공유 저장소가 있으면 거기, 없으면 메모리
  *
  * 정본 §1.3 이 그렇게 정했습니다(2026-08-21). 공유 저장소가 있으면 거기서 세고,
- * 없으면 프로세스 메모리에 셉니다 — 지금은 메모리뿐입니다.
+ * 없으면 프로세스 메모리에 셉니다. **공유 저장소는 Postgres 표 하나입니다**
+ * → [rate-limit-pg.ts](./rate-limit-pg.ts) · [ADR-085](../../decisions/085-shared-rate-counter.md).
+ * `DATABASE_URL` 이 있으면 그쪽이 붙고, 없으면 아래 메모리 카운터입니다
+ * ([wire.ts](./wire.ts) 가 고릅니다).
  *
  * **「부르면 터지는 대역」으로 두지 않습니다.** 다른 미설정 자원과 다릅니다
  * → [not-configured.ts](./not-configured.ts). 속도 제한은 **모든 요청이 지나는
@@ -33,18 +36,14 @@
  * | 인스턴스 N개 | **실효 상한이 N배** | 정확 |
  * | 인스턴스 재시작 | 카운터가 0으로 | 유지 |
  *
- * 공유 저장소를 붙일 때 [`RateCounterStore`](#RateCounterStore) 하나만 갈아 끼웁니다.
+ * 공유 저장소는 [`RateCounterStore`](#RateCounterStore) 하나만 갈아 끼운 것입니다.
  * 규칙(무엇을 얼마나)은 이 파일에 그대로 남습니다.
  *
- * ⬜ **공유 구현이 아직 없습니다.** 셀 곳을 안 정했습니다 —
- * `docs/plans/08-20-api-routes.md` 「속도 제한 카운터 위치」. 계약은 여기 있고 구현만 없습니다.
- *
- * ⚠️ **볼트를 따라가지 마세요.** 볼트는 같은 Postgres 로 갔지만(ADR-049) 성격이 다릅니다 —
- * 매핑은 사건당 몇 줄이고 파기일까지 남지만, 카운터는 **초당 여러 번 갱신되고 창이 지나면
- * 버려집니다.** 관계형 DB 에 두면 모든 요청이 쓰기를 한 번씩 더 합니다.
- *
- * 그리고 **인스턴스가 여럿이면 지금은 실효 상한이 그만큼 늘어납니다.** 메모리라
- * 프로세스마다 따로 셉니다.
+ * ⚠️ **이 파일은 2026-09-06 까지 「볼트를 따라 Postgres 로 가지 마세요」라고 적고
+ * 있었습니다** — 카운터는 초당 여러 번 갱신되고 창이 지나면 버려지니 성격이 다르다는
+ * 이유였습니다. [ADR-085](../../decisions/085-shared-rate-counter.md) 가 그것을
+ * 뒤집었습니다: 약속한 상한이 **한 번도 지켜진 적이 없었던 것**이 요청당 upsert 한 줄보다
+ * 무겁습니다. 끝난 창은 `purge` 크론이 하루 한 번 걷어냅니다(아래 `purgeExpired`).
  */
 
 import 'server-only'
@@ -55,7 +54,7 @@ import { RateLimitedError } from './errors'
 /** 무엇을 기준으로 세는가 */
 export type RateScope = 'case' | 'session' | 'ip'
 
-/** 정본 §1.3 표의 일곱 줄 중 **창(window)으로 세는 다섯** */
+/** 정본 §1.3 표의 일곱 줄 중 **창(window)으로 세는 여섯** — 증거 업로드만 누적 총량입니다 */
 export type RateBucket = 'chat' | 'slot' | 'vault' | 'caseCreate' | 'read' | 'notFound'
 
 export interface RateRule {
@@ -155,6 +154,14 @@ export interface RateWindow {
 export interface RateCounterStore {
   readonly kind: 'memory' | 'shared'
   hit(key: string, windowMs: number, nowMs: number): Promise<RateWindow>
+  /**
+   * 끝난 창을 걷어낸다. 지운 개수를 돌려줍니다 → ADR-085.
+   *
+   * **메모리 카운터에는 청소 타이머가 없습니다** — 서버리스 함수가 언제 얼면
+   * 타이머가 안 도는지 알 수 없어서입니다. 공유 저장소는 반대로 아무도 안
+   * 지우면 줄이 남으므로, `purge` 크론이 하루 한 번 이것을 부릅니다.
+   */
+  purgeExpired(nowMs: number): Promise<number>
 }
 
 /**
@@ -178,11 +185,16 @@ export interface RateCounterStore {
 export function createMemoryRateCounter(maxKeys = 10_000): RateCounterStore {
   const windows = new Map<string, { count: number; resetAtMs: number }>()
 
-  /** 이미 끝난 창을 걷어낸다 */
-  const sweep = (nowMs: number) => {
+  /** 이미 끝난 창을 걷어낸다. 지운 개수를 돌려줍니다 */
+  const sweep = (nowMs: number): number => {
+    let gone = 0
     for (const [key, one] of windows) {
-      if (one.resetAtMs <= nowMs) windows.delete(key)
+      if (one.resetAtMs <= nowMs) {
+        windows.delete(key)
+        gone += 1
+      }
     }
+    return gone
   }
 
   /** 살아 있는 것 중 가장 먼저 끝나는 것을 하나 버린다. 버릴 것이 없으면 거짓 */
@@ -221,6 +233,11 @@ export function createMemoryRateCounter(maxKeys = 10_000): RateCounterStore {
       found.count += 1
       return { count: found.count, resetAtMs: found.resetAtMs }
     },
+
+    async purgeExpired(nowMs) {
+      // 여기서는 덤입니다 — `hit` 이 그 키를 볼 때 어차피 버립니다
+      return sweep(nowMs)
+    },
   }
 }
 
@@ -235,6 +252,13 @@ export interface RateLimiter {
    *         남은 창 시간이 들어갑니다 → 08-16-errors.md §3.1
    */
   check(bucket: RateBucket, subject: string): Promise<void>
+  /**
+   * 끝난 창을 걷어낸다 → ADR-085. `purge` 크론이 하루 한 번 부릅니다.
+   *
+   * **여기가 시각을 정합니다** — 부르는 쪽이 「지금」을 만들어 넘기면 크론마다
+   * 시계가 달라집니다. 카운터가 쓰는 시계와 같은 것을 씁니다.
+   */
+  purgeExpired(): Promise<number>
 }
 
 export function createRateLimiter(deps: {
@@ -245,6 +269,10 @@ export function createRateLimiter(deps: {
 
   return {
     storeKind: counter.kind,
+
+    async purgeExpired() {
+      return counter.purgeExpired(clock.nowMs())
+    },
 
     async check(bucket, subject) {
       const rule = RATE_RULES[bucket]
