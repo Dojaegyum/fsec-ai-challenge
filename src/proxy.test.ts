@@ -14,7 +14,7 @@ import { NextRequest } from 'next/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { readEnv } from '@/lib/env'
-import { GATED_MATCHERS } from '@/lib/gated-paths'
+import { GATED_MATCHERS, isAdminPath } from '@/lib/gated-paths'
 import { ADMIN_SESSION_COOKIE, issueAdminSession } from '@/lib/session-cookie'
 import { TELEMETRY_HEADER_NAMES } from '@/lib/telemetry'
 
@@ -62,6 +62,10 @@ describe('어디에 거는가', () => {
     const res = proxy(ask('/api/cases'))
 
     expect(res.status).not.toBe(401)
+  })
+
+  it('/api/admin-login 은 관리자 갈래가 아니다 — 로그인은 문지기 밖 (§7.1)', () => {
+    expect(isAdminPath('/api/admin-login')).toBe(false)
   })
 })
 
