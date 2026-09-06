@@ -82,7 +82,10 @@ export default function Landing() {
               aria-hidden
               className="size-1.5 rounded-full bg-current [animation:pulse-dot_2.6s_ease-in-out_infinite]"
             />
-            개인정보는 브라우저 밖으로 나가지 않습니다
+            {/* 범위를 좁혀 말합니다 — 이름은 자체 서버가, 녹음·캡처는 전사 서버가 원문으로
+                받습니다(동의 전문 1·4항). 「브라우저 밖으로 안 나간다」는 그 전문과 반대말이었고,
+                기획서 ⑧이 정확히 좁혀 쓴 문장(「외부 AI 업체로 나가지 않는다」)에 맞춥니다 */}
+            바깥 AI 에는 가려진 글만 갑니다
           </span>
         </div>
       </header>

@@ -5,7 +5,7 @@ import { HorizonGlow } from "@/components/HorizonGlow";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { LoadFail } from "@/app/c/[token]/load";
 import { kindOf, pendingKey, uploadFile } from "@/app/c/[token]/upload";
@@ -13,6 +13,9 @@ import { screenName } from "@/modules/file-sender";
 import { saveEmail } from "./contact";
 import { loadMockEvidence } from "./mock";
 import { openCase, openingOf } from "./open";
+
+/** `useSyncExternalStore` 의 구독 자리 — 주소는 한 번 열리면 안 바뀌니 알릴 것이 없습니다 */
+const subscribeToNothing = () => () => {};
 
 /**
  * S-05 동의 · 선택 제공 — `/start` (시안 2c + 발급 1a 확정본)
@@ -646,6 +649,59 @@ export function ConsentModal({
   const checkedCount = checks.filter(Boolean).length;
   const canAgree = checkedCount === checks.length; // 다섯을 모두 확인해야 동의 성립 (ADR-031)
 
+  /**
+   * 키보드·낭독기 사용자를 위한 셋 — `aria-modal` 표시만으로는 아무것도 안 일어납니다.
+   *
+   *   1. 열리면 **포커스가 대화상자 안으로** 들어갑니다. 안 옮기면 포커스가 뒤에 깔린
+   *      Q1·[다음] 에 남아, 낭독기 사용자는 모달이 열린 줄도 모른 채 뒤 화면을 읽습니다
+   *      (2026-09-06 배포본 점검 — Tab 을 11번 눌러야 동의 문서에 닿았습니다).
+   *   2. **Tab 이 대화상자 밖으로 안 나갑니다** — 마지막 단추에서 첫 단추로 돕니다.
+   *   3. **Esc 로 닫히고**, 닫히면 포커스가 열었던 단추로 돌아갑니다.
+   *
+   * `onClose` 는 렌더마다 새 함수라 ref 로 받습니다 — 의존성에 넣으면 체크박스 하나
+   * 누를 때마다 효과가 다시 돌며 포커스를 대화상자로 되돌려 버립니다
+   */
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const panel = panelRef.current;
+    panel?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const focusables = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus();
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
@@ -655,8 +711,10 @@ export function ConsentModal({
       className="fixed inset-0 z-50 grid place-items-center bg-[oklch(0_0_0/62%)] p-4 backdrop-blur-[6px] md:p-8"
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="rise flex max-h-[84vh] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[oklch(0.305_0.013_267.1/80%)] bg-stage shadow-[0_40px_90px_-30px_oklch(0_0_0/90%)]"
+        className="rise flex max-h-[84vh] w-full max-w-[720px] flex-col overflow-hidden rounded-[18px] border border-[oklch(0.305_0.013_267.1/80%)] bg-stage shadow-[0_40px_90px_-30px_oklch(0_0_0/90%)] outline-none"
       >
         {/* 좁은 화면에서는 오른쪽 묶음(전부 확인 · 확인 N / 5 · ✕)이 제목 아래로 내려옵니다 —
             제목을 한 글자씩 꺾는 것보다 낫습니다 */}
@@ -771,16 +829,23 @@ export default function Start() {
    * 칩이 사라진 것으로 보여 2026-09-04 에 스위치 ②를 더했습니다. **숨기는 것이
    * 기본**인 것은 그대로이고, 스위치를 켠 배포본만 예외입니다.
    *
-   * `useSearchParams` 가 아니라 마운트 뒤 location 입니다 — 이 페이지는 정적
+   * `useSearchParams` 가 아니라 location 입니다 — 이 페이지는 정적
    * 프리렌더라 그 훅이 Suspense 경계를 요구하고(빌드가 실제로 깨졌습니다),
    * 시연 칩 하나 때문에 페이지를 동적으로 만들 이유가 없습니다.
+   *
+   * `useSyncExternalStore` 로 읽습니다 — 서버 스냅숏은 「없음」이고 브라우저 스냅숏이
+   * 주소를 봅니다. 마운트 뒤 `useEffect` 에서 `setState` 하던 것을 바꾼 것인데, 그 모양은
+   * 렌더를 두 번 돌리고 lint(`react-hooks/set-state-in-effect`)가 오류로 막습니다
    */
-  const [demo, setDemo] = useState(
-    process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEMO_MOCK === "1",
+  const demoFromUrl = useSyncExternalStore(
+    subscribeToNothing,
+    () => new URLSearchParams(window.location.search).has("demo"),
+    () => false,
   );
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("demo")) setDemo(true);
-  }, []);
+  const demo =
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXT_PUBLIC_DEMO_MOCK === "1" ||
+    demoFromUrl;
 
   const router = useRouter();
   const [phase, setPhase] = useState<"intake" | "issued">("intake");
@@ -978,7 +1043,8 @@ export default function Start() {
           ) : (
             <span className="inline-flex items-center gap-2 text-[13px] text-pii">
               <span aria-hidden className="size-[5px] rounded-full bg-current" />
-              개인정보는 브라우저 밖으로 나가지 않습니다
+              {/* 랜딩 헤더와 같은 문장 — 동의 전문(1·4항)과 반대말이 되지 않는 범위로 */}
+              바깥 AI 에는 가려진 글만 갑니다
             </span>
           )}
         </div>
