@@ -457,6 +457,23 @@ export interface EvidenceReader {
   } | null>
 
   /**
+   * **서버 혼자 다시 맡길 후보** → ADR-091 §5. 처리중이고 최근에 만들어진 녹음·이미지 자료.
+   *
+   * 글(`text`)은 뺍니다 — 팟에 맡기는 것이 없습니다. 오래된 것도 뺍니다 — 사건 화면을 닫고
+   * 이틀 넘게 안 돌아온 자료까지 GPU 를 태울 이유가 없고, 돌아오면 셸의 폴링이 맡깁니다.
+   * `transcript_masked` 는 고르지 않습니다 — 여기서 토큰화하지 않습니다
+   */
+  listRetryCandidates(input: { readonly withinMs: number; readonly limit: number }): Promise<
+    readonly {
+      readonly caseId: string
+      readonly evidenceId: string
+      readonly kind: EvidenceKind
+      readonly objectKey: string
+      readonly mimeType: string
+    }[]
+  >
+
+  /**
    * 이 사건에 올라온 자료를 **목록으로** 낸다 → §3.2 `GET`.
    *
    * ## 이것이 없어서 올린 자료가 화면에서 사라졌습니다
@@ -619,6 +636,27 @@ export function createEvidenceReader(sql: Sql): EvidenceReader {
         createdAt:
           one.created_at instanceof Date ? one.created_at.toISOString() : String(one.created_at),
         hasTranscript: one.has_transcript === true,
+      }))
+    },
+
+    async listRetryCandidates({ withinMs, limit }) {
+      const rows = await sql<
+        { case_id: string; evidence_id: string; kind: EvidenceKind; object_key: string | null; mime_type: string | null }[]
+      >`
+        SELECT case_id, evidence_id, kind, object_key, mime_type
+        FROM evidence
+        WHERE ingest_status = 'processing'
+          AND kind <> 'text'
+          AND created_at > now() - make_interval(secs => ${Math.floor(withinMs / 1000)})
+        ORDER BY created_at ASC
+        LIMIT ${limit}
+      `
+      return rows.map((row) => ({
+        caseId: row.case_id,
+        evidenceId: row.evidence_id,
+        kind: row.kind,
+        objectKey: row.object_key ?? '',
+        mimeType: row.mime_type ?? '',
       }))
     },
   }
