@@ -454,6 +454,11 @@ export function createTranscriber(deps: TranscriberDeps): Transcriber {
         })
       }
 
+      // **「없다」는 실패가 아닙니다.** 팟이 결과를 버린 뒤(30분)거나 다시 뜬 것입니다 —
+      // 부르는 쪽(flows/read-evidence.ts)이 같은 번호로 다시 맡깁니다. 여기서 실패로
+      // 덮으면 화면은 「다시 확인」을 영원히 누르게 됩니다 (2026-09-06 · 「처리중」 25분)
+      if (progress.status === 'missing') return { status: 'missing' }
+
       if (progress.status === 'running') {
         // 100 을 넘거나 뒤로 가지 않게 합니다 — 화면의 진행률이 줄어들면 고장으로 보입니다
         const percent = numberOf(progress.percent) ?? 0

@@ -14,7 +14,8 @@
  *
  * **여기서 순서를 다시 적지 않습니다.** 부르는 것만 합니다 — 그게 층 C 의
  * 「판단만 돌려주고 부르지 않는다」와 짝입니다. 마지막 `poll` 은 `load.ts` 의
- * `useEvidence` 가 이어받습니다(서버가 준 `poll_after_ms` 만 씁니다).
+ * `useEvidenceReads` 가 이어받습니다(서버가 준 `poll_after_ms` 만 씁니다) —
+ * 셸이 들고 있어 어느 화면에 있어도 끝까지 묻습니다 (ADR-078).
  *
  * ## 파일은 우리 서버를 안 거칩니다
  *
@@ -63,7 +64,7 @@ function fail(message: string, retryable: boolean): { ok: false; fail: LoadFail 
 
 /**
  * 세 걸음을 걷습니다. **폴링은 여기서 안 합니다** — 자리를 받고 올리고 알린
- * 뒤 `evidence_id` 를 돌려주면, 전사 상태는 `useEvidence` 가 봅니다.
+ * 뒤 `evidence_id` 를 돌려주면, 전사 상태는 셸의 `useEvidenceReads` 가 봅니다.
  */
 export async function uploadFile(input: {
   caseToken: string;
@@ -141,7 +142,7 @@ export async function uploadFile(input: {
       continue;
     }
 
-    // `poll` 부터는 `useEvidence` 가 이어받습니다
+    // `poll` 부터는 셸의 `useEvidenceReads` 가 이어받습니다 (ADR-078)
     if (step.do === "poll") return { ok: true, evidenceId: step.evidenceId };
 
     // 증거만 다룹니다 — 단계 부산물(§3.8)은 아직 배선하지 않았습니다
@@ -164,8 +165,22 @@ export interface Uploads {
   readonly add: (file: File) => Promise<string | null>;
   readonly select: (id: string) => void;
   readonly selectedId: string | undefined;
-  /** 서버가 말한 처리 상태로 레일 줄을 맞춥니다 → `markRail` */
-  readonly mark: (evidenceId: string, status: RailFile["status"]) => void;
+  /** 서버가 말한 처리 상태(와 진행률)로 레일 줄을 맞춥니다 → `markRail` */
+  readonly mark: (evidenceId: string, status: RailFile["status"], percent?: number) => void;
+}
+
+/**
+ * 본문이 그릴 파일 — 고른 것, 없으면 첫 줄.
+ *
+ * **셸과 자료함이 같은 규칙으로 고릅니다.** 셸은 이 파일의 조회 상태를 내려주고
+ * 자료함은 그 파일을 그리므로, 둘이 다른 줄을 고르면 남의 전사문이 그려집니다.
+ * `files[0]` 을 그냥 쓰면 자료가 0개일 때 화면이 죽습니다 — `at(0)` 은 `undefined` 입니다
+ */
+export function pickFile(
+  files: readonly RailFile[],
+  selectedId: string | undefined,
+): RailFile | undefined {
+  return files.find((one) => one.id === selectedId) ?? files.at(0);
 }
 
 /* ── 서버에 이미 올라와 있는 자료를 되받는 자리 ─────────────────────
@@ -240,10 +255,23 @@ export function markRail(
   files: readonly RailFile[],
   evidenceId: string,
   status: RailFile["status"],
+  /** §3.3 `progress.percent`. 처리중일 때만 뜻이 있습니다 */
+  percent?: number,
 ): readonly RailFile[] {
   const at = files.findIndex((one) => one.evidence_id === evidenceId);
-  if (at < 0 || files[at].status === status) return files;
-  return files.map((one, i) => (i === at ? { ...one, status } : one));
+  if (at < 0) return files;
+  const cur = files[at];
+  // 끝났으면 진행률은 뜻이 없습니다 — 「전사 완료 · 99%」가 남지 않게 지웁니다.
+  // 처리중인데 새 값이 안 왔으면 있던 값을 둡니다 — 뒤로 가는 진행률은 고장으로 읽힙니다
+  const nextPercent = status === "processing" ? (percent ?? cur.percent) : undefined;
+  if (cur.status === status && cur.percent === nextPercent) return files;
+  return files.map((one, i) => {
+    if (i !== at) return one;
+    const next: RailFile = { ...one, status };
+    if (nextPercent === undefined) delete next.percent;
+    else next.percent = nextPercent;
+    return next;
+  });
 }
 
 export function mergeRail(
@@ -389,9 +417,12 @@ export function useUploads(caseToken: string | null, seed: readonly RailFile[] =
 
   const select = useCallback((id: string) => setSelectedId(id), []);
 
-  const mark = useCallback((evidenceId: string, status: RailFile["status"]) => {
-    setFiles((prev) => markRail(prev, evidenceId, status));
-  }, []);
+  const mark = useCallback(
+    (evidenceId: string, status: RailFile["status"], percent?: number) => {
+      setFiles((prev) => markRail(prev, evidenceId, status, percent));
+    },
+    [],
+  );
 
   return { files, busy, fail, add, select, selectedId, mark };
 }

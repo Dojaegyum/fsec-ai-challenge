@@ -67,6 +67,21 @@ function failed(what: string, status?: number): Error {
   return new Error(status === undefined ? what : `${what} (${status})`)
 }
 
+/**
+ * 서비스가 요청을 거절했다 — **상태 코드를 들고 있는 유일한 자리.**
+ *
+ * `poll` 이 404 를 「없다」로 읽을 때만 씁니다. 그 밖의 부르는 쪽에는 그냥 `Error`
+ * 로 보입니다(위 `failed` 의 이유 그대로 — 이 계층의 예외를 지어내지 않습니다).
+ */
+class RefusedError extends Error {
+  constructor(
+    what: string,
+    readonly status: number,
+  ) {
+    super(`${what} (${status})`)
+  }
+}
+
 async function call(
   cfg: InferenceConfig,
   path: string,
@@ -89,7 +104,7 @@ async function call(
     throw failed('전사 서비스에 닿지 못했습니다')
   }
 
-  if (!res.ok) throw failed('전사 서비스가 거절했습니다', res.status)
+  if (!res.ok) throw new RefusedError('전사 서비스가 거절했습니다', res.status)
 
   try {
     return await res.json()
@@ -173,8 +188,19 @@ export function createInferenceEngines(cfg: InferenceConfig): {
     )
   }
 
-  const poll = async (jobId: string): Promise<EngineProgress> =>
-    progressOf(await call(cfg, `/jobs/${encodeURIComponent(jobId)}`))
+  const poll = async (jobId: string): Promise<EngineProgress> => {
+    try {
+      return progressOf(await call(cfg, `/jobs/${encodeURIComponent(jobId)}`))
+    } catch (error) {
+      // **404 는 「없다」입니다** — 팟이 끝난 작업을 30분 뒤 버린 뒤의 답이거나
+      // (`services/transcriber/jobs.py` 의 `KEEP_DONE_SECONDS`), 서비스가 다시 떠서
+      // 메모리가 비었을 때의 답입니다. 실패로 읽으면 화면이 「다시 확인」을 영원히
+      // 누르고, 던지면 다시 맡길 길이 없습니다. 다시 맡기는 판단은 흐름의 몫입니다
+      // → flows/read-evidence.ts. 맡길 때(POST)의 404 는 여기 안 옵니다 — 주소가 틀린 것
+      if (error instanceof RefusedError && error.status === 404) return { status: 'missing' }
+      throw error
+    }
+  }
 
   return {
     stt: {

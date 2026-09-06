@@ -176,6 +176,25 @@ describe('덜 읽힌 것으로 던지지 않는다', () => {
   })
 })
 
+describe('도구가 맡긴 일을 잊었으면 그 사실을 그대로 올린다', () => {
+  /**
+   * 팟은 끝난 작업을 30분 뒤 버립니다. 그 뒤에 물으면 「없다」인데, 이것을 실패로
+   * 덮으면 화면은 「다시 확인」만 영원히 누르고, 예외로 올리면 다시 맡길 길이 없습니다.
+   * 여기서는 번역만 합니다 — 다시 맡기는 판단은 흐름(`flows/read-evidence.ts`)의 몫입니다
+   */
+  it('엔진이 「없다」면 실패로 덮지 않고 「없다」로 답한다', async () => {
+    const stt: SttEngine = {
+      submit: async () => 'job-stt',
+      poll: async () => ({ status: 'missing' }),
+    }
+    const t = build({ stt })
+    const started = await t.start({ media: audio })
+    if (!started.started) throw new Error('맡겨졌어야 합니다')
+
+    expect(await t.collect(started.job)).toEqual({ status: 'missing' })
+  })
+})
+
 describe('읽는 도구가 없거나 죽으면 조용히 넘어가지 않는다', () => {
   it('도구가 안 붙었으면 그 사실이 그대로 올라온다', async () => {
     // 조용히 빈 결과를 내면 사건이 「전사 0줄」로 지나가고 며칠 뒤에야 알아챕니다.

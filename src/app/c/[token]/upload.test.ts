@@ -213,6 +213,23 @@ describe("서버가 말한 상태로 레일을 맞춘다 — markRail", () => {
     expect(markRail(before, "E1", "done")).toBe(before);
   });
 
+  it("진행률도 함께 옮긴다 — 서버가 준 `progress.percent` 를 레일이 그립니다", () => {
+    const got = markRail([row("a", "processing", "E1")], "E1", "processing", 42);
+    expect(got[0].percent).toBe(42);
+  });
+
+  it("상태는 같고 진행률만 올라도 새 목록이다 — 안 그러면 진행률이 굳습니다", () => {
+    const before = [{ ...row("a", "processing", "E1"), percent: 10 }];
+    const got = markRail(before, "E1", "processing", 40);
+    expect(got).not.toBe(before);
+    expect(got[0].percent).toBe(40);
+  });
+
+  it("끝나면 진행률을 지운다 — 「전사 완료 · 99%」가 남지 않게", () => {
+    const got = markRail([{ ...row("a", "processing", "E1"), percent: 99 }], "E1", "done");
+    expect(got[0].percent).toBeUndefined();
+  });
+
   it("실패도 옮긴다 — 그래야 실패 갈림길이 뜬다", () => {
     const got = markRail([row("a", "processing", "E1")], "E1", "failed");
     expect(got[0]?.status).toBe("failed");

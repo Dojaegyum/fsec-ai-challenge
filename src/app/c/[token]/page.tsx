@@ -14,10 +14,17 @@ import { slotFace } from "./shape";
 import ChatView, { MiniChat } from "./chat";
 import { FIXTURE_BUNDLE, FIXTURE_EVIDENCE, FIXTURE_MAPPINGS } from "./fixtures";
 import { CaseFailed, CaseLoading } from "./gate";
-import { useCaseBundle, type CaseBundle, type CaseChannel, type CaseSlot } from "./load";
+import {
+  useCaseBundle,
+  useEvidenceReads,
+  type CaseBundle,
+  type CaseChannel,
+  type CaseSlot,
+  type EvidenceState,
+} from "./load";
 import { useChatSend } from "./send";
 import { useArtifact } from "./artifact";
-import { useUploads } from "./upload";
+import { pickFile, useUploads } from "./upload";
 import T0Overlay from "./safety";
 import TodoRail from "./todo";
 import PlanView from "./plan";
@@ -306,6 +313,9 @@ export default function CasePage() {
   );
 }
 
+/** 아직 안 물은 파일의 조회 상태 — 렌더마다 새 객체를 만들지 않게 한 벌만 둡니다 */
+const NOT_ASKED: EvidenceState = { phase: "loading" };
+
 function CaseScreen({
   token,
   bundle,
@@ -356,6 +366,45 @@ function CaseScreen({
   });
   /** 자료 레일도 같은 이유로 여기 있습니다. 개발 경로에서는 픽스처를 씨앗으로 둡니다 */
   const uploads = useUploads(dataToken, dataToken === null ? FIXTURE_EVIDENCE.files : []);
+
+  /**
+   * **처리중인 자료를 전부, 화면과 무관하게 묻습니다** (ADR-078).
+   *
+   * ⚠️ 2026-09-06 까지 이 폴링이 자료함 화면(`evidence.tsx`) 안에서 **선택된 파일 하나**에
+   * 대해서만 돌았습니다. 팟 결과를 서버로 옮기는 길이 이 조회 하나라(ADR-062 — 토큰화된
+   * 그 응답을 받을 브라우저가 있어야 합니다), 통지문을 올리고 대화 탭으로 간 사람은
+   * 25분 넘게 「처리중」을 봤습니다. 팟은 끝난 작업을 30분 뒤 버립니다.
+   *
+   * 묻는 것: 처리중·대기중인 것 전부 + 지금 자료함이 그릴 파일(끝난 것이면 전사문을 한 번
+   * 읽어 옵니다). 끝나면 레일 줄을 맞추고 **플랜을 한 번 다시 읽습니다** — 판독이 끝나며
+   * 서버가 단계·기한을 옮겼을 수 있습니다(부산물 판정 · ADR-077).
+   */
+  const shownFile = pickFile(uploads.files, uploads.selectedId);
+  const wantedReads = useMemo(() => {
+    const ids = uploads.files
+      .filter((f) => f.evidence_id && (f.status === "processing" || f.status === "pending"))
+      .map((f) => f.evidence_id as string);
+    const shown = pickFile(uploads.files, uploads.selectedId)?.evidence_id;
+    if (shown && !ids.includes(shown)) ids.push(shown);
+    return ids;
+  }, [uploads.files, uploads.selectedId]);
+  const evidenceReads = useEvidenceReads(dataToken, wantedReads, {
+    onSettled: (id, status) => {
+      uploads.mark(id, status);
+      onPlanChanged();
+    },
+    onProgress: (id, percent) => uploads.mark(id, "processing", percent),
+    // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-062 · ADR-063)
+    onMappings: (fresh) => void chat.absorb(fresh),
+  });
+  /** 자료함이 그릴 파일의 조회 상태. 못 올린 파일(`evidence_id` 없음)은 아직 안 물은 것 */
+  const shownRead: EvidenceState =
+    (shownFile?.evidence_id ? evidenceReads.reads[shownFile.evidence_id] : undefined) ?? NOT_ASKED;
+  const askShownAgain = () => {
+    if (shownFile?.evidence_id) evidenceReads.again(shownFile.evidence_id);
+  };
+  /** 자료함 탭에 점을 켤지 — 올리는 중이거나 판독 중인 것이 하나라도 있으면 */
+  const reading = uploads.files.some((f) => f.status === "processing" || f.status === "pending");
   /**
    * **부산물을 내는 자리** — 완료는 사용자의 체크가 아니라 이것으로 판정합니다
    * (불변 규칙 6). 여기 없으면 사슬도 기한도 멈춥니다 → `artifact.ts`
@@ -406,9 +455,9 @@ function CaseScreen({
     if (!evidenceId) return;
     const verdict = await artifact.submit(stepId, { kind: "receipt_doc", evidenceId });
     // **성공했을 때만 자료함으로 넘깁니다** — 할 일 레일의 올리기와 같은 규칙.
-    // 전사 폴링이 자료함 화면 안에서만 돌아서(`useEvidence` → evidence.tsx),
-    // 안 넘기면 이 파일은 사용자가 탭을 직접 누를 때까지 「처리중」에 머뭅니다
-    // (감사 F3). 실패(null)면 그대로 둡니다 — 실패 안내는 워크스페이스 패널에
+    // 넘기는 이유는 결과를 보여 주기 위해서입니다 — 폴링은 어느 화면에 있어도 셸이
+    // 이어 가므로(ADR-078) 안 넘겨도 「처리중」에 머물지는 않습니다.
+    // 실패(null)면 그대로 둡니다 — 실패 안내는 워크스페이스 패널에
     // 그려지는데, 화면을 옮겨 버리면 좁은 폭에서 그 안내가 화면 밖으로 밀려
     // 부산물이 기록된 것처럼 읽힙니다 (2026-09-03 검증 지적)
     if (verdict) setFocus("evidence");
@@ -585,6 +634,17 @@ function CaseScreen({
                     <span data-numeric className="ml-1.5 text-[12.5px] text-ink-4">
                       {uploads.files.length}
                     </span>
+                  )}
+                  {/* 판독 중인 것이 있으면 점이 맥동합니다 — 다른 화면에 가 있어도
+                      「끝났나」를 탭에서 알 수 있어야 「가셔도 됩니다」가 성립합니다 (ADR-078).
+                      색만으로 가르지 않습니다 — 글자는 `title`·`aria-label` 에 */}
+                  {id === "evidence" && reading && (
+                    <span
+                      role="img"
+                      aria-label="자료 처리중"
+                      title="자료 처리중"
+                      className="ml-1.5 inline-block size-1.5 rounded-full bg-pii [animation:pulse-dot_1.6s_ease-in-out_infinite]"
+                    />
                   )}
                 </button>
               ))}
@@ -777,8 +837,9 @@ function CaseScreen({
               token={dataToken}
               uploads={uploads}
               restorable={chat.restorable}
-              // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-063)
-              onMappings={(fresh) => void chat.absorb(fresh)}
+              // 조회 상태는 셸이 듭니다 — 이 화면이 내려가도 폴링은 계속됩니다 (ADR-078)
+              server={shownRead}
+              again={askShownAgain}
               locked={chat.locked}
               /* 「없이 진행」의 도착지 — 「사건은 그대로 진행됩니다」를 참으로 만듭니다 */
               onContinue={() => setFocus("chat")}
@@ -837,8 +898,8 @@ function CaseScreen({
                     token={dataToken}
                     uploads={uploads}
                     restorable={chat.restorable}
-                    // **한 번뿐인 대응표를 받는 자리** — 안 이으면 여기서 버려집니다 (ADR-063)
-                    onMappings={(fresh) => void chat.absorb(fresh)}
+                    server={shownRead}
+                    again={askShownAgain}
                     locked={chat.locked}
                     onContinue={() => setFocus("chat")}
                   />

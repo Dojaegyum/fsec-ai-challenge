@@ -139,7 +139,7 @@ function harness(base: {
 
 const read = (one: ReturnType<typeof harness>) =>
   collectReading(
-    { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', objectKey: KEY, stored: null },
+    { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', mimeType: 'audio/m4a', objectKey: KEY, stored: null },
     one.container,
   )
 
@@ -199,6 +199,90 @@ describe('흐름이 그 장부를 실제로 읽는다', () => {
  * 볼트에 넣습니다. 서버에는 여전히 가려진 것만 남습니다(ADR-009 그대로 —
  * 서버는 원문을 **보관하지 않습니다**, 이미 보고 있던 것을 건넬 뿐입니다).
  */
+/**
+ * ⚠️ **팟이 결과를 버린 뒤에는 「처리중」에서 영영 못 나왔습니다** (2026-09-06).
+ *
+ * 팟(`services/transcriber`)은 끝난 작업을 30분 뒤 지웁니다. 결과를 서버로 옮기는
+ * 길은 브라우저의 §3.3 폴링 하나인데, 그 폴링은 자료함 화면에서 그 파일을 고른 동안만
+ * 돌았습니다. 화면을 떠난 채 30분이 지나면 팟은 404 를 내고, 어댑터는 그것을
+ * `poll_failed`(422) 로 던졹고, 화면은 「다시 확인」을 아무리 눌러도 같은 답을 받았습니다.
+ *
+ * 파일은 저장소에 그대로 있고 작업 번호는 증거 번호라, **다시 맡기면 됩니다.**
+ * 여기서 못 박는 것 — 「없다」는 실패가 아니라 다시 맡길 신호이고, 그것도 안 되면
+ * 그때 실패로 적는다.
+ */
+describe('팟이 작업을 버렸으면 다시 맡긴다 — 「처리중」에 영영 남지 않게', () => {
+  const asked = () => ({
+    caseId: CASE_ID,
+    evidenceId: EVIDENCE_ID,
+    kind: 'audio' as const,
+    mimeType: 'audio/m4a',
+    objectKey: KEY,
+    stored: null,
+  })
+
+  it('collect 가 「없다」면 같은 번호로 다시 맡기고 처리중으로 답한다', async () => {
+    const one = harness({ lines: [] })
+    const started: unknown[] = []
+    Object.assign(one.container, {
+      transcriber: {
+        collect: async () => ({ status: 'missing' }),
+        start: async (input: unknown) => {
+          started.push(input)
+          return { started: true, job: { jobId: EVIDENCE_ID, phase: 'stt', kind: 'audio' } }
+        },
+      },
+    })
+
+    const got = await collectReading(asked(), one.container)
+
+    expect(got).toEqual({ status: 'running', phase: 'stt', percent: 0, pollAfterMs: 1500 })
+    expect(started).toEqual([
+      { media: { objectKey: KEY, kind: 'audio', mimeType: 'audio/m4a' }, jobId: EVIDENCE_ID },
+    ])
+    // 아무것도 저장하지 않습니다 — 아직 읽은 것이 없습니다
+    expect(one.finished).toHaveLength(0)
+  })
+
+  it('다시 맡기는 것도 안 되면 그때는 실패로 적는다 — 영원한 처리중이 아니라', async () => {
+    const one = harness({ lines: [] })
+    const failed: unknown[] = []
+    Object.assign(one.container, {
+      transcriber: {
+        collect: async () => ({ status: 'missing' }),
+        start: async () => {
+          throw new IngestError('맡기지 못했습니다', { reason: 'submit_failed' })
+        },
+      },
+      evidenceWrite: {
+        finish: async () => {},
+        fail: async (input: unknown) => {
+          failed.push(input)
+        },
+      },
+    })
+
+    const got = await collectReading(asked(), one.container)
+
+    expect(got).toEqual({ status: 'failed', reason: 'submit_failed' })
+    expect(failed).toEqual([{ caseId: CASE_ID, evidenceId: EVIDENCE_ID, reason: 'submit_failed' }])
+  })
+
+  it('미설정(AppError)은 전사 실패로 덮지 않고 그대로 올린다 — startReading 과 같은 판단', async () => {
+    const one = harness({ lines: [] })
+    Object.assign(one.container, {
+      transcriber: {
+        collect: async () => ({ status: 'missing' }),
+        start: async () => {
+          throw new AppError('전사 서비스가 아직 설정되지 않았습니다')
+        },
+      },
+    })
+
+    await expect(collectReading(asked(), one.container)).rejects.toBeInstanceOf(AppError)
+  })
+})
+
 describe('막 만든 대응표는 브라우저에 건넨다 — 버리지 않습니다', () => {
   it('토큰화한 그 응답에 원문 포함 대응표가 실린다', async () => {
     const one = harness({ lines: [lineOf(`${MINE} 로 보냈어요`)] })
@@ -221,6 +305,7 @@ describe('막 만든 대응표는 브라우저에 건넨다 — 버리지 않습
         caseId: CASE_ID,
         evidenceId: EVIDENCE_ID,
         kind: 'audio',
+        mimeType: 'audio/m4a',
         objectKey: KEY,
         stored: JSON.stringify({
           lines: [{ speaker: 'A', text: '[계좌-1] 로 보냈어요', startMs: 0 }],
@@ -297,7 +382,7 @@ describe('전사 교정은 사용자의 답을 덮지 않는다', () => {
   it('빈 슬롯에는 올린다 — 지금까지처럼', async () => {
     const one = orgHarness({ already: [] })
     await collectReading(
-      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', objectKey: KEY, stored: null },
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', mimeType: 'audio/m4a', objectKey: KEY, stored: null },
       one.container,
     )
     expect(one.wrote.map((w) => w.slotKey)).toContain('org_name')
@@ -308,7 +393,7 @@ describe('전사 교정은 사용자의 답을 덮지 않는다', () => {
       already: [{ slotKey: 'org_name', state: 'confirmed', valueMasked: '카카오뱅크' }],
     })
     await collectReading(
-      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', objectKey: KEY, stored: null },
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'audio', mimeType: 'audio/m4a', objectKey: KEY, stored: null },
       one.container,
     )
     expect(one.wrote.map((w) => w.slotKey)).not.toContain('org_name')
@@ -360,6 +445,7 @@ describe('글로 올린 자료도 읽는다', () => {
         caseId: CASE_ID,
         evidenceId: EVIDENCE_ID,
         kind: 'text',
+        mimeType: 'text/plain',
         objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
         stored: null,
       },
@@ -385,6 +471,7 @@ describe('글로 올린 자료도 읽는다', () => {
         caseId: CASE_ID,
         evidenceId: EVIDENCE_ID,
         kind: 'text',
+        mimeType: 'text/plain',
         objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
         stored: null,
       },
@@ -404,6 +491,7 @@ describe('글로 올린 자료도 읽는다', () => {
         caseId: CASE_ID,
         evidenceId: EVIDENCE_ID,
         kind: 'text',
+        mimeType: 'text/plain',
         objectKey: `${CASE_ID}/${EVIDENCE_ID}`,
         stored: null,
       },
@@ -454,7 +542,7 @@ describe('증거에서 값을 뽑아 확인 전으로 둔다 — ADR-069', () =>
 
   const collect = (container: Container) =>
     collectReading(
-      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'image', objectKey: KEY, stored: null },
+      { caseId: CASE_ID, evidenceId: EVIDENCE_ID, kind: 'image', mimeType: 'image/png', objectKey: KEY, stored: null },
       container,
     )
 
@@ -622,7 +710,8 @@ describe('맡기기가 실패하면 그 자리에서 failed 로 적는다', () =
       throw new IngestError('읽어 달라고 맡기지 못했습니다', { reason: 'submit_failed' })
     })
 
-    await expect(startReading(input, one.container)).resolves.toBeUndefined()
+    // 던지지 않고 **결과로** 말합니다 — 다시 맡기는 자리(`collectReading` 의 missing)가 이 값을 봅니다
+    await expect(startReading(input, one.container)).resolves.toEqual({ ok: false, reason: 'submit_failed' })
 
     expect(one.failed).toEqual([{ caseId: CASE_ID, evidenceId: EVIDENCE_ID, reason: 'submit_failed' }])
   })
