@@ -2420,4 +2420,11 @@ git commit -m "배포본에 KB 검수 큐 — ADMIN_PASSWORD_HASH 를 vercel-env
 | 껍데기에 헤더 자리 (계획에서 발견 — 정본엔 없던 것) | 2 |
 
 - 자리표시 없음 — 코드 블록마다 실제 내용.
+- **실행 중 발견(2026-09-06) — 이 계획의 코드와 다르게 구현된 자리:** ① `source_key` 는 `law:011359:제3조` 가 아니라
+  **`law:011359:3`(가지번호는 `:2:2`)** 입니다 — 데이터 모델 §12.1 · `law-fetcher.ts`. `parseSourceKey` 가 그 꼴을 읽어
+  「제N조」를 만듭니다. 계획대로 만들었더니 실제 큐 58건이 전부 「새 조문」으로 떴습니다. ② `BadRequestError`·`UnauthorizedError`
+  는 `@/lib/errors` 가 아니라 `@/lib/http` 에 있습니다. ③ `link.ts` 는 다른 법(「전기통신사업법 제32조의6」)의 조를 세지 않습니다.
+  ④ 실제 KB 로 세운 기대: 법 제3조 → 둘(서류 제출은 시행령만 인용), 법 제7조 → 셋(`common-procedure-stopped` 가 제7조제2항 인용).
+  ⑤ 화면의 초기 로드는 효과 안 동기 setState 를 금하는 lint 때문에 `.then` 안에서만 상태를 바꿉니다. ⑥ `ADMIN_PASSWORD_HASH` 를
+  로컬 `.env.local` 에 넣을 땐 `\$` 로 이스케이프해야 합니다(dotenv 확장). ⑦ 배포는 입력 칸이 아니라 저장소 시크릿 + `set_admin_password_hash`.
 - 이름 대조: `readQueue/readChange/decide/readEntries/readHistory`(8 ↔ 9 ↔ 10) · `linkEntries/parseSourceKey/sourceLabelOf`(6 ↔ 8) · `KbChangeNotFoundError/KbChangeDecidedError`(5 ↔ 8 ↔ 9) · `RouteResult.headers`(2 ↔ 4) · `'adminLogin'`(3 ↔ 4) · `fileOf`(8) · `reduce/initialState/nextPendingAfter`(10 ↔ 11).

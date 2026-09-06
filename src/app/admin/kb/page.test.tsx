@@ -8,7 +8,7 @@ const textOf = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, "
 
 const view = (id: string, article: string, affected: string[] = []) => ({
   change_id: id,
-  source_key: `law:011359:${article}`,
+  source_key: `law:011359:${article.replace(/[제조]/g, "").replace("의", ":")}`,
   source: { prefix: "law:011359", label: "법 011359 · 통신사기피해환급법" },
   article,
   title: null,

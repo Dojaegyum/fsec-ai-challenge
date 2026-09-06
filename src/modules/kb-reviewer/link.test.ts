@@ -20,18 +20,21 @@ const ENTRIES = [...FILES.common.entries, ...FILES.frozen.entries, ...FILES.easy
 }))
 const basisOf = (id: string) => ENTRIES.find((one) => one.kbEntryId === id)!.legalBasis
 
-describe('source_key 읽기', () => {
-  it('법령 번호와 조를 뽑는다', () => {
-    expect(parseSourceKey('law:011359:제3조')).toEqual({ lawId: '011359', article: '제3조' })
-    expect(parseSourceKey('law:011448:제11조의3')).toEqual({ lawId: '011448', article: '제11조의3' })
+describe('source_key 읽기 — 데이터 모델 §12.1 「법령ID:조문번호:가지번호」', () => {
+  it('법령 번호와 조를 뽑아 「제N조」로 만든다', () => {
+    expect(parseSourceKey('law:011359:3')).toEqual({ lawId: '011359', article: '제3조' })
+    expect(parseSourceKey('law:011448:11:3')).toEqual({ lawId: '011448', article: '제11조의3' })
+    expect(parseSourceKey('law:011359:2:2')).toEqual({ lawId: '011359', article: '제2조의2' })
   })
-  it('다른 접두사는 모른다', () => {
+  it('다른 접두사·다른 꼴은 모른다', () => {
     expect(parseSourceKey('page:kfb-vphishing')).toBeNull()
     expect(parseSourceKey('law:011359')).toBeNull()
+    // 실제 수집기가 만드는 꼴이 아닙니다 — 화면 초안이 이렇게 가정했다가 조문이 전부 「새 조문」으로 떴습니다
+    expect(parseSourceKey('law:011359:제3조')).toBeNull()
   })
   it('라벨은 말로', () => {
-    expect(sourceLabelOf('law:011359:제3조')).toBe('법 011359 · 통신사기피해환급법')
-    expect(sourceLabelOf('law:011448:제3조')).toBe('시행령 011448 · 통신사기피해환급법 시행령')
+    expect(sourceLabelOf('law:011359:3')).toBe('법 011359 · 통신사기피해환급법')
+    expect(sourceLabelOf('law:011448:3')).toBe('시행령 011448 · 통신사기피해환급법 시행령')
     expect(sourceLabelOf('page:x')).toBe('page:x')
   })
 })
@@ -67,23 +70,26 @@ describe('legal_basis 에서 조 번호를 뽑는다', () => {
 
 describe('닿는 매뉴얼 — 실제 KB 로', () => {
   it('법 제3조는 지급정지 요청 · 피해구제 신청 둘에 닿는다 — 서류 제출은 시행령만 인용한다', () => {
-    expect(linkEntries('law:011359:제3조', ENTRIES)).toEqual(['common-freeze-request', 'common-relief-apply'])
+    expect(linkEntries('law:011359:3', ENTRIES)).toEqual(['common-freeze-request', 'common-relief-apply'])
   })
   it('법 제7조는 절차 종료(제7조제2항 인용)와 통장묶기 둘, 셋에 닿는다', () => {
-    expect(linkEntries('law:011359:제7조', ENTRIES)).toEqual([
+    expect(linkEntries('law:011359:7', ENTRIES)).toEqual([
       'common-procedure-stopped',
       'frozen-objection-file',
       'frozen-objection-result',
     ])
   })
   it('시행령 제3조는 서류 제출에 닿고 법 제3조만 인용한 지급정지 요청엔 안 닿는다', () => {
-    const hit = linkEntries('law:011448:제3조', ENTRIES)
+    const hit = linkEntries('law:011448:3', ENTRIES)
     expect(hit).toContain('common-relief-documents')
     expect(hit).toContain('common-relief-apply')
     expect(hit).not.toContain('common-freeze-request')
   })
+  it('시행령 제11조의3(가지번호)은 간편결제 지급정지에 닿는다', () => {
+    expect(linkEntries('law:011448:11:3', ENTRIES)).toEqual(['easypay-freeze-request'])
+  })
   it('새 조문은 아무 데도 안 닿는다', () => {
-    expect(linkEntries('law:011359:제13조의4', ENTRIES)).toEqual([])
+    expect(linkEntries('law:011359:13:4', ENTRIES)).toEqual([])
   })
   it('기관 페이지는 이 규칙 밖이다', () => {
     expect(linkEntries('page:kfb-vphishing', ENTRIES)).toEqual([])

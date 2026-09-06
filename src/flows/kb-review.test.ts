@@ -9,7 +9,7 @@ import { decide, readChange, readEntries, readHistory, readQueue } from './kb-re
 
 const change = (over: Partial<SourceChange>): SourceChange => ({
   changeId: '01J0000000000000000000000A',
-  sourceKey: 'law:011359:제3조',
+  sourceKey: 'law:011359:3',
   snapshotBefore: null,
   snapshotAfter: '01J0000000000000000000000S',
   detectedAt: '2026-09-06T04:00:12+09:00',
@@ -67,7 +67,7 @@ function wire(changes: SourceChange[], entries: KbRow[]) {
       byIds: async (ids: readonly string[]) =>
         ids.map((id) => ({
           snapshotId: id,
-          sourceKey: 'law:011359:제3조',
+          sourceKey: 'law:011359:3',
           content: '① 피해자는 …',
           meta: { 시행일자: '20260804', 조문제목: '피해구제의 신청' },
         })),

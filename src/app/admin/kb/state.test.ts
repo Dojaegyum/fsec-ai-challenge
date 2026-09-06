@@ -4,7 +4,7 @@ import { initialState, nextPendingAfter, reduce } from "./state";
 
 const view = (id: string, affected: string[] = []) => ({
   change_id: id,
-  source_key: "law:011359:제3조",
+  source_key: "law:011359:3",
   source: { prefix: "law:011359", label: "법" },
   article: "제3조",
   title: null,
