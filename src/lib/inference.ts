@@ -16,6 +16,11 @@
  * 그래서 **맡기고(`submit`) 나중에 물어봅니다(`poll`)** — 계약이 이미 그 모양입니다
  * (업로드 완료에 `202 처리 중`, 화면이 폴링) → 08-14-api.md §3.2 §3.3.
  *
+ * ## 닿지 못한 것과 거절된 것을 가릅니다 — ADR-091
+ *
+ * 연결 실패 · 타임아웃 · 5xx 는 `TransientError`(일시적), 4xx 는 `RefusedError`(최종적)입니다.
+ * 둘 다 이 계층의 `AppError` 는 아닙니다 — 모듈이 `IngestError` 로 감싸며 `detail.transient` 로 옮깁니다.
+ *
  * ## 어디를 부르는지는 설정이 정합니다
  *
  * 이 컴퓨터에서 띄운 것이든, 국내 GPU 서버든, 나중에 다른 제품이든
@@ -31,6 +36,8 @@ import type {
   SttEngine,
   SttRequest,
 } from '@/modules/transcriber'
+
+import { TransientError } from './errors'
 
 export interface InferenceConfig {
   /** 서비스 주소. 예: `http://127.0.0.1:8917` */
@@ -101,9 +108,13 @@ async function call(
       cache: 'no-store',
     })
   } catch {
-    throw failed('전사 서비스에 닿지 못했습니다')
+    // **닿지 못한 것은 일시적입니다** → ADR-091 §1. 흐름이 「재시도중」으로 답합니다
+    throw new TransientError('전사 서비스에 닿지 못했습니다')
   }
 
+  // 5xx 도 일시적입니다 — 팟이 없을 때 RunPod 프록시가 502·503·504 를 냅니다.
+  // 4xx 는 요청이 거절된 것이라 다시 보내도 같습니다(아래 RefusedError 그대로)
+  if (res.status >= 500) throw new TransientError('전사 서비스가 답하지 못했습니다', res.status)
   if (!res.ok) throw new RefusedError('전사 서비스가 거절했습니다', res.status)
 
   try {
