@@ -14,6 +14,7 @@ import { createContainer, unconfiguredPorts, type Ports } from '@/lib/container'
 import { readEnv } from '@/lib/env'
 
 import type { CasePlanStore } from '@/flows/regenerate-plan'
+import type { CaseStore } from '@/modules/case-intake'
 import type { PiiTokenizer, TokenizeResult } from '@/modules/pii-tokenizer'
 
 import { PATCH } from './route'
@@ -81,9 +82,10 @@ vi.mock('@/lib/wire', () => ({
   },
 }))
 
-function wiredContainer(over: { tokenizer?: PiiTokenizer } = {}) {
+function wiredContainer(over: { tokenizer?: PiiTokenizer; caseStore?: CaseStore } = {}) {
   const ports = {
     ...unconfiguredPorts(readEnv({})),
+    ...(over.caseStore ? { caseStore: over.caseStore } : {}),
     casePlan,
     kbStore: { async findApplied() { return [] }, async findReference() { return [] }, async listEntries() { return [] } },
     auditStore: { appendChained: async (build) => build(null) },
@@ -309,5 +311,34 @@ describe('계측 헤더 — 08-14-api.md §1.1', () => {
     const res = await PATCH(one.request, one.route)
 
     expect(res.headers.get('X-Pii-Token-Count')).not.toContain('352')
+  })
+})
+
+describe('문항에 답하면 파기일이 밀린다 — ADR-016', () => {
+  it('답 하나가 그 사건의 touchPurgeAfter 를 부른다', async () => {
+    // 2026-09-06 까지 업로드·이메일만 밀었습니다 — 문진으로만 몇 달을 관리한 사건이
+    // 업로드 시점 + 180일에 지워질 수 있었습니다. 밀기는 껍데기(`ctx.activity`)가 합니다
+    const touched: string[] = []
+    holder.container = wiredContainer({
+      caseStore: {
+        async createCase() {},
+        async evidenceTotals() {
+          return { count: 0, bytes: 0 }
+        },
+        async addEvidence() {},
+        async markUploaded() {
+          return 'processing'
+        },
+        async touchPurgeAfter(caseId) {
+          touched.push(caseId)
+        },
+      },
+    })
+
+    const one = ask('amount', { action: 'unknown' })
+    const res = await PATCH(one.request, one.route)
+
+    expect(res.status).toBe(200)
+    expect(touched).toEqual([CASE_ID])
   })
 })

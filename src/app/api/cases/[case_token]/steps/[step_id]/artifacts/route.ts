@@ -116,6 +116,8 @@ export async function POST(
     const { container } = ctx
     const caseId = await caseIdOf(route, container.caseTokens)
     const stepId = await ulidParamOf(route, 'step_id')
+    // 부산물을 내는 것은 활동입니다 — 파기일이 「마지막 활동일 + 180일」로 밀립니다(ADR-016)
+    ctx.activity(caseId)
 
     const submission = readSubmission(await readJsonObject<ArtifactBody>(ctx.request))
 

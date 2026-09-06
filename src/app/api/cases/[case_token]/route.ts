@@ -44,6 +44,11 @@ export async function GET(
     // 링크 토큰으로는 찾았는데 사건 행이 없으면 파기된 것입니다
     if (!found) throw new CaseNotFoundError('그 사건을 찾지 못했습니다')
 
+    // **링크를 다시 연 것도 활동입니다** — 동의 전문이 「링크로 다시 접속하면
+    // 활동일이 갱신되며」라고 약속하고(ADR-016), 2026-09-06 까지는 읽기가 아무것도
+    // 안 밀어 그 문장이 거짓이었습니다. 미는 일은 껍데기가 응답 뒤에 합니다
+    ctx.activity(caseId)
+
     if (snapshot.kbVersion) ctx.telemetry.useKbVersion(snapshot.kbVersion)
 
     return {

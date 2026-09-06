@@ -81,10 +81,11 @@ vi.mock('@/lib/wire', () => ({
   },
 }))
 
-function wiredContainer(steps: readonly StoredStep[]) {
+function wiredContainer(steps: readonly StoredStep[], extra: Partial<Ports> = {}) {
   const ports = {
     ...unconfiguredPorts(readEnv({})),
     casePlan: planStoreOf(steps),
+    ...extra,
     kbStore: { async findApplied() { return [] }, async findReference() { return [] }, async listEntries() { return [] } },
     auditStore: { appendChained: async (build) => build(null) },
     kbVersion: { current: async () => '2026.08.1' },
@@ -255,5 +256,35 @@ describe('판정 이유가 §3.10 합본까지 실린다 — `artifacts[].verify
 
   it('저장소 내부 값(`evidence_id`)은 안 실린다 — 이유만 나갑니다', async () => {
     expect((await artifactsOf('no_receipt_marks'))[0]).not.toHaveProperty('evidence_id')
+  })
+})
+
+describe('링크를 다시 열면 파기일이 밀린다 — ADR-016', () => {
+  it('GET 하나가 그 사건의 touchPurgeAfter 를 부른다', async () => {
+    // 동의 전문의 「링크로 다시 접속하면 활동일이 갱신되며」가 2026-09-06 까지 거짓이었습니다 —
+    // 읽기는 아무것도 안 밀었습니다. 미는 일은 껍데기(`ctx.activity`)가 응답 뒤에 합니다
+    const touched: string[] = []
+    holder.container = wiredContainer([], {
+      caseStore: {
+        async createCase() {},
+        async evidenceTotals() {
+          return { count: 0, bytes: 0 }
+        },
+        async addEvidence() {},
+        async markUploaded() {
+          return 'processing'
+        },
+        async touchPurgeAfter(caseId) {
+          touched.push(caseId)
+        },
+      },
+    })
+
+    const res = await GET(new Request(`http://x/api/cases/${TOKEN}`), {
+      params: Promise.resolve({ case_token: TOKEN }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(touched).toEqual([CASE_ID])
   })
 })

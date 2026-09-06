@@ -12,7 +12,10 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createContainer, type Container } from './container'
+import type { CaseStore } from '@/modules/case-intake'
+
+import { serverClock } from './clock'
+import { createContainer, unconfiguredPorts, type Container, type Ports } from './container'
 import { readEnv } from './env'
 import { KbUnavailableError } from './errors'
 import { BadRequestError, CaseNotFoundError } from './http'
@@ -653,5 +656,131 @@ describe('열거 방어 — 404 를 IP 로 센다 — ADR-039 ④', () => {
       )
     }
     expect((await notFound('203.0.113.6')).status).toBe(404)
+  })
+})
+
+/**
+ * ## 활동이면 파기일이 밀린다 — ADR-016 「마지막 활동일 기준 180일」
+ *
+ * 2026-09-06 까지는 업로드와 이메일만 밀었습니다. 자료를 한 번 올리고 몇 달을
+ * 챗·문진·접수번호로만 관리한 사건은 **그 업로드 시점 + 180일**에 지워질 수 있었고,
+ * 응답의 `last_activity_at` 도 거짓 값을 냈습니다. 껍데기 한 곳에서 미는 이유는
+ * 라우트마다 적으면 새 쓰기 경로에서 빠뜨리기 때문입니다.
+ */
+describe('활동은 파기일을 민다 — ADR-016', () => {
+  function withCaseStore() {
+    const touched: { caseId: string; purgeAfter: string }[] = []
+    const caseStore: CaseStore = {
+      async createCase() {},
+      async evidenceTotals() {
+        return { count: 0, bytes: 0 }
+      },
+      async addEvidence() {},
+      async markUploaded() {
+        return 'processing'
+      },
+      async touchPurgeAfter(caseId, purgeAfter) {
+        touched.push({ caseId, purgeAfter })
+      },
+    }
+    const env = readEnv({})
+    const made = createContainer(env, { ...unconfiguredPorts(env), caseStore } as Ports)
+    return { made, touched }
+  }
+
+  const post = (path = 'http://x/api/cases/x/messages') => new Request(path, { method: 'POST' })
+
+  it('활동을 알린 쓰기가 성공하면 오늘 + CASE_PURGE_DAYS 로 민다', async () => {
+    const { made, touched } = withCaseStore()
+
+    const res = await handleRoute(
+      post(),
+      async (ctx) => {
+        ctx.activity(CASE_ID)
+        return { body: {} }
+      },
+      { container: made, rate: 'none' },
+    )
+
+    expect(res.status).toBe(200)
+    expect(touched).toEqual([
+      {
+        caseId: CASE_ID,
+        purgeAfter: made.dateChecker.addDays(serverClock.today(), made.env.casePurgeDays),
+      },
+    ])
+  })
+
+  it('핸들러가 던지면 안 민다 — 실패한 요청은 활동이 아니다', async () => {
+    const { made, touched } = withCaseStore()
+
+    await handleRoute(
+      post(),
+      async (ctx) => {
+        ctx.activity(CASE_ID)
+        throw new BadRequestError('잘못된 요청')
+      },
+      { container: made, rate: 'none' },
+    )
+
+    expect(touched).toEqual([])
+  })
+
+  it('알리지 않은 요청은 안 민다 — 조회는 활동이 아니다', async () => {
+    const { made, touched } = withCaseStore()
+
+    await handleRoute(get(), async () => ({ body: {} }), { container: made })
+
+    expect(touched).toEqual([])
+  })
+
+  it('저장소가 안 붙은 조립본에서는 조용히 건너뛴다 — 응답을 막지 않는다', async () => {
+    // 기본 조립본의 caseStore 는 부르면 던지는 대역입니다 → not-configured.ts
+    const res = await handleRoute(
+      post(),
+      async (ctx) => {
+        ctx.activity(CASE_ID)
+        return { body: { ok: true } }
+      },
+      { container, rate: 'none' },
+    )
+
+    expect(res.status).toBe(200)
+  })
+
+  it('미는 데 실패해도 사용자의 답은 그대로 나간다', async () => {
+    const env = readEnv({})
+    const broken = createContainer(env, {
+      ...unconfiguredPorts(env),
+      caseStore: {
+        async createCase() {},
+        async evidenceTotals() {
+          return { count: 0, bytes: 0 }
+        },
+        async addEvidence() {},
+        async markUploaded() {
+          return 'processing' as const
+        },
+        async touchPurgeAfter() {
+          throw new Error('connect ECONNREFUSED')
+        },
+      },
+    } as Ports)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const res = await handleRoute(
+      post(),
+      async (ctx) => {
+        ctx.activity(CASE_ID)
+        return { body: { saved: true } }
+      },
+      { container: broken, rate: 'none' },
+    )
+
+    expect(res.status).toBe(200)
+    expect(warn).toHaveBeenCalledTimes(1)
+    // 사건 식별자는 로그에 안 남깁니다
+    expect(String(warn.mock.calls[0]?.[0])).not.toContain(CASE_ID)
+    warn.mockRestore()
   })
 })

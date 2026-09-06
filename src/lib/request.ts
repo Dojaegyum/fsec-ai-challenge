@@ -33,6 +33,7 @@ import { isAdminPath, isCronPath } from './gated-paths'
 import { AppError } from './errors'
 import { BadRequestError, CaseNotFoundError, UnauthorizedError, fail, ok } from './http'
 import { isTokenShaped, isUlid, isUuidShaped } from './ids'
+import { isUnconfigured } from './not-configured'
 import type { CaseRateBucket, UpfrontRateBucket } from './rate-limit'
 import { hasAdminSession } from './session-cookie'
 import { createTelemetry, type TelemetryRecorder } from './telemetry'
@@ -56,6 +57,16 @@ export interface RequestContext {
    * 그 값은 `await params` 를 해야 나오기 때문입니다.
    */
   limit(bucket: CaseRateBucket, caseId: string): Promise<void>
+  /**
+   * 이 요청이 **그 사건의 활동**임을 알린다 — 응답이 성공하면 껍데기가 파기 예정일을
+   * 「오늘 + `CASE_PURGE_DAYS`」로 민다 → ADR-016 「마지막 활동일 기준 180일」.
+   *
+   * 값을 쓰는 라우트(문항 답 · 발화 · 부산물 · 대응표)가 사건 식별자를 푼 뒤에 부릅니다.
+   * 2026-09-06 까지는 업로드·이메일만 밀고 있어서, 자료를 한 번 올린 뒤 몇 달을
+   * 챗·문진·접수번호로만 관리한 사건이 **그 업로드 시점 + 180일**에 지워질 수 있었습니다.
+   * 한 자리에서 미는 이유는 라우트마다 적으면 새 쓰기 경로에서 빠뜨리기 때문입니다.
+   */
+  activity(caseId: string): void
 }
 
 /** 핸들러가 돌려주는 것. `Response` 가 아니라 본문입니다 */
@@ -181,6 +192,8 @@ export async function handleRoute(
   const isAdmin = isAdminPath(pathname)
   const isCron = isCronPath(pathname)
 
+  let activeCase: string | null = null
+
   const ctx: RequestContext = {
     request,
     container,
@@ -190,6 +203,9 @@ export async function handleRoute(
     limit: async (bucket, subject) => {
       if (isAdmin) return
       await container.rateLimiter.check(bucket, subject)
+    },
+    activity: (caseId) => {
+      activeCase = caseId
     },
   }
 
@@ -224,6 +240,10 @@ export async function handleRoute(
     }
 
     const result = await handler(ctx)
+
+    // 성공한 쓰기만 활동입니다 — 실패한 요청이 파기일을 밀면 잘못 누른 것도 활동이 됩니다
+    if (activeCase !== null) await touchActivity(request, container, activeCase)
+
     return ok(result.body, {
       status: result.status,
       telemetry: telemetry.snapshot(),
@@ -254,6 +274,28 @@ export async function handleRoute(
 
     logServerFailure(request, error)
     return fail(error, { telemetry: telemetry.snapshot() })
+  }
+}
+
+/**
+ * 사건의 파기 예정일을 「오늘 + `CASE_PURGE_DAYS`」로 민다 → ADR-016 · `ctx.activity`.
+ *
+ * **응답을 실패시키지 않습니다.** 사용자의 답은 이미 저장됐고, 파기일을 못 민 것은
+ * 그 답을 되돌릴 이유가 못 됩니다 — `GREATEST` 라 다음 활동에서 따라잡습니다.
+ * 저장소가 안 붙은 조립본(시험·환경변수 없는 빌드)은 조용히 건너뜁니다 — 그런
+ * 조립본에서는 핸들러가 이미 저장소 없이 돌았다는 뜻이라 밀 것도 없습니다.
+ */
+async function touchActivity(request: Request, container: Container, caseId: string): Promise<void> {
+  const store = container.ports.caseStore
+  if (isUnconfigured(store)) return
+  try {
+    await store.touchPurgeAfter(
+      caseId,
+      container.dateChecker.addDays(serverClock.today(), container.env.casePurgeDays),
+    )
+  } catch (error) {
+    // 사건 식별자는 남기지 않습니다 — 로그가 사건을 가리키게 두지 않습니다(09-data-model §10.1)
+    console.warn(`[${request.method} ${new URL(request.url).pathname}] 파기일을 못 밀었습니다`, error)
   }
 }
 

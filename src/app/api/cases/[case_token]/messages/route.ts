@@ -140,6 +140,8 @@ export async function POST(
     // 사건당 분당 20턴 → §1.3. **가장 비싼 경로입니다** — 모델을 부릅니다.
     // 경로 파라미터를 읽은 뒤에야 걸 수 있습니다(세는 단위가 사건)
     await ctx.limit('chat', caseId)
+    // 발화 한 턴은 활동입니다 — 파기일이 「마지막 활동일 + 180일」로 밀립니다(ADR-016)
+    ctx.activity(caseId)
 
     const body = await readJsonObject<MessageBody>(ctx.request)
     if (typeof body.content !== 'string' || body.content.trim().length === 0) {
