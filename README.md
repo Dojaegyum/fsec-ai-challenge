@@ -21,7 +21,7 @@
 | 폴더 | 무엇 | 성격 |
 | --- | --- | --- |
 | [`CLAUDE.md`](CLAUDE.md) | 에이전트 작업 규약 — 정본 위치, 불변 규칙, ID 체계 | **먼저 읽는 곳** |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 시스템이 어떻게 구성되는가 — 기술 선택·모듈 배치·배포 | **뼈대만** ([ADR-007](decisions/007-architecture-doc.md)) |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 시스템이 어떻게 구성되는가 — 기술 선택·모듈 배치·저장소·배포. 2026-09-06 `main` 기준 | ([ADR-007](decisions/007-architecture-doc.md)) |
 | [`rfc/`](rfc/) | 규약 — 무엇을 어디에 두고 어떻게 일하는가 | 현행 규칙 |
 | [`decisions/`](decisions/) | 판단 근거 — 왜 그렇게 정했나 (ADR) | 이력 |
 | [`spec/`](spec/) | 구현이 따라야 할 제품 계약 (Markdown) | **개발 정본** |

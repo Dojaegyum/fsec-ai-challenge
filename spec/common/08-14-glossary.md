@@ -48,7 +48,7 @@
 
 - ~~STT: Whisper급 + 브라우저 Web Speech 폴백~~ → 브라우저 디코더는 폐기([ADR-038](../../decisions/038-transcript-confirm.md)), 모델·배치는 [ADR-052](../../decisions/052-stt-configuration.md).
 - ~~OCR: Vision 입력~~ → [research/11](../../docs/research/11-로컬OCR-PII인식-실측.md) · [16](../../docs/research/16-OCR-GPU-실측.md).
-- ~~PII: 클라이언트 정규식 + 서버 NER (미선정)~~ → 모델은 확정됐고 배포본은 기본 꺼짐 → [ARCHITECTURE §10](../../ARCHITECTURE.md) · `src/lib/config-report.ts`.
+- ~~PII: 클라이언트 정규식 + 서버 NER (미선정)~~ → 모델은 확정됐고 배포본은 기본 꺼짐 → [ARCHITECTURE §6](../../ARCHITECTURE.md) · `src/lib/config-report.ts`.
 - ~~문서: docx 생성~~ → 만들지 않습니다 → [ADR-037](../../decisions/037-doc-guidance-not-generation.md).
 - ~~백신 모드 음성: TTS + WebRTC~~ → F-09 는 코드 0 → [기능명세](08-14-features.md).
 

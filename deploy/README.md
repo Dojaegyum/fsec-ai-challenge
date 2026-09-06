@@ -373,5 +373,5 @@ SMOKE_BASE_URL=<주소> npm run smoke           # 다른 주소
 | 무엇 | 왜 |
 | --- | --- |
 | ~~**크론 둘** (파기 · KB 수집)~~ → **파기·알림 크론은 섰습니다** (`/api/cron/purge` 2026-09-03 · `/api/cron/reminders` 2026-09-01 · `src/vercel.json` `crons`). **KB 수집 크론만 아직 없습니다** — `kb-collector` 가 미조립입니다 → [ADR-025](../decisions/025-scheduled-jobs.md) |
-| **Preview 환경 분리** | 미정 → [ARCHITECTURE §10](../ARCHITECTURE.md#10-아직-안-정해진-것). 지금은 Production 하나만 씁니다 |
+| **Preview 환경 분리** | 지금은 Production 하나만 씁니다 — PR 미리보기는 `service_role` 키 때문에 일부러 안 만듭니다 → [ARCHITECTURE §8](../ARCHITECTURE.md#8-배포) |
 | ~~**스모크 시험**~~ → **섰습니다** (2026-09-04) — `npm run smoke` · `.github/workflows/smoke.yml`. 위 「4. 올린 뒤」 |
