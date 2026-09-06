@@ -93,13 +93,13 @@ flowchart LR
 | 대응표 보관소(볼트) | 같은 Postgres의 `case_vault` 스키마 · 암호문만 | `src/migrations/0004` |
 | 객체 저장소 | Supabase Storage `evidence` 버킷(비공개) · 서명 주소로만 접근 | `src/lib/storage.ts` |
 | 언어모델 | Grok(xAI) `grok-4.5` · OpenAI 호환 `/chat/completions` 하나 · SDK 없음 · 도구 호출 안 씀 | `src/lib/llm.ts` |
-| 자료 선별 모델 | 같은 제공자의 빠른 모델(`LLM_SELECT_MODEL`) · 번호만 고름 · 비면 꺼짐 | `src/modules/kb-selector/` |
+| 자료 선별 모델 | 같은 제공자의 빠른 모델 `grok-4.20-0309-non-reasoning`(`LLM_SELECT_MODEL`) · 번호만 고름 · 비면 꺼짐 | `src/modules/kb-selector/` |
 | STT · OCR · NER | FastAPI 서비스 · faster-whisper `large-v3`(GPU) 또는 `medium`(CPU) · EasyOCR · Ollama `gemma3:4b` | `services/transcriber/` |
 | 매뉴얼 검색 | 조건 조회(트랙 · 경유 유형 · 기관 · 날짜 · 버전) · 벡터 검색 아님 | `src/modules/kb-finder/` |
 | 주기 실행 | Vercel Cron 셋(알림 · 파기 · 법령 수집) · 앱의 API 라우트를 깨움 | `src/vercel.json` |
 | 메일 | Brevo REST | `src/lib/mailer.ts` |
 | 공휴일 | 코드 안의 표 · 임시공휴일은 안 들어옴 | `src/lib/holidays-table.ts` |
-| 속도 제한 | 프로세스 메모리 · 공유 저장소 없음 | `src/lib/rate-limit.ts` |
+| 속도 제한 | Postgres 표 `rate_limit_window`(인스턴스가 함께 셈) · 표에 못 쓰면 막지 않음 | `src/lib/rate-limit.ts` · `rate-limit-pg.ts` |
 | 배포 | GitHub Actions · `main` 머지가 곧 배포 · 배포 뒤 Playwright 스모크 | `.github/workflows/` |
 
 서버리스 함수의 본문 크기·실행 시간 제한에 맞춘 규칙:
@@ -115,7 +115,8 @@ flowchart LR
 
 근거 — [ADR-012](decisions/012-kb-collection.md) · [ADR-016](decisions/016-retention-and-datastore.md) · [ADR-025](decisions/025-scheduled-jobs.md) ·
 [ADR-028](decisions/028-runtime-and-module-shape.md) · [ADR-049](decisions/049-vault-in-postgres.md) · [ADR-052](decisions/052-stt-configuration.md) ·
-[ADR-053](decisions/053-deploy-on-merge.md) · [ADR-078](decisions/078-shell-polls-all-processing-evidence.md)
+[ADR-053](decisions/053-deploy-on-merge.md) · [ADR-078](decisions/078-shell-polls-all-processing-evidence.md) · [ADR-085](decisions/085-shared-rate-counter.md) ·
+[ADR-089](decisions/089-kb-selector.md)
 
 ## 3. 데이터 저장소
 
@@ -125,8 +126,8 @@ flowchart LR
 | Postgres `case_vault` 스키마 | 토큰↔원문 대응표(브라우저가 봉한 암호문) | 있음 · 서버는 키 없음 |
 | Supabase Storage `evidence` | 업로드된 자료 원본 | 있음 · 비공개 버킷 · 사건과 함께 파기 |
 
-- DDL 정본은 [데이터 모델](spec/backend/08-16-data-model.md), 실행 사본은 [`src/migrations/`](src/migrations/) `0001`~`0010`. 공유 DB에 전부 적용돼 있다.
-  공개 스키마 표 17개(`schema_migrations` 포함) + `case_vault.restore_mapping` 1개. 둘은 같은 커밋에 오고, CI `schema-names`가 마이그레이션에 없는 표·칸 이름을 막는다.
+- DDL 정본은 [데이터 모델](spec/backend/08-16-data-model.md), 실행 사본은 [`src/migrations/`](src/migrations/) `0001`~`0011`. 공유 DB에 전부 적용돼 있다.
+  공개 스키마 표 18개(`schema_migrations` · `rate_limit_window` 포함) + `case_vault.restore_mapping` 1개. 둘은 같은 커밋에 오고, CI `schema-names`가 마이그레이션에 없는 표·칸 이름을 막는다.
 - 적용은 `npm run migrate`. 앱 드라이버로 순번 SQL을 돌리고 이력을 `schema_migrations`에 남긴다. ORM 없음.
 - 접속 문자열 둘: 앱은 트랜잭션 풀러(6543), 마이그레이션은 세션 풀러(5432). DDL은 트랜잭션 풀러로 못 간다.
 - 대응표 보관소는 같은 Postgres의 별도 스키마다. 복호화 키가 서버에 없어 인스턴스를 분리할 필요가 없다.
@@ -134,7 +135,8 @@ flowchart LR
 - 보존 기간은 마지막 활동일부터 180일(`CASE_PURGE_DAYS`). 파기 크론(KST 03:00)이 Postgres · Storage · 보관소를 지운 뒤 삭제를 확인한다. Storage에는 만료 설정이 없어 직접 지운다.
 
 근거 — [ADR-010](decisions/010-case-store.md) · [ADR-016](decisions/016-retention-and-datastore.md) · [ADR-019](decisions/019-module-code-sync.md) ·
-[ADR-025](decisions/025-scheduled-jobs.md) · [ADR-049](decisions/049-vault-in-postgres.md) · [research/06](docs/research/06-경로별-실측조사.md) §5
+[ADR-025](decisions/025-scheduled-jobs.md) · [ADR-049](decisions/049-vault-in-postgres.md) · [ADR-085](decisions/085-shared-rate-counter.md) ·
+[research/06](docs/research/06-경로별-실측조사.md) §5
 
 ## 4. 모듈
 
@@ -331,7 +333,7 @@ flowchart LR
 | 조립 | `src/lib/container.ts`(포트에 구현 주입) · `src/lib/wire.ts`(프로세스당 하나) | 서버 |
 | 명령줄 | `src/scripts/` — `npm run migrate` · `kb:load` · `kb:collect` · `kb:review` · **`admin:hash`** · `config:report` · `probe:llm` (`server-only` 때문에 `npm run`으로만) | 소유자 기기 |
 | 매뉴얼 원본 | `src/kb/*.json` — 공통 · 경유 유형별 8 · 통장묶기 · 기관 · 공공기관 | 적재기가 읽음 |
-| 마이그레이션 | `src/migrations/0001`~`0010` | `npm run migrate` |
+| 마이그레이션 | `src/migrations/0001`~`0011` | `npm run migrate` |
 | 스모크 | `src/smoke/smoke.spec.ts` — 배포 뒤 실제 주소에서 한 바퀴 | GitHub Actions |
 | 모델 서비스 | `services/transcriber/` — FastAPI · `POST /jobs` · `GET /jobs/{id}` · `POST /ner` · `/health` | 앱 밖 · §6 |
 | 서버 준비 | `deploy/` — `oci-provision.py`(상시 서버) · `runpod-pod.py`(시연 팟) | 사람이 돌림 |
@@ -376,10 +378,11 @@ sequenceDiagram
         else 끝남
             A->>M: 이름 찾기 (원문 한 토막씩)
             A->>A: 개인정보 가림
-            A->>G: 정보 뽑기 · 기관명 교정
-            A->>A: 가린 전사문 저장
+            A->>A: 가린 전사문 저장 · 완료 판정
             A-->>B: 완료 · 대응표 (한 번)
             B->>A: 봉한 대응표를 보관소에
+            Note over A,G: 응답을 내보낸 뒤에
+            A->>G: 기관명 교정 · 정보 뽑기
         end
     end
 ```
@@ -387,6 +390,7 @@ sequenceDiagram
 - 서비스의 결과를 서버로 가져오는 길은 브라우저 폴링뿐이다. 브라우저 셸이 처리중 자료 전부를 어느 화면에서든 폴링하고, 서비스가 결과를 버렸으면(30분 뒤) 같은 번호로 다시 맡긴다.
 - 접수는 멱등이다. 같은 자료로 두 번 와도 모델을 두 번 돌리지 않는다.
 - 글로 올린 자료(`kind: text`)는 맡기지 않고 바로 가린다.
+- 수거 응답은 저장과 완료 판정까지만 하고, 기관명 교정과 정보 뽑기는 응답을 내보낸 뒤에 돈다. 브라우저 셸은 완료를 본 뒤 8초에 한 번 더 읽어 그 결과를 받는다.
 
 ### 챗 한 턴
 
@@ -418,25 +422,31 @@ sequenceDiagram
     end
     Note over B,A: 새 대응표는 응답에 실림
     B->>B: 토큰을 원문으로
+    Note over A,G: 응답을 내보낸 뒤에
+    A->>G: 진술에서 정보 뽑기
 ```
 
 - 세 갈래 모두 200이다. 모델이 인용 형식을 두 번 다 어기면 `502 KB_CITATION_MISSING`.
+- 선별은 답변을 막지 않는다. 시간을 넘기거나 실패하면 빈 선별로 답변에 간다. 답변 모델의 예산은 90초에서 선별에 쓴 시간을 뺀 값.
+- 자유 진술에서도 금액 · 시각 · 상대 계좌 · 사칭 기관을 뽑는다. 응답을 내보낸 뒤에 돌고, 확정은 사용자 탭.
 
 ### 사건 상태가 바뀌는 길
 
 - 슬롯 답: `PATCH /slots/{key}` → `answer-slot` → 개인정보 가림(되묻기에 「맞아요」면 서버가 가림) → 필수 답 확인 → `regenerate-plan` → 절차 만들기 → `compute-deadlines` → 기한 계산. 사건과 절차는 한 트랜잭션.
-- 증빙: `POST /steps/{id}/artifacts` → 완료 판정 → 끝난 단계의 기한은 `met` → 통지문이면 `anchor-from-artifact`가 기산일을 뽑아 확인 탭으로.
+- 증빙: `POST /steps/{id}/artifacts` → 완료 판정(접수번호가 적혀 있어야 통과 · 기관 이름만으로는 안 됨) → 끝난 단계의 기한은 `met` → 통지문이면 `anchor-from-artifact`가 기산일을 뽑아 확인 탭으로.
 - 재진입: `GET /cases/{token}` · `/plan` · `/deadlines` · `/messages` · `/vault`. 서버는 토큰 상태로 내리고 브라우저가 보관소를 열어 원문으로 그린다.
 
 근거 — [ADR-046](decisions/046-case-and-plan-together.md) · [ADR-050](decisions/050-history-and-vault-read.md) · [ADR-051](decisions/051-idempotent-ingest.md) ·
 [ADR-062](decisions/062-transcript-mapping-handover.md) · [ADR-075](decisions/075-chat-mapping-handover.md) · [ADR-078](decisions/078-shell-polls-all-processing-evidence.md) ·
-[에러 계약](spec/backend/08-16-errors.md) §4
+[ADR-083](decisions/083-receipt-number-required-for-l2.md) · [ADR-086](decisions/086-defer-llm-work-after-read.md) · [ADR-087](decisions/087-statement-slot-extraction.md) ·
+[ADR-089](decisions/089-kb-selector.md) · [에러 계약](spec/backend/08-16-errors.md) §4
 
 ## 6. 외부 의존
 
 | 무엇 | 쓰임 | 선택 | 경계 |
 | --- | --- | --- | :---: |
-| 언어모델 | 챗 · 정보 뽑기 · 기관명 교정 · 자료 선별(번호만) | Grok `grok-4.5`(인용 계약 3/3 · 2026-08-28 실측). `LLM_*` 셋으로 다른 OpenAI 호환 제공자로 교체 가능 | 지남 · 토큰만 |
+| 언어모델 | 챗 · 정보 뽑기 · 기관명 교정 | Grok `grok-4.5`(인용 계약 3/3 · 2026-08-28 실측). `LLM_*` 셋으로 다른 OpenAI 호환 제공자로 교체 가능 | 지남 · 토큰만 |
+| 자료 선별 모델 | 발화마다 절차 · 연락처 · 조문 후보에서 번호만 고름 | 같은 제공자의 `grok-4.20-0309-non-reasoning` · 한 턴 0.6~0.8초, 두 단계까지 가면 5초 안팎(2026-09-06 배포본 실측) | 지남 · 토큰만 |
 | STT | 녹음 → 글 | faster-whisper `large-v3`(GPU). 상시 CPU 서버는 `medium`, 음성 길이의 3.7배 | 경계 이전 |
 | OCR | 이미지 → 글 | EasyOCR ko/en + 좌표로 행 복원 | 경계 이전 |
 | NER | 이름 찾기 | Ollama `gemma3:4b` · 같은 서비스의 `/ner` · 깨끗한 텍스트에서 누출 0% · 과차단 0% | 경계 그 자체 |
@@ -458,7 +468,7 @@ STT · OCR · NER은 토큰으로 바꾸기 전 단계다. 앱은 이 서비스�
   엔진은 `FINALLY_ENGINE`(기본 `echo` · 모델 없이 흐름만) · `FINALLY_DEVICE` · `FINALLY_STT` · `FINALLY_COMPUTE`로 교체. 시험은 CI `services-check`.
 
 근거 — [ADR-012](decisions/012-kb-collection.md) · [ADR-043](decisions/043-gpu-hosting.md) · [ADR-052](decisions/052-stt-configuration.md) ·
-[research/09](docs/research/09-로컬모델-PII인식-실측.md) · [research/11](docs/research/11-로컬OCR-PII인식-실측.md) ·
+[ADR-089](decisions/089-kb-selector.md) · [research/09](docs/research/09-로컬모델-PII인식-실측.md) · [research/11](docs/research/11-로컬OCR-PII인식-실측.md) ·
 [PII 격리 경계](spec/common/08-14-pii-boundary.md) · `services/transcriber/README.md`
 
 ## 7. 배포
@@ -498,7 +508,7 @@ DB 통합시험(`npm run test:db`)만 CI 밖이다. 실제 Postgres가 필요해
 
 ## 8. 관측
 
-- 감사 로그: `audit_log` 표. `case.opened` · `slot.confirmed` · `chat.context_built` · `llm.called` · `llm.failed` · `case.purged`를 토큰 상태로 기록.
+- 감사 로그: `audit_log` 표. `case.opened` · `slot.confirmed` · `chat.context_built` · `chat.selected` · `llm.called`(`purpose`가 답변 · 선별) · `llm.failed` · `case.purged`를 토큰 상태로 기록.
   `prev_hash ‖ audit_id ‖ event_type ‖ detail ‖ created_at`의 SHA-256 사슬. 사건이 파기돼도 남는다(개인정보 없음).
 - 응답 헤더 넷: `X-Pii-Token-Count` · `X-Pii-Egress-Residual` · `X-Kb-Version` · `X-Audit-Id`. 모든 응답에 붙고, 값이 없으면 `none`(잔여 건수는 `0`).
 - 설정 현황: `npm run config:report` — 이름 찾기 · 메일 · 공휴일 출처 · 속도 제한 저장소 · 매뉴얼 릴리스가 붙었는지.
