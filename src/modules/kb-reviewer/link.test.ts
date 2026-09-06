@@ -62,6 +62,9 @@ describe('legal_basis 에서 조 번호를 뽑는다', () => {
     // easypay-freeze-request 의 실제 글 — 「전자금융거래법」 제2조제4호 · 제28조제2항제3호 는 건너뛰고
     // 통신사기피해환급법 제15조제3항 · 같은 법 시행령 제11조의3 만 남습니다
     expect(articleRefsOf(basisOf('easypay-freeze-request'))).toEqual(new Set(['법 제15조', '시행령 제11조의3']))
+    // 「…에 관한 법률 제58조」 — 이름이 「법률」로 끝나는 법. 실제 KB 감사에서 「법 제58조」로 잘못 세던 자리
+    expect(articleRefsOf('정보통신망 이용촉진 및 정보보호 등에 관한 법률 제58조(통신과금서비스이용자의 권리 등)는 …').size).toBe(0)
+    expect(articleRefsOf('전자금융거래법 시행령 제5조 · 금융위원회 고시 제2조').size).toBe(0)
   })
   it('법정 절차가 아닌 항목은 비어 있다', () => {
     expect(articleRefsOf('법정 절차가 아닙니다. 수사 개시와 …').size).toBe(0)

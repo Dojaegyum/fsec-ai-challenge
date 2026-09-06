@@ -18,11 +18,17 @@ export const LAWS: Readonly<Record<string, { readonly word: '법' | '시행령';
  */
 const SOURCE_KEY = /^law:(\d+):(\d+)(?::(\d+))?$/
 /**
- * 「법 제3조」「시행령 제7조」「전기통신사업법 제32조의6」「「전자금융거래법」 제2조」.
- * 앞말은 한글로 이어진 「…법」 전체거나 「시행령」 — 다른 법의 조를 우리 법의 조로 세지 않으려는 것입니다.
- * 닫는 괄호(」·)) 하나는 앞말과 조 사이에 올 수 있습니다
+ * 「법 제3조」「시행령 제7조」「같은 법 시행령 제7조」「전기통신사업법 제32조의6」「「전자금융거래법」 제2조」
+ * 「…에 관한 법률 제58조」「전자금융거래법 시행령 제5조」.
+ * 조 앞의 말을 셋으로 나눠 읽습니다 — ①「시행령」 앞에 붙은 법 이름(m[1]) ②「시행령」 자체(m[2]) ③ 그냥 법령 이름(m[3]).
+ * 법령 이름은 한글로 이어진 「…법」「…법률」「…령」「…규칙」「…규정」「…고시」 전체입니다 — 다른 법령의 조를
+ * 우리 법의 조로 세지 않으려는 것입니다. 닫는 괄호(」·)) 하나는 앞말과 조 사이에 올 수 있습니다
  */
-const ARTICLE = /(?:([가-힣]*법|시행령)[」)]?\s*)?(제\d+조(?:의\d+)?)/g
+const LAW_WORD = '[가-힣]*(?:법률|법|령|규칙|규정|고시)'
+const ARTICLE = new RegExp(
+  `(?:(?:(${LAW_WORD})\\s+)?(시행령|시행규칙)[」)]?\\s*|(${LAW_WORD})[」)]?\\s*)?(제\\d+조(?:의\\d+)?)`,
+  'g',
+)
 const NAMED_LAW = /통신사기피해환급법(?!\s*시행령)/g
 const NAMED_DECREE = /통신사기피해환급법\s*시행령/g
 
@@ -54,10 +60,14 @@ export function articleRefsOf(legalBasis: string): ReadonlySet<string> {
   const refs = new Set<string>()
   let current: Word | null = '법'
   for (const m of text.matchAll(ARTICLE)) {
-    const word = m[1]
-    if (word === '법' || word === '시행령') current = word
-    else if (word !== undefined) current = null
-    if (current) refs.add(`${current} ${m[2]}`)
+    const [, lawBeforeDecree, decree, law, article] = m
+    if (decree) {
+      // 「시행령 제N조」「법 시행령 제N조」는 우리 시행령, 「전자금융거래법 시행령 제N조」「…시행규칙」은 남의 것
+      current = decree === '시행령' && (lawBeforeDecree === undefined || lawBeforeDecree === '법') ? '시행령' : null
+    } else if (law !== undefined) {
+      current = law === '법' ? '법' : null
+    }
+    if (current) refs.add(`${current} ${article}`)
   }
   return refs
 }
