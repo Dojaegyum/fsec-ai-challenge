@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { HorizonGlow } from "@/components/HorizonGlow";
 
+import LandingScenes from "./scenes";
+
 /**
  * S-04 랜딩 — `/` (리디자인 · 시안 1c)
  *
@@ -12,8 +14,8 @@ import { HorizonGlow } from "@/components/HorizonGlow";
  * 이전 구현과 달라진 것
  *  · 좌우 2단 → **심볼 중심의 센터 히어로**. 오비트 링 + 오렌지(horizon) 글로우
  *  · 3단계 카드는 히어로 아래 3열 그리드로
- *  · 「링크 하나로 이어지는 화면들」 섹션 추가 — 화면별 역할을 미니 목업으로 소개.
- *    각 화면 디자인이 확정되는 대로 목업을 하나씩 실물로 교체합니다
+ *  · 「링크 하나로 이어지는 화면들」 섹션 — 화면별 역할을 소개. 2026-09-06 부터
+ *    와이어프레임이 아니라 **실제 화면 컴포넌트를 픽스처로 그립니다** (`scenes.tsx`)
  *
  * 지켜야 할 것 (이전과 동일)
  *  · 행동은 [지금 시작하기] 하나. 메뉴·소개·요금 링크를 붙이지 않습니다
@@ -48,12 +50,6 @@ const 하는일 = [
  * (2026-08-28). 마지막 칸까지 0.63초 + 등장 0.62초 = 1.25초입니다.
  */
 const step = (i: number) => ({ animationDelay: `${60 + i * 95}ms` });
-
-/** 미니 목업 공통 — 장식이므로 전부 aria-hidden. 실물 확정 시 교체 */
-const wireBar = "rounded-[4px] bg-[oklch(0.305_0.013_267.1/70%)]";
-const wireBarDim = "rounded-[4px] bg-[oklch(0.305_0.013_267.1/45%)]";
-const piiChip =
-  "inline-flex rounded-[5px] bg-pii-bg px-[7px] py-[2px] text-[11px] text-pii";
 
 export default function Landing() {
   return (
@@ -207,8 +203,8 @@ export default function Landing() {
       </section>
 
       {/* ── 링크 하나로 이어지는 화면들 ───────────────────────────
-          각 화면 디자인이 확정되는 대로 미니 목업을 실물 스크린샷/렌더로 교체합니다.
-          지금은 역할 소개가 목적 — 와이어프레임은 전부 장식(aria-hidden)입니다 */}
+          실제 화면 컴포넌트 넷을 픽스처로 그립니다 — 전부 inert 라 그림의 자격입니다.
+          무엇을 어떻게 세우는지는 `scenes.tsx` 머리말 */}
       <section
         style={step(6)}
         className="rise relative z-[2] mt-4 border-t border-[oklch(0.305_0.013_267.1/40%)]"
@@ -223,113 +219,7 @@ export default function Landing() {
             </span>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-4">
-            {/* /start — 동의와 링크 발급 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
-              <div aria-hidden className="flex h-[118px] flex-col gap-2 border-b border-hairline bg-stage p-4">
-                <div className={`${wireBar} h-[9px] w-[64%]`} />
-                <div className={`${wireBarDim} h-[9px] w-[44%]`} />
-                <div className="mt-auto flex items-center gap-2">
-                  <div className="h-6 w-[74px] rounded-[7px] bg-ink-1 opacity-90" />
-                  <div className="h-6 w-[58px] rounded-[7px] border border-[oklch(0.305_0.013_267.1/70%)]" />
-                </div>
-              </div>
-              <div className="px-[18px] pt-[15px] pb-[17px]">
-                <div className="flex items-baseline gap-2">
-                  <span data-numeric className="text-[13px] font-[660] text-pii">/start</span>
-                  <h3 className="text-[15px] font-[640] text-ink-1">동의, 그리고 링크 발급</h3>
-                </div>
-                <p className="mt-1.5 text-[13px] leading-[1.6] text-ink-3">
-                  관문은 동의 하나뿐. 증거·이메일은 줄 수 있는 사람만 줍니다.
-                </p>
-              </div>
-            </article>
-
-            {/* 챗 — 진술로 절차 선택 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
-              <div aria-hidden className="flex h-[118px] flex-col gap-2 border-b border-hairline bg-stage p-4">
-                <div className="h-5 w-[58%] self-start rounded-[9px_9px_9px_3px] bg-[oklch(0.305_0.013_267.1/50%)]" />
-                <div className="h-5 w-[34%] self-end rounded-[9px_9px_3px_9px] border border-[oklch(0.697_0.16_258.2/35%)] bg-[oklch(0.697_0.16_258.2/25%)]" />
-                <div className="mt-auto flex gap-1.5">
-                  <div className="h-5 w-[52px] rounded-full border border-[oklch(0.305_0.013_267.1/70%)]" />
-                  <div className="h-5 w-[52px] rounded-full border border-[oklch(0.305_0.013_267.1/70%)]" />
-                  <div className="h-5 w-[44px] rounded-full border border-[oklch(0.697_0.16_258.2/40%)] bg-[oklch(0.697_0.16_258.2/10%)]" />
-                </div>
-              </div>
-              <div className="px-[18px] pt-[15px] pb-[17px]">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[13px] font-[660] text-pii">챗</span>
-                  <h3 className="text-[15px] font-[640] text-ink-1">진술로 절차를 고릅니다</h3>
-                </div>
-                <p className="mt-1.5 text-[13px] leading-[1.6] text-ink-3">
-                  질문은 한 번에 하나, 전부 버튼. 「모름」도 항상 답입니다.
-                </p>
-              </div>
-            </article>
-
-            {/* 할 일 레일 — 지금 할 일. ⚠️ 2026-09-03 까지 「보드」였습니다 —
-                챗 중앙 재편(ADR-063)으로 없어진 화면을 랜딩이 계속 팔았고(감사 D4),
-                목업에 제품이 금지한 가로 진행률 막대(§S-07)까지 그려져 있었습니다 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
-              <div aria-hidden className="flex h-[118px] flex-col gap-[7px] border-b border-hairline bg-stage p-4">
-                <div className="flex items-center gap-2">
-                  <div className="size-3 rounded-full border border-[oklch(0.697_0.16_258.2/60%)] bg-[oklch(0.697_0.16_258.2/25%)]" />
-                  <div className={`${wireBar} h-2 w-[56%]`} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="size-3 rounded-full border-2 border-pii" />
-                  <div className={`${wireBar} h-2 w-[44%]`} />
-                  <div className="ml-auto h-4 w-[38px] rounded-full border border-[oklch(0.761_0.117_70.9/50%)] bg-[oklch(0.761_0.117_70.9/12%)]" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="size-3 rounded-full border border-[oklch(0.305_0.013_267.1/70%)]" />
-                  <div className={`${wireBarDim} h-2 w-[50%]`} />
-                </div>
-                {/* 진행률 막대가 아닙니다 — 제품에 없는 것을 목업이 그리지 않습니다 */}
-                <div className="mt-auto flex items-center gap-2">
-                  <div className="size-3 rounded-full border border-[oklch(0.305_0.013_267.1/70%)]" />
-                  <div className={`${wireBarDim} h-2 w-[36%]`} />
-                </div>
-              </div>
-              <div className="px-[18px] pt-[15px] pb-[17px]">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[13px] font-[660] text-pii">할 일</span>
-                  <h3 className="text-[15px] font-[640] text-ink-1">지금 뭘 해야 하나</h3>
-                </div>
-                <p className="mt-1.5 text-[13px] leading-[1.6] text-ink-3">
-                  며칠 뒤에 열어도 첫 줄이 답합니다. 기한은 서버가 셉니다. 늘 왼쪽에 서
-                  있습니다.
-                </p>
-              </div>
-            </article>
-
-            {/* 증거함·서류 — PII 마스킹이 보이는 곳 */}
-            <article className="overflow-hidden rounded-[14px] border border-hairline bg-surface-low">
-              <div aria-hidden className="flex h-[118px] flex-col gap-2 border-b border-hairline bg-stage p-4">
-                <div className={`${wireBar} h-2 w-[70%] opacity-80`} />
-                <div className="flex flex-wrap items-center gap-[5px]">
-                  <div className={`${wireBarDim} h-2 w-[34%]`} />
-                  <span className={piiChip}>계좌·1</span>
-                  <div className={`${wireBarDim} h-2 w-[18%]`} />
-                  <span className={piiChip}>이름·1</span>
-                </div>
-                <div className={`${wireBarDim} h-2 w-[52%]`} />
-                <div className="mt-auto flex items-center gap-1.5">
-                  <div className="size-2.5 rounded-[3px] border border-[oklch(0.697_0.16_258.2/60%)]" />
-                  <div className={`${wireBarDim} h-[7px] w-[40%]`} />
-                </div>
-              </div>
-              <div className="px-[18px] pt-[15px] pb-[17px]">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[13px] font-[660] text-pii">증거함·서류</span>
-                  <h3 className="text-[15px] font-[640] text-ink-1">가려지는 게 보입니다</h3>
-                </div>
-                <p className="mt-1.5 text-[13px] leading-[1.6] text-ink-3">
-                  가려진 값은 이 기기에서만 풀립니다. 서류는 칸마다 짚어 드립니다.
-                </p>
-              </div>
-            </article>
-          </div>
+          <LandingScenes />
 
           {/* 기대치 관리를 랜딩에서 합니다 → CLAUDE.md 불변 규칙 8 */}
           <div className="mt-9 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-[13.5px] text-ink-3">
