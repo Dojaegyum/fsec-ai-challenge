@@ -12,6 +12,7 @@
 import 'server-only'
 
 export { createKbReviewer } from './review'
+export { articleRefsOf, LAWS, linkEntries, parseSourceKey, sourceLabelOf } from './link'
 export type {
   ChangeGroup,
   ChangeStore,
