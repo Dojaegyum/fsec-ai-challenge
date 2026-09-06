@@ -100,3 +100,29 @@ describe("추정 기한을 확정처럼 보이게 두지 않는다 — 기한 �
     expect(badgeOf(mk({ estimated: true }))?.variant).toBe("user");
   });
 });
+
+/**
+ * 단계가 끝나면 서버가 그 기한을 `met` 으로 닫습니다 (ADR-077). 2026-09-06 까지는
+ * 아무도 닫지 않아 끝난 단계 옆에 「8월 20일까지 · D-3」이 계속 떴습니다.
+ */
+describe("지킨 기한은 「까지」가 아니다 — ADR-077", () => {
+  it("본 기한은 지난 것과 같은 중립 변형으로 「지킴」", () => {
+    expect(badgeOf(mk({ status: "met" }))).toEqual({
+      variant: "passed",
+      text: "8월 20일 · 지킴",
+      estimated: false,
+    });
+  });
+
+  it("유예도 같다", () => {
+    expect(badgeOf(mk({ kind: "grace", status: "met" }))?.text).toBe("유예 8월 20일 · 지킴");
+  });
+
+  it("서버가 days_left 를 실어 보내도 D-day 를 안 붙인다 — 끝난 일에 카운트다운은 없다", () => {
+    expect(badgeOf(mk({ status: "met", days_left: 3 }))?.text).toBe("8월 20일 · 지킴");
+  });
+
+  it("제도 시간(info)은 상태와 무관하게 날짜만", () => {
+    expect(badgeOf(mk({ kind: "info", status: "met" }))?.variant).toBe("system");
+  });
+});

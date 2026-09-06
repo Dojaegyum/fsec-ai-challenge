@@ -107,7 +107,7 @@ function wiredContainer(steps: readonly StoredStep[]) {
     orgs: { read: async () => null, list: async () => [] },
     // §3.7 도 같은 응답에 실립니다 — 이 시험이 보는 것은 플랜 쪽입니다
     deadlines: { read: async () => [] },
-    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0, markMet: async () => 0 },
   }
 }
 

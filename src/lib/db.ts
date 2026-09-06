@@ -810,6 +810,20 @@ export interface DeadlineWriter {
   ): Promise<readonly DeadlineChange[]>
   /** 지난 `open` 기한을 `missed` 로 옮긴다. 옮긴 줄 수 */
   sweepOverdue(caseId: string, nowIso: string): Promise<number>
+  /**
+   * 단계가 끝났을 때 그 단계의 **사용자 기한**을 `met` 으로 닫는다. 닫은 줄 수 → ADR-077.
+   *
+   * ⚠️ **2026-09-06 까지 아무도 `met` 을 적지 않았습니다.** 단계가 `done_verified` 가
+   * 돼도 3영업일 기한은 `open` 인 채 `days_left` 를 실어 나가, 끝난 단계 옆에 D-3 이
+   * 계속 떴습니다. `apply` 의 「`met` 은 건드리지 않는다」는 있는데 그 값을 만드는
+   * 자리가 없었습니다.
+   *
+   * | | |
+   * | --- | --- |
+   * | `primary`·`grace` 만 | 사용자가 지킬 기한입니다. `info`(공고 2개월 · 결과 통보)는 기관이 하는 일이라 단계가 끝나도 흐릅니다 (§8.3) |
+   * | `open` 만 | 이미 `missed` 인 것은 그대로 둡니다 — 늦게 냈다는 사실은 사실입니다. 유예 안에 냈으면 유예가 `met` 이 됩니다 |
+   */
+  markMet(caseId: string, planStepId: string): Promise<number>
 }
 
 export interface DeadlineWrite {
@@ -930,6 +944,17 @@ export function createDeadlineWriter(sql: Sql): DeadlineWriter {
       const rows = await sql<{ deadline_id: string }[]>`
         UPDATE deadline SET status = 'missed', updated_at = now()
         WHERE case_id = ${caseId} AND status = 'open' AND due_at < ${nowIso}
+        RETURNING deadline_id
+      `
+      return rows.length
+    },
+
+    async markMet(caseId, planStepId) {
+      // **사건과 함께 찾습니다** — `markStep` 과 같은 이유입니다
+      const rows = await sql<{ deadline_id: string }[]>`
+        UPDATE deadline SET status = 'met', updated_at = now()
+        WHERE case_id = ${caseId} AND plan_step_id = ${planStepId}
+          AND kind IN ('primary', 'grace') AND status = 'open'
         RETURNING deadline_id
       `
       return rows.length
@@ -1278,6 +1303,25 @@ export interface ArtifactWriter {
 
   /** 단계의 상태를 옮긴다 — 부산물이 붙으면 완료로 판정됩니다 */
   markStep(caseId: string, planStepId: string, state: string): Promise<boolean>
+
+  /**
+   * 그 자료의 판독을 기다리는 부산물 → ADR-077 · `flows/settle-artifacts.ts`.
+   *
+   * 파일로 낸 부산물은 올린 순간 판독이 안 끝나 있어 `reading_pending` 으로 적힙니다.
+   * 읽기가 끝나면 이것들을 다시 판정합니다. **어느 자료의 것인지는 `verify_detail`
+   * 의 `evidence_id` 로 압니다** — 표에 그 칸이 없고(§7), 증거 번호는 개인정보가 아닙니다.
+   */
+  pendingFor(
+    caseId: string,
+    evidenceId: string,
+  ): Promise<readonly { readonly artifactId: string; readonly planStepId: string; readonly kind: string }[]>
+
+  /** 미뤄 둔 판정을 적는다 — `reading_pending` 이던 줄이 통과 또는 확인 못 함이 됩니다 */
+  settle(input: {
+    readonly artifactId: string
+    readonly verifyResult: string
+    readonly verifyDetail: Readonly<Record<string, unknown>> | null
+  }): Promise<void>
 }
 
 export function createArtifactWriter(sql: Sql): ArtifactWriter {
@@ -1291,6 +1335,30 @@ export function createArtifactWriter(sql: Sql): ArtifactWriter {
                 ${input.kind}, ${input.valueMasked}, ${input.objectKey},
                 ${input.verifyLevel}, ${input.verifyResult},
                 ${input.verifyDetail === null ? null : sql.json(input.verifyDetail as never)})
+      `
+    },
+
+    async pendingFor(caseId, evidenceId) {
+      const rows = await sql<{ artifact_id: string; plan_step_id: string; kind: string }[]>`
+        SELECT artifact_id, plan_step_id, kind FROM artifact
+        WHERE case_id = ${caseId}
+          AND verify_detail->>'reason' = 'reading_pending'
+          AND verify_detail->>'evidence_id' = ${evidenceId}
+        ORDER BY created_at
+      `
+      return rows.map((one) => ({
+        artifactId: one.artifact_id,
+        planStepId: one.plan_step_id,
+        kind: one.kind,
+      }))
+    },
+
+    async settle(input) {
+      await sql`
+        UPDATE artifact
+        SET verify_result = ${input.verifyResult},
+            verify_detail = ${input.verifyDetail === null ? null : sql.json(input.verifyDetail as never)}
+        WHERE artifact_id = ${input.artifactId}
       `
     },
 

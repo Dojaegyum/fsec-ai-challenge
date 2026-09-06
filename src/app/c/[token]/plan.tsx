@@ -405,8 +405,10 @@ export default function PlanView({
             const label = d ? dueLabel(d) : null;
             if (!label) return null;
             // 지난 기한에 「까지」를 붙이면 아직 시간이 있는 것처럼 읽힙니다 —
-            // 배지 어휘(`badgeOf` 의 「지남」)를 그대로 따릅니다 (§3.7)
-            return d?.status === "missed" ? `${label} · 지남` : `${label}까지`;
+            // 배지 어휘(`badgeOf` 의 「지남」·「지킴」)를 그대로 따릅니다 (§3.7 · ADR-077)
+            if (d?.status === "missed") return `${label} · 지남`;
+            if (d?.status === "met") return `${label} · 지킴`;
+            return `${label}까지`;
           }}
           /* 부산물은 §3.6 `required_artifact` 입니다 — **화면이 고르지 않습니다.**
              완료를 판정하는 것이 무엇인지 미리 보이게 하는 자리입니다 (불변 규칙 6) */

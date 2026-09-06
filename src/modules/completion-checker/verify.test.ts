@@ -10,8 +10,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { ReceiptNumberFormat } from './types'
-import { createCompletionChecker, looksLikeReceiptNumber } from './verify'
+import type { EvidenceReading, ReceiptNumberFormat } from './types'
+import { createCompletionChecker, findReceiptMarks, looksLikeReceiptNumber } from './verify'
 
 /** 형식을 아는 기관 — 2026-1234567 꼴만 받는다 */
 const knownFormat: ReceiptNumberFormat = {
@@ -108,25 +108,166 @@ describe('looksLikeReceiptNumber — 형식 규격이 아니라 오타 거르개
   })
 })
 
-describe('L2 — 캡처·서류를 올림', () => {
-  it('접수 문자 캡처는 완료로 판정한다', () => {
-    expect(
-      checker.verify({
-        submission: { kind: 'sms_capture', evidenceId: '01J8XKRB' },
-      }),
-    ).toEqual({
+/**
+ * ⚠️ **2026-09-06 까지 「올린 것 자체가 증빙」이었습니다** → ADR-077.
+ *
+ * 사기범과의 통화 녹음을 올려도 「신청서류 제출」이 끝났고, 이체 캡처가 112 접수증으로
+ * 인정됐습니다. 부산물 원리(불변 규칙 6)는 「절차가 남긴 것이 존재한다」이지
+ * 「무엇이든 올렸다」가 아닙니다. 그래서 L2 는 **판독 결과**를 봅니다 —
+ * 접수번호 모양이나 기관명이 있어야 통과하고, 없으면 「올렸지만 확인 못 함」입니다.
+ */
+describe('L2 — 캡처·서류를 올림. 판독 결과에 접수번호 모양이나 기관명이 있어야 한다', () => {
+  const ORGS = ['경찰청', '경찰', '112', '금융감독원', '금감원', '1332']
+  const doc = (text: string | null, over: Partial<EvidenceReading> = {}): EvidenceReading => ({
+    kind: 'image',
+    ingestStatus: 'done',
+    text,
+    ...over,
+  })
+  const upload = (evidence: EvidenceReading | null, orgNames = ORGS) =>
+    checker.verify({
+      submission: { kind: 'receipt_doc', evidenceId: '01J8XKRC' },
+      evidence,
+      orgNames,
+    })
+
+  it('접수번호 모양이 있으면 완료다', () => {
+    expect(upload(doc('피해구제 신청 접수증\n접수번호: 2026-004821\n국민은행'))).toEqual({
       verifyLevel: 'L2',
       verifyResult: 'passed',
       stepState: 'done_verified',
+      verifyDetail: { reason: 'receipt_number_found' },
     })
   })
 
-  it('접수증 서류도 같다', () => {
-    const verdict = checker.verify({
-      submission: { kind: 'receipt_doc', evidenceId: '01J8XKRC' },
-    })
-    expect(verdict.verifyLevel).toBe('L2')
+  it('공공기관 이름이 있으면 완료다 — 통지문·확인원은 번호가 없을 수 있다', () => {
+    const verdict = upload(doc('채권소멸절차 개시 공고 통지\n금융감독원\n2026년 9월 3일'))
+    expect(verdict.verifyResult).toBe('passed')
     expect(verdict.stepState).toBe('done_verified')
+    expect(verdict.verifyDetail).toEqual({ reason: 'org_name_found' })
+  })
+
+  it('접수번호가 이름표로 가려져 있어도 자리를 본다 — 「접수번호 [계좌-1]」', () => {
+    // 전사문은 토큰화된 상태입니다. 번호가 계좌로 잡혀 가려질 수 있는데,
+    // 「접수번호」라는 자리 뒤에 이름표가 있으면 그 번호가 거기 있었다는 뜻입니다
+    const verdict = upload(doc('접수번호 [계좌-1] 로 접수되었습니다'))
+    expect(verdict.verifyResult).toBe('passed')
+    expect(verdict.verifyDetail).toEqual({ reason: 'receipt_number_found' })
+  })
+
+  it('이체 캡처는 은행 이름이 있어도 접수증이 아니다 — 올렸지만 확인 못 함', () => {
+    // 1차 점검에서 이체 캡처가 112 접수증으로 인정됐습니다. 경유 서비스(은행)
+    // 이름은 이체 내역에도 있으니 근거가 못 됩니다 — 공공기관 이름만 봅니다
+    const verdict = upload(
+      doc('KB국민은행 이체 완료\n받는 분 [이름-1]\n[계좌-1]\n1,000,000원\n2026-09-05 14:22'),
+    )
+    expect(verdict.verifyLevel).toBe('L2')
+    expect(verdict.verifyResult).toBe('failed')
+    expect(verdict.stepState).toBe('unconfirmed')
+    expect(verdict.verifyDetail).toEqual({ reason: 'no_receipt_marks' })
+    expect(verdict.note).toBe(
+      '올렸지만 접수번호나 기관명을 찾지 못했습니다. 접수번호를 적어 주시면 확인합니다',
+    )
+    // 막다른 길이 아닙니다 — 번호를 적거나(L1) 했다고 표시(L3)할 수 있습니다
+    expect(verdict.nextOptions).toEqual([
+      { level: 'L1', label: '접수번호를 적어 주세요' },
+      { level: 'L3', label: '번호 없이 접수했다고 표시' },
+    ])
+  })
+
+  it('날짜·금액은 접수번호 모양이 아니다', () => {
+    // 「2026-09-05」를 구분자를 떼면 여덟 자리 숫자라 `looksLikeReceiptNumber` 는
+    // 통과시킵니다. 자리(「접수번호」) 없이 숫자만 있는 것은 근거가 아닙니다
+    expect(upload(doc('2026-09-05 14:22\n1,000,000원\n승인번호 없음')).verifyResult).toBe('failed')
+  })
+
+  it('숫자로만 된 별칭(112 · 1332)은 기관명으로 안 센다 — 금액·시각에 흔히 섞인다', () => {
+    expect(upload(doc('1,120,000원\n13:32 이체')).verifyResult).toBe('failed')
+  })
+
+  it('통화 녹음은 접수증이 아니다', () => {
+    const verdict = upload(
+      doc('접수번호 2026-004821 이라고 하셨죠', { kind: 'audio' }),
+    )
+    expect(verdict.verifyResult).toBe('failed')
+    expect(verdict.stepState).toBe('unconfirmed')
+    expect(verdict.verifyDetail).toEqual({ reason: 'not_a_document' })
+    expect(verdict.note).toBe(
+      '통화 녹음은 접수증이 아닙니다. 접수증이나 접수 문자 캡처를 올리거나 접수번호를 적어 주세요',
+    )
+    expect(verdict.nextOptions).toHaveLength(2)
+  })
+
+  it('아직 읽는 중이면 판정을 미룬다 — 실패도 완료도 아니다', () => {
+    const verdict = upload(doc(null, { ingestStatus: 'processing' }))
+    expect(verdict.verifyResult).toBe('not_applicable')
+    expect(verdict.stepState).toBe('unconfirmed')
+    expect(verdict.verifyDetail).toEqual({ reason: 'reading_pending' })
+    expect(verdict.note).toBe('올린 자료를 읽는 중입니다. 접수번호나 기관명이 보이면 완료로 기록합니다')
+    // 기다리면 되는 자리라 다른 길을 내밀지 않습니다
+    expect(verdict.nextOptions).toBeUndefined()
+  })
+
+  it('올린 직후(pending)도 같다', () => {
+    expect(upload(doc(null, { ingestStatus: 'pending' })).verifyDetail).toEqual({
+      reason: 'reading_pending',
+    })
+  })
+
+  it('읽기가 실패했거나 자료를 못 찾으면 확인 못 함이다', () => {
+    for (const evidence of [doc(null, { ingestStatus: 'failed' }), null]) {
+      const verdict = upload(evidence)
+      expect(verdict.verifyResult).toBe('failed')
+      expect(verdict.stepState).toBe('unconfirmed')
+      expect(verdict.verifyDetail).toEqual({ reason: 'unreadable' })
+      expect(verdict.note).toBe('올렸지만 읽지 못했습니다. 접수번호를 적어 주시면 확인합니다')
+    }
+  })
+
+  it('글로 올린 것(대화 내보내기)도 서류다 — 사진과 같은 규칙', () => {
+    expect(upload(doc('[국민은행] 지급정지 접수번호 KB-20260906-0001', { kind: 'text' })).verifyResult).toBe(
+      'passed',
+    )
+  })
+
+  it('기관 목록이 비어도 접수번호 모양은 본다', () => {
+    expect(upload(doc('사건접수번호 2026-004821'), []).verifyResult).toBe('passed')
+  })
+
+  it('접수 문자 캡처(sms_capture)도 같은 규칙이다', () => {
+    const verdict = checker.verify({
+      submission: { kind: 'sms_capture', evidenceId: '01J8XKRB' },
+      evidence: doc('[국민은행] 지급정지 요청이 접수되었습니다'),
+      orgNames: ORGS,
+    })
+    expect(verdict.verifyResult).toBe('failed')
+    expect(verdict.verifyDetail).toEqual({ reason: 'no_receipt_marks' })
+  })
+})
+
+describe('findReceiptMarks — 판독 글에서 접수번호 자리와 기관명을 찾는다', () => {
+  it('자리 뒤의 번호를 찾는다 — 줄바꿈·콜론을 건너뛴다', () => {
+    for (const text of [
+      '접수번호: 2026-004821',
+      '접수번호\n2026-004821',
+      '사건접수번호 2026-004821',
+      '신고번호 KB-20260906-0001',
+      '접수 No. 2026004821',
+    ]) {
+      expect(findReceiptMarks(text, []).receiptNumber, text).toBe(true)
+    }
+  })
+
+  it('자리는 있는데 번호 모양이 아니면 아니다', () => {
+    for (const text of ['접수번호 없음', '접수번호: ㅇㅇ', '접수번호 9']) {
+      expect(findReceiptMarks(text, []).receiptNumber, text).toBe(false)
+    }
+  })
+
+  it('기관명은 이름·별칭 그대로 찾되, 숫자뿐인 별칭과 한 글자는 안 본다', () => {
+    expect(findReceiptMarks('금감원에서 보낸 통지', ['금융감독원', '금감원', '1332']).orgName).toBe(true)
+    expect(findReceiptMarks('13:32 에 1,332,000원', ['금융감독원', '금감원', '1332']).orgName).toBe(false)
+    expect(findReceiptMarks('가나다', ['가']).orgName).toBe(false)
   })
 })
 

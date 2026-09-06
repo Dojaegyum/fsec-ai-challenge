@@ -74,8 +74,13 @@ export function toApiDeadline(
   at: { readonly today: string; readonly nowMs: number },
 ): ApiDeadline {
   // 지났으면 `null` 이고, 그때는 **칸을 뺍니다** → §3.7 확정.
-  // 음수를 보내면 화면이 그릴 곳이 없습니다(「D+3」은 시안에 없습니다)
-  const left = USER_DEADLINES.has(one.kind) ? daysLeft(one.dueAt, at.today) : null
+  // 음수를 보내면 화면이 그릴 곳이 없습니다(「D+3」은 시안에 없습니다).
+  //
+  // **`open` 이 아니면 안 셉니다** (ADR-077). 지킨 기한(`met`)에 `days_left` 를
+  // 실으면 끝난 단계 옆에 D-3 이 계속 뜹니다 — 화면은 `days_left` 가 있으면
+  // 카운트다운을 그립니다. 지난 것(`missed`)은 어차피 음수라 `null` 입니다
+  const left =
+    USER_DEADLINES.has(one.kind) && one.status === 'open' ? daysLeft(one.dueAt, at.today) : null
   const elapsed =
     one.kind === 'info' && one.startsAt !== null
       ? elapsedRatio(one.startsAt, one.dueAt, at.nowMs)

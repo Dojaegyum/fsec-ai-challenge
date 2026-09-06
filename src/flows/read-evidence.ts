@@ -43,6 +43,8 @@ import { readIssuedLedger } from '@/modules/pii-tokenizer'
 import type { TokenMapping } from '@/modules/pii-tokenizer'
 import type { CollectResult, IngestPhase, Line, Shortfall } from '@/modules/transcriber'
 
+import { settleArtifacts } from './settle-artifacts'
+
 /** 화면이 다음에 언제 물을지 → §3.3 `poll_after_ms` */
 const POLL_AFTER_MS = 1500
 
@@ -286,6 +288,14 @@ export async function collectReading(
       shortfalls: state.shortfalls,
     }),
   })
+
+  // **이 자료의 판독을 기다리던 부산물이 있으면 여기서 판정을 마칩니다** → ADR-077.
+  // 파일로 낸 부산물은 올린 순간 판독이 안 끝나 있어 `reading_pending` 으로 적혀
+  // 있습니다(§3.8 라우트). 저장 **뒤**에 부릅니다 — 판정이 저장된 글을 읽습니다.
+  // 삼키는 이유는 `repairOrgs` 와 같습니다 — 여기서 던지면 읽기 전체가 실패로 보입니다
+  await settleArtifacts({ caseId: input.caseId, evidenceId: input.evidenceId, container }).catch(
+    () => [],
+  )
 
   return state
 }

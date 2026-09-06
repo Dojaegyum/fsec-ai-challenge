@@ -96,7 +96,7 @@ function wiredContainer(over: { tokenizer?: PiiTokenizer } = {}) {
     slots: { read: async () => [] },
     slotWrite: { write: async () => {} },
     channelWrite: { write: async () => {}, candidates: async () => [] },
-    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0, markMet: async () => 0 },
     orgs: { read: async () => null, list: async () => [] },
     // ── 이름표 장부 → 04-pii-boundary.md 「번호의 단위」 ──────────────
     // 서버 토큰화가 **이미 쓰인 번호를 이어받는** 자리입니다. 대역이 없으면

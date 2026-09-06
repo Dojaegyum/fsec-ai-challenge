@@ -165,7 +165,7 @@ function wiredContainer(over: Partial<Ports> = {}) {
   return {
     ...createContainer(readEnv({}), { ...wiredPorts(), ...over } as Ports),
     slots: { read: async () => [] },
-    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0, markMet: async () => 0 },
   }
 }
 

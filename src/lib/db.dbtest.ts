@@ -38,6 +38,7 @@ import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import {
+  createArtifactWriter,
   createCaseReader,
   createCaseStore,
   createCaseTokenResolver,
@@ -755,6 +756,114 @@ describe.skipIf(!URL_)('실제 Postgres 에 붙어서', () => {
     it('빈 목록을 주면 전부 내려간다 — 기산 슬롯을 지웠을 때가 그 경우다', async () => {
       expect(await deadlineWriter.apply(otherId, [])).toEqual([])
       expect(await deadlines.read(otherId)).toEqual([])
+    })
+
+    /**
+     * 단계가 끝나면 그 단계의 사용자 기한을 닫습니다 → ADR-077. 2026-09-06 까지
+     * 이 값을 만드는 자리가 없어, 끝난 단계 옆에 D-3 이 계속 떴습니다
+     */
+    it('단계가 끝나면 본 기한·유예는 `met` 이 되고 안내(info)는 그대로다', async () => {
+      await deadlineWriter.apply(otherId, [
+        row({ dueAt: '2027-01-10T23:59:59+09:00' }),
+        row({ kind: 'grace', dueAt: '2027-01-24T23:59:59+09:00' }),
+        row({ kind: 'info', dueAt: '2027-03-10T23:59:59+09:00', computedFrom: 'notice_started_at' }),
+      ])
+
+      expect(await deadlineWriter.markMet(otherId, stepA)).toBe(2)
+
+      const rows = await deadlines.read(otherId)
+      expect(rows.map((one) => [one.kind, one.status])).toEqual([
+        ['primary', 'met'],
+        ['grace', 'met'],
+        ['info', 'open'],
+      ])
+    })
+
+    it('다시 계산해도 `met` 은 남는다 — 지킨 사실은 사라지지 않는다', async () => {
+      await deadlineWriter.apply(otherId, [
+        row({ dueAt: '2027-01-11T23:59:59+09:00' }),
+        row({ kind: 'grace', dueAt: '2027-01-25T23:59:59+09:00' }),
+        row({ kind: 'info', dueAt: '2027-03-10T23:59:59+09:00', computedFrom: 'notice_started_at' }),
+      ])
+      const rows = await deadlines.read(otherId)
+      expect(rows.find((one) => one.kind === 'primary')?.status).toBe('met')
+      // 두 번 닫아도 다시 세지 않는다 — `open` 인 것만 옮깁니다
+      expect(await deadlineWriter.markMet(otherId, stepA)).toBe(0)
+    })
+
+    it('남의 사건 단계는 못 닫는다', async () => {
+      expect(await deadlineWriter.markMet(caseId, stepA)).toBe(0)
+    })
+  })
+
+  /**
+   * 파일로 낸 부산물은 올린 순간 판독이 안 끝나 있어 `reading_pending` 으로 적히고,
+   * 읽기가 끝나면 `settle-artifacts` 가 **자료 번호로** 찾아 판정을 마칩니다 → ADR-077.
+   * 표에 그 칸이 없어 `verify_detail` 안에 둡니다 — 이 조회가 실제로 그 JSON 을 찾는지 봅니다
+   */
+  describe('부산물 — 판독을 기다리는 것을 자료 번호로 찾는다', () => {
+    const artifacts = createArtifactWriter(sql)
+    const stepId = newUlid()
+    const evidenceId = newUlid()
+    const pendingId = newUlid()
+    const doneId = newUlid()
+
+    beforeAll(async () => {
+      await sql`
+        INSERT INTO plan_step
+          (plan_step_id, case_id, seq, step_key, title, actor, body, state,
+           kb_entry_id, kb_version, source_url, effective_from, generated_at)
+        VALUES (${stepId}, ${otherId}, 1, 'relief-documents', '신청서류 제출', 'victim', '{}'::jsonb,
+                'not_started', 'common-relief-documents', ${KB_VERSION}, 'https://www.law.go.kr/x',
+                '2026-01-01', now())
+      `
+      await artifacts.write({
+        artifactId: pendingId,
+        caseId: otherId,
+        planStepId: stepId,
+        kind: 'receipt_doc',
+        valueMasked: null,
+        objectKey: `${otherId}/${evidenceId}`,
+        verifyLevel: 'L2',
+        verifyResult: 'not_applicable',
+        verifyDetail: { reason: 'reading_pending', evidence_id: evidenceId },
+      })
+      await artifacts.write({
+        artifactId: doneId,
+        caseId: otherId,
+        planStepId: stepId,
+        kind: 'receipt_doc',
+        valueMasked: null,
+        objectKey: `${otherId}/${evidenceId}`,
+        verifyLevel: 'L2',
+        verifyResult: 'passed',
+        verifyDetail: { reason: 'receipt_number_found', evidence_id: evidenceId },
+      })
+    })
+
+    it('`reading_pending` 이고 그 자료인 것만 온다', async () => {
+      const rows = await artifacts.pendingFor(otherId, evidenceId)
+      expect(rows).toEqual([{ artifactId: pendingId, planStepId: stepId, kind: 'receipt_doc' }])
+    })
+
+    it('다른 자료 번호나 남의 사건이면 비어 있다', async () => {
+      expect(await artifacts.pendingFor(otherId, newUlid())).toEqual([])
+      expect(await artifacts.pendingFor(caseId, evidenceId)).toEqual([])
+    })
+
+    it('판정을 마치면 더는 기다리는 것이 아니다', async () => {
+      await artifacts.settle({
+        artifactId: pendingId,
+        verifyResult: 'failed',
+        verifyDetail: { reason: 'no_receipt_marks', evidence_id: evidenceId },
+      })
+      expect(await artifacts.pendingFor(otherId, evidenceId)).toEqual([])
+
+      const rows = await sql<{ verify_result: string; verify_detail: Record<string, unknown> }[]>`
+        SELECT verify_result, verify_detail FROM artifact WHERE artifact_id = ${pendingId}
+      `
+      expect(rows[0]?.verify_result).toBe('failed')
+      expect(rows[0]?.verify_detail).toEqual({ reason: 'no_receipt_marks', evidence_id: evidenceId })
     })
   })
 

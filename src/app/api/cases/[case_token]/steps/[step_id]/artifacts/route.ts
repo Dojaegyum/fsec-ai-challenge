@@ -16,6 +16,17 @@
  * 숫자가 하나라도 있으면 통과하고, `verify_detail.reason` 에 `format_unchecked`
  * 가 남습니다. **아무 글자나 통과시키지는 않습니다** — 「ㅇㅇ」·「9」는 걸립니다.
  *
+ * ## 올린 것 자체는 증빙이 아닙니다 → ADR-077
+ *
+ * 2026-09-06 까지 `receipt_doc`·`sms_capture` 는 **파일이 올라왔다는 사실만으로**
+ * `done_verified` 였습니다. 통화 녹음을 올려도 「신청서류 제출」이 끝났고, 이체 캡처가
+ * 112 접수증으로 인정됐습니다. 이제 판정은 **그 자료의 판독 결과**를 봅니다 —
+ * 접수번호 자리나 공공기관 이름이 있어야 통과합니다(`completion-checker`).
+ *
+ * 올린 직후에는 판독이 안 끝나 있는 것이 보통입니다. 그때는 `reading_pending` 으로
+ * 적어 두고(`unconfirmed`), 읽기가 끝난 자리(`flows/read-evidence.ts`)가
+ * `flows/settle-artifacts.ts` 로 판정을 마칩니다 — **여기와 같은 순서로.**
+ *
  * ## 창으로 세지 않습니다 — `rate: 'none'`
  *
  * §1.3 표에 이 자리가 없습니다. 사람이 접수번호를 받아 적어 넣는 자리라 연타가
@@ -29,6 +40,7 @@ import { newUlid } from '@/lib/ids'
 
 import { anchorFromArtifact } from '@/flows/anchor-from-artifact'
 import { regeneratePlan } from '@/flows/regenerate-plan'
+import { evidenceReadingOf, publicOrgNamesFor } from '@/flows/settle-artifacts'
 
 import type { ArtifactSubmission } from '@/modules/completion-checker'
 import { readIssuedLedger } from '@/modules/pii-tokenizer'
@@ -105,7 +117,29 @@ export async function POST(
     const stepId = await ulidParamOf(route, 'step_id')
 
     const submission = readSubmission(await readJsonObject<ArtifactBody>(ctx.request))
-    const verdict = container.completionChecker.verify({ submission })
+
+    // ── 파일로 낸 것이면 그 자료를 읽은 결과를 본다 → ADR-077 ─────────────
+    //
+    // **사건과 함께 찾습니다.** 증거 번호만으로 찾으면 남의 사건 자료를 자기 단계의
+    // 증빙으로 붙일 수 있습니다. 없으면 400 — 「없다」와 「남의 것이다」를 가르지
+    // 않는 것은 아래 단계 검사와 같은 이유입니다(ADR-039)
+    const evidenceId =
+      submission.kind === 'sms_capture' || submission.kind === 'receipt_doc'
+        ? submission.evidenceId
+        : null
+    const byFile = evidenceId !== null
+    const uploaded = evidenceId === null ? null : await container.evidence.read(caseId, evidenceId)
+    if (byFile && uploaded === null) {
+      // ⚠️ 값을 detail 에 안 넣습니다 — 감사 기록으로 갑니다
+      throw new BadRequestError('그 사건의 자료가 아닙니다', { param: 'evidence_id' })
+    }
+
+    const verdict = container.completionChecker.verify({
+      submission,
+      evidence: evidenceReadingOf(uploaded),
+      // 판독 글에서 찾을 공공기관 이름 — 은행은 안 넣습니다(이체 캡처에도 있습니다)
+      orgNames: uploaded === null ? [] : await publicOrgNamesFor(container),
+    })
 
     // ── 이 사건의 단계인가 ────────────────────────────────────────────
     //
@@ -183,10 +217,19 @@ export async function POST(
       planStepId: stepId,
       kind: submission.kind,
       valueMasked,
-      objectKey: null,
+      // 파일로 낸 것이면 그 자료의 저장소 자리 → §7 `object_key`
+      objectKey: uploaded?.objectKey ?? null,
       verifyLevel: verdict.verifyLevel,
       verifyResult: verdict.verifyResult,
-      verifyDetail: verdict.verifyDetail ? { ...verdict.verifyDetail } : null,
+      // **파일로 낸 것은 어느 자료였는지를 함께 적습니다.** 판독이 끝난 뒤
+      // `settle-artifacts` 가 이 번호로 미뤄 둔 판정을 찾습니다(`pendingFor`).
+      // 증거 번호는 개인정보가 아닙니다 — 응답에는 안 싣습니다(아래는 `reason` 만)
+      verifyDetail:
+        evidenceId !== null
+          ? { ...(verdict.verifyDetail ?? {}), evidence_id: evidenceId }
+          : verdict.verifyDetail
+            ? { ...verdict.verifyDetail }
+            : null,
     })
 
     // 단계가 이 사건 것이 아니면 안 옮겨집니다 — 남의 단계를 완료 처리할 수 없습니다
@@ -220,6 +263,14 @@ export async function POST(
       if (stepKey) {
         await anchorFromArtifact({ caseId, stepKey, container }).catch(() => null)
       }
+      // ── 끝난 단계의 기한을 닫는다 → ADR-077 ────────────────────────
+      //
+      // **2026-09-06 까지 아무도 `met` 을 적지 않았습니다.** 단계가 끝나도 3영업일
+      // 기한은 `open` 인 채 `days_left` 를 실어 나가, 끝난 단계 옆에 D-3 이 계속 떴습니다.
+      // `info`(공고 2개월)는 기관의 시간이라 여기서 닫지 않습니다 — `markMet` 참고.
+      // `regeneratePlan` 의 `apply` 는 `met` 을 건드리지 않으므로 순서는 상관없지만,
+      // 기산점과 같은 자리에 두어 「완료가 남기는 것」이 한 곳에 보이게 합니다
+      await container.deadlineWrite.markMet(caseId, stepId).catch(() => 0)
     }
 
     const unlocked =

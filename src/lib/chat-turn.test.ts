@@ -846,7 +846,7 @@ function chatHarness(
     // 시험은 필요한 세 칸만 적습니다 — 나머지는 이 흐름이 안 읽습니다
     slots: { read: async () => (over.slots ?? []) as never },
     deadlines: { read: async () => [] },
-    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0, markMet: async () => 0 },
     // 이름표 장부 → 04-pii-boundary.md 「번호의 단위」. 이 파일이 보는 것은
     // 이음매라 비워 둡니다 — 이어받는지는 `chat-receiver` 시험이 봅니다
     vaultWrite: {

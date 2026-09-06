@@ -165,7 +165,7 @@ function harness(
     channelWrite,
     // 기한은 이 파일이 보는 것이 아닙니다 → compute-deadlines.test.ts
     slots: { read: async () => [] },
-    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0 },
+    deadlineWrite: { apply: async () => [], sweepOverdue: async () => 0, markMet: async () => 0 },
     // ── 이름표 장부 → 04-pii-boundary.md 「번호의 단위」 ──────────────
     // 답을 토큰화할 때 **이미 쓰인 번호를 이어받는** 자리입니다. 기본은 비어
     // 있어 1번부터이고, 이어받는지를 보는 시험이 이 둘을 바꿔 넣습니다
