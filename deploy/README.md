@@ -392,12 +392,17 @@ SMOKE_BASE_URL=<주소> npm run smoke           # 다른 주소
 | 지금 뭘 하나 | `journalctl -u finally-runpod-watch -f` |
 | **손으로 `down` 하기 전에** | `touch /var/lib/finally/watch.paused` — 안 하면 30초 안에 새 팟을 만듭니다 |
 | 다시 켜기 | `rm /var/lib/finally/watch.paused` |
-| 한 회만 손으로 | `set -a; . /etc/finally/watch.env; set +a; python3 deploy/runpod-watch.py --once` |
-| 새 팟 경로 시험(주소 교체 없이 · 약 $0.3) | 같은 명령에 `--shadow` |
-| 판단만 보고 아무것도 안 함 | 같은 명령에 `--dry-run` |
-| 시험 팟에서 훈련(주소 교체 없이) | `WATCH_POD_NAME=finally-demo-shadow WATCH_NO_SWITCH=1 … --once` |
+| 한 회만 손으로 | **먼저 `sudo systemctl stop finally-runpod-watch`**, 끝나면 `start` · `set -a; . /etc/finally/watch.env; set +a; python3 deploy/runpod-watch.py --once` |
+| 새 팟 경로 시험(주소 교체 없이 · 약 $0.3) | 같은 명령에 `--shadow` (상태는 `watch-shadow.json` 에 따로 적습니다) |
+| 판단만 보고 아무것도 안 함 | 같은 명령에 `--dry-run` — 이것만은 데몬을 멈출 필요가 없습니다 |
+| 시험 팟에서 훈련(주소 교체 없이) | **먼저 `sudo systemctl stop finally-runpod-watch`**, 끝나면 `start` · `WATCH_POD_NAME=finally-demo-shadow WATCH_NO_SWITCH=1 … --once` |
 
-`GITHUB_TOKEN` 이 비어 있으면 새 팟까지는 만들고 **주소 교체는 건너뛰고 메일로 알립니다** — 그때는 Actions → `vercel-env` 를 손으로.
+**손으로 돌리기 전에 데몬을 멈추는 이유** — 두 회차가 같은 팟을 동시에 보면 둘 다 같은 판단을 내려 재시작이나 새 팟이 두 번 나갑니다.
+`watch.paused` 는 **데몬만** 세우고 손으로 돌린 회차는 그대로 조치하므로, 그것으로는 막지 못합니다.
+
+`GITHUB_TOKEN` 이 비어 있으면 새 팟까지는 만들고 **주소 교체는 건너뜁니다** — 그때는 Actions → `vercel-env` 를 손으로.
+`NOTIFY_TO`(와 `MAILER_API_KEY`·`MAILER_FROM`)가 비어 있으면 **메일은 하나도 나가지 않고 로그(`journalctl`)에만 남습니다** — 알림을 받으려면 채우세요.
+`GITHUB_TOKEN` 이 비어 새 팟의 주소를 손으로 `vercel-env` 로 넣었다면, 그다음 `POST /api/cron/evidence-resubmit`(`CRON_SECRET`) 도 한 번 부르세요 — 닫힌 창의 자료를 미리 맡깁니다.
 자료 쪽은 그동안 「재시도중」으로 기다립니다([ADR-091](../decisions/091-evidence-retrying-not-failed.md)).
 
 ---

@@ -16,8 +16,15 @@ if [ ! -f /etc/finally/watch.env ]; then
   echo "  /etc/finally/watch.env 를 채우고 다시 돌리세요"; exit 0
 fi
 sudo chmod 600 /etc/finally/watch.env
-[ -f /home/ubuntu/.ssh/id_ed25519_finally ] || { echo "✗ /home/ubuntu/.ssh/id_ed25519_finally 가 없습니다 — 팟 ssh 키를 복사하세요"; exit 1; }
-chmod 600 /home/ubuntu/.ssh/id_ed25519_finally
+KEY=/home/ubuntu/.ssh/id_ed25519_finally
+[ -f "$KEY" ] || { echo "✗ $KEY 가 없습니다 — 팟 ssh 키를 복사하세요"; exit 1; }
+chmod 600 "$KEY"
+# 새 팟을 만들 때 이 **공개키**를 PUBLIC_KEY 로 심습니다(runpod-pod.py create_pod) — 없으면
+# 감시자가 팟은 만들어도 ssh 로 못 들어가 채우기에서 멈춥니다. 개인키에서 뽑아 둡니다
+if [ ! -f "$KEY.pub" ]; then
+  ssh-keygen -y -f "$KEY" > "$KEY.pub" || { rm -f "$KEY.pub"; echo "✗ $KEY.pub 이 없고 개인키에서도 못 뽑았습니다(암호가 걸린 키?) — 공개키를 복사하세요"; exit 1; }
+  echo "  $KEY.pub 을 개인키에서 뽑았습니다"
+fi
 
 say "systemd"
 sudo cp "$REPO_DIR/deploy/finally-runpod-watch.service" /etc/systemd/system/

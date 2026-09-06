@@ -22,6 +22,9 @@
     python3 deploy/runpod-watch.py --once --dry-run  # 판단만 보고 조치는 안 함 — 운영 팟을 상대로 안전하게 확인할 때(잔액 조회는 함)
 
 멈추려면(손으로 down 할 때 등): touch /var/lib/finally/watch.paused
+**손으로 --once · --shadow 를 돌릴 때는 데몬을 먼저 멈추세요**(systemctl stop finally-runpod-watch) —
+watch.paused 는 데몬만 세울 뿐, 손으로 돌린 회차는 그대로 조치를 합니다. --dry-run 은 예외.
+상태 파일은 STATE_DIR/watch.json, --shadow 만 STATE_DIR/watch-shadow.json(데몬 것과 안 섞이게).
 환경변수(/etc/finally/watch.env): RUNPOD_API_KEY · TRANSCRIBER_TOKEN · POD_SSH_KEY · GITHUB_TOKEN ·
 GITHUB_REPO · APP_ORIGIN · CRON_SECRET · MAILER_API_KEY · MAILER_FROM · NOTIFY_TO · STATE_DIR ·
 WATCH_POD_NAME(시험용 — 이름을 바꿔 진짜 finally-demo 팟과 분리 · shadow 는 여기에 -shadow 를 더 붙임) ·
@@ -124,6 +127,15 @@ def state_dir() -> Path:
     return Path(env("STATE_DIR", "/var/lib/finally"))
 
 
+def state_path(shadow: bool = False) -> Path:
+    """--shadow 는 데몬의 watch.json 을 절대 건드리지 않는다.
+
+    손으로 도는 shadow 회차와 데몬이 같은 파일을 쓰면 last-writer-wins 로 데몬의
+    pod_id·creating·restart_at 이 시험 팟의 값으로 덮인다 — 데몬이 운영 팟을 잊고
+    시험 팟을 감시하게 된다(검토 반영 I3)."""
+    return state_dir() / ("watch-shadow.json" if shadow else "watch.json")
+
+
 def load_state(path: Path) -> State:
     if not path.exists():
         return State()
@@ -164,6 +176,42 @@ def do_restart(pod_obj: dict) -> None:
         raise pod.PodError("ssh 포트가 안 열려 있어 재시작을 못 겁니다")
     ip, port = target
     subprocess.run(pod.ssh_base(ip, port) + ["setsid /opt/finally/restart.sh < /dev/null"], check=True, timeout=60)
+
+
+def adopt_pod(st: State, new_id: str, now: float, *, others: list[str]) -> None:
+    """준비된 팟을 실서비스에 붙인다 — 주소 교체 → (됐으면) 옛 팟 terminate · 다시 맡기기 → 메일.
+
+    방금 만든 팟에도, 만들다 감시자가 죽어 남아 있던 팟을 이어받을 때에도 **같은 꼬리**가
+    필요합니다(ADR-092 D-④⑤⑥). 두 자리가 갈라지면 한쪽만 주소를 바꾸거나 한쪽만 옛 팟을
+    남겨 과금이 두 대로 늡니다 — 그래서 한 함수로 묶었습니다.
+
+    `others` 는 이 이름으로 아직 도는 **다른** 팟들. 주소 교체가 확인된 뒤에만 지웁니다."""
+    url = pod.proxy_url(new_id)
+    switched = switch_backend(url)
+    leftovers = [p for p in others if p and p != new_id]
+    # 주소 교체가 안 됐는데 옛 팟을 지우면, 실서비스는 여전히 그 주소를 보는 채로 팟만
+    # 없어진다 — 교체가 확인된 뒤에만 지운다(검토 반영 3 · ADR-092 D-⑥)
+    if switched:
+        for old in leftovers:
+            try:
+                pod.terminate(old)
+            except pod.PodError as e:
+                log(f"옛 팟 {old} terminate 실패: {e}")
+    resub = call_resubmit() if switched else None
+    extra = f"switched={switched} resubmit={resub}"
+    if not switched and leftovers:
+        extra += (
+            f"\n옛 팟 {' · '.join(leftovers)} 은 남겨 두었습니다 — 주소 교체가 안 됐습니다. "
+            "vercel-env 로 새 주소를 넣은 뒤 옛 팟을 손으로 지우세요"
+        )
+    send_mail(
+        "[FinAlly] 추론 팟을 새로 세웠습니다" + ("" if switched else " — 주소 교체는 손으로"),
+        mail_text("new_pod", pod_id=new_id, url=url, extra=extra),
+    )
+    # 이 팟이 이제 그 이름의 팟이다 — 옛 팟에 걸어 둔 재시작 기록은 뜻이 없다
+    st.pod_id = new_id
+    st.restart_pod = None
+    st.restart_at = 0.0
 
 
 def do_recreate(st: State, old_pod_id: str | None, now: float, shadow: bool = False, save=None) -> str | None:
@@ -207,25 +255,7 @@ def do_recreate(st: State, old_pod_id: str | None, now: float, shadow: bool = Fa
             if save:
                 save(st)
             return new_id
-        switched = switch_backend(url)
-        # 주소 교체가 안 됐는데 옛 팟을 지우면, 실서비스는 여전히 그 주소를 보는 채로
-        # 팟만 없어진다 — 교체가 확인된 뒤에만 지운다(검토 반영 3)
-        if old_pod_id and old_pod_id != new_id and switched:
-            try:
-                pod.terminate(old_pod_id)
-            except pod.PodError as e:
-                log(f"옛 팟 {old_pod_id} terminate 실패: {e}")
-        resub = call_resubmit() if switched else None
-        extra = f"switched={switched} resubmit={resub}"
-        if not switched and old_pod_id and old_pod_id != new_id:
-            extra += (
-                f"\n옛 팟 {old_pod_id} 은 남겨 두었습니다 — 주소 교체가 안 됐습니다. "
-                "vercel-env 로 새 주소를 넣은 뒤 옛 팟을 손으로 지우세요"
-            )
-        send_mail(
-            "[FinAlly] 추론 팟을 새로 세웠습니다" + ("" if switched else " — 주소 교체는 손으로"),
-            mail_text("new_pod", pod_id=new_id, url=url, extra=extra),
-        )
+        adopt_pod(st, new_id, now, others=[old_pod_id] if old_pod_id else [])
         st.creating = None
         st.create_failures = []
         if save:
@@ -287,7 +317,10 @@ def switch_backend(url: str) -> bool:
     if not env("GITHUB_TOKEN"):
         log("GITHUB_TOKEN 이 없어 주소 교체를 건너뜁니다 — 손으로 vercel-env")
         return False
-    since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 5))
+    # 30초 앞에서부터 찾는다 — GitHub 와 이 서버의 시계가 몇 초 어긋나면 5초 창으로는
+    # 방금 건 실행이 "그 전에 만들어진 것"이 되어 안 잡힌다(검토 반영). 그 사이 다른
+    # 사람이 같은 워크플로를 돌렸으면 그것을 볼 수 있지만, 어차피 같은 값을 넣는 실행이다
+    since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 30))
     try:
         gh("POST", f"/repos/{repo}/actions/workflows/vercel-env.yml/dispatches", {
             "ref": "main",
@@ -347,6 +380,7 @@ def mail_text(kind: str, pod_id: str = "", url: str = "", extra: str = "") -> st
         "new_pod": "팟이 없거나 재시작으로 안 살아나 새 팟을 만들고 채웠습니다.",
         "create_failed": "새 팟을 만들거나 채우지 못했습니다. RunPod 콘솔과 잔액을 보세요.",
         "low_balance": "RunPod 잔액이 12시간치 아래입니다. 충전하지 않으면 팟이 삭제됩니다.",
+        "extra_pods": "이름이 같은 팟이 둘 이상 RUNNING 입니다 — 쓰지 않는 쪽도 과금됩니다. 콘솔에서 보고 하나만 남기세요.",
     }
     return "\n".join(filter(None, [
         lines.get(kind, kind),
@@ -418,19 +452,40 @@ def check_balance(st: State, now: float, dry_run: bool = False) -> None:
 def tick(st: State, now: float, shadow: bool = False, dry_run: bool = False) -> str:
     if (state_dir() / "watch.paused").exists():
         return "paused"
+    def save_now(s: State) -> None:
+        save_state(state_path(shadow), s)
+
     if st.creating:
-        # 만드는 도중 감시자가 죽었던 흔적 — 그 팟이 ready 면 쓰고, 아니면 지웁니다.
+        # 만드는 도중 감시자가 죽었던 흔적 — 그 팟이 ready 면 **이어받고**, 아니면 지웁니다.
         # --dry-run 에서는 terminate 도 조치이므로 건드리지 않고 다음(진짜) 회차로 넘긴다.
         leftover = st.creating["pod_id"]
         if dry_run:
             log(f"tick(dry-run) → 만드는 도중 남은 팟 {leftover} 정리는 건너뜁니다")
+        elif (pod.health_once(leftover) or {}).get("ready"):
+            # 이어받지 않으면 st.pod_id 는 여전히 옛 팟이라 decide 가 그 팟을 고르고,
+            # 그 팟이 죽어 있으면 recreate 로 **세 번째** 팟을 만든다 — 준비된 유료 팟
+            # 하나가 아무도 모르게 계속 돈다(검토 반영 I1)
+            log(f"만들던 팟 {leftover} 이 준비돼 있어 이어받습니다")
+            try:
+                others = [
+                    p["id"] for p in pod.find_pods(POD_NAME)
+                    if p.get("desiredStatus") == "RUNNING" and p["id"] != leftover
+                ]
+            except pod.PodError as e:
+                log(f"다른 팟 목록을 못 가져왔습니다: {e}")
+                others = []
+            st.pod_id = leftover
+            st.creating = None
+            save_now(st)
+            adopt_pod(st, leftover, now, others=others)
+            save_now(st)
+            return "adopted"
         else:
             st.creating = None
-            if not (pod.health_once(leftover) or {}).get("ready"):
-                try:
-                    pod.terminate(leftover)
-                except pod.PodError:
-                    pass
+            try:
+                pod.terminate(leftover)
+            except pod.PodError:
+                pass
     try:
         pods = pod.find_pods(POD_NAME)
         running = [p for p in pods if p.get("desiredStatus") == "RUNNING"]
@@ -448,14 +503,20 @@ def tick(st: State, now: float, shadow: bool = False, dry_run: bool = False) -> 
         check_balance(st, now, dry_run=True)
         return action
 
-    def save_now(s: State) -> None:
-        save_state(state_dir() / "watch.json", s)
-
     if shadow:
         do_recreate(st, None, now, shadow=True, save=save_now)
         return "shadow"
     if action == "ok":
         apply_ok(st, arg, now)
+        # 값싼 뒷받침 — 같은 이름의 팟이 둘 이상 돌면 과금이 그만큼 늡니다. 위의 이어받기가
+        # 막지 못한 자리(사람이 손으로 만든 팟 등)를 여기서 사람에게 알립니다
+        extras = [p["id"] for p in running if p["id"] != st.pod_id]
+        if extras and should_notify(st, "extra_pods", now):
+            send_mail(
+                "[FinAlly] 같은 이름의 팟이 둘 이상 돕니다",
+                mail_text("extra_pods", pod_id=st.pod_id, extra="다른 팟: " + " · ".join(extras)),
+            )
+            mark_notified(st, "extra_pods", now)
     elif action == "wait":
         pass
     elif action == "restart":
@@ -490,7 +551,7 @@ def main() -> None:
     ap.add_argument("--shadow", action="store_true", help="새 팟 경로만 시험 — 주소 교체 없이 terminate")
     ap.add_argument("--dry-run", action="store_true", help="판단만 하고 조치는 하지 않음 — 운영 팟 검증용")
     args = ap.parse_args()
-    path = state_dir() / "watch.json"
+    path = state_path(args.shadow)
     while True:
         st = load_state(path)
         try:

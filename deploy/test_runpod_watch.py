@@ -4,6 +4,7 @@ import importlib.util
 import json
 import pathlib
 import sys
+import tempfile
 import unittest
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -223,6 +224,80 @@ class DoRecreateOldPod(unittest.TestCase):
         terminated, mails = self._run(False)
         self.assertNotIn("old1", terminated)
         self.assertTrue(any("옛 팟 old1 은 남겨 두었습니다" in text for _, text in mails))
+
+
+class AdoptLeftoverPod(unittest.TestCase):
+    """만들다 죽었는데 그 팟이 준비돼 있으면 **이어받아야** 한다 (검토 반영 I1).
+
+    안 그러면 st.pod_id 는 여전히 옛 팟이라 decide 가 그 팟을 고르고, 그 팟이 죽어 있으면
+    recreate 로 **세 번째** 팟을 만든다 — 준비된 유료 팟 하나가 고아로 계속 돈다."""
+
+    def _tick(self, switched, tmp):
+        st = w.State(pod_id="X", creating={"pod_id": "Y", "since": 900.0})
+        terminated, mails = [], []
+        FakePod = make_fake_pod(
+            find_pods=lambda name: [running("X"), running("Y")],
+            health_once=lambda pod_id, timeout=10: {"ready": pod_id == "Y"},
+            create_pod=lambda name: self.fail("새 팟을 만들면 안 된다 — 이어받아야 한다"),
+            terminate=lambda pod_id: terminated.append(pod_id),
+        )
+        with _Patch(pod=FakePod, switch_backend=lambda url: switched,
+                    call_resubmit=lambda: None, send_mail=lambda *a, **k: mails.append(a),
+                    check_balance=lambda *a, **k: None, state_dir=lambda: tmp):
+            action = w.tick(st, 1000.0)
+        return action, st, terminated, mails
+
+    def test_ready_leftover_is_adopted_and_old_pod_terminated_when_switched(self):
+        with tempfile.TemporaryDirectory() as d:
+            action, st, terminated, mails = self._tick(True, pathlib.Path(d))
+        self.assertEqual(action, "adopted")
+        self.assertEqual(st.pod_id, "Y")
+        self.assertIsNone(st.creating)
+        self.assertEqual(terminated, ["X"])  # 이어받은 Y 는 절대 지우지 않는다
+        self.assertTrue(any("새로 세웠습니다" in subject for subject, _ in mails))
+
+    def test_old_pod_kept_when_address_switch_failed(self):
+        with tempfile.TemporaryDirectory() as d:
+            action, st, terminated, mails = self._tick(False, pathlib.Path(d))
+        self.assertEqual(action, "adopted")
+        self.assertEqual(st.pod_id, "Y")
+        self.assertEqual(terminated, [])
+        self.assertTrue(any("옛 팟 X 은 남겨 두었습니다" in text for _, text in mails))
+
+
+class ExtraPodsBackstop(unittest.TestCase):
+    """ok 회차에도 같은 이름의 팟이 둘 이상이면 사람에게 알린다 — 과금이 두 배 (검토 반영 I1)."""
+
+    def _ok_tick(self, st, now, mails, tmp):
+        FakePod = make_fake_pod(
+            find_pods=lambda name: [running("p1"), running("p2")],
+            health_once=lambda pod_id, timeout=10: {"ready": True},
+        )
+        with _Patch(pod=FakePod, send_mail=lambda *a, **k: mails.append(a),
+                    check_balance=lambda *a, **k: None, state_dir=lambda: tmp):
+            return w.tick(st, now)
+
+    def test_mails_once_and_not_again_within_six_hours(self):
+        st = w.State()
+        mails = []
+        with tempfile.TemporaryDirectory() as d:
+            tmp = pathlib.Path(d)
+            self.assertEqual(self._ok_tick(st, 1000.0, mails, tmp), "ok")
+            self.assertEqual(len(mails), 1)
+            self.assertIn("둘 이상", mails[0][0])
+            self.assertIn("p2", mails[0][1])
+            self.assertEqual(self._ok_tick(st, 1000.0 + 6 * 3600 - 1, mails, tmp), "ok")
+        self.assertEqual(len(mails), 1)
+
+
+class ShadowStateFile(unittest.TestCase):
+    """손으로 도는 --shadow 는 데몬의 watch.json 을 건드리면 안 된다 (검토 반영 I3)."""
+
+    def test_shadow_uses_its_own_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            with _Patch(state_dir=lambda: pathlib.Path(d)):
+                self.assertEqual(w.state_path().name, "watch.json")
+                self.assertEqual(w.state_path(True).name, "watch-shadow.json")
 
 
 class CreateFailureTimestamp(unittest.TestCase):

@@ -239,6 +239,9 @@ def ssh_base(ip: str, port: int) -> list[str]:
     return [
         "ssh", "-i", str(SSH_KEY), "-p", str(port),
         "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
+        # 감시자(ADR-092)는 사람 없는 systemd 서비스로 돈다 — 암호나 확인을 물으면 그 자리에서
+        # 타임아웃까지 멈춘다. BatchMode 로 묻지 않게 하고, 닿지 않는 팟은 15초에 포기한다
+        "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
         f"root@{ip}",
     ]
 

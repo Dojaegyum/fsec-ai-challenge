@@ -112,7 +112,7 @@
 | ③ | `health` — `ready: true` 까지 | 10~12분 |
 | ④ | GitHub `vercel-env` 워크플로 dispatch — `transcriber_url` · `ner_url` = 새 주소 · `set_ner_token` · `redeploy` | 그 뒤 `deploy` 실행이 끝날 때까지 기다림(2~3분) |
 | ⑤ | 앱 `POST /api/cron/evidence-resubmit` | 닫힌 창의 「재시도중」 자료를 미리 맡김 — [ADR-091](091-evidence-retrying-not-failed.md) §5 |
-| ⑥ | 죽은 옛 팟이 남아 있으면 terminate · 메일 | 과금을 두 대로 안 늘림 |
+| ⑥ | **주소 교체가 확인된 뒤에만** 옛 팟을 terminate · 안 됐으면 남겨 두고 메일에 적음 | 교체 전에 지우면 실서비스가 없는 주소를 봅니다 — 과금 두 대가 그보다 쌉니다 |
 
 **왜 `vercel-env` 워크플로인가.** 이미 있고 검증된 길이고, Vercel 토큰이 **저장소 시크릿에만** 있습니다(로컬에도 OCI 에도
 없음). 감시자에게 필요한 것은 그 워크플로를 부를 권한(Actions write) 뿐인 fine-grained PAT 하나입니다. 재배포 2~3분은
