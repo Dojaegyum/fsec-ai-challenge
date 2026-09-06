@@ -14,6 +14,7 @@ import type { KbRow } from '@/modules/kb-finder'
 
 import { asKbSource, asSelectorSource, kbRowToPromptEntry, selectedEntryOf } from './adapters'
 import type { PoolEntry } from './db-selector'
+import type { SelectorCandidate } from '@/modules/kb-selector'
 
 const SUMMARY =
   '전화로 신청했으면 신청한 날부터 3영업일 안에 서류를 따로 내야 신청이 유지됩니다.'
@@ -308,5 +309,53 @@ describe('asSelectorSource — 풀을 읽고 고르게 하고 본문을 옮긴�
     expect(seen.find((one) => one.key === 'org:kb-bank')?.tag).toBe('KB국민은행 (이 사건의 기관)')
     // 카드 절차 행은 channelId 가 없어(공통) 유형 표시가 안 붙는다
     expect(seen.find((one) => one.key === 'kb:card')?.tag).toBe('카드')
+  })
+
+  describe('사건에 기관이 붙어 있으면 다른 기관의 연락처는 버린다 — 배포본 점검 2026-09-06', () => {
+    const twoBanks = {
+      load: async () => ({
+        candidates: [
+          { key: 'org:kb-bank', kind: 'org' as const, tag: 'KB국민은행', preview: '…' },
+          { key: 'org:shinhan-bank', kind: 'org' as const, tag: '신한은행', preview: '…' },
+          { key: 'kb:card', kind: 'kb' as const, tag: '카드', preview: '…' },
+        ],
+        entries: new Map<string, PoolEntry>([
+          ['org:kb-bank', { kind: 'org', org: { orgId: 'kb-bank', channelId: 'CH-bank', name: 'KB국민은행', contact: { report_tel: '1588-9999' } } }],
+          ['org:shinhan-bank', { kind: 'org', org: { orgId: 'shinhan-bank', channelId: 'CH-bank', name: '신한은행', contact: { report_tel: '1599-8000' } } }],
+          ['kb:card', { kind: 'kb', row: row({ summary: '카드사에 지급정지를 요청합니다.' }, { kbEntryId: 'card', title: '카드 지급정지' }) }],
+        ]),
+      }),
+    }
+    const pickAll = {
+      select: async (input: { candidates: readonly SelectorCandidate[] }) => ({
+        picked: [...input.candidates],
+        stats: { pool: 3, groups: 1, rounds: 0, ms: 1, calls: [] },
+      }),
+    }
+
+    it('이 사건의 기관과 절차는 남고 남의 은행은 빠진다 — 통계의 picked 도 같이', async () => {
+      const out = await asSelectorSource(pickAll, twoBanks).select({
+        history: [{ speaker: 'user', text: '은행에 전화했는데 안 받아요' }],
+        kbVersion: '2026.09.4', asOf: '2026-09-06', exclude: new Set(), orgId: 'kb-bank', channelId: 'CH-bank',
+      })
+      expect(out.entries.map((one) => one.label)).toEqual(['KB국민은행 연락처', '카드 지급정지'])
+      expect(out.stats.picked).toEqual(['org:kb-bank', 'kb:card'])
+    })
+
+    it('사용자가 다른 은행 이름을 직접 적으면 그 은행은 남는다', async () => {
+      const out = await asSelectorSource(pickAll, twoBanks).select({
+        history: [{ speaker: 'user', text: '신한은행에도 전화해야 하나요?' }],
+        kbVersion: '2026.09.4', asOf: '2026-09-06', exclude: new Set(), orgId: 'kb-bank', channelId: 'CH-bank',
+      })
+      expect(out.stats.picked).toEqual(['org:kb-bank', 'org:shinhan-bank', 'kb:card'])
+    })
+
+    it('기관이 안 정해진 사건은 걸러 낼 근거가 없어 그대로 둔다', async () => {
+      const out = await asSelectorSource(pickAll, twoBanks).select({
+        history: [{ speaker: 'user', text: '은행에 전화했는데 안 받아요' }],
+        kbVersion: '2026.09.4', asOf: '2026-09-06', exclude: new Set(), orgId: null, channelId: null,
+      })
+      expect(out.stats.picked).toEqual(['org:kb-bank', 'org:shinhan-bank', 'kb:card'])
+    })
   })
 })

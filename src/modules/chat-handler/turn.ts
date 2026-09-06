@@ -43,8 +43,10 @@ export function isDontKnow(option: string): boolean {
  * (ADR-022 결정 셋 · API §5.4).
  */
 export function sourceNote(citations: readonly Citation[]): string | null {
+  // `kb-` 는 매뉴얼, `org-` 는 기관 연락처, `law-` 는 법령 조문 — 셋 다 근거 줄에 이름을 적습니다.
+  // `case-` 는 사건 파일의 값이라 근거로 적지 않습니다 (api.md §3.4 · ADR-089 ⑤)
   const labels = citations
-    .filter((c) => c.ref.startsWith("kb-"))
+    .filter((c) => /^(kb|org|law)-/.test(c.ref))
     .map((c) => c.label)
     // ⚠️ **`label.length` 로 봤다가 던졌습니다.** 타입은 필수라고 적혀 있지만
     // §3.12 이력에는 **`label` 없이 저장된 옛 줄**이 남아 있습니다. 여기서 던지면
