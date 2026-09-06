@@ -56,7 +56,7 @@ import { RateLimitedError } from './errors'
 export type RateScope = 'case' | 'session' | 'ip'
 
 /** 정본 §1.3 표의 일곱 줄 중 **창(window)으로 세는 다섯** */
-export type RateBucket = 'chat' | 'slot' | 'vault' | 'caseCreate' | 'read' | 'notFound'
+export type RateBucket = 'chat' | 'slot' | 'vault' | 'caseCreate' | 'read' | 'notFound' | 'adminLogin'
 
 export interface RateRule {
   readonly bucket: RateBucket
@@ -108,6 +108,15 @@ export const RATE_RULES = {
     limit: 10,
     windowMs: MINUTE,
     what: '사건 조회 실패',
+  },
+  // 계정이 하나라 IP 로 셉니다. 무차별 대입 방어 → §7.1 · ADR-081.
+  // `/api/admin/*` 은 제한하지 않지만(§1.3) 로그인은 그 접두사 밖이라 여기가 걸립니다
+  adminLogin: {
+    bucket: 'adminLogin',
+    scope: 'ip',
+    limit: 10,
+    windowMs: 10 * MINUTE,
+    what: '관리자 로그인',
   },
 } as const satisfies Record<RateBucket, RateRule>
 
