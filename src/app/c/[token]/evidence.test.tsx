@@ -173,3 +173,34 @@ describe("처리중에는 기다리는 법을 말한다 — ADR-078", () => {
     expect(text).not.toMatch(/약 \d+분|\d+분 안에|\d+초 안에/);
   });
 });
+
+/**
+ * ADR-091 §6 — 서버(팟)에 닿지 못해 다시 맡기는 중일 때, 진행률(0%)을 그대로 그리면
+ * 「멈췄다」로 읽힙니다. `progress.retrying` 이면 진행률 대신 재연결 문구를 그립니다.
+ */
+describe("재시도중 — ADR-091 §6", () => {
+  it("progress.retrying 이면 진행률 대신 「다시 연결하는 중」을 그린다", () => {
+    const text = textOf(
+      renderToStaticMarkup(
+        <EvidenceView
+          token="T"
+          uploads={uploadsOf([railFile({ status: "processing" })])}
+          server={{
+            phase: "ready",
+            read: {
+              evidence_id: "01J8XKQZ3M7N2P4R6T8V0W2Y4A",
+              ingest_status: "processing",
+              progress: { phase: "stt", percent: 0, retrying: true },
+            },
+            verdict: { poll: true, delayMs: 5000 },
+          }}
+          again={() => {}}
+        />,
+      ),
+    );
+
+    expect(text).toContain("전사 서버에 다시 연결하는 중입니다");
+    expect(text).not.toContain("개인정보 보호 처리중입니다");
+    expect(text).not.toMatch(/0%/);
+  });
+});

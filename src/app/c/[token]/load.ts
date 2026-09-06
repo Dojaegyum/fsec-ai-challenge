@@ -389,8 +389,8 @@ export function useCaseBundle(token: string, enabled = true) {
 export interface EvidenceRead {
   readonly evidence_id: string;
   readonly ingest_status: EvidenceStatus | string;
-  /** `processing` 일 때만 */
-  readonly progress?: { phase: string; percent: number };
+  /** `processing` 일 때만. `retrying` 은 **서버에 닿지 못해 다시 맡기는 중** → ADR-091 §2 */
+  readonly progress?: { phase: string; percent: number; retrying?: boolean };
   /** `done` 일 때만. **토큰화된 상태로 내려옵니다** — 원문 복원은 브라우저에서 */
   readonly transcript?: readonly RawLine[];
   readonly pii_tokens?: readonly PiiToken[];
