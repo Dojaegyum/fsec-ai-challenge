@@ -387,6 +387,23 @@ export async function answerSlot(input: {
   };
 }
 
+/**
+ * 문항 하나의 지문 — **같은 문항인가**만 봅니다.
+ *
+ * 셸이 내려주는 문항은 번들을 읽을 때마다 새로 만들어진 객체라(§3.10 응답의 JSON)
+ * 같은 문항이어도 신원이 다릅니다. 견주려면 값으로 봐야 합니다.
+ */
+function questionSig(one: NextQuestion | null): string {
+  if (one === null) return "";
+  return JSON.stringify([
+    one.slot_key,
+    one.text,
+    one.input,
+    one.options ?? [],
+    one.held_ref ?? "",
+  ]);
+}
+
 /** 질문 자리가 화면에 내주는 것 */
 export interface SlotAsk {
   /** 지금 물을 것. 없으면 `null` → 질문 자리를 안 그립니다 */
@@ -532,6 +549,20 @@ export function useChatSend(
 
   // 질문 자리 — 첫 값은 §3.10, 그 뒤로는 답과 발화가 함께 옮깁니다
   const [question, setQuestion] = useState<NextQuestion | null>(firstQuestion);
+  /**
+   * 지금 문항의 사본 — 아래 번들 효과가 **다시 서지 않고** 견줄 수 있게 (`confirmRef` 와 같은 자리).
+   * 효과가 `question` 을 의존성으로 들면 답할 때마다 다시 서서 번들 문항을 되붙입니다
+   */
+  const questionRef = useRef<NextQuestion | null>(firstQuestion);
+  /**
+   * **이 화면에서 이미 답한 문항들의 지문.**
+   *
+   * 답이 오가는 사이에 출발한 번들은 그 답을 아직 모릅니다 — 그것으로 덮으면 방금
+   * 답한 문항이 화면에 되살아납니다. 「그 사이에 답했나」를 시각으로 재려면 번들이
+   * **언제 출발했는지**를 알아야 하는데 화면은 그것을 모릅니다. 대신 **무엇을 답했는지**로
+   * 봅니다 — 답한 문항이 다시 오면 낡은 번들이고, 그 밖의 문항은 새 소식입니다
+   */
+  const answeredSigs = useRef<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<{
     card: PiiConfirm;
     typed: string;
@@ -566,6 +597,21 @@ export function useChatSend(
   );
   const [asking, setAsking] = useState(false);
   const [askFail, setAskFail] = useState<{ stage: SlotStage; fail: LoadFail } | null>(null);
+
+  /**
+   * 문항을 옮깁니다 — **세 자리(답 · 발화 · 번들)가 여기 하나를 지납니다.**
+   *
+   * `by: "local"` 은 서버가 **이 요청에 답하며** 준 문항입니다. 그때 화면에 떠 있던
+   * 문항은 「답한 것」으로 적어 둡니다 — 늦게 도착한 번들이 그것을 되붙이지 않게.
+   */
+  const moveQuestion = useCallback((next: NextQuestion | null, by: "local" | "bundle") => {
+    if (by === "local") {
+      const answered = questionSig(questionRef.current);
+      if (answered !== "") answeredSigs.current.add(answered);
+    }
+    questionRef.current = next;
+    setQuestion(next);
+  }, []);
 
   // 콜백이 바뀌어도 첫 로드를 다시 돌지 않습니다 — `page.tsx` 가 매 렌더 새
   // 함수를 넘기므로, 아래 첫 로드 효과의 deps 에 그대로 넣으면 볼트·이력을
@@ -741,10 +787,10 @@ export function useChatSend(
       // 답할 수단이 없습니다. 아래 `put` 이 답을 제 슬롯으로 보내더라도 이
       // 어긋남은 남습니다 — 「되묻기가 오면 질문은 그대로 둔다」는 규칙이
       // 발화 쪽에도 있어야 합니다
-      if (confirmRef.current === null) setQuestion(result.turn.question);
+      if (confirmRef.current === null) moveQuestion(result.turn.question, "local");
       return true;
     },
-    [absorb, caseToken, mappings, onReferenced, sending, store, vaultRead],
+    [absorb, caseToken, mappings, moveQuestion, onReferenced, sending, store, vaultRead],
   );
 
   /** 답 하나를 보내고 화면 상태를 옮깁니다 — 네 입구(`answer`·`skip`·`resolve`·`confirmAnswer`)가 함께 씁니다 */
@@ -801,13 +847,50 @@ export function useChatSend(
       }
 
       holdConfirm(null);
-      setQuestion(result.response.next_question);
+      moveQuestion(result.response.next_question, "local");
       // **화면을 비우지 않는 갱신입니다** — 여기서 사건을 다시 읽으면 방금 한
       // 대화가 사라집니다 (`useCaseBundle` 의 `refresh`)
       if (result.response.plan_regenerated) onPlanChanged?.();
     },
-    [asking, caseToken, holdConfirm, mappings, onPlanChanged, question, store, vaultRead],
+    [
+      asking,
+      caseToken,
+      holdConfirm,
+      mappings,
+      moveQuestion,
+      onPlanChanged,
+      question,
+      store,
+      vaultRead,
+    ],
   );
+
+  /**
+   * **셸이 번들을 다시 읽어 새 문항을 들고 오면 챗에도 띄웁니다** → §3.3 · ADR-086.
+   *
+   * ⚠️ 2026-09-06 까지 이 값은 `useState` 의 **초기값으로만** 쓰였습니다. 판독이 끝난 뒤
+   * 기관 보정과 슬롯 추출은 응답 뒤에 돌고(ADR-086) 그 결과는 다음 번들 조회에서 오는데,
+   * 챗의 문항은 옛것 그대로였습니다 — 왼쪽 사건 파일 카드의 「확인 중」만 바뀌어 화면이
+   * 어긋났고, §3.3 의 「다음 번들에서 나옵니다」가 반쪽만 참이었습니다.
+   *
+   * 옮기지 않는 자리 셋 —
+   *
+   *  · **이미 답한 문항**: 답이 오가는 사이에 출발한 낡은 번들입니다(위 `answeredSigs`)
+   *  · **지금과 같은 문항**: 아무 일도 아닙니다. 다시 그릴 이유가 없습니다
+   *  · **되묻기 카드가 떠 있을 때**: 카드는 그 슬롯의 것인데 질문만 앞서 가면 답할 수단이
+   *    없는 문항이 뜹니다 — 발화 쪽(`send`)에 이미 있는 규칙과 같습니다
+   *
+   * **번들의 `null` 로는 지우지 않습니다.** 「물을 것이 없다」를 늦게 도착한 번들이 말하면
+   * 방금 받은 문항이 사라집니다 — 지우는 것은 답·발화의 응답입니다.
+   */
+  useEffect(() => {
+    if (firstQuestion === null) return;
+    const sig = questionSig(firstQuestion);
+    if (answeredSigs.current.has(sig)) return;
+    if (sig === questionSig(questionRef.current)) return;
+    if (confirmRef.current !== null) return;
+    moveQuestion(firstQuestion, "bundle");
+  }, [firstQuestion, moveQuestion]);
 
   const ask = useMemo<SlotAsk>(
     () => ({

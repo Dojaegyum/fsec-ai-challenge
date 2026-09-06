@@ -309,6 +309,74 @@ describe("되묻기의 답 — confirmAnswer 는 뜻만 보낸다 (ADR-082)", ()
 });
 
 /**
+ * 셸이 번들을 다시 읽어 **새 문항**을 들고 오면 챗에도 떠야 합니다 — §3.3 · ADR-086.
+ *
+ * ⚠️ **8초 뒤 후속 읽기가 뽑아 온 되묻기가 챗에 안 나타났습니다.** 판독이 끝난 뒤 기관
+ * 보정·슬롯 추출은 응답 뒤에 돌고(ADR-086), 그 결과는 다음 번들 조회에서 옵니다. 그런데
+ * 훅이 셸의 문항을 `useState` **초기값으로만** 써서, 번들이 갱신돼도 챗의 문항은 옛것
+ * 그대로였습니다 — 왼쪽 사건 파일 카드의 「확인 중」 표시만 바뀌어 화면이 어긋났습니다.
+ */
+describe("번들이 새 문항을 들고 오면 챗에 뜬다 — ADR-086", () => {
+  it("문항이 없던 자리에 새 되묻기가 뜬다", async () => {
+    stubServer([]);
+    await mount(null);
+
+    expect(hookNow().ask.question).toBeNull();
+
+    // 8초 뒤 후속 읽기 — 미룬 추출이 금액을 뽑아 되묻기가 생겼습니다
+    await rerender(HELD);
+
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+    expect(hookNow().ask.question?.held_ref).toBe(HELD.held_ref);
+  });
+
+  /**
+   * **로컬이 더 새로우면 덮지 않습니다.** 답이 오가는 사이에 출발한 번들은 그 답을
+   * 아직 모릅니다 — 그것으로 덮으면 방금 답한 문항이 화면에 되살아납니다.
+   */
+  it("이미 답한 문항을 들고 온 번들은 무시한다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(ORG);
+
+    // 「모름」으로 답했고 서버가 다음 문항을 내려줬습니다
+    await act(async () => {
+      await hookNow().ask.skip();
+    });
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+
+    // 그 답을 아직 모르는 번들이 도착합니다(같은 문항의 새 객체)
+    await rerender({ ...ORG });
+
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+  });
+
+  it("답한 직후라도 **새** 문항은 그대로 뜬다", async () => {
+    const calls: Call[] = [];
+    stubServer(calls);
+    await mount(ORG);
+
+    await act(async () => {
+      await hookNow().ask.skip();
+    });
+    await rerender(HELD);
+
+    expect(hookNow().ask.question?.slot_key).toBe("amount");
+    expect(hookNow().ask.question?.input).toBe("confirm");
+  });
+
+  /** 번들이 「물을 것 없음」을 들고 와도 화면의 문항을 지우지 않습니다 — 지우는 것은 답의 응답입니다 */
+  it("번들의 null 로는 문항을 지우지 않는다", async () => {
+    stubServer([]);
+    await mount(ORG);
+
+    await rerender(null);
+
+    expect(hookNow().ask.question?.slot_key).toBe("org_name");
+  });
+});
+
+/**
  * 되묻기의 「맞아요」는 **내가 본 값**에만 붙습니다 — ADR-082 × ADR-087.
  *
  * 답에 값이 안 실리므로 서버는 지금 DB 값을 닫습니다. 되묻기가 떠 있는 동안 미룬
