@@ -110,6 +110,12 @@ export function ChangeDetail({
           </p>
         ) : (
           <>
+            {change.review.status === "deferred" && (
+              <p data-numeric className="text-[13px] leading-[1.65] text-ink-3">
+                미룬 건 · {change.review.by} · {change.review.at?.slice(0, 10)}
+                {change.review.note ? ` · 「${change.review.note}」` : ""} — 다시 판단할 수 있습니다
+              </p>
+            )}
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}

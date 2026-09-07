@@ -52,6 +52,14 @@ describe('로그인 — §7.1', () => {
     expect((await POST(ask({ password: 'anything' }))).status).toBe(401)
   })
 
+  it('IP 당 10분에 10회 — 11번째는 429 (§1.3)', async () => {
+    wire()
+    for (let i = 0; i < 10; i += 1) expect((await POST(ask({ password: 'wrong' }))).status).toBe(401)
+    const res = await POST(ask({ password: 'wrong' }))
+    expect(res.status).toBe(429)
+    expect((await res.json()).error.code).toBe('RATE_LIMITED')
+  })
+
   it('본문이 형식이 아니면 400', async () => {
     wire()
     expect((await POST(ask({ nope: 1 }))).status).toBe(400)

@@ -22,6 +22,8 @@ export async function POST(request: Request, route: { params: Promise<{ change_i
       }
       const reviewedBy = typeof body?.reviewed_by === 'string' ? body.reviewed_by.trim() : ''
       if (reviewedBy.length === 0) throw new BadRequestError('reviewed_by 가 비었습니다', { param: 'reviewed_by' })
+      // source_change.reviewed_by 는 VARCHAR(64) — 넘기면 DB 가 던져 500 이 됩니다(마이그레이션 0010)
+      if (reviewedBy.length > 64) throw new BadRequestError('reviewed_by 는 64자 이하입니다', { param: 'reviewed_by' })
       const note = typeof body?.note === 'string' && body.note.trim().length > 0 ? body.note.trim() : null
       return { body: await decide(ctx.container, changeId, { status: status as DecisionStatus, reviewedBy, note }) }
     },

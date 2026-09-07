@@ -19,12 +19,23 @@ const FILTERS: readonly [Filter, string][] = [
 
 type Change = QueueBody["groups"][number]["changes"][number];
 
+/**
+ * 「전체」는 큐(pending)입니다 — 미룬 것은 큐가 아니라서(ADR-044) 「미룸」 칩에서만 보입니다.
+ * 기관 페이지는 상태와 무관하게 수집원으로 가릅니다.
+ */
 function keep(filter: Filter, one: Change): boolean {
-  if (filter === "all") return true;
+  if (filter === "deferred") return one.review_status === "deferred";
+  if (filter === "page") return one.source_key.startsWith("page:");
+  if (one.review_status !== "pending") return false;
   if (filter === "first") return one.first_seen;
   if (filter === "changed") return !one.first_seen;
-  if (filter === "deferred") return one.review_status === "deferred";
-  return one.source_key.startsWith("page:");
+  return true;
+}
+
+function badgeOf(one: Change): { label: string; strong: boolean } {
+  if (one.review_status === "deferred") return { label: "미룸", strong: false };
+  if (one.affected.length === 0 && one.first_seen) return { label: "새 조문", strong: true };
+  return { label: one.first_seen ? "최초 수집" : "변경", strong: false };
 }
 
 /** `2026-09-06T04:00:12+09:00` → `09-06 04:00` — 목록 한 줄에 맞는 만큼만 */
@@ -33,17 +44,24 @@ const shortTime = (iso: string) => iso.slice(5, 16).replace("T", " ");
 export function QueueList({
   state,
   queue,
+  deferred,
   entries,
   dispatch,
 }: {
   state: ReviewState;
+  /** 큐 — pending 만 (kb-reviewer.queue()) */
   queue: QueueBody;
+  /** 미룬 것 — 큐 밖이라 따로 받습니다 (`?status=deferred`) */
+  deferred: QueueBody;
   entries: EntriesBody;
   dispatch(a: Action): void;
 }) {
-  const flat = queue.groups.flatMap((g) => g.changes);
+  const pending = queue.groups.flatMap((g) => g.changes);
+  const everything = [...pending, ...deferred.groups.flatMap((g) => g.changes)];
+  const groups = [...queue.groups, ...deferred.groups];
   const touched = entries.entries.filter((e) => e.pending_changes.length > 0);
   const quiet = entries.entries.filter((e) => e.pending_changes.length === 0);
+  const shown = everything.filter((one) => keep(state.filter, one)).length;
   const lens = (id: Lens, label: string, count: number) => (
     <button
       type="button"
@@ -65,7 +83,7 @@ export function QueueList({
         aria-label="렌즈"
         className="inline-flex items-center gap-0.5 self-start rounded-full border border-hairline bg-chip p-0.5"
       >
-        {lens("article", "조문 기준", flat.length)}
+        {lens("article", "조문 기준", pending.length)}
         {lens("entry", "매뉴얼 기준", touched.length)}
       </nav>
       {state.lens === "article" ? (
@@ -80,17 +98,18 @@ export function QueueList({
                   state.filter === id ? "border-[oklch(1_0_0/25%)] font-[620] text-ink-1" : "border-hairline text-ink-3"
                 } bg-chip`}
               >
-                {label} <span data-numeric>{flat.filter((one) => keep(id, one)).length}</span>
+                {label} <span data-numeric>{everything.filter((one) => keep(id, one)).length}</span>
               </button>
             ))}
           </div>
-          {queue.groups.map((group, gi) => (
+          {groups.map((group, gi) => (
             <div key={group.dedupe_key ?? `alone-${gi}`} className="flex flex-col gap-2">
               {group.changes
                 .filter((one) => keep(state.filter, one))
                 .map((one) => {
                   const on =
                     state.selected !== null && "changeId" in state.selected && state.selected.changeId === one.change_id;
+                  const badge = badgeOf(one);
                   return (
                     <button
                       key={one.change_id}
@@ -109,17 +128,13 @@ export function QueueList({
                           {one.affected.length === 0 ? "없음" : one.affected.length}
                         </span>
                       </span>
-                      {one.affected.length === 0 && one.first_seen ? (
-                        <span className={`${BADGE} font-[620] text-ink-1`}>새 조문</span>
-                      ) : (
-                        <span className={BADGE}>{one.first_seen ? "최초 수집" : "변경"}</span>
-                      )}
+                      <span className={badge.strong ? `${BADGE} font-[620] text-ink-1` : BADGE}>{badge.label}</span>
                     </button>
                   );
                 })}
             </div>
           ))}
-          {flat.filter((one) => keep(state.filter, one)).length === 0 && (
+          {shown === 0 && (
             <p className="px-0.5 text-[13.5px] leading-[1.65] text-ink-3">이 조건에 해당하는 변경이 없습니다.</p>
           )}
         </>

@@ -30,7 +30,14 @@ export function LoginCard({
       <h1 className="text-[20px] font-[640] leading-[1.6] text-ink-1">팀만 들어오는 문입니다</h1>
       <label className="flex flex-col gap-1 text-[13px] text-ink-3">
         검수자 이름
-        <input value={who} onChange={(e) => setWho(e.target.value)} required autoComplete="username" className={FIELD} />
+        <input
+          value={who}
+          onChange={(e) => setWho(e.target.value)}
+          required
+          maxLength={64}
+          autoComplete="username"
+          className={FIELD}
+        />
       </label>
       <label className="flex flex-col gap-1 text-[13px] text-ink-3">
         비밀번호
